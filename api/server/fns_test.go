@@ -112,7 +112,7 @@ func TestFnUpdate(t *testing.T) {
 	buf := setLogBuffer()
 
 	a := &models.App{Name: "a", ID: "app_id"}
-	f := &models.Fn{Name: "f", AppID: a.ID}
+	f := &models.Fn{ID: "fn_id", Name: "f", AppID: a.ID}
 	f.SetDefaults()
 	ds := datastore.NewMockInit([]*models.App{a}, []*models.Fn{f})
 	ls := logs.NewMock()
@@ -145,7 +145,7 @@ func TestFnDelete(t *testing.T) {
 	buf := setLogBuffer()
 
 	a := &models.App{Name: "a", ID: "appid"}
-	f := &models.Fn{Name: "myfunc", AppID: a.ID}
+	f := &models.Fn{ID: "fn_id", Name: "myfunc", AppID: a.ID}
 	f.SetDefaults()
 	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{f})
 

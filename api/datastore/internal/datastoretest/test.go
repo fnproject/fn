@@ -187,7 +187,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("insert missing app name fails", func(t *testing.T) {
 			_, err := ds.InsertApp(ctx, &models.App{})
 			if err != models.ErrMissingName {
-				t.Fatalf("RunAllTests InsertApp(&{}): expected error `%v`, but it was `%v`", models.ErrMissingName, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrMissingName, err)
 			}
 		})
 
@@ -262,11 +262,11 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testApp.Config = map[string]string{"TEST": "1"}
 			updated, err := ds.UpdateApp(ctx, testApp)
 			if err != nil {
-				t.Fatalf("RunAllTests UpdateApp: error when updating app: %v", err)
+				t.Fatalf("error when updating app: %v", err)
 			}
 			expected := &models.App{ID: testApp.ID, Name: testApp.Name, Config: map[string]string{"TEST": "1"}}
 			if !updated.Equals(expected) {
-				t.Fatalf("RunAllTests UpdateApp: expected updated `%v` but got `%v`", expected, updated)
+				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
 			}
 		})
 
@@ -278,18 +278,18 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testApp.Config = map[string]string{"TEST": "1"}
 			updated, err := ds.UpdateApp(ctx, testApp)
 			if err != nil {
-				t.Fatalf("RunAllTests UpdateApp: error when updating app: %v", err)
+				t.Fatalf("error when updating app: %v", err)
 			}
 			// Set a different var (without clearing the existing)
 			another := testApp.Clone()
 			another.Config = map[string]string{"OTHER": "TEST"}
 			updated, err = ds.UpdateApp(ctx, another)
 			if err != nil {
-				t.Fatalf("RunAllTests UpdateApp: error when updating app: %v", err)
+				t.Fatalf("error when updating app: %v", err)
 			}
 			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}}
 			if !updated.Equals(expected) {
-				t.Fatalf("RunAllTests UpdateApp: expected updated `%v` but got `%v`", expected, updated)
+				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
 			}
 		})
 
@@ -333,11 +333,11 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testApp.Config = map[string]string{"TEST": ""}
 			updated, err := ds.UpdateApp(ctx, testApp)
 			if err != nil {
-				t.Fatalf("RunAllTests UpdateApp: error when updating app: %v", err)
+				t.Fatalf("error when updating app: %v", err)
 			}
 			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"OTHER": "TEST"}}
 			if !updated.Equals(expected) {
-				t.Fatalf("RunAllTests UpdateApp: expected updated `%#v` but got `%#v`", expected, updated)
+				t.Fatalf("expected updated `%#v` but got `%#v`", expected, updated)
 			}
 		})
 
@@ -346,7 +346,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("Get with empty App ID", func(t *testing.T) {
 			_, err := ds.GetAppByID(ctx, "")
 			if err != models.ErrAppsMissingID {
-				t.Fatalf("RunAllTests GetApp: expected error to be %v, but it was %s", models.ErrAppsMissingID, err)
+				t.Fatalf("expected error to be %v, but it was %s", models.ErrAppsMissingID, err)
 			}
 		})
 
@@ -357,10 +357,10 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testApp := h.GivenAppInDb(rp.ValidApp())
 			app, err := ds.GetAppByID(ctx, testApp.ID)
 			if err != nil {
-				t.Fatalf("RunAllTests GetApp: error: %s", err)
+				t.Fatalf("error: %s", err)
 			}
 			if app.Name != testApp.Name {
-				t.Fatalf("RunAllTests GetApp: expected `app.Name` to be `%s` but it was `%s`", app.Name, testApp.Name)
+				t.Fatalf("expected `app.Name` to be `%s` but it was `%s`", app.Name, testApp.Name)
 			}
 		})
 
@@ -372,17 +372,17 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			// Testing list apps
 			apps, err := ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
 			if err != nil {
-				t.Fatalf("RunAllTests GetApps: unexpected error %v", err)
+				t.Fatalf("unexpected error %v", err)
 			}
 			if len(apps) == 0 {
-				t.Fatal("RunAllTests GetApps: expected result count to be greater than 0")
+				t.Fatal("expected result count to be greater than 0")
 			}
 			for _, app := range apps {
 				if app.Name == testApp.Name {
 					return
 				}
 			}
-			t.Fatalf("GetApps: expected app list to contain app %s, got %#v", testApp.Name, apps)
+			t.Fatalf("expected app list to contain app %s, got %#v", testApp.Name, apps)
 		})
 
 		t.Run(" Simple Pagination", func(t *testing.T) {
@@ -395,36 +395,36 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			apps, err := ds.GetApps(ctx, &models.AppFilter{PerPage: 1})
 			if err != nil {
-				t.Fatalf("RunAllTests GetApps: error: %s", err)
+				t.Fatalf(" error: %s", err)
 			}
 			if len(apps) != 1 {
-				t.Fatalf("RunAllTests GetApps: expected result count to be 1 but got %d", len(apps))
+				t.Fatalf(" expected result count to be 1 but got %d", len(apps))
 			} else if apps[0].Name != a1.Name {
-				t.Fatalf("RunAllTests GetApps: expected `app.Name` to be `%s` but it was `%s`", a1.Name, apps[0].Name)
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a1.Name, apps[0].Name)
 			}
 
 			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Cursor: apps[0].Name})
 			if err != nil {
-				t.Fatalf("RunAllTests GetApps: error: %s", err)
+				t.Fatalf(" error: %s", err)
 			}
 			if len(apps) != 2 {
-				t.Fatalf("RunAllTests GetApps: expected result count to be 2 but got %d", len(apps))
+				t.Fatalf(" expected result count to be 2 but got %d", len(apps))
 			} else if apps[0].Name != a2.Name {
-				t.Fatalf("RunAllTests GetApps: expected `app.Name` to be `%s` but it was `%s`", a2.Name, apps[0].Name)
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a2.Name, apps[0].Name)
 			} else if apps[1].Name != a3.Name {
-				t.Fatalf("RunAllTests GetApps: expected `app.Name` to be `%s` but it was `%s`", a3.Name, apps[1].Name)
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a3.Name, apps[1].Name)
 			}
 
 			a4 := h.GivenAppInDb(rp.ValidApp())
 
 			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
 			if err != nil {
-				t.Fatalf("RunAllTests GetApps: error: %s", err)
+				t.Fatalf(" error: %s", err)
 			}
 			if len(apps) != 4 {
-				t.Fatalf("RunAllTests GetApps: expected result count to be 4 but got %d", len(apps))
+				t.Fatalf(" expected result count to be 4 but got %d", len(apps))
 			} else if apps[3].Name != a4.Name {
-				t.Fatalf("RunAllTests GetApps: expected `app.Name` to be `%s` but it was `%s`", a4.Name, apps[0].Name)
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a4.Name, apps[0].Name)
 			}
 
 		})
@@ -433,7 +433,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			// Testing app delete
 			err := ds.RemoveApp(ctx, "")
 			if err != models.ErrAppsMissingID {
-				t.Fatalf("RunAllTests RemoveApp: expected error `%v`, but it was `%v`", models.ErrAppsMissingID, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrAppsMissingID, err)
 			}
 		})
 
@@ -444,27 +444,26 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testApp := h.GivenAppInDb(rp.ValidApp())
 			err := ds.RemoveApp(ctx, testApp.ID)
 			if err != nil {
-				t.Fatalf("RunAllTests RemoveApp: error: %s", err)
+				t.Fatalf("error: %s", err)
 			}
 			app, err := ds.GetAppByID(ctx, testApp.ID)
 			if err != models.ErrAppsNotFound {
-				t.Fatalf("RunAllTests GetApp(removed): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 			}
 			if app != nil {
 				t.Log(err.Error())
-				t.Fatal("RunAllTests RemoveApp: failed to remove the app, app should be gone already")
+				t.Fatal("failed to remove the app, app should be gone already")
 			}
 		})
 
 		t.Run("cannot update non-existant app ", func(t *testing.T) {
-			// RunAllTests update inexistent app
 			missingApp := &models.App{
 				ID:   "nonexistant",
 				Name: "nonexistant",
 			}
 			_, err := ds.UpdateApp(ctx, missingApp)
 			if err != models.ErrAppsNotFound {
-				t.Fatalf("RunAllTests UpdateApp(inexistent): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 			}
 		})
 
@@ -483,7 +482,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("Insert Route With empty val", func(t *testing.T) {
 			_, err := ds.InsertRoute(ctx, nil)
 			if err != models.ErrDatastoreEmptyRoute {
-				t.Fatalf("RunAllTests InsertRoute(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyRoute, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyRoute, err)
 			}
 
 		})
@@ -493,7 +492,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			newTestRoute := rp.ValidRoute("notreal")
 			_, err := ds.InsertRoute(ctx, newTestRoute)
 			if err != models.ErrAppsNotFound {
-				t.Fatalf("RunAllTests InsertRoute: expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 			}
 		})
 
@@ -506,7 +505,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			_, err := ds.InsertRoute(ctx, testRoute)
 			if err != models.ErrRoutesAlreadyExists {
-				t.Fatalf("RunAllTests InsertRoute duplicated: expected error to be `%v`, but it was `%v`", models.ErrRoutesAlreadyExists, err)
+				t.Fatalf("expected error to be `%v`, but it was `%v`", models.ErrRoutesAlreadyExists, err)
 			}
 		})
 
@@ -514,7 +513,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("get route with empty path", func(t *testing.T) {
 			_, err := ds.GetRoute(ctx, id.New().String(), "")
 			if err != models.ErrRoutesMissingPath {
-				t.Fatalf("RunAllTests GetRoute(empty route path): expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
 			}
 		})
 
@@ -522,7 +521,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			_, err := ds.GetRoute(ctx, "", "a")
 			if err != models.ErrRoutesMissingAppID {
-				t.Fatalf("RunAllTests GetRoute(empty app name): expected error `%v`, but it was `%v`", models.ErrRoutesMissingAppID, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesMissingAppID, err)
 			}
 		})
 		t.Run("get valid route", func(t *testing.T) {
@@ -533,10 +532,10 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			route, err := ds.GetRoute(ctx, testApp.ID, testRoute.Path)
 			if err != nil {
-				t.Fatalf("RunAllTests GetRoute: unexpected error %v", err)
+				t.Fatalf("unexpected error %v", err)
 			}
 			if !route.Equals(testRoute) {
-				t.Fatalf("RunAllTests InsertApp: expected to insert:\n%v\nbut got:\n%v", testRoute, *route)
+				t.Fatalf("expected to insert:\n%v\nbut got:\n%v", testRoute, *route)
 			}
 		})
 
@@ -564,7 +563,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				},
 			})
 			if err != nil {
-				t.Fatalf("RunAllTests UpdateRoute: unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			expected := &models.Route{
 				// unchanged
@@ -590,7 +589,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				},
 			}
 			if !updated.Equals(expected) {
-				t.Fatalf("RunAllTests UpdateRoute: expected updated `%v` but got `%v`", expected, updated)
+				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
 			}
 
 		})
@@ -627,7 +626,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				},
 			})
 			if err != nil {
-				t.Fatalf("RunAllTests UpdateRoute: unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			expected := &models.Route{
 				// unchanged
@@ -651,7 +650,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				},
 			}
 			if !updated.Equals(expected) {
-				t.Fatalf("RunAllTests UpdateRoute: expected updated:\n`%#v`\nbut got:\n`%#v`", expected, updated)
+				t.Fatalf("expected updated:\n`%#v`\nbut got:\n`%#v`", expected, updated)
 			}
 		})
 
@@ -664,28 +663,28 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			// Testing list fns
 			routes, err := ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 1})
 			if err != nil {
-				t.Fatalf("RunAllTests GetRoutesByApp: unexpected error %v", err)
+				t.Fatalf("unexpected error %v", err)
 			}
 			if len(routes) == 0 {
-				t.Fatal("RunAllTests GetRoutesByApp: expected result count to be greater than 0")
+				t.Fatal("expected result count to be greater than 0")
 			}
 			if routes[0] == nil {
-				t.Fatalf("RunAllTests GetRoutes: expected non-nil route")
+				t.Fatalf("expected non-nil route")
 			} else if routes[0].Path != testRoute.Path {
-				t.Fatalf("RunAllTests GetRoutes: expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
+				t.Fatalf("expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
 			}
 
 			routes, err = ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{Image: testRoute.Image, PerPage: 1})
 			if err != nil {
-				t.Fatalf("RunAllTests GetRoutesByApp: unexpected error %v", err)
+				t.Fatalf("unexpected error %v", err)
 			}
 			if len(routes) == 0 {
-				t.Fatal("RunAllTests GetRoutesByApp: expected result count to be greater than 0")
+				t.Fatal("expected result count to be greater than 0")
 			}
 			if routes[0] == nil {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected non-nil route")
+				t.Fatalf("expected non-nil route")
 			} else if routes[0].Path != testRoute.Path {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
+				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
 			}
 
 		})
@@ -700,10 +699,10 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("pagination on non-existant app returns no routes", func(t *testing.T) {
 			routes, err := ds.GetRoutesByApp(ctx, id.New().String(), &models.RouteFilter{PerPage: 1})
 			if err != nil {
-				t.Fatalf("RunAllTests GetRoutesByApp: error: %s", err)
+				t.Fatalf("error: %s", err)
 			}
 			if len(routes) != 0 {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected result count to be 0 but got %d", len(routes))
+				t.Fatalf("expected result count to be 0 but got %d", len(routes))
 			}
 		})
 
@@ -718,25 +717,25 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			routes, err := ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 1})
 			if err != nil {
-				t.Fatalf("RunAllTests GetRoutesByApp: error: %s", err)
+				t.Fatalf("error: %s", err)
 			}
 			if len(routes) != 1 {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected result count to be 1 but got %d", len(routes))
+				t.Fatalf("expected result count to be 1 but got %d", len(routes))
 			} else if routes[0].Path != r1.Path {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", r1.Path, routes[0].Path)
+				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", r1.Path, routes[0].Path)
 			}
 
 			routes, err = ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 2, Cursor: routes[0].Path})
 			if err != nil {
-				t.Fatalf("RunAllTests GetRoutesByApp: error: %s", err)
+				t.Fatalf("error: %s", err)
 			}
 
 			if len(routes) != 2 {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected result count to be 2 but got %d", len(routes))
+				t.Fatalf("expected result count to be 2 but got %d", len(routes))
 			} else if routes[0].Path != r2.Path {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", r2.Path, routes[0].Path)
+				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", r2.Path, routes[0].Path)
 			} else if routes[1].Path != r3.Path {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", r3.Path, routes[1].Path)
+				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", r3.Path, routes[1].Path)
 			}
 
 			r4 := rp.ValidRoute(testApp.ID)
@@ -746,37 +745,37 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			routes, err = ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 100})
 			if err != nil {
-				t.Fatalf("RunAllTests GetRoutesByApp: error: %s", err)
+				t.Fatalf("error: %s", err)
 			}
 			if len(routes) != 4 {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected result count to be 4 but got %d", len(routes))
+				t.Fatalf("expected result count to be 4 but got %d", len(routes))
 			} else if routes[0].Path != r4.Path {
-				t.Fatalf("RunAllTests GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", r4.Path, routes[0].Path)
+				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", r4.Path, routes[0].Path)
 			}
 		})
 
-		t.Run("RunAllTests remove route with empty app ID", func(t *testing.T) {
+		t.Run("remove route with empty app ID", func(t *testing.T) {
 
 			// Testing route delete
 			err := ds.RemoveRoute(ctx, "", "")
 			if err != models.ErrRoutesMissingAppID {
-				t.Fatalf("RunAllTests RemoveRoute(empty app name): expected error `%v`, but it was `%v`", models.ErrRoutesMissingAppID, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesMissingAppID, err)
 			}
 
 		})
 
-		t.Run("RunAllTests remove route with empty app path", func(t *testing.T) {
+		t.Run("remove route with empty app path", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
 
 			err := ds.RemoveRoute(ctx, testApp.ID, "")
 			if err != models.ErrRoutesMissingPath {
-				t.Fatalf("RunAllTests RemoveRoute(empty route path): expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
 			}
 		})
 
-		t.Run("RunAllTests remove valid route removes route ", func(t *testing.T) {
+		t.Run("remove valid route removes route ", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
@@ -784,15 +783,15 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			err := ds.RemoveRoute(ctx, testApp.ID, testRoute.Path)
 			if err != nil {
-				t.Fatalf("RunAllTests RemoveApp: unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 
 			route, err := ds.GetRoute(ctx, testApp.ID, testRoute.Path)
 			if err != nil && err != models.ErrRoutesNotFound {
-				t.Fatalf("RunAllTests GetRoute: expected error `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
 			}
 			if route != nil {
-				t.Fatalf("RunAllTests RemoveApp: failed to remove the route: %v", route)
+				t.Fatalf("failed to remove the route: %v", route)
 			}
 
 			_, err = ds.UpdateRoute(ctx, &models.Route{
@@ -801,7 +800,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				Image: "test",
 			})
 			if err != models.ErrRoutesNotFound {
-				t.Fatalf("RunAllTests UpdateRoute inexistent: expected error to be `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
+				t.Fatalf("expected error to be `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
 			}
 		})
 	})
@@ -818,7 +817,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("empty function", func(t *testing.T) {
 			_, err := ds.InsertFn(ctx, nil)
 			if err != models.ErrDatastoreEmptyFn {
-				t.Fatalf("RunAllTests InsertFn(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFn, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFn, err)
 			}
 
 		})
@@ -827,7 +826,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testFn := rp.ValidFn("notreal")
 			_, err := ds.InsertFn(ctx, testFn)
 			if err != models.ErrAppsNotFound {
-				t.Fatalf("RunAllTests InsertFn(missing app): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 			}
 
 		})
@@ -842,7 +841,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			_, err := ds.InsertFn(ctx, testFn)
 			if err != models.ErrFnsIDProvided {
-				t.Fatalf("RunAllTests InsertFn(non-empty fn ID): expected error `%v`, but it was `%v`", models.ErrFnsIDProvided, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrFnsIDProvided, err)
 			}
 		})
 
@@ -854,7 +853,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testFn := rp.ValidFn(testApp.ID)
 			testFn, err := ds.InsertFn(ctx, testFn)
 			if err != nil {
-				t.Fatalf("RunAllTests InsertFn: error when storing perfectly good fn: %s", err)
+				t.Fatalf("error when storing perfectly good fn: %s", err)
 			}
 		})
 
@@ -862,7 +861,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("Get with empty function ID", func(t *testing.T) {
 			_, err := ds.GetFn(ctx, "")
 			if err != models.ErrDatastoreEmptyFnID {
-				t.Fatalf("RunAllTests GetRoute(empty fn ID): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnID, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnID, err)
 			}
 		})
 
@@ -873,10 +872,10 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			fn, err := ds.GetFn(ctx, testFn.ID)
 			if err != nil {
-				t.Fatalf("RunAllTests GetFnByID: unexpected error %v", err)
+				t.Fatalf("unexpected error %v : %s", err, testFn.ID)
 			}
 			if !fn.Equals(testFn) {
-				t.Fatalf("RunAllTests GetFnByID: expected to get the right func:\n%v\nbut got:\n%v", testFn, fn)
+				t.Fatalf("expected to get the right func:\n%v\nbut got:\n%v", testFn, fn)
 			}
 		})
 
@@ -899,7 +898,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				},
 			})
 			if err != nil {
-				t.Fatalf("RunAllTests UpdateFn: unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			expected := &models.Fn{
 				// unchanged
@@ -922,7 +921,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				},
 			}
 			if !updated.Equals(expected) {
-				t.Fatalf("RunAllTests UpdateFn: expected updated `%#v` but got `%#v`", expected, updated)
+				t.Fatalf("expected updated `%#v` but got `%#v`", expected, updated)
 			}
 
 		})
@@ -953,7 +952,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				},
 			})
 			if err != nil {
-				t.Fatalf("RunAllTests UpdateFn: unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			expected := &models.Fn{
 				// unchanged
@@ -975,7 +974,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				},
 			}
 			if !updated.Equals(expected) {
-				t.Fatalf("RunAllTests UpdateFn: expected updated:\n`%v`\nbut got:\n`%v`", expected, updated)
+				t.Fatalf("expected updated:\n`%v`\nbut got:\n`%v`", expected, updated)
 			}
 		})
 
@@ -986,10 +985,10 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			// Testing list fns
 			fns, err := ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 1})
 			if err != nil {
-				t.Fatalf("RunAllTests GetFns: unexpected error %v", err)
+				t.Fatalf("unexpected error %v", err)
 			}
 			if len(fns) != 0 {
-				t.Fatal("RunAllTests GetFns: expected result count to be  0")
+				t.Fatal("expected result count to be  0")
 			}
 		})
 
@@ -1004,17 +1003,17 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			// Testing list fns
 			fns, err := ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID})
 			if err != nil {
-				t.Fatalf("RunAllTests GetFns: unexpected error %v", err)
+				t.Fatalf("unexpected error %v", err)
 			}
 			if len(fns) != 3 {
-				t.Fatalf("RunAllTests GetFns: expected result count to be 3, but was %d", len(fns))
+				t.Fatalf("expected result count to be 3, but was %d", len(fns))
 			}
 			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 1})
 			if err != nil {
-				t.Fatalf("RunAllTests GetFns: unexpected error %v", err)
+				t.Fatalf("unexpected error %v", err)
 			}
 			if len(fns) != 1 {
-				t.Fatalf("RunAllTests GetFns: expected result count to be 1, but was %d", len(fns))
+				t.Fatalf("expected result count to be 1, but was %d", len(fns))
 			}
 
 			if !f1.Equals(fns[0]) {
@@ -1023,14 +1022,14 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 2, Cursor: fns[0].Name})
 			if err != nil {
-				t.Fatalf("RunAllTests GetFns: error: %s", err)
+				t.Fatalf("error: %s", err)
 			}
 			if len(fns) != 2 {
-				t.Fatalf("RunAllTests GetFns: expected result count to be 2 but got %d", len(fns))
+				t.Fatalf("expected result count to be 2 but got %d", len(fns))
 			} else if !fns[0].Equals(f2) {
-				t.Fatalf("RunAllTests GetFns: expected `func.Name` to be `%#v` but it was `%#v`", f2, fns[0])
+				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f2, fns[0])
 			} else if !fns[1].Equals(f3) {
-				t.Fatalf("RunAllTests GetFns: expected `func.Name` to be `%#v` but it was `%#v`", f3, fns[1])
+				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f3, fns[1])
 			}
 		})
 
@@ -1038,7 +1037,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			// Testing func delete
 			err := ds.RemoveFn(ctx, "")
 			if err != models.ErrDatastoreEmptyFnID {
-				t.Fatalf("RunAllTests RemoveFn(empty ID): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnID, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnID, err)
 			}
 
 		})
@@ -1050,15 +1049,15 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			err := ds.RemoveFn(ctx, testFn.ID)
 			if err != nil {
-				t.Fatalf("RunAllTests RemoveFn(should work): unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 
 			fn, err := ds.GetFn(ctx, testFn.ID)
 			if err != nil && err != models.ErrFnsNotFound {
-				t.Fatalf("RunAllTests GetFnByID: expected error `%v`, but it was `%v`", models.ErrFnsNotFound, err)
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrFnsNotFound, err)
 			}
 			if fn != nil {
-				t.Fatalf("RunAllTests RemoveFn: failed to remove the func: %v", fn)
+				t.Fatalf("failed to remove the func: %v", fn)
 			}
 		})
 
@@ -1070,14 +1069,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		ds := dsf(t)
 		ctx := rp.DefaultCtx()
 
-		// 	// Insert Fn again to test Triggers TODO post merge
-		// 	//		testFn, err := ds.InsertApp(ctx, testApp)
-		// 	//	if err != nil && err != models.ErrAppsAlreadyExists {
-		// 	//	t.Fatal("Test PutTrigger Prep: failed to insert app: ", err)
-		// 	//		}
-
 		// Testing insert trigger
-
 		t.Run("insert invalid app ID", func(t *testing.T) {
 			newTestTrigger := rp.ValidTrigger("notreal", "fnId")
 			_, err := ds.InsertTrigger(ctx, newTestTrigger)
@@ -1096,7 +1088,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 		})
 
-		t.Run("repeat name", func(t *testing.T) {
+		t.Run("duplicate name", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
@@ -1119,7 +1111,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 		})
 
-		t.Run("valid func", func(t *testing.T) {
+		t.Run("valid trigger", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
@@ -1128,6 +1120,9 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			insertedTrigger, err := ds.InsertTrigger(ctx, newTrigger)
 			if err != nil {
 				t.Fatalf("error when storing new trigger: %s", err)
+			}
+			if insertedTrigger.ID == "" {
+				t.Fatalf("No ID ")
 			}
 			newTrigger.ID = insertedTrigger.ID
 			if !insertedTrigger.Equals(newTrigger) {
@@ -1138,7 +1133,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("get trigger invalid ID", func(t *testing.T) {
 			_, err := ds.GetTriggerByID(ctx, "notreal")
 			if err != models.ErrTriggerNotFound {
-				t.Fatalf("Test GetTriggerByID(notPresentError): was expecting models.ErrTriggerNotFound : %s", err)
+				t.Fatalf("was expecting models.ErrTriggerNotFound : %s", err)
 			}
 		})
 
@@ -1165,7 +1160,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			emptyFilter := &models.TriggerFilter{}
 			_, err := ds.GetTriggers(ctx, emptyFilter)
 			if err != models.ErrTriggerMissingAppID {
-				t.Fatalf("Test GetTriggers (empty filter): expected models.ErrTriggerMissingAppID, but got %s", err)
+				t.Fatalf("expected models.ErrTriggerMissingAppID, but got %s", err)
 			}
 		})
 
@@ -1173,7 +1168,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			nonMatchingFilter := &models.TriggerFilter{AppID: "notexist"}
 			triggers, err := ds.GetTriggers(ctx, nonMatchingFilter)
 			if len(triggers) != 0 && err == nil {
-				t.Fatalf("Test GetTriggers (nonmatching filter): expected empty trigger list and no error, but got list [%v] and err %s", triggers, err)
+				t.Fatalf("expected empty trigger list and no error, but got list [%v] and err %s", triggers, err)
 			}
 		})
 
@@ -1208,7 +1203,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			for i := 1; i < 10; i++ {
 				if !storedTriggers[i].Equals(triggers[i]) {
-					t.Fatalf("Test GetTrigggers(get all triggers), expecting ordered by names, but aren't: %s, %s", storedTriggers[i].Name, triggers[i].Name)
+					t.Fatalf("expecting ordered by names, but aren't: %s, %s", storedTriggers[i].Name, triggers[i].Name)
 
 				}
 			}
@@ -1268,7 +1263,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			time.Sleep(10 * time.Millisecond)
 			gotTrigger, err := ds.UpdateTrigger(ctx, testTrigger)
 			if err != nil {
-				t.Fatalf(" error when updating trigger: %s", err)
+				t.Fatalf("error when updating trigger: %s", err)
 			}
 
 			if !gotTrigger.Equals(testTrigger) {
@@ -1277,7 +1272,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			gotTrigger, err = ds.GetTriggerByID(ctx, testTrigger.ID)
 			if err != nil {
-				t.Fatalf("Test PutTrigger(update all get): wasn't expecting an error : %s", err)
+				t.Fatalf("wasn't expecting an error : %s", err)
 			}
 			if !gotTrigger.Equals(testTrigger) {
 				t.Fatalf("expecting fetch trigger tot be updated got  : %v : %v", testTrigger, gotTrigger)
@@ -1315,7 +1310,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			_, err = ds.GetTriggerByID(ctx, testTrigger.ID)
 			if err != models.ErrTriggerNotFound {
-				t.Fatalf("Test RemoveTrigger(remove trigger): was expecting ErrTriggerNotFound : %s", err)
+				t.Fatalf("was expecting ErrTriggerNotFound : %s", err)
 			}
 		})
 
@@ -1326,6 +1321,23 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
 			err := ds.RemoveFn(ctx, testFn.ID)
+			if err != nil {
+				t.Fatalf("expecting no error, got %s", err)
+			}
+
+			tr, err := ds.GetTriggerByID(ctx, testTrigger.ID)
+			if err != models.ErrTriggerNotFound {
+				t.Fatalf("was expecting ErrTriggerNotFound got %s %#v", err, tr)
+			}
+		})
+
+		t.Run("Remove app should remove triggers", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
+			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
+			err := ds.RemoveApp(ctx, testFn.AppID)
 			if err != nil {
 				t.Fatalf("expecting no error, got %s", err)
 			}

@@ -8,7 +8,6 @@ import (
 	"unicode"
 
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/id"
 )
 
 type Trigger struct {
@@ -24,15 +23,7 @@ type Trigger struct {
 }
 
 func (t *Trigger) SetDefaults() {
-	if time.Time(t.CreatedAt).IsZero() {
-		t.CreatedAt = common.DateTime(time.Now())
-	}
-	if time.Time(t.UpdatedAt).IsZero() {
-		t.UpdatedAt = common.DateTime(time.Now())
-	}
-	if t.ID == "" {
-		t.ID = id.New().String()
-	}
+
 }
 
 func (t1 *Trigger) Equals(t2 *Trigger) bool {

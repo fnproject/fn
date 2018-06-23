@@ -331,7 +331,7 @@ func callFN(ctx context.Context, u string, content io.Reader, output io.Writer, 
 }
 
 func getAPIURL() (string, *url.URL) {
-	apiURL := getEnv("FN_API_URL", "http://localhost:8080")
+	apiURL := getEnv("FN_API_URL", "http://localhost:8085")
 	u, err := url.Parse(apiURL)
 	if err != nil {
 		log.Fatalf("Couldn't parse API URL: %s error: %s", apiURL, err)

@@ -206,6 +206,17 @@ func setAppNameInCtx(c *gin.Context) {
 	c.Next()
 }
 
+func setAppIDInCtx(c *gin.Context) {
+	// add appName to context
+	appID := c.Param(api.ParamAppID)
+
+	if appID != "" {
+		c.Set(api.AppID, appID)
+		c.Request = c.Request.WithContext(c)
+	}
+	c.Next()
+}
+
 func appNameCheck(c *gin.Context) {
 	appName := c.GetString(api.AppName)
 	if appName == "" {

@@ -20,6 +20,7 @@ func (s *Server) handleFnCreate(c *gin.Context) {
 		return
 	}
 
+	fn.SetDefaults()
 	fnCreated, err := s.datastore.InsertFn(ctx, fn)
 	if err != nil {
 		handleErrorResponse(c, err)

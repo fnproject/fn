@@ -9,7 +9,6 @@ import (
 	"unicode"
 
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/id"
 )
 
 var (
@@ -124,9 +123,6 @@ type ResourceConfig struct {
 
 // SetCreated sets zeroed field to defaults.
 func (f *Fn) SetDefaults() {
-	if f.ID == "" {
-		f.ID = id.New().String()
-	}
 
 	if f.Memory == 0 {
 		f.Memory = DefaultMemory

@@ -134,12 +134,33 @@ func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, err
 
 func (m *mock) RemoveApp(ctx context.Context, appID string) error {
 	m.batchDeleteRoutes(ctx, appID)
+
 	for i, a := range m.Apps {
 		if a.ID == appID {
-			m.Apps = append(m.Apps[:i], m.Apps[i+1:]...)
+			var newFns []*models.Fn
+			var newTriggers []*models.Trigger
+			newApps := append(m.Apps[0:i], m.Apps[i+1:]...)
+
+			for _, fn := range m.Fns {
+				if fn.AppID != appID {
+					newFns = append(newFns, fn)
+				}
+			}
+
+			for _, t := range m.Triggers {
+				if t.AppID != appID {
+					newTriggers = append(newTriggers, t)
+				}
+			}
+
+			m.Apps = newApps
+			m.Triggers = newTriggers
+			m.Fns = newFns
 			return nil
+
 		}
 	}
+
 	return models.ErrAppsNotFound
 }
 
@@ -250,7 +271,10 @@ func (m *mock) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) 
 		return nil, err
 	}
 	cl := fn.Clone()
-	cl.SetDefaults()
+	cl.ID = id.New().String()
+	cl.CreatedAt = common.DateTime(time.Now())
+	cl.UpdatedAt = cl.CreatedAt
+
 	m.Fns = append(m.Fns, cl)
 
 	return cl.Clone(), nil
@@ -353,9 +377,10 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 		return nil, err
 	}
 	cl := trigger.Clone()
-	cl.SetDefaults()
+	cl.CreatedAt = common.DateTime(time.Now())
+	cl.UpdatedAt = cl.CreatedAt
+	cl.ID = id.New().String()
 	m.Triggers = append(m.Triggers, cl)
-
 	return cl.Clone(), nil
 }
 

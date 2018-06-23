@@ -948,10 +948,12 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				runner.POST("/start", s.handleRunnerStart)
 				runner.POST("/finish", s.handleRunnerFinish)
 
-				appsAPIV2 := runner.Group("/apps/:appName")
-				appsAPIV2.Use(setAppNameInCtx)
-				appsAPIV2.GET("", s.handleV1AppGetByName)
-				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
+				runnerAppApi := runner.Group(
+
+					"/apps/:appId")
+				runnerAppApi.Use(setAppIDInCtx)
+				runnerAppApi.GET("", s.handleV1AppGetByName)
+				runnerAppApi.GET("/routes/:route", s.handleRouteGetRunner)
 
 			}
 		}

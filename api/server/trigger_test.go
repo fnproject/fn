@@ -89,6 +89,9 @@ func TestTriggerCreate(t *testing.T) {
 				t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
 			}
 
+			if trigger.ID == "" {
+				t.Fatalf("Missing ID ")
+			}
 			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
 			if time.Time(trigger.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
 				t.Log(buf.String())
@@ -133,7 +136,6 @@ func TestTriggerDelete(t *testing.T) {
 	trig := &models.Trigger{
 		ID: "triggerid",
 	}
-	trig.SetDefaults()
 	ds := datastore.NewMockInit([]*models.Trigger{trig})
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -262,7 +264,6 @@ func TestTriggerGet(t *testing.T) {
 	fn.SetDefaults()
 
 	trig := &models.Trigger{ID: "triggerid"}
-	trig.SetDefaults()
 	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn}, []*models.Trigger{trig})
 
 	for i, test := range []struct {
@@ -313,7 +314,6 @@ func TestTriggerUpdate(t *testing.T) {
 		Type:   "HTTP",
 		Source: "source"}
 
-	trig.SetDefaults()
 	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn}, []*models.Trigger{trig})
 
 	for i, test := range []struct {

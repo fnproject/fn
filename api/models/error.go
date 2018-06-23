@@ -48,9 +48,6 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Name Too Long")}
 
-	ErrMissingFnID = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing FnID")}
 	ErrCreatedAtProvided = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger Created At Provided for Create")}

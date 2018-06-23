@@ -479,6 +479,7 @@ func (ds *SQLStore) RemoveApp(ctx context.Context, appID string) error {
 			`DELETE FROM calls WHERE app_id=?`,
 			`DELETE FROM routes WHERE app_id=?`,
 			`DELETE FROM fns WHERE app_id=?`,
+			`DELETE FROM triggers WHERE app_id=?`,
 		}
 		for _, stmt := range deletes {
 			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), appID)
@@ -735,8 +736,10 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 	return res, nil
 }
 
-func (ds *SQLStore) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn, error) {
+	fn := newFn.Clone()
 	err := ds.Tx(func(tx *sqlx.Tx) error {
+
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
 		r := tx.QueryRowContext(ctx, query, fn.AppID)
 		if err := r.Scan(new(int)); err != nil {
@@ -749,7 +752,9 @@ func (ds *SQLStore) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 		if err != nil {
 			return err
 		}
-		fn.SetDefaults()
+		fn.ID = id.New().String()
+		fn.CreatedAt = common.DateTime(time.Now())
+		fn.UpdatedAt = fn.CreatedAt
 
 		query = tx.Rebind(`INSERT INTO fns (
 				id,
@@ -1161,29 +1166,31 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, trigger *models.Trigger) 
 		if err != nil {
 			return err
 		}
-		trigger.SetDefaults()
+		trigger.CreatedAt = common.DateTime(time.Now())
+		trigger.UpdatedAt = trigger.CreatedAt
+		trigger.ID = id.New().String()
 
 		query = tx.Rebind(`INSERT INTO triggers (
 			id,
 			name,
-		  app_id,
+		  	app_id,
 			fn_id,
 			created_at,
 			updated_at,
-		  type,
-		  source,
-		  annotations
+			type,
+		  	source,
+		  	annotations
 		)
 		VALUES (
 			:id,
 			:name,
-		  :app_id,
+			:app_id,
 			:fn_id,
 			:created_at,
 			:updated_at,
-		  :type,
-		  :source,
-		  :annotations
+			:type,
+			:source,
+			:annotations
 		);`)
 
 		_, err = tx.NamedExecContext(ctx, query, trigger)

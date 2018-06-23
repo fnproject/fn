@@ -34,10 +34,6 @@ const (
 	LBAddress = "http://127.0.0.1:8081"
 )
 
-type SystemTestNodePool struct {
-	runners []pool.Runner
-}
-
 func LB() (string, error) {
 	u, err := url.Parse(LBAddress)
 	if err != nil {
