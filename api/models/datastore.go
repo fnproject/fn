@@ -3,8 +3,6 @@ package models
 import (
 	"context"
 	"io"
-
-	"github.com/jmoiron/sqlx"
 )
 
 type Datastore interface {
@@ -54,6 +52,7 @@ type Datastore interface {
 	// ErrDatastoreEmptyAppName or ErrDatastoreEmptyRoutePath for empty AppName or Path.
 	UpdateRoute(ctx context.Context, route *Route) (*Route, error)
 
+	// RemoveRoute removes a route. Returns ErrDatastoreEmptyAppID when appName is empty, and
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
 	RemoveRoute(ctx context.Context, appID, routePath string) error
 
@@ -67,9 +66,9 @@ type Datastore interface {
 	// GetFns returns a list of funcs, applying any additional filters provided.
 	GetFns(ctx context.Context, filter *FnFilter) ([]*Fn, error)
 
-	// GetFn returns a function by ID. Returns ErrDatastoreEmptyFnID if fnID is empty.
+	// GetFnByID returns a function by ID. Returns ErrDatastoreEmptyFnID if fnID is empty.
 	// Returns ErrFnsNotFound if a fn is not found.
-	GetFn(ctx context.Context, fnID string) (*Fn, error)
+	GetFnByID(ctx context.Context, fnID string) (*Fn, error)
 
 	// RemoveFn removes a function. Returns ErrDatastoreEmptyFnID if fnID is empty.
 	// Returns ErrFnsNotFound if a func is not found.
@@ -79,6 +78,7 @@ type Datastore interface {
 	// Returns ErrTriggerAlreadyExists if the exact apiID, fnID, source, type combination already exists
 	InsertTrigger(ctx context.Context, trigger *Trigger) (*Trigger, error)
 
+	//UpdateTrigger updates a trigger object in the data store
 	UpdateTrigger(ctx context.Context, trigger *Trigger) (*Trigger, error)
 
 	// Removes a Trigger. Returns field specific errors if they are empty.
@@ -89,16 +89,9 @@ type Datastore interface {
 	// Returns ErrTriggerNotFound when no matching trigger is found
 	GetTriggerByID(ctx context.Context, triggerID string) (*Trigger, error)
 
-	// GetTrigger gets a trigger by it's name
-	// Returns ErrTriggerNotFound when no matching trigger is found
-	GetTrigger(ctx context.Context, appId, fnId, triggerName string) (*Trigger, error)
-
 	// GetTriggers gets a list of triggers that match the specified filter
 	// Return ErrDatastoreEmptyAppId if no AppID set in the filter
 	GetTriggers(ctx context.Context, filter *TriggerFilter) ([]*Trigger, error)
-
-	// GetDatabase returns the underlying sqlx database implementation
-	GetDatabase() *sqlx.DB
 
 	// implements io.Closer to shutdown
 	io.Closer

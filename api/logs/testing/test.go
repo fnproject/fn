@@ -26,7 +26,6 @@ var testRoute = &models.Route{
 }
 
 func SetupTestCall(t *testing.T, ctx context.Context, ls models.LogStore) *models.Call {
-
 	var call models.Call
 	call.AppID = testApp.ID
 	call.CreatedAt = common.DateTime(time.Now())

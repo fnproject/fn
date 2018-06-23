@@ -239,7 +239,7 @@ func GetAPIErrorCode(e error) int {
 	return 0
 }
 
-// ErrorWrapper uniform error output
+// ErrorWrapper uniform error output (v1)  only
 type ErrorWrapper struct {
 	Error *Error `json:"error,omitempty"`
 }

@@ -87,8 +87,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	updated_at varchar(256) NOT NULL,
 	type varchar(256) NOT NULL,
 	source varchar(256) NOT NULL,
-  annotations text NOT NULL,
-  CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id,name)
+    annotations text NOT NULL,
+    CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id,name)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS logs (
@@ -509,10 +509,12 @@ func (ds *SQLStore) GetAppByID(ctx context.Context, appID string) (*models.App, 
 
 // GetApps retrieves an array of apps according to a specific filter.
 func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
-	res := []*models.App{}
+	var res []*models.App
+
 	if filter.NameIn != nil && len(filter.NameIn) == 0 { // this basically makes sure it doesn't return ALL apps
 		return res, nil
 	}
+
 	query, args, err := buildFilterAppQuery(filter)
 	if err != nil {
 		return nil, err
@@ -737,8 +739,17 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 }
 
 func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn, error) {
+	err := newFn.ValidCreate()
+	if err != nil {
+		return nil, err
+	}
+
 	fn := newFn.Clone()
-	err := ds.Tx(func(tx *sqlx.Tx) error {
+	fn.ID = id.New().String()
+	fn.CreatedAt = common.DateTime(time.Now())
+	fn.UpdatedAt = fn.CreatedAt
+
+	err = ds.Tx(func(tx *sqlx.Tx) error {
 
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
 		r := tx.QueryRowContext(ctx, query, fn.AppID)
@@ -747,14 +758,6 @@ func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn,
 				return models.ErrAppsNotFound
 			}
 		}
-
-		err := fn.ValidCreate()
-		if err != nil {
-			return err
-		}
-		fn.ID = id.New().String()
-		fn.CreatedAt = common.DateTime(time.Now())
-		fn.UpdatedAt = fn.CreatedAt
 
 		query = tx.Rebind(`INSERT INTO fns (
 				id,
@@ -844,7 +847,7 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 }
 
 func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
-	res := []*models.Fn{} // for json empty list
+	var res []*models.Fn // for json empty list
 	if filter == nil {
 		filter = new(models.FnFilter)
 	}
@@ -879,7 +882,7 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mod
 	return res, nil
 }
 
-func (ds *SQLStore) GetFn(ctx context.Context, fnID string) (*models.Fn, error) {
+func (ds *SQLStore) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
 	query := ds.db.Rebind(fmt.Sprintf("%s WHERE id=?", fnSelector))
 	row := ds.db.QueryRowxContext(ctx, query, fnID)
 
@@ -1144,8 +1147,19 @@ func where(b *bytes.Buffer, args []interface{}, colOp string, val interface{}) [
 	return args
 }
 
-func (ds *SQLStore) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	err := ds.Tx(func(tx *sqlx.Tx) error {
+func (ds *SQLStore) InsertTrigger(ctx context.Context, newTrigger *models.Trigger) (*models.Trigger, error) {
+
+	trigger := newTrigger.Clone()
+
+	err := trigger.ValidCreate()
+	if err != nil {
+		return nil, err
+	}
+	trigger.CreatedAt = common.DateTime(time.Now())
+	trigger.UpdatedAt = trigger.CreatedAt
+	trigger.ID = id.New().String()
+
+	err = ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
 		r := tx.QueryRowContext(ctx, query, trigger.AppID)
 		if err := r.Scan(new(int)); err != nil {
@@ -1161,14 +1175,6 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, trigger *models.Trigger) 
 				return models.ErrFnsNotFound
 			}
 		}
-
-		err := trigger.ValidCreate()
-		if err != nil {
-			return err
-		}
-		trigger.CreatedAt = common.DateTime(time.Now())
-		trigger.UpdatedAt = trigger.CreatedAt
-		trigger.ID = id.New().String()
 
 		query = tx.Rebind(`INSERT INTO triggers (
 			id,
@@ -1324,7 +1330,7 @@ func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{
 }
 
 func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
-	res := []*models.Trigger{} // for json empty list
+	var res []*models.Trigger // for json empty list
 	if filter == nil {
 		filter = new(models.TriggerFilter)
 	}
@@ -1359,11 +1365,6 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 	}
 
 	return res, nil
-}
-
-// GetDatabase returns the underlying sqlx database implementation
-func (ds *SQLStore) GetDatabase() *sqlx.DB {
-	return ds.db
 }
 
 // Close closes the database, releasing any open resources.

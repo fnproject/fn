@@ -1,5 +1,9 @@
 package datastoretest
 
+// Data store correctness tests -
+// These tests run validation tests on an underlying data store implementation and can be re-used for new data stores.
+// TODO: Generalize some tests around metadata (updated_created,ids)
+// TODO: Generalize tests around pagination and filtering
 import (
 	"bytes"
 	"context"
@@ -25,18 +29,31 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
+//ResourceProvider provides an abstraction for supplying data store tests with
+// appropriate initial testing objects for running tests
+// Use the resource calls to supply objects with (e.g.) middleware enforced annotations set on them
+// Use DefaultCtx to override custom middleware-supplied context variables
 type ResourceProvider interface {
+	// ValidApp returns a valid app to use for inserts
 	ValidApp() *models.App
+	// ValidFn returns a valid fn to use for inserts
 	ValidFn(appId string) *models.Fn
+	// ValidFn returns a valid fn to use for inserts
 	ValidRoute(appId string) *models.Route
+	// ValidTrigger returns a valid trigger  to use for inserts
 	ValidTrigger(appId string, fnId string) *models.Trigger
+
+	// DefaultCtx returns a context object (which may have custom attributes set)
+	// this may be used (e.g.) to pass on tenancy and user details that would originate from a middleware to your data store
 	DefaultCtx() context.Context
 }
 
+// BasicResourceProvider supplies simple objects and can be used as a base for custom resource providers
 type BasicResourceProvider struct {
 	idCount int32
 }
 
+// DataStoreFunc provides an instance of a data store
 type DataStoreFunc func(*testing.T) models.Datastore
 
 func NewBasicResourceProvider() ResourceProvider {
@@ -60,11 +77,9 @@ func (brp *BasicResourceProvider) ValidApp() *models.App {
 	return app
 }
 
-// Creates a valid app which always has a sequential named
 func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Trigger {
 
 	trigger := &models.Trigger{
-		ID:     "",
 		Name:   fmt.Sprintf("trigger_%09d", brp.NextID()),
 		AppID:  appId,
 		FnID:   funcId,
@@ -77,7 +92,6 @@ func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Tri
 
 // Creates a valid route which always has a sequential named
 func (brp *BasicResourceProvider) ValidRoute(appId string) *models.Route {
-
 	testRoute := &models.Route{
 		AppID:       appId,
 		Path:        fmt.Sprintf("/test_%09d", brp.NextID()),
@@ -88,17 +102,12 @@ func (brp *BasicResourceProvider) ValidRoute(appId string) *models.Route {
 		IdleTimeout: models.DefaultIdleTimeout,
 		Memory:      models.DefaultMemory,
 	}
-
-	testRoute.SetDefaults()
-
 	return testRoute
 }
 
-// Creates a valid fn with a sequentially increasing name
 func (brp *BasicResourceProvider) ValidFn(appId string) *models.Fn {
 	return &models.Fn{
 		AppID:  appId,
-		ID:     "",
 		Name:   fmt.Sprintf("test_%09d", brp.NextID()),
 		Image:  "fnproject/fn-test-utils",
 		Format: "http",
@@ -204,11 +213,11 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 
 			if !time.Time(returnedApp.CreatedAt).After(start) {
-				t.Fatalf("Expected created to be set  %s", returnedApp.CreatedAt)
+				t.Fatalf("expected created to be set %s", returnedApp.CreatedAt)
 			}
 
 			if !time.Time(returnedApp.UpdatedAt).After(start) {
-				t.Fatalf("Expected updated to be set  %s", returnedApp.UpdatedAt)
+				t.Fatalf("expected updated to be set  %s", returnedApp.UpdatedAt)
 			}
 		})
 
@@ -385,7 +394,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			t.Fatalf("expected app list to contain app %s, got %#v", testApp.Name, apps)
 		})
 
-		t.Run(" Simple Pagination", func(t *testing.T) {
+		t.Run("Simple Pagination", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			// test pagination stuff (ordering / limits / cursoring)
@@ -478,8 +487,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 	t.Run("routes", func(t *testing.T) {
 
-		// Testing insert route
-		t.Run("Insert Route With empty val", func(t *testing.T) {
+		t.Run("empty val", func(t *testing.T) {
 			_, err := ds.InsertRoute(ctx, nil)
 			if err != models.ErrDatastoreEmptyRoute {
 				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyRoute, err)
@@ -591,8 +599,8 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if !updated.Equals(expected) {
 				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
 			}
-
 		})
+
 		t.Run("update route modify headers and config", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
@@ -811,7 +819,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	ds := dsf(t)
 	ctx := rp.DefaultCtx()
 
-	t.Run("fns", func(t *testing.T) {
+	t.Run("Fns", func(t *testing.T) {
 
 		// Testing insert fn
 		t.Run("empty function", func(t *testing.T) {
@@ -845,7 +853,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 		})
 
-		t.Run("Insert function with valid func", func(t *testing.T) {
+		t.Run("insert valid func", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
@@ -859,7 +867,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 		// Testing get
 		t.Run("Get with empty function ID", func(t *testing.T) {
-			_, err := ds.GetFn(ctx, "")
+			_, err := ds.GetFnByID(ctx, "")
 			if err != models.ErrDatastoreEmptyFnID {
 				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnID, err)
 			}
@@ -870,7 +878,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
 			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
-			fn, err := ds.GetFn(ctx, testFn.ID)
+			fn, err := ds.GetFnByID(ctx, testFn.ID)
 			if err != nil {
 				t.Fatalf("unexpected error %v : %s", err, testFn.ID)
 			}
@@ -1052,7 +1060,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			fn, err := ds.GetFn(ctx, testFn.ID)
+			fn, err := ds.GetFnByID(ctx, testFn.ID)
 			if err != nil && err != models.ErrFnsNotFound {
 				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrFnsNotFound, err)
 			}

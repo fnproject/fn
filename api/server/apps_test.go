@@ -341,6 +341,12 @@ func TestAppUpdate(t *testing.T) {
 					t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
 				}
 
+				// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
+				if time.Time(app.UpdatedAt).Before(time.Now().Add(-1 * time.Hour)) {
+					t.Log(buf.String())
+					t.Errorf("Test %d: expected updated_at to be set on app, it wasn't: %s", i, app.UpdatedAt)
+				}
+
 				// this isn't perfect, since a PATCH could succeed without updating any
 				// fields (among other reasons), but just don't make a test for that or
 				// special case (the body or smth) to ignore it here!

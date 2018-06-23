@@ -10,15 +10,13 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/jmoiron/sqlx"
 	"time"
 )
 
 type mock struct {
-	Apps   []*models.App
-	Routes []*models.Route
-	Fns    []*models.Fn
-
+	Apps     []*models.App
+	Routes   []*models.Route
+	Fns      []*models.Fn
 	Triggers []*models.Trigger
 
 	models.LogStore
@@ -325,7 +323,7 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 	return funcs, nil
 }
 
-func (m *mock) GetFn(ctx context.Context, fnID string) (*models.Fn, error) {
+func (m *mock) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
 	for _, f := range m.Fns {
 		if f.ID == fnID {
 			return f, nil
@@ -359,7 +357,7 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 	if err != nil {
 		return nil, err
 	}
-	_, err = m.GetFn(ctx, trigger.FnID)
+	_, err = m.GetFnByID(ctx, trigger.FnID)
 	if err != nil {
 		return nil, err
 	}
@@ -460,11 +458,6 @@ func (m *mock) RemoveTrigger(ctx context.Context, triggerID string) error {
 		}
 	}
 	return models.ErrTriggerNotFound
-}
-
-// GetDatabase returns nil here since shouldn't really be used
-func (m *mock) GetDatabase() *sqlx.DB {
-	return nil
 }
 
 func (m *mock) Close() error {

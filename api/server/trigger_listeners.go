@@ -71,7 +71,7 @@ func (t *triggerListeners) AfterTriggerDelete(ctx context.Context, triggerID str
 	return nil
 }
 
-// AddAppListener adds an AppListener for the server to use.
+// AddTriggerListener adds an TriggerListener for the server to use.
 func (s *Server) AddTriggerListener(listener fnext.TriggerListener) {
 	*s.triggerListeners = append(*s.triggerListeners, listener)
 }

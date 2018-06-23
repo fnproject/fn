@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/fnproject/fn/api/models"
-	"github.com/jmoiron/sqlx"
 )
 
 // NewValidator returns a models.Datastore which validates certain arguments before delegating to ds.
@@ -170,12 +169,12 @@ func (v *validator) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 	return v.Datastore.UpdateFn(ctx, fn)
 }
 
-func (v *validator) GetFn(ctx context.Context, fnID string) (*models.Fn, error) {
+func (v *validator) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
 	if fnID == "" {
 		return nil, models.ErrDatastoreEmptyFnID
 	}
 
-	return v.Datastore.GetFn(ctx, fnID)
+	return v.Datastore.GetFnByID(ctx, fnID)
 }
 
 func (v *validator) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
@@ -192,9 +191,4 @@ func (v *validator) RemoveFn(ctx context.Context, fnID string) error {
 		return models.ErrDatastoreEmptyFnID
 	}
 	return v.Datastore.RemoveFn(ctx, fnID)
-}
-
-// GetDatabase returns the underlying sqlx database implementation
-func (v *validator) GetDatabase() *sqlx.DB {
-	return v.Datastore.GetDatabase()
 }

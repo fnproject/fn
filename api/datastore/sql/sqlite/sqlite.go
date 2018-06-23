@@ -33,7 +33,6 @@ func (sqliteHelper) PreConnect(url *url.URL) (string, error) {
 }
 
 func (sqliteHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {
-	db.Exec("PRAGMA foreign_keys = ON;")
 	db.SetMaxOpenConns(1)
 	return db, nil
 }

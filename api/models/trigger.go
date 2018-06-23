@@ -22,25 +22,17 @@ type Trigger struct {
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
 }
 
-func (t *Trigger) SetDefaults() {
-
-}
-
-func (t1 *Trigger) Equals(t2 *Trigger) bool {
+func (t *Trigger) Equals(t2 *Trigger) bool {
 	eq := true
-	eq = eq && t1.ID == t2.ID
-	eq = eq && t1.Name == t2.Name
-	eq = eq && t1.AppID == t2.AppID
-	eq = eq && t1.FnID == t2.FnID
+	eq = eq && t.ID == t2.ID
+	eq = eq && t.Name == t2.Name
+	eq = eq && t.AppID == t2.AppID
+	eq = eq && t.FnID == t2.FnID
 
-	eq = eq && t1.Type == t2.Type
-	eq = eq && t1.Source == t2.Source
-	eq = eq && t1.Annotations.Equals(t2.Annotations)
+	eq = eq && t.Type == t2.Type
+	eq = eq && t.Source == t2.Source
+	eq = eq && t.Annotations.Equals(t2.Annotations)
 
-	// NOTE: datastore tests are not very fun to write with timestamp checks,
-	// and these are not values the user may set so we kind of don't care.
-	//eq = eq && time.Time(t1.CreatedAt).Equal(time.Time(t2.CreatedAt))
-	//eq = eq && time.Time(t1.UpdatedAt).Equal(time.Time(t2.UpdatedAt))
 	return eq
 }
 
