@@ -10,7 +10,7 @@ import (
 func (s *Server) handleTriggerGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	trigger, err := s.datastore.GetTriggerByID(ctx, c.Param(api.TriggerID))
+	trigger, err := s.datastore.GetTriggerByID(ctx, c.Param(api.ParamTriggerID))
 	if err != nil {
 		handleV1ErrorResponse(c, err)
 		return

@@ -32,7 +32,7 @@ func (c *middlewareController) CallFunction(w http.ResponseWriter, r *http.Reque
 
 	// since we added middleware that checks the app ID
 	// we need to ensure that we set it as soon as possible
-	appName := ctx.Value("app_name").(string)
+	appName := ctx.Value(api.AppName).(string)
 	if appName != "" {
 		appID, err := c.server.datastore.GetAppID(ctx, appName)
 		if err != nil {

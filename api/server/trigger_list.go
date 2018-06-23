@@ -21,7 +21,7 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 		handleV1ErrorResponse(c, models.ErrTriggerMissingAppID)
 	}
 
-	filter.FnID = c.Query(api.FnID)
+	filter.FnID = c.Query(api.ParamFnID)
 
 	triggers, err := s.datastore.GetTriggers(ctx, filter)
 	if err != nil {

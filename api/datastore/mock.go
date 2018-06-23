@@ -5,10 +5,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
+	"time"
 )
 
 type mock struct {
@@ -90,17 +93,30 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*mod
 	return apps, nil
 }
 
-func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
-	if a, _ := m.GetAppByID(ctx, app.ID); a != nil {
-		return nil, models.ErrAppsAlreadyExists
+func (m *mock) InsertApp(ctx context.Context, newApp *models.App) (*models.App, error) {
+	for _, a := range m.Apps {
+		if newApp.Name == a.Name {
+			return nil, models.ErrAppsAlreadyExists
+		}
 	}
+
+	app := newApp.Clone()
+	app.CreatedAt = common.DateTime(time.Now())
+	app.UpdatedAt = app.CreatedAt
+	app.ID = id.New().String()
+
 	m.Apps = append(m.Apps, app)
 	return app.Clone(), nil
 }
 
 func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
+
+	appID := app.ID
 	for idx, a := range m.Apps {
-		if a.ID == app.ID {
+		if a.ID == appID {
+			if app.Name != "" && app.Name != a.Name {
+				return nil, models.ErrAppsNameImmutable
+			}
 			c := a.Clone()
 			c.Update(app)
 			err := c.Validate()
@@ -163,6 +179,12 @@ func (m *mock) GetRoutesByApp(ctx context.Context, appID string, routeFilter *mo
 }
 
 func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
+
+	c := route.Clone()
+	c.SetDefaults()
+	c.CreatedAt = common.DateTime(time.Now())
+	c.UpdatedAt = c.CreatedAt
+
 	if _, err := m.GetAppByID(ctx, route.AppID); err != nil {
 		return nil, err
 	}
@@ -170,8 +192,8 @@ func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Ro
 	if r, _ := m.GetRoute(ctx, route.AppID, route.Path); r != nil {
 		return nil, models.ErrRoutesAlreadyExists
 	}
-	m.Routes = append(m.Routes, route)
-	return route.Clone(), nil
+	m.Routes = append(m.Routes, c)
+	return c.Clone(), nil
 }
 
 func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {

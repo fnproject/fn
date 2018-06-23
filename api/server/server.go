@@ -892,7 +892,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v1.POST("/apps", s.handleV1AppCreate)
 
 			{
-				apps := v1.Group("/apps/:app")
+				apps := v1.Group("/apps/:appName")
 				apps.Use(appNameCheck)
 
 				{
@@ -907,7 +907,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
 					withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
 					withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
-
 					withAppCheck.GET("/calls/:call", s.handleCallGet)
 					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 					withAppCheck.GET("/calls", s.handleCallList)
@@ -924,21 +923,21 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			{
 				v2.GET("/apps", s.handleAppList)
 				v2.POST("/apps", s.handleAppCreate)
-				v2.GET("/apps/:app", s.handleAppGet)
-				v2.PUT("/apps/:app", s.handleAppUpdate)
-				v2.DELETE("/apps/:app", s.handleAppDelete)
+				v2.GET("/apps/:appId", s.handleAppGet)
+				v2.PUT("/apps/:appId", s.handleAppUpdate)
+				v2.DELETE("/apps/:appId", s.handleAppDelete)
 
 				v2.GET("/fns", s.handleFnList)
 				v2.PUT("/fns", s.handleFnCreate)
-				v2.GET("/fns/:fn", s.handleFnGet)
-				v2.PUT("/fns/:fn", s.handleFnUpdate)
-				v2.DELETE("/fns/:fn", s.handleFnDelete)
+				v2.GET("/fns/:fnId", s.handleFnGet)
+				v2.PUT("/fns/:fnId", s.handleFnUpdate)
+				v2.DELETE("/fns/:fnId", s.handleFnDelete)
 
 				v2.GET("/triggers", s.handleTriggerList)
 				v2.POST("/triggers", s.handleTriggerCreate)
-				v2.GET("/triggers/:trigger", s.handleTriggerGet)
-				v2.PUT("/triggers/:trigger", s.handleTriggerUpdate)
-				v2.DELETE("/triggers/:trigger", s.handleTriggerDelete)
+				v2.GET("/triggers/:triggerId", s.handleTriggerGet)
+				v2.PUT("/triggers/:triggerId", s.handleTriggerUpdate)
+				v2.DELETE("/triggers/:triggerId", s.handleTriggerDelete)
 			}
 
 			{
@@ -949,9 +948,9 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				runner.POST("/start", s.handleRunnerStart)
 				runner.POST("/finish", s.handleRunnerFinish)
 
-				appsAPIV2 := runner.Group("/apps/:app")
+				appsAPIV2 := runner.Group("/apps/:appName")
 				appsAPIV2.Use(setAppNameInCtx)
-				appsAPIV2.GET("", s.handleAppGet)
+				appsAPIV2.GET("", s.handleV1AppGetByName)
 				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
 
 			}
@@ -960,8 +959,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		if s.nodeType != ServerTypeAPI {
 			runner := engine.Group("/r")
 			runner.Use(s.checkAppPresenceByNameAtRunner())
-			runner.Any("/:app", s.handleFunctionCall)
-			runner.Any("/:app/*route", s.handleFunctionCall)
+			runner.Any("/:appName", s.handleFunctionCall)
+			runner.Any("/:appName/*route", s.handleFunctionCall)
 		}
 
 	}

@@ -21,7 +21,7 @@ func (s *Server) handleFnUpdate(c *gin.Context) {
 		return
 	}
 
-	pathFnID := c.Param(api.FnID)
+	pathFnID := c.Param(api.ParamFnID)
 
 	if fn.ID == "" {
 		fn.ID = pathFnID

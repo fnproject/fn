@@ -33,7 +33,7 @@ func (s *Server) handleRoutesPostPut(c *gin.Context) {
 		handleV1ErrorResponse(c, err)
 		return
 	}
-	appName := c.MustGet(api.App).(string)
+	appName := c.MustGet(api.AppName).(string)
 
 	appID, err := s.ensureApp(ctx, appName, method)
 	if err != nil {
@@ -72,6 +72,9 @@ func (s *Server) handleRoutesPatch(c *gin.Context) {
 }
 
 func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) error {
+	if wroute.Route != nil {
+		wroute.Route.SetDefaults()
+	}
 	r, err := s.datastore.InsertRoute(ctx, wroute.Route)
 	if err != nil {
 		return err

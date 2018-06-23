@@ -23,8 +23,11 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 		return
 	}
 
-	id := c.MustGet(api.AppID).(string)
+	id := c.Param(api.ParamAppID)
 
+	if app.ID == "" {
+		app.ID = id
+	}
 	if app.ID != id {
 		handleErrorResponse(c, models.ErrIDMismatch)
 		return

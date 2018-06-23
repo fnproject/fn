@@ -105,8 +105,8 @@ func TestV1AppDelete(t *testing.T) {
 
 	app := &models.App{
 		Name: "myapp",
+		ID:   "appId",
 	}
-	app.SetDefaults()
 	ds := datastore.NewMockInit([]*models.App{app})
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -262,8 +262,8 @@ func TestV1AppUpdate(t *testing.T) {
 
 	app := &models.App{
 		Name: "myapp",
+		ID:   "app_id",
 	}
-	app.SetDefaults()
 	ds := datastore.NewMockInit([]*models.App{app})
 
 	for i, test := range []struct {

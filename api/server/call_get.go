@@ -10,7 +10,7 @@ import (
 func (s *Server) handleCallGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	callID := c.Param(api.Call)
+	callID := c.Param(api.ParamCallID)
 	appID := c.MustGet(api.AppID).(string)
 
 	callObj, err := s.logstore.GetCall(ctx, appID, callID)

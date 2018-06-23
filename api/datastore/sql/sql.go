@@ -20,6 +20,7 @@ import (
 
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/sirupsen/logrus"
 )
@@ -342,6 +343,12 @@ func (ds *SQLStore) clear() error {
 			return err
 		}
 
+		query = tx.Rebind(`DELETE FROM fns`)
+		_, err = tx.Exec(query)
+		if err != nil {
+			return err
+		}
+
 		query = tx.Rebind(`DELETE FROM logs`)
 		_, err = tx.Exec(query)
 		return err
@@ -364,7 +371,17 @@ func (ds *SQLStore) GetAppID(ctx context.Context, appName string) (string, error
 	return app.ID, nil
 }
 
-func (ds *SQLStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
+func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.App, error) {
+	app := newApp.Clone()
+	app.CreatedAt = common.DateTime(time.Now())
+	app.UpdatedAt = app.CreatedAt
+	app.ID = id.New().String()
+
+	if app.Config == nil {
+		// keeps the json from being nil
+		app.Config = map[string]string{}
+	}
+
 	query := ds.db.Rebind(`INSERT INTO apps (
 		id,
 		name,
@@ -396,6 +413,7 @@ func (ds *SQLStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 
 func (ds *SQLStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
 	var app models.App
+
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, Update logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
@@ -411,6 +429,9 @@ func (ds *SQLStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 			return err
 		}
 
+		if newapp.Name != "" && app.Name != newapp.Name {
+			return models.ErrAppsNameImmutable
+		}
 		app.Update(newapp)
 		err = app.Validate()
 		if err != nil {
@@ -520,7 +541,11 @@ func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	return res, nil
 }
 
-func (ds *SQLStore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
+func (ds *SQLStore) InsertRoute(ctx context.Context, newRoute *models.Route) (*models.Route, error) {
+	route := newRoute.Clone()
+	route.CreatedAt = common.DateTime(time.Now())
+	route.UpdatedAt = route.CreatedAt
+
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
 		r := tx.QueryRowContext(ctx, query, route.AppID)

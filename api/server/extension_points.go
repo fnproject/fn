@@ -40,7 +40,7 @@ func (s *Server) apiRouteHandlerWrapperFn(apiHandler fnext.ApiRouteHandler) gin.
 	return func(c *gin.Context) {
 		context := c.Request.Context()
 		appID := c.MustGet(api.AppID).(string)
-		routePath := "/" + c.Param(api.CRoute)
+		routePath := "/" + c.Param(api.ParamRouteName)
 		route, err := s.datastore.GetRoute(context, appID, routePath)
 		if err != nil {
 			handleV1ErrorResponse(c, err)

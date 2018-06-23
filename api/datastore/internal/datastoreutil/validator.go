@@ -41,7 +41,6 @@ func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App
 		return nil, models.ErrDatastoreEmptyApp
 	}
 
-	app.SetDefaults()
 	if err := app.Validate(); err != nil {
 		return nil, err
 	}
@@ -97,7 +96,6 @@ func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*mode
 		return nil, models.ErrDatastoreEmptyRoute
 	}
 
-	route.SetDefaults()
 	if err := route.Validate(); err != nil {
 		return nil, err
 	}

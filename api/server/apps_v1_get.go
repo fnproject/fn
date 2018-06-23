@@ -11,14 +11,9 @@ import (
 func (s *Server) handleV1AppGetByName(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appID, err := s.datastore.GetAppID(ctx, c.Param(api.CApp))
+	param := c.MustGet(api.AppID).(string)
 
-	if err != nil {
-		handleV1ErrorResponse(c, err)
-		return
-	}
-
-	app, err := s.datastore.GetAppByID(ctx, appID)
+	app, err := s.datastore.GetAppByID(ctx, param)
 
 	if err != nil {
 		handleV1ErrorResponse(c, err)

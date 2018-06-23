@@ -38,7 +38,7 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	appID := c.MustGet(api.AppID).(string)
-	callID := c.Param(api.Call)
+	callID := c.Param(api.ParamCallID)
 
 	logReader, err := s.logstore.GetLog(ctx, appID, callID)
 	if err != nil {

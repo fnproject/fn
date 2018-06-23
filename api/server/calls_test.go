@@ -24,8 +24,7 @@ func TestCallGet(t *testing.T) {
 		}
 	}()
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{Name: "myapp", ID: "app_id"}
 	call := &models.Call{
 		AppID: app.ID,
 		ID:    id.New().String(),
@@ -94,8 +93,7 @@ func TestCallList(t *testing.T) {
 		}
 	}()
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{Name: "myapp", ID: "app_id"}
 
 	call := &models.Call{
 		AppID: app.ID,

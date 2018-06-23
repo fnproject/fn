@@ -82,8 +82,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 	cfg := models.Config{"APP_VAR": "FOO"}
 	rCfg := models.Config{"ROUTE_VAR": "BAR"}
 
-	app := &models.App{Name: appName, Config: cfg}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: appName, Config: cfg}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -203,7 +202,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 func TestCallConfigurationModel(t *testing.T) {
 	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+
 	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
@@ -265,8 +264,8 @@ func TestCallConfigurationModel(t *testing.T) {
 }
 
 func TestAsyncCallHeaders(t *testing.T) {
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp"}
+
 	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
@@ -415,8 +414,7 @@ func (l testListener) BeforeCall(context.Context, *models.Call) error {
 }
 
 func TestReqTooLarge(t *testing.T) {
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp"}
 
 	cm := &models.Call{
 		AppID:       app.ID,
@@ -455,7 +453,7 @@ func TestReqTooLarge(t *testing.T) {
 }
 func TestSubmitError(t *testing.T) {
 	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+
 	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 10
@@ -547,8 +545,8 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 	path := "/hello"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 
-	app := &models.App{Name: appName}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: appName}
+
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
@@ -648,8 +646,8 @@ func TestTmpFsRW(t *testing.T) {
 	path := "/hello"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 
-	app := &models.App{Name: appName}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: appName}
+
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
@@ -745,8 +743,8 @@ func TestTmpFsSize(t *testing.T) {
 	path := "/hello"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 
-	app := &models.App{Name: appName}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: appName}
+
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
@@ -850,8 +848,8 @@ func testCall() *models.Call {
 	appName := "myapp"
 	path := "/"
 	image := "fnproject/fn-test-utils:latest"
-	app := &models.App{Name: appName}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: appName}
+
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
@@ -1074,7 +1072,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	call.IdleTimeout = 60 // keep this bad boy alive
 	call.Timeout = 4      // short
 	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+
 	app.ID = call.AppID
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
@@ -1171,8 +1169,8 @@ func TestNBIOResourceTracker(t *testing.T) {
 	call.IdleTimeout = 60
 	call.Timeout = 30
 	call.Memory = 50
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp"}
+
 	app.ID = call.AppID
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(

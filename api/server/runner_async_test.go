@@ -36,8 +36,7 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr agent.Agen
 func TestRouteRunnerAsyncExecution(t *testing.T) {
 	buf := setLogBuffer()
 
-	app := &models.App{Name: "myapp", Config: map[string]string{"app": "true"}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: map[string]string{"app": "true"}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{

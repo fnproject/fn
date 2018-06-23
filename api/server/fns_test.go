@@ -86,7 +86,6 @@ func TestFnCreate(t *testing.T) {
 	buf := setLogBuffer()
 
 	a := &models.App{Name: "a", ID: "aid"}
-	a.SetDefaults()
 	ds := datastore.NewMockInit([]*models.App{a})
 	ls := logs.NewMock()
 	for i, test := range []funcTestCase{
@@ -112,8 +111,7 @@ func TestFnCreate(t *testing.T) {
 func TestFnUpdate(t *testing.T) {
 	buf := setLogBuffer()
 
-	a := &models.App{Name: "a"}
-	a.SetDefaults()
+	a := &models.App{Name: "a", ID: "app_id"}
 	f := &models.Fn{Name: "f", AppID: a.ID}
 	f.SetDefaults()
 	ds := datastore.NewMockInit([]*models.App{a}, []*models.Fn{f})
@@ -147,7 +145,6 @@ func TestFnDelete(t *testing.T) {
 	buf := setLogBuffer()
 
 	a := &models.App{Name: "a", ID: "appid"}
-	a.SetDefaults()
 	f := &models.Fn{Name: "myfunc", AppID: a.ID}
 	f.SetDefaults()
 	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{f})
@@ -202,8 +199,7 @@ func TestFnList(t *testing.T) {
 	fn2 := "myfunc2"
 	fn3 := "myfunc3"
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{Name: "myapp", ID: "app_id"}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Fn{
@@ -289,7 +285,6 @@ func TestFnGet(t *testing.T) {
 	defer cancel()
 
 	app := &models.App{Name: "myapp", ID: "appid"}
-	app.SetDefaults()
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Fn{

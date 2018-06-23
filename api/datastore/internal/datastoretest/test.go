@@ -57,8 +57,6 @@ func (brp *BasicResourceProvider) ValidApp() *models.App {
 	app := &models.App{
 		Name: fmt.Sprintf("app_%09d", brp.NextID()),
 	}
-	app.SetDefaults()
-
 	return app
 }
 
@@ -125,7 +123,7 @@ func (h *Harness) GivenAppInDb(app *models.App) *models.App {
 		h.t.Fatal("failed to create app", err)
 		return nil
 	}
-	h.appIds = append(h.appIds, a.ID)
+	h.AppForDeletion(a)
 	return a
 }
 
@@ -166,6 +164,9 @@ func (h *Harness) GivenTriggerInDb(validTrigger *models.Trigger) *models.Trigger
 	return trigger
 
 }
+func (h *Harness) AppForDeletion(app *models.App) {
+	h.appIds = append(h.appIds, app.ID)
+}
 
 func NewHarness(t *testing.T, ctx context.Context, ds models.Datastore) *Harness {
 	return &Harness{
@@ -188,6 +189,68 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != models.ErrMissingName {
 				t.Fatalf("RunAllTests InsertApp(&{}): expected error `%v`, but it was `%v`", models.ErrMissingName, err)
 			}
+		})
+
+		t.Run("insert sets created time and updated time ", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+
+			start := time.Now()
+			returnedApp, err := ds.InsertApp(ctx, rp.ValidApp())
+
+			h.AppForDeletion(returnedApp)
+			if err != nil {
+				t.Fatalf("Expected succcess, got %s", err)
+			}
+
+			if !time.Time(returnedApp.CreatedAt).After(start) {
+				t.Fatalf("Expected created to be set  %s", returnedApp.CreatedAt)
+			}
+
+			if !time.Time(returnedApp.UpdatedAt).After(start) {
+				t.Fatalf("Expected updated to be set  %s", returnedApp.UpdatedAt)
+			}
+		})
+
+		t.Run("update sets update time ", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+
+			// Set a config var
+			testApp := h.GivenAppInDb(rp.ValidApp())
+
+			time.Sleep(10 * time.Millisecond)
+			testApp.Config = map[string]string{"TEST": "1"}
+			updated, err := ds.UpdateApp(ctx, testApp)
+
+			if err != nil {
+				t.Fatalf("didn't update app %s", err)
+			}
+
+			if !time.Time(updated.UpdatedAt).After(time.Time(testApp.UpdatedAt)) {
+				t.Errorf("Expected updated time to be after original %s !> %s", updated.UpdatedAt, testApp.UpdatedAt)
+			}
+
+		})
+
+		t.Run("update no-op", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+
+			// Set a config var
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			time.Sleep(1 * time.Millisecond)
+			updated, err := ds.UpdateApp(ctx, testApp)
+			if err != nil {
+				t.Fatalf("Expected succes got %s", err)
+			}
+			if updated == testApp {
+				t.Fatalf("Update should return a new value")
+			}
+			if updated.UpdatedAt.String() != testApp.UpdatedAt.String() {
+				t.Fatalf("Expected app not to be updated but update times weren't equal %s != %s", updated.UpdatedAt, testApp.UpdatedAt)
+			}
+
 		})
 
 		t.Run("update with new config var", func(t *testing.T) {
@@ -227,6 +290,34 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}}
 			if !updated.Equals(expected) {
 				t.Fatalf("RunAllTests UpdateApp: expected updated `%v` but got `%v`", expected, updated)
+			}
+		})
+
+		t.Run("Insert duplicate named app", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+
+			testApp := h.GivenAppInDb(rp.ValidApp())
+
+			testApp2 := rp.ValidApp()
+			testApp2.Name = testApp.Name
+
+			_, err := ds.InsertApp(ctx, testApp2)
+			if err != models.ErrAppsAlreadyExists {
+				t.Fatalf("Expecting duplicate error got %s", err)
+			}
+		})
+
+		t.Run("Update name is immutable", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testApp.Name = "other"
+
+			_, err := ds.UpdateApp(ctx, testApp)
+			if err != models.ErrAppsNameImmutable {
+				t.Fatalf("Expecting name immutable %s", err)
 			}
 		})
 
@@ -273,7 +364,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 		})
 
-		t.Run("RunAllTests List apps", func(t *testing.T) {
+		t.Run("List apps", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
@@ -337,14 +428,6 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 
 		})
-		// TODO fix up prefix stuff
-		//apps, err = ds.GetApps(ctx, &models.AppFilter{Name: "Tes"})
-		//if err != nil {
-		//t.Fatalf("RunAllTests GetApps(filter): unexpected error %v", err)
-		//}
-		//if len(apps) != 3 {
-		//t.Fatal("RunAllTests GetApps(filter): expected result count to be 3, got", len(apps))
-		//}
 
 		t.Run("delete app with empty Id", func(t *testing.T) {
 			// Testing app delete
@@ -375,8 +458,10 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 		t.Run("cannot update non-existant app ", func(t *testing.T) {
 			// RunAllTests update inexistent app
-			missingApp := rp.ValidApp()
-			missingApp.SetDefaults()
+			missingApp := &models.App{
+				ID:   "nonexistant",
+				Name: "nonexistant",
+			}
 			_, err := ds.UpdateApp(ctx, missingApp)
 			if err != models.ErrAppsNotFound {
 				t.Fatalf("RunAllTests UpdateApp(inexistent): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
@@ -605,9 +690,15 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 		})
 
+		t.Run("pagination on empty app is invalid", func(t *testing.T) {
+			_, err := ds.GetRoutesByApp(ctx, "", &models.RouteFilter{PerPage: 1})
+			if err != models.ErrRoutesMissingAppID {
+				t.Fatalf("Expecting app ID error, got %s", err)
+			}
+		})
+
 		t.Run("pagination on non-existant app returns no routes", func(t *testing.T) {
-			nre := rp.ValidApp()
-			routes, err := ds.GetRoutesByApp(ctx, nre.ID, &models.RouteFilter{PerPage: 1})
+			routes, err := ds.GetRoutesByApp(ctx, id.New().String(), &models.RouteFilter{PerPage: 1})
 			if err != nil {
 				t.Fatalf("RunAllTests GetRoutesByApp: error: %s", err)
 			}

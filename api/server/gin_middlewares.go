@@ -61,8 +61,8 @@ func traceWrap(c *gin.Context) {
 		logrus.Fatal(err)
 	}
 	ctx, err := tag.New(c.Request.Context(),
-		tag.Insert(appKey, c.Param(api.CApp)),
-		tag.Insert(pathKey, c.Param(api.CRoute)),
+		tag.Insert(appKey, c.Param(api.ParamAppName)),
+		tag.Insert(pathKey, c.Param(api.ParamRouteName)),
 	)
 	if err != nil {
 		logrus.Fatal(err)
@@ -143,12 +143,12 @@ func panicWrap(c *gin.Context) {
 func loggerWrap(c *gin.Context) {
 	ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-	if appName := c.Param(api.CApp); appName != "" {
-		c.Set(api.App, appName)
-		ctx = context.WithValue(ctx, api.App, appName)
+	if appName := c.Param(api.ParamAppName); appName != "" {
+		c.Set(api.AppName, appName)
+		ctx = context.WithValue(ctx, api.AppName, appName)
 	}
 
-	if routePath := c.Param(api.CRoute); routePath != "" {
+	if routePath := c.Param(api.ParamRouteName); routePath != "" {
 		c.Set(api.Path, routePath)
 		ctx = context.WithValue(ctx, api.Path, routePath)
 	}
@@ -161,7 +161,7 @@ func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-		appName := c.Param(api.CApp)
+		appName := c.Param(api.ParamAppName)
 		if appName != "" {
 			appID, err := s.agent.GetAppID(ctx, appName)
 			if err != nil {
@@ -181,7 +181,7 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-		appName := c.MustGet(api.App).(string)
+		appName := c.MustGet(api.AppName).(string)
 		if appName != "" {
 			appID, err := s.datastore.GetAppID(ctx, appName)
 			if err != nil {
@@ -199,7 +199,7 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 
 func setAppNameInCtx(c *gin.Context) {
 	// add appName to context
-	appName := c.GetString(api.App)
+	appName := c.GetString(api.AppName)
 	if appName != "" {
 		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), fnext.AppNameKey, appName))
 	}
@@ -207,7 +207,7 @@ func setAppNameInCtx(c *gin.Context) {
 }
 
 func appNameCheck(c *gin.Context) {
-	appName := c.GetString(api.App)
+	appName := c.GetString(api.AppName)
 	if appName == "" {
 		handleV1ErrorResponse(c, models.ErrAppsMissingName)
 		c.Abort()

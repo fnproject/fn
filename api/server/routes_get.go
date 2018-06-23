@@ -26,5 +26,5 @@ func (s *Server) handleRouteGetAPI(c *gin.Context) {
 }
 
 func (s *Server) handleRouteGetRunner(c *gin.Context) {
-	routeGet(s, c.Param(api.CApp), c)
+	routeGet(s, c.Param(api.ParamAppName), c)
 }

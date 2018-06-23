@@ -159,14 +159,17 @@ func TestFullStack(t *testing.T) {
 		{"get deleted app", "GET", "/v1/apps/myapp", ``, http.StatusNotFound, 0},
 		{"get deleteds route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusNotFound, 0},
 	} {
-		_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
+		t.Run(test.name, func(t *testing.T) {
+			_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
 
-		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
-			t.Log(rec.Body.String())
-			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
-				test.name, test.expectedCode, rec.Code)
-		}
+			if rec.Code != test.expectedCode {
+				t.Log(buf.String())
+				t.Log(rec.Body.String())
+				t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
+					test.name, test.expectedCode, rec.Code)
+			}
+		})
+
 	}
 }
 
@@ -277,8 +280,7 @@ func TestApiNode(t *testing.T) {
 
 func TestHybridEndpoints(t *testing.T) {
 	buf := setLogBuffer()
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp"}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{{

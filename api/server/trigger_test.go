@@ -29,7 +29,6 @@ func TestTriggerCreate(t *testing.T) {
 	}()
 
 	a := &models.App{ID: "appid"}
-	a.SetDefaults()
 
 	fn := &models.Fn{ID: "fnid"}
 	fn.SetDefaults()
@@ -180,8 +179,7 @@ func TestTriggerList(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp"}
 	fn := &models.Fn{Name: "myfn"}
 	fn.SetDefaults()
 	ds := datastore.NewMockInit(
@@ -259,7 +257,6 @@ func TestTriggerGet(t *testing.T) {
 	}()
 
 	a := &models.App{ID: "appid"}
-	a.SetDefaults()
 
 	fn := &models.Fn{ID: "fnid"}
 	fn.SetDefaults()
@@ -306,8 +303,6 @@ func TestTriggerUpdate(t *testing.T) {
 	}()
 
 	a := &models.App{ID: "appid"}
-	a.SetDefaults()
-
 	fn := &models.Fn{ID: "fnid"}
 	fn.SetDefaults()
 

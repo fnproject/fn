@@ -72,13 +72,6 @@ func (r *Route) SetDefaults() {
 		r.IdleTimeout = DefaultIdleTimeout
 	}
 
-	if time.Time(r.CreatedAt).IsZero() {
-		r.CreatedAt = common.DateTime(time.Now())
-	}
-
-	if time.Time(r.UpdatedAt).IsZero() {
-		r.UpdatedAt = common.DateTime(time.Now())
-	}
 }
 
 // Validate validates all field values, returning the first error, if any.

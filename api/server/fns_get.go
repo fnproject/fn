@@ -9,7 +9,7 @@ import (
 
 func (s *Server) handleFnGet(c *gin.Context) {
 	ctx := c.Request.Context()
-	f, err := s.datastore.GetFn(ctx, c.Param(api.FnID))
+	f, err := s.datastore.GetFn(ctx, c.Param(api.ParamFnID))
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

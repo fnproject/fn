@@ -10,13 +10,16 @@ import (
 	"unicode"
 
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/id"
 )
 
 var (
 	ErrAppsMissingID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app ID"),
+	}
+	ErrAppIDProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("App ID cannot be supplied on create"),
 	}
 	ErrAppsMissingName = err{
 		code:  http.StatusBadRequest,
@@ -59,23 +62,8 @@ type App struct {
 	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
-func (a *App) SetDefaults() {
-	if time.Time(a.CreatedAt).IsZero() {
-		a.CreatedAt = common.DateTime(time.Now())
-	}
-	if time.Time(a.UpdatedAt).IsZero() {
-		a.UpdatedAt = common.DateTime(time.Now())
-	}
-	if a.Config == nil {
-		// keeps the json from being nil
-		a.Config = map[string]string{}
-	}
-	if a.ID == "" {
-		a.ID = id.New().String()
-	}
-}
-
 func (a *App) Validate() error {
+
 	if a.Name == "" {
 		return ErrMissingName
 	}
@@ -173,6 +161,7 @@ func (a *App) Update(patch *App) {
 	if !a.Equals(original) {
 		a.UpdatedAt = common.DateTime(time.Now())
 	}
+
 }
 
 var _ APIError = ErrInvalidSyslog("")

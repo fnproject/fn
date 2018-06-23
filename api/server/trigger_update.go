@@ -21,7 +21,7 @@ func (s *Server) handleTriggerUpdate(c *gin.Context) {
 		return
 	}
 
-	pathTriggerID := c.Param(api.TriggerID)
+	pathTriggerID := c.Param(api.ParamTriggerID)
 
 	if trigger.ID == "" {
 		trigger.ID = pathTriggerID

@@ -122,7 +122,7 @@ type ResourceConfig struct {
 	IdleTimeout int32 `json:"idle_timeout,omitempty" db:"idle_timeout"`
 }
 
-// SetDefaults sets zeroed field to defaults.
+// SetCreated sets zeroed field to defaults.
 func (f *Fn) SetDefaults() {
 	if f.ID == "" {
 		f.ID = id.New().String()
