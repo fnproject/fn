@@ -36,7 +36,7 @@ func (t *Trigger) Equals(t2 *Trigger) bool {
 	return eq
 }
 
-var triggerTypes = []string{"HTTP"}
+var triggerTypes = []string{"http"}
 
 func ValidTriggerTypes() []string {
 	return triggerTypes

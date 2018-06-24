@@ -109,10 +109,6 @@ type Fn struct {
 type ResourceConfig struct {
 	// Memory is the amount of memory allotted, in MB.
 	Memory uint64 `json:"memory,omitempty" db:"memory"`
-	// CPUs is the max usable CPU cores for this route. Value in MilliCPUs,
-	// (eg. 500m) or as floating-point (eg. 0.5)
-	// TODO this is a good chance to fix this. let's pick one?
-	CPUs MilliCPUs `json:"cpus,omitempty" db:"cpus"`
 	// Timeout is the max execution time for a function, in seconds.
 	// TODO this should probably be milliseconds?
 	Timeout int32 `json:"timeout,omitempty" db:"timeout"`
@@ -273,7 +269,6 @@ func (f1 *Fn) Equals(f2 *Fn) bool {
 	eq = eq && f1.AppID == f2.AppID
 	eq = eq && f1.Image == f2.Image
 	eq = eq && f1.Memory == f2.Memory
-	eq = eq && f1.CPUs == f2.CPUs
 	eq = eq && f1.Format == f2.Format
 	eq = eq && f1.Timeout == f2.Timeout
 	eq = eq && f1.IdleTimeout == f2.IdleTimeout
@@ -298,9 +293,7 @@ func (f *Fn) Update(patch *Fn) {
 	if patch.Memory != 0 {
 		f.Memory = patch.Memory
 	}
-	if patch.CPUs != 0 {
-		f.CPUs = patch.CPUs
-	}
+
 	if patch.Timeout != 0 {
 		f.Timeout = patch.Timeout
 	}

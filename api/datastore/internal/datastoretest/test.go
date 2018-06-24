@@ -83,7 +83,7 @@ func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Tri
 		Name:   fmt.Sprintf("trigger_%09d", brp.NextID()),
 		AppID:  appId,
 		FnID:   funcId,
-		Type:   "HTTP",
+		Type:   "http",
 		Source: "ASource",
 	}
 
@@ -919,7 +919,6 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 					Timeout:     testFn.Timeout,
 					IdleTimeout: testFn.IdleTimeout,
 					Memory:      testFn.Memory,
-					CPUs:        testFn.CPUs,
 				},
 				// updated
 				Config: map[string]string{
@@ -973,7 +972,6 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 					Timeout:     testFn.Timeout,
 					IdleTimeout: testFn.IdleTimeout,
 					Memory:      testFn.Memory,
-					CPUs:        testFn.CPUs,
 				},
 				// updated
 				Config: map[string]string{

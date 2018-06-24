@@ -14,7 +14,6 @@ func up16(ctx context.Context, tx *sqlx.Tx) error {
 	app_id varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
 	format varchar(16) NOT NULL,
-	cpus int NOT NULL,
 	memory int NOT NULL,
 	timeout int NOT NULL,
 	idle_timeout int NOT NULL,

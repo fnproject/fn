@@ -26,7 +26,7 @@ func TestTriggerJsonMarshalling(t *testing.T) {
 	}
 }
 
-var httpTrigger = &Trigger{Name: "name", AppID: "foo", FnID: "bar", Type: "HTTP", Source: "baz"}
+var httpTrigger = &Trigger{Name: "name", AppID: "foo", FnID: "bar", Type: "http", Source: "baz"}
 var invalidTrigger = &Trigger{Name: "name", AppID: "foo", FnID: "bar", Type: "error", Source: "baz"}
 
 var triggerValidateCases = []struct {
