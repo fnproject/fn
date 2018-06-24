@@ -189,6 +189,14 @@ paths:
           description: Fn.
           schema:
             $ref: '#/definitions/Fn'
+        409:
+          description: Fn with name already exists.
+          schema:
+             $ref: '#/definitions/Error'
+        400:
+          description: Invalid Fn
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Error
           schema:
@@ -298,6 +306,14 @@ paths:
           description: Created Triggers data
           schema:
             $ref: '#/definitions/Trigger'
+        409:
+          description: Trigger with name already exists.
+          schema:
+             $ref: '#/definitions/Error'
+        400:
+          description: Invalid Trigger
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Error
           schema:
