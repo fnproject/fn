@@ -19,6 +19,7 @@ produces:
 paths:
   /apps:
     get:
+      operationId: "ListApps"
       summary: "Get applications"
       description: "Get a filtered applications returned in alphabetical order."
       tags:
@@ -41,6 +42,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     post:
+      operationId: "CreateApp"
       summary: "Post new app"
       description: "Insert a new app"
       tags:
@@ -72,6 +74,7 @@ paths:
 
   /apps/{appID}:
     delete:
+      operationId: "DeleteApp"
       summary: "Delete an app."
       description: "Delete an app."
       tags:
@@ -90,6 +93,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     get:
+      operationId: "GetApp"
       summary: "Get information for a app."
       description: "This gives more details about a app, such as statistics."
       tags:
@@ -110,6 +114,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     put:
+      operationId: "UpdateApp"
       summary: "Update an app."
       description: "Updates and application."
       tags:
