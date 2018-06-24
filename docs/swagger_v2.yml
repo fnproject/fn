@@ -216,6 +216,10 @@ paths:
           description: Function definition
           schema:
             $ref: '#/definitions/Fn'
+        404:
+          description: Function does not exist.
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Error
           schema:
@@ -239,6 +243,10 @@ paths:
           description: Fn metadata
           schema:
             $ref: '#/definitions/Fn'
+        404:
+          description: Fn does not exist.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: Parameters are missing or invalid.
           schema:
@@ -258,6 +266,10 @@ paths:
       responses:
         204:
           description: Fn successfully deleted
+        404:
+          description: Fn does not exist.
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Error
           schema:
@@ -333,6 +345,10 @@ paths:
           description: Trigger information
           schema:
             $ref: '#/definitions/Trigger'
+        404:
+          description: Trigger does not exist.
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Error
           schema:
@@ -356,6 +372,10 @@ paths:
           description: Created Triggers data
           schema:
             $ref: '#/definitions/Trigger'
+        404:
+          description: Trigger does not exist.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: Parameters are missing or invalid.
           schema:
@@ -374,6 +394,10 @@ paths:
       parameters:
         - $ref: '#/parameters/TriggerID'
       responses:
+        404:
+          description: Trigger does not exist.
+          schema:
+            $ref: '#/definitions/Error'
         204:
           description: Trigger successfully deleted.
         default:
