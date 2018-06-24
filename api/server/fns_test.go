@@ -90,18 +90,18 @@ func TestFnCreate(t *testing.T) {
 	ls := logs.NewMock()
 	for i, test := range []funcTestCase{
 		// errors
-		{ds, ls, http.MethodPut, "/v2/fns", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{ds, ls, http.MethodPut, "/v2/fns", `{ }`, http.StatusBadRequest, models.ErrFnsMissingAppID},
-		{ds, ls, http.MethodPut, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingName},
-		{ds, ls, http.MethodPut, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingImage},
-		{ds, ls, http.MethodPut, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": " ", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidName},
-		{ds, ls, http.MethodPut, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "format": "wazzup" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidFormat},
-		{ds, ls, http.MethodPut, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
-		{ds, ls, http.MethodPut, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "idle_timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
-		{ds, ls, http.MethodPut, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrInvalidMemory},
+		{ds, ls, http.MethodPost, "/v2/fns", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{ds, ls, http.MethodPost, "/v2/fns", `{ }`, http.StatusBadRequest, models.ErrFnsMissingAppID},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingName},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingImage},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": " ", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidName},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "format": "wazzup" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidFormat},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "idle_timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrInvalidMemory},
 
 		// success create & update
-		{ds, ls, http.MethodPut, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusOK, nil},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusOK, nil},
 	} {
 		test.run(t, i, buf)
 	}

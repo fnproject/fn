@@ -930,7 +930,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				v2.DELETE("/apps/:appId", s.handleAppDelete)
 
 				v2.GET("/fns", s.handleFnList)
-				v2.PUT("/fns", s.handleFnCreate)
+				v2.POST("/fns", s.handleFnCreate)
 				v2.GET("/fns/:fnId", s.handleFnGet)
 				v2.PUT("/fns/:fnId", s.handleFnUpdate)
 				v2.DELETE("/fns/:fnId", s.handleFnDelete)
