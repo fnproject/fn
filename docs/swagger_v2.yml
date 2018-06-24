@@ -421,9 +421,6 @@ definitions:
         type: integer
         format: uint64
         description: Max usable memory given to function (MiB).
-      cpu:
-        type: string
-        description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
       timeout:
         type: integer
         default: 30
