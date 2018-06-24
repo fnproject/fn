@@ -1,12 +1,12 @@
 package api
 
-// Request context key names
 const (
+	// Gin Request context key names
 	AppName string = "app_name"
-	AppID   string = "app"
+	AppID   string = "app_id"
 	Path    string = "path"
 
-	// Short forms for API URLs
+	// Gin  URL template parameters
 	ParamAppID     string = "appId"
 	ParamAppName   string = "appName"
 	ParamRouteName string = "route"

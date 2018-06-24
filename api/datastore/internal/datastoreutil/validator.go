@@ -17,7 +17,7 @@ type validator struct {
 
 func (v *validator) GetAppID(ctx context.Context, appName string) (string, error) {
 	if appName == "" {
-		return "", models.ErrMissingName
+		return "", models.ErrAppsMissingName
 	}
 	return v.Datastore.GetAppID(ctx, appName)
 }
