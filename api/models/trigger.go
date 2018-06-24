@@ -71,6 +71,9 @@ var (
 	ErrTriggerMissingFnID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Fn ID on Trigger")}
+	ErrTriggerFnIDNotSameApp = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid Fn ID - not owned by specified app")}
 	ErrTriggerTypeUnknown = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger Type Not Supported")}

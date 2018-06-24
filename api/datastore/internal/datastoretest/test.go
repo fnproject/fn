@@ -1178,6 +1178,21 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 		})
 
+		t.Run("app id not same as fn id ", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp1 := h.GivenAppInDb(rp.ValidApp())
+			testApp2 := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp1.ID))
+
+			tr := rp.ValidTrigger(testApp2.ID, testFn.ID)
+
+			_, err := ds.InsertTrigger(ctx, tr)
+			if err != models.ErrTriggerFnIDNotSameApp {
+				t.Errorf("expected error when Fn ID did not match Trigger App ID, got %s", err)
+			}
+		})
+
 		t.Run("filter triggers", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()

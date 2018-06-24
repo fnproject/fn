@@ -1165,12 +1165,16 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, newTrigger *models.Trigge
 			}
 		}
 
-		query = tx.Rebind(`SELECT 1 FROM fns WHERE id=?`)
+		query = tx.Rebind(`SELECT app_id FROM fns WHERE id=?`)
 		r = tx.QueryRowContext(ctx, query, trigger.FnID)
-		if err := r.Scan(new(int)); err != nil {
+		var app_id string
+		if err := r.Scan(&app_id); err != nil {
 			if err == sql.ErrNoRows {
 				return models.ErrFnsNotFound
 			}
+		}
+		if app_id != trigger.AppID {
+			return models.ErrTriggerFnIDNotSameApp
 		}
 
 		query = tx.Rebind(`INSERT INTO triggers (

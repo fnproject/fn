@@ -369,9 +369,13 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 	if err != nil {
 		return nil, err
 	}
-	_, err = m.GetFnByID(ctx, trigger.FnID)
+	fn, err := m.GetFnByID(ctx, trigger.FnID)
 	if err != nil {
 		return nil, err
+	}
+
+	if fn.AppID != trigger.AppID {
+		return nil, models.ErrTriggerFnIDNotSameApp
 	}
 
 	for _, t := range m.Triggers {

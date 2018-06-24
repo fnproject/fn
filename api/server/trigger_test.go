@@ -30,9 +30,11 @@ func TestTriggerCreate(t *testing.T) {
 
 	a := &models.App{ID: "appid"}
 
-	fn := &models.Fn{ID: "fnid"}
+	a2 := &models.App{ID: "appid2"}
+
+	fn := &models.Fn{ID: "fnid", AppID: a.ID}
 	fn.SetDefaults()
-	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn})
+	commonDS := datastore.NewMockInit([]*models.App{a, a2}, []*models.Fn{fn})
 
 	for i, test := range []struct {
 		mock          models.Datastore
@@ -55,6 +57,8 @@ func TestTriggerCreate(t *testing.T) {
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "id": "asdasca", "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerIDProvided},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "unsupported", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
+
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid2", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerFnIDNotSameApp},
 
 		// // success
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusOK, nil},
