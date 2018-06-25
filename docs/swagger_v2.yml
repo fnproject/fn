@@ -20,7 +20,7 @@ paths:
   /apps:
     get:
       operationId: "ListApps"
-      summary: "Get a list of Applications"
+      summary: "Get A List Of Applications"
       description: "Get a filtered list of Applications in alphabetical order."
       tags:
         - Apps
@@ -29,21 +29,21 @@ paths:
         - $ref: '#/parameters/perPage'
         - name: name
           in: query
-          description: "Application name to filter by"
+          description: "The Application name to filter by."
           required: false
           type: string
       responses:
         200:
-          description: "List of Applications."
+          description: "A list of Applications."
           schema:
             $ref: '#/definitions/AppList'
         default:
-          description: "Unexpected error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
     post:
       operationId: "CreateApp"
-      summary: "Create a new Application"
+      summary: "Create A New Application"
       description: "Creates a new Application, returning the complete entity."
       tags:
         - Apps
@@ -60,7 +60,7 @@ paths:
           schema:
             $ref: '#/definitions/App'
         400:
-          description: Parameters are missing or invalid.
+          description: "Parameters are missing or invalid."
           schema:
             $ref: '#/definitions/Error'
         409:
@@ -68,14 +68,14 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: "Unexpected error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
 
   /apps/{appID}:
     delete:
       operationId: "DeleteApp"
-      summary: "Delete an Application."
+      summary: "Delete An Application"
       description: "Delete the specified Application."
       tags:
         - Apps
@@ -83,19 +83,19 @@ paths:
          - $ref: '#/parameters/AppID'
       responses:
         200:
-          description: "Application successfully deleted."
+          description: "The Application successfully deleted."
         404:
           description: "Application does not exist."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: "Unexpected error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
     get:
       operationId: "GetApp"
-      summary: "Get information for an Application."
-      description: "This gives more details about an Application, such as statistics."
+      summary: "Get Information For An Application"
+      description: "Returns more details about an Application, such as statistics."
       tags:
         - Apps
       parameters:
@@ -106,16 +106,16 @@ paths:
           schema:
             $ref: '#/definitions/App'
         404:
-          description: "Application does not exist."
+          description: "The Application does not exist."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: "Unexpected error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
     put:
       operationId: "UpdateApp"
-      summary: "Update an Application."
+      summary: "Update an Application"
       description: "Updates an Application via merging the provided values."
       tags:
         - Apps
@@ -123,7 +123,7 @@ paths:
         - $ref: '#/parameters/AppID'
         - name: body
           in: body
-          description: Application data to merge with current values.
+          description: "Application data to merge with current values."
           required: true
           schema:
             $ref: '#/definitions/App'
@@ -137,11 +137,11 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: "Application does not exist."
+          description: "The Application does not exist."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: "Unexpected error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
 
@@ -172,7 +172,7 @@ paths:
             $ref: '#/definitions/Error'
     post:
       operationId: "CreateFn"
-      summary: "Create a new Function"
+      summary: "Create A New Function"
       description: "Creates a new Function, returning the complete entity."
       tags:
         - Fns
@@ -193,11 +193,11 @@ paths:
           schema:
              $ref: '#/definitions/Error'
         400:
-          description: "Invalid Function"
+          description: "Invalid Function."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: "Error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
 
@@ -244,7 +244,7 @@ paths:
             $ref: '#/definitions/Error'
     put:
       operationId: "UpdateFn"
-      summary: "Update a Function"
+      summary: "Update A Function"
       description: "Updates a Function via merging the provided values."
       tags:
         - Fns
@@ -266,18 +266,18 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: "Function does not exist."
+          description: "The Function does not exist."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: "Error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
 
   /triggers:
     get:
       operationId: "ListTriggers"
-      summary: "Get a List of Triggers within an Application or Function."
+      summary: "Get A List Of Triggers Within An Application Or Function"
       description: "This will list all Triggers for a particular Application or Function, returned in name alphabetical order."
       tags:
         - Triggers
@@ -288,7 +288,7 @@ paths:
         - $ref: '#/parameters/perPage'
         - name: name
           in: query
-          description: "Trigger name to filter by."
+          description: "A Trigger name to filter by."
           required: false
           type: string
       responses:
@@ -297,63 +297,63 @@ paths:
           schema:
             $ref: '#/definitions/TriggerList'
         default:
-          description: "Error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
     post:
       operationId: "CreateTrigger"
-      summary: Create a new Trigger.
-      description: Creates a new Trigger, returning the complete entity.
+      summary: "Create A New Trigger."
+      description: "Creates a new Trigger, returning the complete entity."
       tags:
         - Triggers
       parameters:
         - name: body
           in: body
-          description: Trigger data to insert.
+          description: "Trigger data to insert."
           required: true
           schema:
             $ref: '#/definitions/Trigger'
       responses:
         200:
-          description: Trigger details.
+          description: "Trigger details."
           schema:
             $ref: '#/definitions/Trigger'
         409:
-          description: Trigger with name already exists.
+          description: "Trigger with name already exists."
           schema:
              $ref: '#/definitions/Error'
         400:
-          description: Invalid Trigger
+          description: "Invalid Trigger."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: Error
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
 
   /triggers/{triggerID}:
     delete:
       operationId: "DeleteTrigger"
-      summary: Delete a Trigger
-      description: Delete the specified Trigger.
+      summary: "Delete A Trigger"
+      description: "Delete the specified Trigger."
       tags:
         - Triggers
       parameters:
         - $ref: '#/parameters/TriggerID'
       responses:
         204:
-          description: Trigger successfully deleted.
+          description: "Trigger successfully deleted."
         404:
-          description: Trigger does not exist.
+          description: "The Trigger does not exist."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: Error
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
     get:
       operationId: "GetTrigger"
-      summary: "Get definition of a Trigger."
+      summary: "Get Definition Of A Trigger"
       description: "Gets the definition for the Trigger with the specified ID."
       tags:
         - Triggers
@@ -365,16 +365,16 @@ paths:
           schema:
             $ref: '#/definitions/Trigger'
         404:
-          description: "Trigger does not exist."
+          description: "The Trigger does not exist."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: "Error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
     put:
       operationId: "UpdateTrigger"
-      summary: "Update a Trigger"
+      summary: "Update A Trigger"
       description: "Updates a Trigger by merging the provided values."
       tags:
         - Triggers
@@ -396,11 +396,11 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: "Trigger does not exist."
+          description: "The Trigger does not exist."
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: "Error"
+          description: "An unexpected error occurred."
           schema:
             $ref: '#/definitions/Error'
 
