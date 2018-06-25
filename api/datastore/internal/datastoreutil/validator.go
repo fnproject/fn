@@ -40,7 +40,9 @@ func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App
 	if app == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
-
+	if app.ID != "" {
+		return nil, models.ErrAppIDProvided
+	}
 	if err := app.Validate(); err != nil {
 		return nil, err
 	}

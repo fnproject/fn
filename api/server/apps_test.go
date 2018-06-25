@@ -49,7 +49,7 @@ func TestAppCreate(t *testing.T) {
 		// errors
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{}`, http.StatusBadRequest, models.ErrMissingName},
-		//{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "id":"badId"}`, http.StatusBadRequest, models.ErrIDProvided}, //FIXME
+		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "id":"badId"}`, http.StatusBadRequest, models.ErrAppIDProvided},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "" }`, http.StatusBadRequest, models.ErrMissingName},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "1234567890123456789012345678901" }`, http.StatusBadRequest, models.ErrAppsTooLongName},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "&&%@!#$#@$" }`, http.StatusBadRequest, models.ErrAppsInvalidName},
