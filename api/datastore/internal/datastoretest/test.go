@@ -1309,7 +1309,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("wasn't expecting an error : %s", err)
 			}
 			if !gotTrigger.Equals(testTrigger) {
-				t.Fatalf("expecting fetch trigger tot be updated got  : %v : %v", testTrigger, gotTrigger)
+				t.Fatalf("expecting fetch trigger to be updated got  : %v : %v", testTrigger, gotTrigger)
 			}
 
 			if testTrigger.CreatedAt.String() != gotTrigger.CreatedAt.String() {
