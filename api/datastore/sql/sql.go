@@ -88,7 +88,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	type varchar(256) NOT NULL,
 	source varchar(256) NOT NULL,
     annotations text NOT NULL,
-    CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id,name)
+    CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id, name)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS logs (
