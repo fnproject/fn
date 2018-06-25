@@ -823,6 +823,7 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 		fn = &dst // set for query & to return
 
 		query = tx.Rebind(`UPDATE fns SET
+				name = :name,
 				image = :image,
 				format = :format,
 				memory = :memory,

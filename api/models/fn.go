@@ -42,10 +42,6 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("Fn name must be %v characters or less", maxFnName),
 	}
-	ErrFnsInvalidFieldChange = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Fn names and IDs cannot be modified"),
-	}
 	ErrFnsMissingAppID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing AppID on Fn"),
@@ -154,6 +150,9 @@ func (f *Fn) Validate() error {
 
 	if f.Name == "" {
 		return ErrFnsMissingName
+	}
+	if len(f.Name) > maxFnName {
+		return ErrFnsTooLongName
 	}
 
 	if url.PathEscape(f.Name) != f.Name {
