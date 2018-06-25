@@ -14,9 +14,9 @@ func (s *Server) handleTriggerUpdate(c *gin.Context) {
 	err := c.BindJSON(trigger)
 	if err != nil {
 		if models.IsAPIError(err) {
-			handleV1ErrorResponse(c, err)
+			handleErrorResponse(c, err)
 		} else {
-			handleV1ErrorResponse(c, models.ErrInvalidJSON)
+			handleErrorResponse(c, models.ErrInvalidJSON)
 		}
 		return
 	}
@@ -27,13 +27,13 @@ func (s *Server) handleTriggerUpdate(c *gin.Context) {
 		trigger.ID = pathTriggerID
 	} else {
 		if pathTriggerID != trigger.ID {
-			handleV1ErrorResponse(c, models.ErrTriggerIDMismatch)
+			handleErrorResponse(c, models.ErrTriggerIDMismatch)
 		}
 	}
 
 	triggerUpdated, err := s.datastore.UpdateTrigger(c, trigger)
 	if err != nil {
-		handleV1ErrorResponse(c, err)
+		handleErrorResponse(c, err)
 		return
 	}
 

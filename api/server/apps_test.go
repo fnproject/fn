@@ -199,9 +199,9 @@ func TestAppList(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getV1ErrorResponse(t, rec)
+			resp := getErrorResponse(t, rec)
 
-			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+			if !strings.Contains(resp.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}

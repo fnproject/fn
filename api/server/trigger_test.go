@@ -225,8 +225,8 @@ func TestTriggerList(t *testing.T) {
 		if rec.Code != test.expectedCode {
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
-			resp := getV1ErrorResponse(t, rec)
-			t.Errorf("Message %s", resp.Error.Message)
+			resp := getErrorResponse(t, rec)
+			t.Errorf("Message %s", resp.Message)
 		}
 
 		if test.expectedError != nil {
@@ -348,10 +348,10 @@ func TestTriggerUpdate(t *testing.T) {
 				i, test.expectedCode, rec.Code)
 
 			if test.expectedError != nil {
-				resp := getV1ErrorResponse(t, rec)
-				if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				resp := getErrorResponse(t, rec)
+				if !strings.Contains(resp.Message, test.expectedError.Error()) {
 					t.Errorf("Test %d: Expected error message to have `%s` but got `%s`",
-						i, test.expectedError.Error(), resp.Error.Message)
+						i, test.expectedError.Error(), resp.Message)
 				}
 			}
 		}

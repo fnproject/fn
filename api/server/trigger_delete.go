@@ -12,7 +12,7 @@ func (s *Server) handleTriggerDelete(c *gin.Context) {
 
 	err := s.datastore.RemoveTrigger(ctx, c.Param(api.ParamTriggerID))
 	if err != nil {
-		handleV1ErrorResponse(c, err)
+		handleErrorResponse(c, err)
 		return
 	}
 
