@@ -1288,10 +1288,10 @@ func (ds *SQLStore) RemoveTrigger(ctx context.Context, triggerId string) error {
 	return nil
 }
 
-func (ds *SQLStore) GetTriggerByID(ctx context.Context, triggerId string) (*models.Trigger, error) {
+func (ds *SQLStore) GetTriggerByID(ctx context.Context, triggerID string) (*models.Trigger, error) {
 	var trigger models.Trigger
 	query := ds.db.Rebind(triggerIDSelector)
-	row := ds.db.QueryRowxContext(ctx, query, triggerId)
+	row := ds.db.QueryRowxContext(ctx, query, triggerID)
 
 	err := row.StructScan(&trigger)
 	if err == sql.ErrNoRows {
