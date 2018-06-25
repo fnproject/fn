@@ -17,8 +17,8 @@ func up17(ctx context.Context, tx *sqlx.Tx) error {
 	updated_at varchar(256) NOT NULL,
 	type varchar(256) NOT NULL,
 	source varchar(256) NOT NULL,
-    annotations text NOT NULL,
-    CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id,name)
+	annotations text NOT NULL,
+	CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id,name)
 );`
 	_, err := tx.ExecContext(ctx, createQuery)
 	return err
