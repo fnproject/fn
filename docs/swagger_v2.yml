@@ -286,11 +286,6 @@ paths:
         - $ref: '#/parameters/FnIDQuery'
         - $ref: '#/parameters/cursor'
         - $ref: '#/parameters/perPage'
-        - name: name
-          in: query
-          description: Trigger name to filter by
-          required: false
-          type: string
       responses:
         200:
           description: Trigger data
@@ -334,8 +329,8 @@ paths:
   /triggers/{triggerID}:
     get:
       operationId: "GetTrigger"
-      summary: Gets Trigger by Name
-      description: Gets a Trigger by Name.
+      summary: Gets Trigger by ID
+      description: Gets a Trigger by ID.
       tags:
         - Triggers
       parameters:
@@ -355,18 +350,12 @@ paths:
             $ref: '#/definitions/Error'
     put:
       operationId: "UpdateTrigger"
-      summary: Update a Trigger.
+      summary: Update a Trigger
       description: Updates a Trigger.
       tags:
         - Triggers
       parameters:
         - $ref: '#/parameters/TriggerID'
-        - name: body
-          in: body
-          description: Trigger to update.
-          required: true
-          schema:
-            $ref: '#/definitions/Trigger'
       responses:
         200:
           description: Created Triggers data
@@ -625,6 +614,13 @@ parameters:
     description: Function ID.
     required: true
     type: string
+  TriggerID:
+    name: triggerID
+    in: path
+    description: Trigger ID.
+    required: true
+    type: string
+
   FnIDQuery:
     name: fn_id
     in: query
@@ -636,10 +632,4 @@ parameters:
     in: query
     description: Function ID.
     required: false
-    type: string
-  TriggerID:
-    name: triggerID
-    in: path
-    description: Trigger ID.
-    required: true
     type: string

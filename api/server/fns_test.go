@@ -264,8 +264,8 @@ func TestFnList(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
 			}
-			if len(resp.Fns) != test.expectedLen {
-				t.Errorf("Test %d: Expected fns length to be %d, but got %d", i, test.expectedLen, len(resp.Fns))
+			if len(resp.Items) != test.expectedLen {
+				t.Errorf("Test %d: Expected fns length to be %d, but got %d", i, test.expectedLen, len(resp.Items))
 			}
 			if resp.NextCursor != test.nextCursor {
 				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)

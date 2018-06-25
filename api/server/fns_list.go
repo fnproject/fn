@@ -28,6 +28,6 @@ func (s *Server) handleFnList(c *gin.Context) {
 
 	c.JSON(http.StatusOK, fnListResponse{
 		NextCursor: nextCursor,
-		Fns:        fns,
+		Items:      fns,
 	})
 }

@@ -1054,7 +1054,7 @@ type appListResponse struct {
 
 type fnListResponse struct {
 	NextCursor string       `json:"next_cursor"`
-	Fns        []*models.Fn `json:"items"`
+	Items      []*models.Fn `json:"items"`
 }
 
 type triggerListResponse struct {
