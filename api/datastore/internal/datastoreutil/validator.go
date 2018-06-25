@@ -2,6 +2,8 @@ package datastoreutil
 
 import (
 	"context"
+	"time"
+	"unicode"
 
 	"github.com/fnproject/fn/api/models"
 )
@@ -128,8 +130,54 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
-func (v *validator) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	return v.Datastore.InsertTrigger(ctx, trigger)
+func (v *validator) InsertTrigger(ctx context.Context, t *models.Trigger) (*models.Trigger, error) {
+
+	if t.ID != "" {
+		return nil, models.ErrTriggerIDProvided
+	}
+
+	if !time.Time(t.CreatedAt).IsZero() {
+		return nil, models.ErrCreatedAtProvided
+	}
+	if !time.Time(t.UpdatedAt).IsZero() {
+		return nil, models.ErrUpdatedAtProvided
+	}
+
+	if t.Name == "" {
+		return nil, models.ErrTriggerMissingName
+	}
+
+	if len(t.Name) > models.MaxTriggerName {
+		return nil, models.ErrTriggerTooLongName
+	}
+	for _, c := range t.Name {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
+			return nil, models.ErrTriggerInvalidName
+		}
+	}
+
+	if t.AppID == "" {
+		return nil, models.ErrTriggerMissingAppID
+	}
+
+	if t.FnID == "" {
+		return nil, models.ErrTriggerMissingFnID
+	}
+
+	if !models.ValidTriggerType(t.Type) {
+		return nil, models.ErrTriggerTypeUnknown
+	}
+
+	if t.Source == "" {
+		return nil, models.ErrTriggerMissingSource
+	}
+
+	err := t.Annotations.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return v.Datastore.InsertTrigger(ctx, t)
 }
 
 func (v *validator) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {

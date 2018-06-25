@@ -10,7 +10,7 @@ import (
 const (
 	maxAppName     = 30
 	maxFnName      = 30
-	maxTriggerName = 30
+	MaxTriggerName = 30
 )
 
 var (

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-	"unicode"
 
 	"github.com/fnproject/fn/api/common"
 )
@@ -42,7 +41,7 @@ func ValidTriggerTypes() []string {
 	return triggerTypes
 }
 
-func validTriggerType(a string) bool {
+func ValidTriggerType(a string) bool {
 	for _, b := range triggerTypes {
 		if b == a {
 			return true
@@ -65,7 +64,7 @@ var (
 		error: errors.New("Missing name on Trigger")}
 	ErrTriggerTooLongName = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("Trigger name must be %v characters or less", maxTriggerName)}
+		error: fmt.Errorf("Trigger name must be %v characters or less", MaxTriggerName)}
 	ErrTriggerInvalidName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid name for Trigger")}
@@ -105,57 +104,7 @@ func (t *Trigger) Validate() error {
 		return ErrTriggerMissingFnID
 	}
 
-	if !validTriggerType(t.Type) {
-		return ErrTriggerTypeUnknown
-	}
-
-	if t.Source == "" {
-		return ErrTriggerMissingSource
-	}
-
-	err := t.Annotations.Validate()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (t *Trigger) ValidCreate() error {
-
-	if t.ID != "" {
-		return ErrTriggerIDProvided
-	}
-
-	if !time.Time(t.CreatedAt).IsZero() {
-		return ErrCreatedAtProvided
-	}
-	if !time.Time(t.UpdatedAt).IsZero() {
-		return ErrUpdatedAtProvided
-	}
-
-	if t.Name == "" {
-		return ErrTriggerMissingName
-	}
-
-	if len(t.Name) > maxTriggerName {
-		return ErrTriggerTooLongName
-	}
-	for _, c := range t.Name {
-		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
-			return ErrTriggerInvalidName
-		}
-	}
-
-	if t.AppID == "" {
-		return ErrTriggerMissingAppID
-	}
-
-	if t.FnID == "" {
-		return ErrTriggerMissingFnID
-	}
-
-	if !validTriggerType(t.Type) {
+	if !ValidTriggerType(t.Type) {
 		return ErrTriggerTypeUnknown
 	}
 

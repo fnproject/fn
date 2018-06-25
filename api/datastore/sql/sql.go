@@ -1148,13 +1148,14 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, newTrigger *models.Trigge
 
 	trigger := newTrigger.Clone()
 
-	err := trigger.ValidCreate()
-	if err != nil {
-		return nil, err
-	}
 	trigger.CreatedAt = common.DateTime(time.Now())
 	trigger.UpdatedAt = trigger.CreatedAt
 	trigger.ID = id.New().String()
+
+	err := trigger.Validate()
+	if err != nil {
+		return nil, err
+	}
 
 	err = ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)

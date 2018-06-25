@@ -5,12 +5,13 @@ import (
 	"sort"
 	"strings"
 
+	"time"
+
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"time"
 )
 
 type mock struct {
@@ -386,14 +387,16 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 			return nil, models.ErrTriggerExists
 		}
 	}
-	err = trigger.ValidCreate()
-	if err != nil {
-		return nil, err
-	}
+
 	cl := trigger.Clone()
 	cl.CreatedAt = common.DateTime(time.Now())
 	cl.UpdatedAt = cl.CreatedAt
 	cl.ID = id.New().String()
+
+	err = trigger.Validate()
+	if err != nil {
+		return nil, err
+	}
 	m.Triggers = append(m.Triggers, cl)
 	return cl.Clone(), nil
 }

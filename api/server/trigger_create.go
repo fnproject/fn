@@ -21,11 +21,6 @@ func (s *Server) handleTriggerCreate(c *gin.Context) {
 		return
 	}
 
-	if err = trigger.ValidCreate(); err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
 	triggerCreated, err := s.datastore.InsertTrigger(ctx, trigger)
 	if err != nil {
 		handleErrorResponse(c, err)
