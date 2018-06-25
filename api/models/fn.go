@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-	"unicode"
 
 	"github.com/fnproject/fn/api/common"
 )
@@ -184,54 +183,6 @@ func (f *Fn) Validate() error {
 	}
 
 	if f.Memory < 1 || f.Memory > MaxMemory {
-		return ErrInvalidMemory
-	}
-
-	return f.Annotations.Validate()
-}
-
-func (f *Fn) ValidCreate() error {
-
-	if f.ID != "" {
-		return ErrFnsIDProvided
-	}
-
-	if f.Name == "" {
-		return ErrFnsMissingName
-	}
-
-	if len(f.Name) > maxFnName {
-		return ErrFnsTooLongName
-	}
-	for _, c := range f.Name {
-		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
-			return ErrFnsInvalidName
-		}
-	}
-
-	if f.AppID == "" {
-		return ErrFnsMissingAppID
-	}
-
-	if f.Image == "" {
-		return ErrFnsMissingImage
-	}
-
-	switch f.Format {
-	case "", FormatDefault, FormatHTTP, FormatJSON, FormatCloudEvent:
-	default:
-		return ErrFnsInvalidFormat
-	}
-
-	if f.Timeout < 0 || f.Timeout > MaxTimeout {
-		return ErrFnsInvalidTimeout
-	}
-
-	if f.IdleTimeout < 0 || f.IdleTimeout > MaxIdleTimeout {
-		return ErrFnsInvalidIdleTimeout
-	}
-
-	if f.Memory < 0 || f.Memory > MaxMemory {
 		return ErrInvalidMemory
 	}
 

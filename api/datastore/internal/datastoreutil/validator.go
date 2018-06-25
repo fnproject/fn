@@ -156,6 +156,9 @@ func (v *validator) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 	if fn == nil {
 		return nil, models.ErrDatastoreEmptyFn
 	}
+	if fn.ID != "" {
+		return nil, models.ErrFnsIDProvided
+	}
 	if fn.AppID == "" {
 		return nil, models.ErrFnsMissingAppID
 	}

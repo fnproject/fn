@@ -276,14 +276,14 @@ func (m *mock) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) 
 			return nil, models.ErrFnsExists
 		}
 	}
-	err = fn.ValidCreate()
-	if err != nil {
-		return nil, err
-	}
 	cl := fn.Clone()
 	cl.ID = id.New().String()
 	cl.CreatedAt = common.DateTime(time.Now())
 	cl.UpdatedAt = cl.CreatedAt
+	err = fn.Validate()
+	if err != nil {
+		return nil, err
+	}
 
 	m.Fns = append(m.Fns, cl)
 

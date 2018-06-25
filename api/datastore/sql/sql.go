@@ -739,15 +739,15 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 }
 
 func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn, error) {
-	err := newFn.ValidCreate()
-	if err != nil {
-		return nil, err
-	}
-
 	fn := newFn.Clone()
 	fn.ID = id.New().String()
 	fn.CreatedAt = common.DateTime(time.Now())
 	fn.UpdatedAt = fn.CreatedAt
+
+	err := newFn.Validate()
+	if err != nil {
+		return nil, err
+	}
 
 	err = ds.Tx(func(tx *sqlx.Tx) error {
 
