@@ -227,14 +227,14 @@ paths:
     put:
       operationId: "UpdateFn"
       summary: "Updates a fn"
-      description: "Updates a Function."
+      description: "Updates a Function via merging the provided values."
       tags:
         - Fns
       parameters:
         - $ref: '#/parameters/FnID'
         - name: body
           in: body
-          description: Fn to upsert
+          description: Fn data to merge with current value
           required: true
           schema:
             $ref: '#/definitions/Fn'
@@ -356,14 +356,14 @@ paths:
     put:
       operationId: "UpdateTrigger"
       summary: Update a Trigger
-      description: Updates a Trigger.
+      description: Updates a Trigger by merging the provided values.
       tags:
         - Triggers
       parameters:
         - $ref: '#/parameters/TriggerID'
         - name: body
           in: body
-          description: Trigger to create.
+          description: Trigger values to merge into current value.
           required: true
           schema:
             $ref: '#/definitions/Trigger'
