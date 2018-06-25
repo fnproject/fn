@@ -331,7 +331,7 @@ func TestTriggerUpdate(t *testing.T) {
 	}{
 		{commonDS, logs.NewMock(), BaseRoute + "/notexist", `{"id": "triggerid", "name":"changed"}`, "", http.StatusBadRequest, nil},
 		{commonDS, logs.NewMock(), BaseRoute + "/notexist", `{"id": "notexist", "name":"changed"}`, "", http.StatusNotFound, nil},
-		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "nonmatching", "name":"changed}`, "", http.StatusBadRequest, models.ErrIDMismatch},
+		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "nonmatching", "name":"changed}`, "", http.StatusBadRequest, models.ErrTriggerIDMismatch},
 		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "triggerid", "name":"changed"}`, "changed", http.StatusOK, nil},
 		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"name":"again"}`, "again", http.StatusOK, nil},
 	} {

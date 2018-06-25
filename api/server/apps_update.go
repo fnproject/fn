@@ -29,7 +29,7 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 		app.ID = id
 	}
 	if app.ID != id {
-		handleErrorResponse(c, models.ErrIDMismatch)
+		handleErrorResponse(c, models.ErrAppsIDMismatch)
 		return
 	}
 	app, err = s.datastore.UpdateApp(ctx, app)

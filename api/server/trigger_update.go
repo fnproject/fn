@@ -27,7 +27,7 @@ func (s *Server) handleTriggerUpdate(c *gin.Context) {
 		trigger.ID = pathTriggerID
 	} else {
 		if pathTriggerID != trigger.ID {
-			handleV1ErrorResponse(c, models.ErrIDMismatch)
+			handleV1ErrorResponse(c, models.ErrTriggerIDMismatch)
 		}
 	}
 

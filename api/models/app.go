@@ -21,6 +21,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("App ID cannot be supplied on create"),
 	}
+	ErrAppsIDMismatch = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("App ID in path does not match ID in body"),
+	}
 	ErrAppsMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app name"),

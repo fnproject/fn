@@ -26,9 +26,6 @@ var (
 		code:  http.StatusServiceUnavailable,
 		error: errors.New("Timed out - server too busy"),
 	}
-	ErrIDMismatch = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("ID in path does not match ID in body")}
 
 	ErrMissingID = err{
 		code:  http.StatusBadRequest,
