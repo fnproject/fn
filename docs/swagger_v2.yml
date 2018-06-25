@@ -148,7 +148,7 @@ paths:
   /fns:
     get:
       operationId: "ListFns"
-      summary: "Get a list of Functions within an Application"
+      summary: "Get A list Of Functions Within An Application"
       description: "Get a filtered list of Functions for an Application, in alphabetical order."
       tags:
         - Fns
@@ -204,7 +204,7 @@ paths:
   /fns/{fnID}:
     delete:
       operationId: "DeleteFn"
-      summary: "Delete a Function."
+      summary: "Delete A Function"
       description: "Delete the specified Function."
       tags:
         - Fns
@@ -223,7 +223,7 @@ paths:
             $ref: '#/definitions/Error'
     get:
       operationId: "GetFn"
-      summary: "Get definition of a Function."
+      summary: "Get Definition Of A Function"
       description: "Gets the definition for the Function with the specified ID."
       tags:
         - Fns
