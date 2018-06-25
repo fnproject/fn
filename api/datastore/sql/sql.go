@@ -1316,6 +1316,11 @@ func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{
 		args = append(args, filter.FnID)
 	}
 
+	if filter.Name != "" {
+		fmt.Fprintf(&b, ` AND name = ?`)
+		args = append(args, filter.Name)
+	}
+
 	if filter.Cursor != "" {
 		fmt.Fprintf(&b, ` AND id > ?`)
 		args = append(args, filter.Cursor)

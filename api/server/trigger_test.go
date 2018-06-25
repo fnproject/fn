@@ -197,11 +197,11 @@ func TestTriggerList(t *testing.T) {
 		[]*models.App{app1, app2},
 		[]*models.Fn{fn1, fn2, fn3},
 		[]*models.Trigger{
-			{ID: "trigger1", AppID: app1.ID, FnID: fn1.ID},
-			{ID: "trigger2", AppID: app1.ID, FnID: fn1.ID},
-			{ID: "trigger3", AppID: app1.ID, FnID: fn1.ID},
-			{ID: "trigger4", AppID: app1.ID, FnID: fn2.ID},
-			{ID: "trigger5", AppID: app2.ID, FnID: fn3.ID},
+			{ID: "trigger1", AppID: app1.ID, FnID: fn1.ID, Name: "trigger1"},
+			{ID: "trigger2", AppID: app1.ID, FnID: fn1.ID, Name: "trigger2"},
+			{ID: "trigger3", AppID: app1.ID, FnID: fn1.ID, Name: "trigger3"},
+			{ID: "trigger4", AppID: app1.ID, FnID: fn2.ID, Name: "trigger4"},
+			{ID: "trigger5", AppID: app2.ID, FnID: fn3.ID, Name: "trigger5"},
 		},
 	)
 	fnl := logs.NewMock()
@@ -221,6 +221,7 @@ func TestTriggerList(t *testing.T) {
 	}{
 		{"/v2/triggers?per_page", "", http.StatusBadRequest, nil, 0, ""},
 		{"/v2/triggers?app_id=app_id1", "", http.StatusOK, nil, 4, ""},
+		{"/v2/triggers?app_id=app_id1&name=trigger1", "", http.StatusOK, nil, 1, ""},
 		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1", "", http.StatusOK, nil, 3, ""},
 		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page", "", http.StatusOK, nil, 3, ""},
 		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page=1", "", http.StatusOK, nil, 1, a1b},

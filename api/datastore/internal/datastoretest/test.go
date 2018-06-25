@@ -1229,8 +1229,21 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				}
 			}
 
-			appIDPagedFilter := &models.TriggerFilter{AppID: testApp.ID,
-				PerPage: 5}
+			NameFilter := &models.TriggerFilter{AppID: testApp.ID, Name: storedTriggers[0].Name}
+			triggers, err = ds.GetTriggers(ctx, NameFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(filter by name), not expecting err %s", err)
+			}
+
+			if len(triggers) != 1 {
+				t.Fatalf("Test GetTriggers(filter by name), expecting 1 results, got %d", len(triggers))
+			}
+
+			if !triggers[0].Equals(storedTriggers[0]) {
+				t.Fatalf("expect single result to equal first stored result : %#v != %#v", triggers[4], storedTriggers[4])
+			}
+
+			appIDPagedFilter := &models.TriggerFilter{AppID: testApp.ID, PerPage: 5}
 			triggers, err = ds.GetTriggers(ctx, appIDPagedFilter)
 			if err != nil {
 				t.Fatalf("Test GetTriggers(page triggers for app), not expecting err %s", err)

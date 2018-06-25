@@ -21,6 +21,7 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 	}
 
 	filter.FnID = c.Query("fn_id")
+	filter.Name = c.Query("name")
 
 	triggers, err := s.datastore.GetTriggers(ctx, filter)
 	if err != nil {

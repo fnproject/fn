@@ -173,6 +173,7 @@ func (t *Trigger) Update(patch *Trigger) {
 type TriggerFilter struct {
 	AppID string // this is exact match
 	FnID  string // this is exact match
+	Name  string // exact match
 
 	Cursor  string
 	PerPage int

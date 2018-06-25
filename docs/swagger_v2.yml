@@ -284,6 +284,11 @@ paths:
       parameters:
         - $ref: '#/parameters/AppIDQuery'
         - $ref: '#/parameters/FnIDQuery'
+        - name: name
+          in: query
+          description: Trigger name to filter by
+          required: false
+          type: string
         - $ref: '#/parameters/cursor'
         - $ref: '#/parameters/perPage'
       responses:
@@ -356,6 +361,12 @@ paths:
         - Triggers
       parameters:
         - $ref: '#/parameters/TriggerID'
+        - name: body
+          in: body
+          description: Trigger to create.
+          required: true
+          schema:
+            $ref: '#/definitions/Trigger'
       responses:
         200:
           description: Created Triggers data
