@@ -175,16 +175,16 @@ func (e *extds) UpdateRoute(ctx context.Context, route *models.Route) (*models.R
 	return route, err
 }
 
-func (e *extds) RemoveRoute(ctx context.Context, appName string, routePath string) error {
-	err := e.rl.BeforeRouteDelete(ctx, appName, routePath)
+func (e *extds) RemoveRoute(ctx context.Context, appId string, routePath string) error {
+	err := e.rl.BeforeRouteDelete(ctx, appId, routePath)
 	if err != nil {
 		return err
 	}
-	err = e.Datastore.RemoveRoute(ctx, appName, routePath)
+	err = e.Datastore.RemoveRoute(ctx, appId, routePath)
 	if err != nil {
 		return err
 	}
-	return e.rl.AfterRouteDelete(ctx, appName, routePath)
+	return e.rl.AfterRouteDelete(ctx, appId, routePath)
 }
 
 func (e *extds) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {

@@ -51,9 +51,9 @@ type RouteListener interface {
 	// AfterRouteUpdate called after route updated in datastore
 	AfterRouteUpdate(ctx context.Context, route *models.Route) error
 	// BeforeRouteDelete called before route deleted from the datastore
-	BeforeRouteDelete(ctx context.Context, appName string, routePath string) error
+	BeforeRouteDelete(ctx context.Context, appId string, routePath string) error
 	// AfterRouteDelete called after route deleted from the datastore
-	AfterRouteDelete(ctx context.Context, appName string, routePath string) error
+	AfterRouteDelete(ctx context.Context, appId string, routePath string) error
 }
 
 // FnListener enables callbacks around Fn events
