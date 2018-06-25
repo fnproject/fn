@@ -102,6 +102,7 @@ func TestFnCreate(t *testing.T) {
 
 		// success create & update
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusOK, nil},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusConflict, models.ErrFnsExists},
 	} {
 		test.run(t, i, buf)
 	}
@@ -190,32 +191,41 @@ func TestFnList(t *testing.T) {
 	r1b := id.New().String()
 	r2b := id.New().String()
 	r3b := id.New().String()
+	r4b := id.New().String()
 
 	fn1 := "myfunc1"
 	fn2 := "myfunc2"
 	fn3 := "myfunc3"
+	fn4 := "myfunc3"
 
-	app := &models.App{Name: "myapp", ID: "app_id"}
+	app1 := &models.App{Name: "myapp1", ID: "app_id1"}
+	app2 := &models.App{Name: "myapp2", ID: "app_id2"}
 	ds := datastore.NewMockInit(
-		[]*models.App{app},
+		[]*models.App{app1, app2},
 		[]*models.Fn{
 			{
 				ID:    r1b,
 				Name:  fn1,
-				AppID: app.ID,
+				AppID: app1.ID,
 				Image: "fnproject/fn-test-utils",
 			},
 			{
 				ID:    r2b,
 				Name:  fn2,
-				AppID: app.ID,
+				AppID: app1.ID,
 				Image: "fnproject/fn-test-utils",
 			},
 			{
 				ID:    r3b,
 				Name:  fn3,
-				AppID: app.ID,
+				AppID: app1.ID,
 				Image: "fnproject/yo",
+			},
+			{
+				ID:    r4b,
+				Name:  fn4,
+				AppID: app2.ID,
+				Image: "fnproject/foo",
 			},
 		},
 	)
@@ -233,12 +243,12 @@ func TestFnList(t *testing.T) {
 		nextCursor    string
 	}{
 		{"/v2/fns", "", http.StatusBadRequest, models.ErrFnsMissingAppID, 0, ""},
-		{fmt.Sprintf("/v2/fns?app_id=%s", app.ID), "", http.StatusOK, nil, 3, ""},
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1", app.ID), "", http.StatusOK, nil, 1, fn1},
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app.ID, fn1), "", http.StatusOK, nil, 1, fn2},
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app.ID, fn2), "", http.StatusOK, nil, 1, fn3},
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=100&cursor=%s", app.ID, fn3), "", http.StatusOK, nil, 0, ""}, // cursor is empty if per_page > len(results)
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app.ID, fn3), "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
+		{fmt.Sprintf("/v2/fns?app_id=%s", app1.ID), "", http.StatusOK, nil, 3, ""},
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1", app1.ID), "", http.StatusOK, nil, 1, fn1},
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn1), "", http.StatusOK, nil, 1, fn2},
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn2), "", http.StatusOK, nil, 1, fn3},
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=100&cursor=%s", app1.ID, fn3), "", http.StatusOK, nil, 0, ""}, // cursor is empty if per_page > len(results)
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn3), "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 

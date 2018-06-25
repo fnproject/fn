@@ -2,9 +2,8 @@ package server
 
 import (
 	"bytes"
-	//"encoding/base64"
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -189,23 +188,28 @@ func TestTriggerList(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	app := &models.App{ID: "app_id", Name: "myapp"}
-	fn := &models.Fn{Name: "myfn"}
-	fn.SetDefaults()
+	app1 := &models.App{ID: "app_id1", Name: "myapp1"}
+	app2 := &models.App{ID: "app_id2", Name: "myapp2"}
+	fn1 := &models.Fn{ID: "fn_id1", Name: "myfn1"}
+	fn2 := &models.Fn{ID: "fn_id2", Name: "myfn2"}
+	fn3 := &models.Fn{ID: "fn_id3", Name: "myfn3"}
 	ds := datastore.NewMockInit(
-		[]*models.App{app},
+		[]*models.App{app1, app2},
+		[]*models.Fn{fn1, fn2, fn3},
 		[]*models.Trigger{
-			{ID: "trigger1", AppID: app.ID, FnID: fn.ID},
-			{ID: "trigger2", AppID: app.ID, FnID: fn.ID},
-			{ID: "trigger3", AppID: app.ID, FnID: fn.ID},
+			{ID: "trigger1", AppID: app1.ID, FnID: fn1.ID},
+			{ID: "trigger2", AppID: app1.ID, FnID: fn1.ID},
+			{ID: "trigger3", AppID: app1.ID, FnID: fn1.ID},
+			{ID: "trigger4", AppID: app1.ID, FnID: fn2.ID},
+			{ID: "trigger5", AppID: app2.ID, FnID: fn3.ID},
 		},
 	)
 	fnl := logs.NewMock()
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
-	//a1b := base64.RawURLEncoding.EncodeToString([]byte("trigger1"))
-	//a2b := base64.RawURLEncoding.EncodeToString([]byte("trigger2"))
-	//a3b := base64.RawURLEncoding.EncodeToString([]byte("trigger3"))
+	a1b := base64.RawURLEncoding.EncodeToString([]byte("trigger1"))
+	a2b := base64.RawURLEncoding.EncodeToString([]byte("trigger2"))
+	a3b := base64.RawURLEncoding.EncodeToString([]byte("trigger3"))
 
 	for i, test := range []struct {
 		path          string
@@ -216,13 +220,14 @@ func TestTriggerList(t *testing.T) {
 		nextCursor    string
 	}{
 		{"/v2/triggers?per_page", "", http.StatusBadRequest, nil, 0, ""},
-		{fmt.Sprintf("/v2/triggers?app_id=%s", app.ID), "", http.StatusOK, nil, 3, ""},
-		//"/v2/triggers?app_id=appid&fn_id=fnid&per_page", "", http.StatusOK, nil, 1, ""},
-		//"/v2/triggers?app_id=appid&per_page=1", "", http.StatusOK, nil, 1, a1b},
-		//"/v2/triggers?app_id=appid&per_page=1&cursor=" + a1b, "", http.StatusOK, nil, 1, a2b},
-		//"/v2/triggers?app_id=appid&per_page=1&cursor=" + a2b, "", http.StatusOK, nil, 1, a3b},
-		//"/v2/triggers?app_id=appid&per_page=100&cursor=" + a2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
-		//"/v2/triggers?app_id=appid&per_page=1&cursor=" + a3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
+		{"/v2/triggers?app_id=app_id1", "", http.StatusOK, nil, 4, ""},
+		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1", "", http.StatusOK, nil, 3, ""},
+		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page", "", http.StatusOK, nil, 3, ""},
+		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page=1", "", http.StatusOK, nil, 1, a1b},
+		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page=1&cursor=" + a1b, "", http.StatusOK, nil, 1, a2b},
+		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page=1&cursor=" + a2b, "", http.StatusOK, nil, 1, a3b},
+		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page=100&cursor=" + a2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
+		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page=1&cursor=" + a3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
@@ -249,7 +254,7 @@ func TestTriggerList(t *testing.T) {
 				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
 			}
 			if len(resp.Items) != test.expectedLen {
-				t.Errorf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Items))
+				t.Errorf("Test %d: Expected triggers length to be %d, but got %d", i, test.expectedLen, len(resp.Items))
 			}
 			if resp.NextCursor != test.nextCursor {
 				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)

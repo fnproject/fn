@@ -61,6 +61,7 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "teste"  }`, http.StatusOK, nil},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{  "name": "teste" , "annotations": {"k1":"v1", "k2":[]}}`, http.StatusOK, nil},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "teste", "syslog_url":"tcp://example.com:443" } `, http.StatusOK, nil},
+		{datastore.NewMockInit([]*models.App{&models.App{ID: "appid", Name: "teste"}}), logs.NewMock(), "/v2/apps", `{ "name": "teste"  }`, http.StatusConflict, models.ErrAppsAlreadyExists},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)

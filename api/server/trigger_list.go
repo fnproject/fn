@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
@@ -21,7 +20,7 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 		handleErrorResponse(c, models.ErrTriggerMissingAppID)
 	}
 
-	filter.FnID = c.Query(api.ParamFnID)
+	filter.FnID = c.Query("fn_id")
 
 	triggers, err := s.datastore.GetTriggers(ctx, filter)
 	if err != nil {
