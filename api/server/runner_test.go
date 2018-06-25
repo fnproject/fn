@@ -60,8 +60,7 @@ func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelF
 
 func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 	)
@@ -90,7 +89,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
@@ -104,8 +103,7 @@ func TestRouteRunnerGet(t *testing.T) {
 func TestRouteRunnerPost(t *testing.T) {
 	buf := setLogBuffer()
 
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 	)
@@ -136,7 +134,7 @@ func TestRouteRunnerPost(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 			respMsg := resp.Error.Message
 			expMsg := test.expectedError.Error()
 			if respMsg != expMsg && !strings.Contains(respMsg, expMsg) {
@@ -162,8 +160,7 @@ func TestRouteRunnerExecEmptyBody(t *testing.T) {
 	rHdr := map[string][]string{"X-Function": {"Test"}}
 	rImg := "fnproject/fn-test-utils"
 
-	app := &models.App{Name: "soup"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "soup"}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -243,8 +240,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rImgBs1 := "fnproject/imagethatdoesnotexist"
 	rImgBs2 := "localhost:5050/fnproject/imagethatdoesnotexist"
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp"}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -454,8 +450,7 @@ func (mock *errorMQ) Code() int                                                {
 func (mock *errorMQ) Close() error                                             { return nil }
 func TestFailedEnqueue(t *testing.T) {
 	buf := setLogBuffer()
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -503,8 +498,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	models.RouteMaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
 	hugeMem := uint64(models.RouteMaxMemory - 1)
 
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -577,8 +571,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 	buf := setLogBuffer()
 
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -638,30 +631,3 @@ func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 		}
 	}
 }
-
-//func TestMatchRoute(t *testing.T) {
-//buf := setLogBuffer()
-//for i, test := range []struct {
-//baseRoute      string
-//route          string
-//expectedParams []Param
-//}{
-//{"/myroute/", `/myroute/`, nil},
-//{"/myroute/:mybigparam", `/myroute/1`, []Param{{"mybigparam", "1"}}},
-//{"/:param/*test", `/1/2`, []Param{{"param", "1"}, {"test", "/2"}}},
-//} {
-//if params, match := matchRoute(test.baseRoute, test.route); match {
-//if test.expectedParams != nil {
-//for j, param := range test.expectedParams {
-//if params[j].Key != param.Key || params[j].Value != param.Value {
-//t.Log(buf.String())
-//t.Errorf("Test %d: expected param %d, key = %s, value = %s", i, j, param.Key, param.Value)
-//}
-//}
-//}
-//} else {
-//t.Log(buf.String())
-//t.Errorf("Test %d: %s should match %s", i, test.route, test.baseRoute)
-//}
-//}
-//}

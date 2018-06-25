@@ -24,8 +24,7 @@ func TestCallGet(t *testing.T) {
 		}
 	}()
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{Name: "myapp", ID: "app_id"}
 	call := &models.Call{
 		AppID: app.ID,
 		ID:    id.New().String(),
@@ -73,7 +72,7 @@ func TestCallGet(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(resp.Error.Message)
@@ -94,8 +93,7 @@ func TestCallList(t *testing.T) {
 		}
 	}()
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{Name: "myapp", ID: "app_id"}
 
 	call := &models.Call{
 		AppID: app.ID,
@@ -168,7 +166,7 @@ func TestCallList(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if resp.Error == nil || !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s`, got: `%s`",

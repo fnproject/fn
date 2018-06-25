@@ -6,7 +6,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"github.com/fnproject/fn/api/models"
-	"github.com/jmoiron/sqlx"
 )
 
 func MetricDS(ds models.Datastore) models.Datastore {
@@ -83,8 +82,66 @@ func (m *metricds) RemoveRoute(ctx context.Context, appID string, routePath stri
 	return m.ds.RemoveRoute(ctx, appID, routePath)
 }
 
-// instant & no context ;)
-func (m *metricds) GetDatabase() *sqlx.DB { return m.ds.GetDatabase() }
+func (m *metricds) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_insert_trigger")
+	defer span.End()
+	return m.ds.InsertTrigger(ctx, trigger)
+
+}
+
+func (m *metricds) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_update_trigger")
+	defer span.End()
+	return m.ds.UpdateTrigger(ctx, trigger)
+}
+
+func (m *metricds) RemoveTrigger(ctx context.Context, triggerID string) error {
+	ctx, span := trace.StartSpan(ctx, "ds_remove_trigger")
+	defer span.End()
+	return m.ds.RemoveTrigger(ctx, triggerID)
+}
+
+func (m *metricds) GetTriggerByID(ctx context.Context, triggerID string) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_trigger_by_id")
+	defer span.End()
+	return m.ds.GetTriggerByID(ctx, triggerID)
+}
+
+func (m *metricds) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_triggers")
+	defer span.End()
+	return m.ds.GetTriggers(ctx, filter)
+}
+
+func (m *metricds) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_insert_func")
+	defer span.End()
+	return m.ds.InsertFn(ctx, fn)
+}
+
+func (m *metricds) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_insert_func")
+	defer span.End()
+	return m.ds.UpdateFn(ctx, fn)
+}
+
+func (m *metricds) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_funcs")
+	defer span.End()
+	return m.ds.GetFns(ctx, filter)
+}
+
+func (m *metricds) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_func")
+	defer span.End()
+	return m.ds.GetFnByID(ctx, fnID)
+}
+
+func (m *metricds) RemoveFn(ctx context.Context, fnID string) error {
+	ctx, span := trace.StartSpan(ctx, "ds_remove_func")
+	defer span.End()
+	return m.ds.RemoveFn(ctx, fnID)
+}
 
 // Close calls Close on the underlying Datastore
 func (m *metricds) Close() error {

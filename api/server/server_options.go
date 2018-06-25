@@ -57,7 +57,7 @@ func limitRequestBody(max int64) func(c *gin.Context) {
 		if cl > max {
 			// try to deny this quickly, instead of just letting it get lopped off
 
-			handleErrorResponse(c, errTooBig{cl, max})
+			handleV1ErrorResponse(c, errTooBig{cl, max})
 			c.Abort()
 			return
 		}

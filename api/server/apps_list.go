@@ -13,6 +13,10 @@ func (s *Server) handleAppList(c *gin.Context) {
 
 	filter := &models.AppFilter{}
 	filter.Cursor, filter.PerPage = pageParams(c, true)
+	name := c.Query("name")
+	if name != "" {
+		filter.NameIn = []string{name}
+	}
 
 	apps, err := s.datastore.GetApps(ctx, filter)
 	if err != nil {
@@ -26,9 +30,8 @@ func (s *Server) handleAppList(c *gin.Context) {
 		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
-	c.JSON(http.StatusOK, appsResponse{
-		Message:    "Successfully listed applications",
+	c.JSON(http.StatusOK, appListResponse{
 		NextCursor: nextCursor,
-		Apps:       apps,
+		Items:      apps,
 	})
 }

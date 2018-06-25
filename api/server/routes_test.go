@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -40,7 +41,7 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 	}
 
 	if test.expectedError != nil {
-		resp := getErrorResponse(t, rec)
+		resp := getV1ErrorResponse(t, rec)
 		if resp.Error == nil {
 			t.Log(buf.String())
 			t.Errorf("Test %d: Expected error message to have `%s`, but it was nil",
@@ -98,8 +99,7 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 func TestRouteCreate(t *testing.T) {
 	buf := setLogBuffer()
 
-	a := &models.App{Name: "a"}
-	a.SetDefaults()
+	a := &models.App{Name: "a", ID: "app_id"}
 	commonDS := datastore.NewMockInit([]*models.App{a})
 	for i, test := range []routeTestCase{
 		// errors
@@ -133,8 +133,7 @@ func TestRouteCreate(t *testing.T) {
 func TestRoutePut(t *testing.T) {
 	buf := setLogBuffer()
 
-	a := &models.App{Name: "a"}
-	a.SetDefaults()
+	a := &models.App{Name: "a", ID: "app_id"}
 	commonDS := datastore.NewMockInit([]*models.App{a})
 
 	for i, test := range []routeTestCase{
@@ -153,15 +152,17 @@ func TestRoutePut(t *testing.T) {
 		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
 		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusOK, nil},
 	} {
-		test.run(t, i, buf)
+		t.Run(fmt.Sprintf("case %d", i),
+			func(t *testing.T) {
+				test.run(t, i, buf)
+			})
 	}
 }
 
 func TestRouteDelete(t *testing.T) {
 	buf := setLogBuffer()
 
-	a := &models.App{Name: "a"}
-	a.SetDefaults()
+	a := &models.App{Name: "a", ID: "app_id"}
 	routes := []*models.Route{{AppID: a.ID, Path: "/myroute"}}
 	commonDS := datastore.NewMockInit([]*models.App{a}, routes)
 
@@ -188,7 +189,7 @@ func TestRouteDelete(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
@@ -206,8 +207,7 @@ func TestRouteList(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{Name: "myapp", ID: "app_id"}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -262,7 +262,7 @@ func TestRouteList(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
@@ -315,7 +315,7 @@ func TestRouteGet(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())

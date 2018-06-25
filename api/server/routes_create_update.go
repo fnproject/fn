@@ -30,20 +30,20 @@ func (s *Server) handleRoutesPostPut(c *gin.Context) {
 	var wroute models.RouteWrapper
 	err := bindRoute(c, method, &wroute)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
-	appName := c.MustGet(api.App).(string)
+	appName := c.MustGet(api.AppName).(string)
 
 	appID, err := s.ensureApp(ctx, appName, method)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
 	resp, err := s.ensureRoute(ctx, appID, &wroute, method)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
@@ -57,14 +57,14 @@ func (s *Server) handleRoutesPatch(c *gin.Context) {
 	var wroute models.RouteWrapper
 	err := bindRoute(c, method, &wroute)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 	appID := c.MustGet(api.AppID).(string)
 
 	resp, err := s.ensureRoute(ctx, appID, &wroute, method)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
@@ -72,6 +72,9 @@ func (s *Server) handleRoutesPatch(c *gin.Context) {
 }
 
 func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) error {
+	if wroute.Route != nil {
+		wroute.Route.SetDefaults()
+	}
 	r, err := s.datastore.InsertRoute(ctx, wroute.Route)
 	if err != nil {
 		return err

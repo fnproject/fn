@@ -32,11 +32,11 @@ func (c *middlewareController) CallFunction(w http.ResponseWriter, r *http.Reque
 
 	// since we added middleware that checks the app ID
 	// we need to ensure that we set it as soon as possible
-	appName := ctx.Value(api.CApp).(string)
+	appName := ctx.Value(api.AppName).(string)
 	if appName != "" {
 		appID, err := c.server.datastore.GetAppID(ctx, appName)
 		if err != nil {
-			handleErrorResponse(c.ginContext, err)
+			handleV1ErrorResponse(c.ginContext, err)
 			c.ginContext.Abort()
 			return
 		}
@@ -78,7 +78,7 @@ func (s *Server) runMiddleware(c *gin.Context, ms []fnext.Middleware) {
 		err := recover()
 		if err != nil {
 			common.Logger(c.Request.Context()).WithField("MiddleWarePanicRecovery:", err).Errorln("A panic occurred during middleware.")
-			handleErrorResponse(c, ErrInternalServerError)
+			handleV1ErrorResponse(c, ErrInternalServerError)
 		}
 	}()
 

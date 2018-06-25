@@ -17,7 +17,6 @@ const (
 
 	MaxSyncTimeout  = 120  // 2 minutes
 	MaxAsyncTimeout = 3600 // 1 hour
-	MaxIdleTimeout  = MaxAsyncTimeout
 )
 
 var RouteMaxMemory = uint64(8 * 1024)
@@ -73,13 +72,6 @@ func (r *Route) SetDefaults() {
 		r.IdleTimeout = DefaultIdleTimeout
 	}
 
-	if time.Time(r.CreatedAt).IsZero() {
-		r.CreatedAt = common.DateTime(time.Now())
-	}
-
-	if time.Time(r.UpdatedAt).IsZero() {
-		r.UpdatedAt = common.DateTime(time.Now())
-	}
 }
 
 // Validate validates all field values, returning the first error, if any.

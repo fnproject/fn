@@ -38,11 +38,11 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	appID := c.MustGet(api.AppID).(string)
-	callID := c.Param(api.Call)
+	callID := c.Param(api.ParamCallID)
 
 	logReader, err := s.logstore.GetLog(ctx, appID, callID)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
@@ -70,6 +70,6 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	}
 
 	// if we've reached this point it means that Fn didn't recognize Accepted content type
-	handleErrorResponse(c, models.NewAPIError(http.StatusNotAcceptable,
+	handleV1ErrorResponse(c, models.NewAPIError(http.StatusNotAcceptable,
 		errors.New("unable to respond within acceptable response content types")))
 }

@@ -105,22 +105,24 @@ type Server struct {
 	Router      *gin.Engine
 	AdminRouter *gin.Engine
 
-	webListenPort   int
-	adminListenPort int
-	grpcListenPort  int
-	agent           agent.Agent
-	datastore       models.Datastore
-	mq              models.MessageQueue
-	logstore        models.LogStore
-	nodeType        ServerNodeType
-	cert            string
-	certKey         string
-	certAuthority   string
-	appListeners    *appListeners
-	routeListeners  *routeListeners
-	rootMiddlewares []fnext.Middleware
-	apiMiddlewares  []fnext.Middleware
-	promExporter    *prometheus.Exporter
+	webListenPort    int
+	adminListenPort  int
+	grpcListenPort   int
+	agent            agent.Agent
+	datastore        models.Datastore
+	mq               models.MessageQueue
+	logstore         models.LogStore
+	nodeType         ServerNodeType
+	cert             string
+	certKey          string
+	certAuthority    string
+	appListeners     *appListeners
+	routeListeners   *routeListeners
+	fnListeners      *fnListeners
+	triggerListeners *triggerListeners
+	rootMiddlewares  []fnext.Middleware
+	apiMiddlewares   []fnext.Middleware
+	promExporter     *prometheus.Exporter
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -549,9 +551,11 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 
 	s.appListeners = new(appListeners)
 	s.routeListeners = new(routeListeners)
+	s.fnListeners = new(fnListeners)
+	s.triggerListeners = new(triggerListeners)
 
 	s.datastore = datastore.Wrap(s.datastore)
-	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners)
+	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners, s.triggerListeners)
 	s.logstore = logs.Wrap(s.logstore)
 
 	return s
@@ -886,19 +890,21 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v1 := clean.Group("")
 			v1.Use(setAppNameInCtx)
 			v1.Use(s.apiMiddlewareWrapper())
-			v1.GET("/apps", s.handleAppList)
-			v1.POST("/apps", s.handleAppCreate)
+			v1.GET("/apps", s.handleV1AppList)
+			v1.POST("/apps", s.handleV1AppCreate)
 
 			{
-				apps := v1.Group("/apps/:app")
+				apps := v1.Group("/apps/:appName")
 				apps.Use(appNameCheck)
 
 				{
 					withAppCheck := apps.Group("")
 					withAppCheck.Use(s.checkAppPresenceByName())
-					withAppCheck.GET("", s.handleAppGetByName)
-					withAppCheck.PATCH("", s.handleAppUpdate)
-					withAppCheck.DELETE("", s.handleAppDelete)
+
+					withAppCheck.GET("", s.handleV1AppGetByName)
+					withAppCheck.PATCH("", s.handleV1AppUpdate)
+					withAppCheck.DELETE("", s.handleV1AppDelete)
+
 					withAppCheck.GET("/routes", s.handleRouteList)
 					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
 					withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
@@ -912,6 +918,30 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				apps.PUT("/routes/*route", s.handleRoutesPostPut)
 			}
 
+			cleanv2 := engine.Group("/v2")
+			v2 := cleanv2.Group("")
+			v2.Use(s.apiMiddlewareWrapper())
+
+			{
+				v2.GET("/apps", s.handleAppList)
+				v2.POST("/apps", s.handleAppCreate)
+				v2.GET("/apps/:appId", s.handleAppGet)
+				v2.PUT("/apps/:appId", s.handleAppUpdate)
+				v2.DELETE("/apps/:appId", s.handleAppDelete)
+
+				v2.GET("/fns", s.handleFnList)
+				v2.POST("/fns", s.handleFnCreate)
+				v2.GET("/fns/:fnId", s.handleFnGet)
+				v2.PUT("/fns/:fnId", s.handleFnUpdate)
+				v2.DELETE("/fns/:fnId", s.handleFnDelete)
+
+				v2.GET("/triggers", s.handleTriggerList)
+				v2.POST("/triggers", s.handleTriggerCreate)
+				v2.GET("/triggers/:triggerId", s.handleTriggerGet)
+				v2.PUT("/triggers/:triggerId", s.handleTriggerUpdate)
+				v2.DELETE("/triggers/:triggerId", s.handleTriggerDelete)
+			}
+
 			{
 				runner := clean.Group("/runner")
 				runner.PUT("/async", s.handleRunnerEnqueue)
@@ -920,10 +950,12 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				runner.POST("/start", s.handleRunnerStart)
 				runner.POST("/finish", s.handleRunnerFinish)
 
-				appsAPIV2 := runner.Group("/apps/:app")
-				appsAPIV2.Use(setAppNameInCtx)
-				appsAPIV2.GET("", s.handleAppGetByID)
-				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
+				runnerAppApi := runner.Group(
+
+					"/apps/:appId")
+				runnerAppApi.Use(setAppIDInCtx)
+				runnerAppApi.GET("", s.handleV1AppGetByName)
+				runnerAppApi.GET("/routes/:route", s.handleRouteGetRunner)
 
 			}
 		}
@@ -931,8 +963,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		if s.nodeType != ServerTypeAPI {
 			runner := engine.Group("/r")
 			runner.Use(s.checkAppPresenceByNameAtRunner())
-			runner.Any("/:app", s.handleFunctionCall)
-			runner.Any("/:app/*route", s.handleFunctionCall)
+			runner.Any("/:appName", s.handleFunctionCall)
+			runner.Any("/:appName/*route", s.handleFunctionCall)
 		}
 
 	}
@@ -948,7 +980,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			var e models.APIError = models.ErrPathNotFound
 			err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
 		}
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 	})
 
 }
@@ -986,7 +1018,8 @@ type appResponse struct {
 	App     *models.App `json:"app"`
 }
 
-type appsResponse struct {
+//TODO deprecate with V1
+type appsV1Response struct {
 	Message    string        `json:"message"`
 	NextCursor string        `json:"next_cursor"`
 	Apps       []*models.App `json:"apps"`
@@ -1012,4 +1045,19 @@ type callsResponse struct {
 	Message    string         `json:"message"`
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
+}
+
+type appListResponse struct {
+	NextCursor string        `json:"next_cursor"`
+	Items      []*models.App `json:"items"`
+}
+
+type fnListResponse struct {
+	NextCursor string       `json:"next_cursor"`
+	Items      []*models.Fn `json:"items"`
+}
+
+type triggerListResponse struct {
+	NextCursor string            `json:"next_cursor"`
+	Items      []*models.Trigger `json:"items"`
 }

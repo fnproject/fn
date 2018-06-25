@@ -65,7 +65,9 @@ func TestDatastore(t *testing.T) {
 		ds := f(t)
 		return datastoreutil.NewValidator(ds)
 	}
-	datastoretest.Test(t, f2)
+	t.Run(u.Scheme, func(t *testing.T) {
+		datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider())
+	})
 
 	// also logs
 	logstoretest.Test(t, f(t))
@@ -96,7 +98,7 @@ func TestDatastore(t *testing.T) {
 		}
 
 		// test fresh w/o migrations
-		datastoretest.Test(t, f2)
+		t.Run(u.Scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
 
 		// also test sql implements logstore
 		logstoretest.Test(t, f(t))
@@ -119,7 +121,7 @@ func TestDatastore(t *testing.T) {
 		}
 
 		// test that migrations work & things work with them
-		datastoretest.Test(t, f2)
+		t.Run(u.Scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
 
 		// also test sql implements logstore
 		logstoretest.Test(t, f(t))

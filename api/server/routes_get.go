@@ -14,7 +14,7 @@ func routeGet(s *Server, appID string, c *gin.Context) {
 	routePath := path.Clean("/" + c.MustGet(api.Path).(string))
 	route, err := s.datastore.GetRoute(ctx, appID, routePath)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
@@ -26,5 +26,5 @@ func (s *Server) handleRouteGetAPI(c *gin.Context) {
 }
 
 func (s *Server) handleRouteGetRunner(c *gin.Context) {
-	routeGet(s, c.Param(api.CApp), c)
+	routeGet(s, c.MustGet(api.AppID).(string), c)
 }

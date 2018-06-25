@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,7 +10,50 @@ import (
 	"unicode"
 
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/id"
+)
+
+var (
+	ErrAppsMissingID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app ID"),
+	}
+	ErrAppIDProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("App ID cannot be supplied on create"),
+	}
+	ErrAppsIDMismatch = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("App ID in path does not match ID in body"),
+	}
+	ErrAppsMissingName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app name"),
+	}
+	ErrAppsTooLongName = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("App name must be %v characters or less", maxAppName),
+	}
+	ErrAppsInvalidName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid app name"),
+	}
+	ErrAppsAlreadyExists = err{
+		code:  http.StatusConflict,
+		error: errors.New("App already exists"),
+	}
+	ErrAppsMissingNew = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing new application"),
+	}
+	ErrAppsNameImmutable = err{
+		code:  http.StatusConflict,
+		error: errors.New("Could not update - name is immutable"),
+	}
+
+	ErrAppsNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("App not found"),
+	}
 )
 
 type App struct {
@@ -22,25 +66,10 @@ type App struct {
 	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
-func (a *App) SetDefaults() {
-	if time.Time(a.CreatedAt).IsZero() {
-		a.CreatedAt = common.DateTime(time.Now())
-	}
-	if time.Time(a.UpdatedAt).IsZero() {
-		a.UpdatedAt = common.DateTime(time.Now())
-	}
-	if a.Config == nil {
-		// keeps the json from being nil
-		a.Config = map[string]string{}
-	}
-	if a.ID == "" {
-		a.ID = id.New().String()
-	}
-}
-
 func (a *App) Validate() error {
+
 	if a.Name == "" {
-		return ErrAppsMissingName
+		return ErrMissingName
 	}
 	if len(a.Name) > maxAppName {
 		return ErrAppsTooLongName
@@ -147,7 +176,6 @@ func (e ErrInvalidSyslog) Error() string { return string(e) }
 
 // AppFilter is the filter used for querying apps
 type AppFilter struct {
-	Name string
 	// NameIn will filter by all names in the list (IN query)
 	NameIn  []string
 	PerPage int
