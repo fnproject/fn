@@ -63,6 +63,9 @@ func TestTriggerCreate(t *testing.T) {
 
 		// // success
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusOK, nil},
+
+		//repeated name
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusConflict, nil},
 	} {
 
 		rnr, cancel := testRunner(t)
