@@ -31,19 +31,12 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing ID")}
 
-	ErrIDProvided = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("ID Provided for Create")}
-
 	ErrMissingAppID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing App ID")}
 	ErrMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Name")}
-	ErrTooLongName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Name Too Long")}
 
 	ErrCreatedAtProvided = err{
 		code:  http.StatusBadRequest,
