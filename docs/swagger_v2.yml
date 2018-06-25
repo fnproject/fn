@@ -179,25 +179,25 @@ paths:
       parameters:
         - name: body
           in: body
-          description: Function data to insert
+          description: "Function data to insert."
           required: true
           schema:
             $ref: '#/definitions/Fn'
       responses:
         200:
-          description: Function details.
+          description: "Function details."
           schema:
             $ref: '#/definitions/Fn'
         409:
-          description: Function with name already exists.
+          description: "Function with name already exists."
           schema:
              $ref: '#/definitions/Error'
         400:
-          description: Invalid Function
+          description: "Invalid Function"
           schema:
             $ref: '#/definitions/Error'
         default:
-          description: Error
+          description: "Error"
           schema:
             $ref: '#/definitions/Error'
 
@@ -252,7 +252,7 @@ paths:
         - $ref: '#/parameters/FnID'
         - name: body
           in: body
-          description: "Function data to merge with current values"
+          description: "Function data to merge with current values."
           required: true
           schema:
             $ref: '#/definitions/Fn'
