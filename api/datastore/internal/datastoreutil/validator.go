@@ -3,7 +3,6 @@ package datastoreutil
 import (
 	"context"
 	"time"
-	"unicode"
 
 	"github.com/fnproject/fn/api/models"
 )
@@ -141,40 +140,6 @@ func (v *validator) InsertTrigger(ctx context.Context, t *models.Trigger) (*mode
 	}
 	if !time.Time(t.UpdatedAt).IsZero() {
 		return nil, models.ErrUpdatedAtProvided
-	}
-
-	if t.Name == "" {
-		return nil, models.ErrTriggerMissingName
-	}
-
-	if len(t.Name) > models.MaxTriggerName {
-		return nil, models.ErrTriggerTooLongName
-	}
-	for _, c := range t.Name {
-		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
-			return nil, models.ErrTriggerInvalidName
-		}
-	}
-
-	if t.AppID == "" {
-		return nil, models.ErrTriggerMissingAppID
-	}
-
-	if t.FnID == "" {
-		return nil, models.ErrTriggerMissingFnID
-	}
-
-	if !models.ValidTriggerType(t.Type) {
-		return nil, models.ErrTriggerTypeUnknown
-	}
-
-	if t.Source == "" {
-		return nil, models.ErrTriggerMissingSource
-	}
-
-	err := t.Annotations.Validate()
-	if err != nil {
-		return nil, err
 	}
 
 	return v.Datastore.InsertTrigger(ctx, t)

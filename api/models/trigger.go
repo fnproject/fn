@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	"unicode"
 
 	"github.com/fnproject/fn/api/common"
 )
@@ -98,6 +99,15 @@ func (t *Trigger) Validate() error {
 
 	if t.AppID == "" {
 		return ErrTriggerMissingAppID
+	}
+
+	if len(t.Name) > MaxTriggerName {
+		return ErrTriggerTooLongName
+	}
+	for _, c := range t.Name {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
+			return ErrTriggerInvalidName
+		}
 	}
 
 	if t.FnID == "" {

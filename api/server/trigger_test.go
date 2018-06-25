@@ -46,14 +46,15 @@ func TestTriggerCreate(t *testing.T) {
 	}{
 		// errors
 		{commonDS, logs.NewMock(), BaseRoute, ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{commonDS, logs.NewMock(), BaseRoute, `{}`, http.StatusBadRequest, models.ErrTriggerMissingName},
+		{commonDS, logs.NewMock(), BaseRoute, `{}`, http.StatusNotFound, models.ErrAppsNotFound},
+		{commonDS, logs.NewMock(), BaseRoute, `{"app_id":"appid"}`, http.StatusNotFound, models.ErrFnsNotFound},
+		{commonDS, logs.NewMock(), BaseRoute, `{"app_id":"appid", "fn_id":"fnid"}`, http.StatusBadRequest, models.ErrTriggerMissingName},
 
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test" }`, http.StatusBadRequest, models.ErrTriggerMissingAppID},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "foo" }`, http.StatusBadRequest, models.ErrTriggerMissingFnID},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "foo", "fn_id": "foo "}`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
+		{commonDS, logs.NewMock(), BaseRoute, `{"app_id":"appid", "fn_id":"fnid", "name": "Test" }`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "appid", "fn_id": "fnid", "type":"http"}`, http.StatusBadRequest, models.ErrTriggerMissingSource},
 
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "1234567890123456789012345678901" } }`, http.StatusBadRequest, models.ErrTriggerTooLongName},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrTriggerInvalidName},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "1234567890123456789012345678901", "app_id": "appid", "fn_id": "fnid", "type":"http"}`, http.StatusBadRequest, models.ErrTriggerTooLongName},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "&&%@!#$#@$","app_id": "appid", "fn_id": "fnid", "type":"http" }`, http.StatusBadRequest, models.ErrTriggerInvalidName},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "id": "asdasca", "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerIDProvided},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "unsupported", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
