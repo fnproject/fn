@@ -95,7 +95,7 @@ func RegisterPlacerViews(tagKeys []string) {
 		createView(placedOKCountMeasure, view.Count(), tagKeys),
 		createView(retryTooBusyCountMeasure, view.Count(), tagKeys),
 		createView(retryErrorCountMeasure, view.Count(), tagKeys),
-		createView(placerLatencyMeasure, view.Distribution(1, 10, 25, 50, 200, 1000, 10000, 60000), tagKeys),
+		createView(placerLatencyMeasure, view.Distribution(1, 10, 25, 50, 200, 1000, 1500, 2000, 2500, 3000, 10000, 60000), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot create view")
