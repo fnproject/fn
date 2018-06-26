@@ -155,7 +155,7 @@ func TestFnDelete(t *testing.T) {
 		expectedError error
 	}{
 		{commonDS, logs.NewMock(), "/v2/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound},
-		{commonDS, logs.NewMock(), fmt.Sprintf("/v2/fns/%s", f.ID), "", http.StatusOK, nil},
+		{commonDS, logs.NewMock(), fmt.Sprintf("/v2/fns/%s", f.ID), "", http.StatusNoContent, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
