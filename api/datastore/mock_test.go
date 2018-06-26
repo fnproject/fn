@@ -3,7 +3,7 @@ package datastore
 import (
 	"testing"
 
-	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
+	"github.com/fnproject/fn/api/datastore/datastoretest"
 	"github.com/fnproject/fn/api/models"
 )
 

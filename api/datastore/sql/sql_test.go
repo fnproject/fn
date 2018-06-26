@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
+	"github.com/fnproject/fn/api/datastore/datastoretest"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/datastore/sql/migratex"
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
