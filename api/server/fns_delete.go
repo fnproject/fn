@@ -18,5 +18,5 @@ func (s *Server) handleFnDelete(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Successfully deleted func"})
+	c.String(http.StatusNoContent, "")
 }

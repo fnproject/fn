@@ -82,8 +82,8 @@ paths:
       parameters:
          - $ref: '#/parameters/AppID'
       responses:
-        200:
-          description: "The Application successfully deleted."
+        204:
+          description: "Application successfully deleted."
         404:
           description: "Application does not exist."
           schema:
@@ -418,7 +418,7 @@ definitions:
         readOnly: true
       config:
         type: object
-        description: "Application function configuration, applied to all routes."
+        description: "Application function configuration, applied to all Functions."
         additionalProperties:
           type: string
       annotations:

@@ -16,5 +16,5 @@ func (s *Server) handleTriggerDelete(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusNoContent, nil)
+	c.String(http.StatusNoContent, "")
 }
