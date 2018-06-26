@@ -206,11 +206,10 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			start := time.Now()
 			returnedApp, err := ds.InsertApp(ctx, rp.ValidApp())
-
-			h.AppForDeletion(returnedApp)
 			if err != nil {
 				t.Fatalf("Expected succcess, got %s", err)
 			}
+			h.AppForDeletion(returnedApp)
 
 			if !time.Time(returnedApp.CreatedAt).After(start) {
 				t.Fatalf("expected created to be set %s", returnedApp.CreatedAt)
