@@ -581,7 +581,7 @@ definitions:
         items:
           $ref: '#/definitions/Trigger'
 
-  ErrorBody:
+  Error:
     type: object
     properties:
       message:
@@ -590,12 +590,6 @@ definitions:
       fields:
         type: string
         readOnly: true
-
-  Error:
-    type: object
-    properties:
-      error:
-        $ref: '#/definitions/ErrorBody'
 
 parameters:
   cursor:
