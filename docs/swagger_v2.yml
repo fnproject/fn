@@ -82,8 +82,8 @@ paths:
       parameters:
          - $ref: '#/parameters/AppID'
       responses:
-        200:
-          description: "The Application successfully deleted."
+        204:
+          description: "Application successfully deleted."
         404:
           description: "Application does not exist."
           schema:
@@ -211,7 +211,7 @@ paths:
       parameters:
         - $ref: '#/parameters/FnID'
       responses:
-        200:
+        204:
           description: "Function successfully deleted."
         404:
           description: "Function does not exist."
@@ -341,7 +341,7 @@ paths:
       parameters:
         - $ref: '#/parameters/TriggerID'
       responses:
-        200:
+        204:
           description: "Trigger successfully deleted."
         404:
           description: "The Trigger does not exist."
