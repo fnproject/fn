@@ -32,6 +32,10 @@ func (m Annotations) Equals(other Annotations) bool {
 	if len(m) != len(other) {
 		return false
 	}
+	return m.Subset(other)
+}
+
+func (m Annotations) Subset(other Annotations) bool {
 	for k1, v1 := range m {
 		v2, _ := other[k1]
 		if v2 == nil {

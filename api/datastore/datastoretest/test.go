@@ -273,7 +273,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("error when updating app: %v", err)
 			}
 			expected := &models.App{ID: testApp.ID, Name: testApp.Name, Config: map[string]string{"TEST": "1"}}
-			if !updated.Equals(expected) {
+			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
 			}
 		})
@@ -296,7 +296,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("error when updating app: %v", err)
 			}
 			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}}
-			if !updated.Equals(expected) {
+			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
 			}
 		})
@@ -344,7 +344,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("error when updating app: %v", err)
 			}
 			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"OTHER": "TEST"}}
-			if !updated.Equals(expected) {
+			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated `%#v` but got `%#v`", expected, updated)
 			}
 		})
@@ -881,7 +881,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("unexpected error %v : %s", err, testFn.ID)
 			}
-			if !fn.Equals(testFn) {
+			if !testFn.EqualsWithAnnotationSubset(fn) {
 				t.Fatalf("expected to get the right func:\n%v\nbut got:\n%v", testFn, fn)
 			}
 		})
@@ -926,7 +926,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 					"THIRD":  "3",
 				},
 			}
-			if !updated.Equals(expected) {
+			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated `%#v` but got `%#v`", expected, updated)
 			}
 
@@ -978,7 +978,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 					"THIRD": "3",
 				},
 			}
-			if !updated.Equals(expected) {
+			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated:\n`%v`\nbut got:\n`%v`", expected, updated)
 			}
 		})
@@ -1021,7 +1021,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("expected result count to be 1, but was %d", len(fns))
 			}
 
-			if !f1.Equals(fns[0]) {
+			if !f1.EqualsWithAnnotationSubset(fns[0]) {
 				t.Fatalf("Expecting function to be %#v but was %#v", f1, fns[0])
 			}
 
@@ -1031,9 +1031,9 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 			if len(fns) != 2 {
 				t.Fatalf("expected result count to be 2 but got %d", len(fns))
-			} else if !fns[0].Equals(f2) {
+			} else if !f2.EqualsWithAnnotationSubset(fns[0]) {
 				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f2, fns[0])
-			} else if !fns[1].Equals(f3) {
+			} else if !f3.EqualsWithAnnotationSubset(fns[1]) {
 				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f3, fns[1])
 			}
 		})
@@ -1104,7 +1104,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("error when storing new trigger: %s", err)
 			}
 			newTrigger.ID = insertedTrigger.ID
-			if !insertedTrigger.Equals(newTrigger) {
+			if !newTrigger.EqualsWithAnnotationSubset(insertedTrigger) {
 				t.Errorf("Expecting returned trigger %#v to equal %#v", insertedTrigger, newTrigger)
 			}
 
@@ -1130,7 +1130,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("No ID ")
 			}
 			newTrigger.ID = insertedTrigger.ID
-			if !insertedTrigger.Equals(newTrigger) {
+			if !newTrigger.EqualsWithAnnotationSubset(insertedTrigger) {
 				t.Errorf("Expecting returned trigger %#v to equal %#v", insertedTrigger, newTrigger)
 			}
 		})
@@ -1156,7 +1156,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 
 			newTrigger.ID = insertedTrigger.ID
-			if !gotTrigger.Equals(newTrigger) {
+			if !newTrigger.EqualsWithAnnotationSubset(gotTrigger) {
 				t.Errorf("Expecting returned trigger %#v to equal %#v", gotTrigger, newTrigger)
 			}
 		})
@@ -1222,7 +1222,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 
 			for i := 1; i < 10; i++ {
-				if !storedTriggers[i].Equals(triggers[i]) {
+				if !storedTriggers[i].EqualsWithAnnotationSubset(triggers[i]) {
 					t.Fatalf("expecting ordered by names, but aren't: %s, %s", storedTriggers[i].Name, triggers[i].Name)
 
 				}
@@ -1238,7 +1238,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("Test GetTriggers(filter by name), expecting 1 results, got %d", len(triggers))
 			}
 
-			if !triggers[0].Equals(storedTriggers[0]) {
+			if !storedTriggers[0].EqualsWithAnnotationSubset(triggers[0]) {
 				t.Fatalf("expect single result to equal first stored result : %#v != %#v", triggers[4], storedTriggers[4])
 			}
 
@@ -1267,7 +1267,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers))
 			}
 
-			if !triggers[4].Equals(storedTriggers[9]) {
+			if !storedTriggers[9].EqualsWithAnnotationSubset(triggers[4]) {
 				t.Fatalf("expect 5th result to equal 9th stored result : %#v != %#v", triggers[4], storedTriggers[9])
 			}
 
@@ -1299,7 +1299,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("error when updating trigger: %s", err)
 			}
 
-			if !gotTrigger.Equals(testTrigger) {
+			if !testTrigger.EqualsWithAnnotationSubset(gotTrigger) {
 				t.Fatalf("expecting returned triggers equal, got  : %#v : %#v", testTrigger, gotTrigger)
 			}
 
@@ -1307,7 +1307,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("wasn't expecting an error : %s", err)
 			}
-			if !gotTrigger.Equals(testTrigger) {
+			if !testTrigger.EqualsWithAnnotationSubset(gotTrigger) {
 				t.Fatalf("expecting fetch trigger to be updated got  : %v : %v", testTrigger, gotTrigger)
 			}
 
