@@ -84,19 +84,10 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*mod
 		if len(apps) == appFilter.PerPage {
 			break
 		}
-		if len(appFilter.NameIn) > 0 {
-			var found bool
-			for _, fn := range appFilter.NameIn {
-				if fn == a.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
+		if strings.Compare(appFilter.Cursor, a.Name) < 0 {
+			if appFilter.Name != "" && appFilter.Name != a.Name {
 				continue
 			}
-		}
-		if strings.Compare(appFilter.Cursor, a.Name) < 0 {
 			apps = append(apps, a.Clone())
 		}
 	}

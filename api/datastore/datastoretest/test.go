@@ -375,22 +375,30 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("List apps", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
+			a1 := h.GivenAppInDb(rp.ValidApp())
+			h.GivenAppInDb(rp.ValidApp())
 
 			// Testing list apps
 			apps, err := ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
-			if len(apps) == 0 {
-				t.Fatal("expected result count to be greater than 0")
+			if len(apps) != 2 {
+				t.Fatalf("expected result count to be 2, got %d", len(apps))
+			}
+			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Name: a1.Name})
+			if err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+			if len(apps) != 1 {
+				t.Fatalf("expected result count to be 1, got %d", len(apps))
 			}
 			for _, app := range apps {
-				if app.Name == testApp.Name {
+				if app.Name == a1.Name {
 					return
 				}
 			}
-			t.Fatalf("expected app list to contain app %s, got %#v", testApp.Name, apps)
+			t.Fatalf("expected app list to contain app %s, got %#v", a1.Name, apps)
 		})
 
 		t.Run("Simple Pagination", func(t *testing.T) {

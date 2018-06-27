@@ -13,10 +13,7 @@ func (s *Server) handleAppList(c *gin.Context) {
 
 	filter := &models.AppFilter{}
 	filter.Cursor, filter.PerPage = pageParams(c, true)
-	name := c.Query("name")
-	if name != "" {
-		filter.NameIn = []string{name}
-	}
+	filter.Name = c.Query("name")
 
 	apps, err := s.datastore.GetApps(ctx, filter)
 	if err != nil {

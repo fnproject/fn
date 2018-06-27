@@ -511,10 +511,6 @@ func (ds *SQLStore) GetAppByID(ctx context.Context, appID string) (*models.App, 
 func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
 	res := []*models.App{} // for JSON empty list
 
-	if filter.NameIn != nil && len(filter.NameIn) == 0 { // this basically makes sure it doesn't return ALL apps
-		return res, nil
-	}
-
 	query, args, err := buildFilterAppQuery(filter)
 	if err != nil {
 		return nil, err
@@ -1066,16 +1062,14 @@ func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}, error
 
 	var b bytes.Buffer
 
-	// where("name LIKE ?%", filter.Name) // TODO needs escaping?
 	args = where(&b, args, "name>?", filter.Cursor)
-	args = where(&b, args, "name IN (?)", filter.NameIn)
+	if filter.Name != "" {
+		args = where(&b, args, "name=?", filter.Name)
+	}
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`) // TODO assert this is indexed
 	fmt.Fprintf(&b, ` LIMIT ?`)
 	args = append(args, filter.PerPage)
-	if len(filter.NameIn) > 0 {
-		return sqlx.In(b.String(), args...)
-	}
 	return b.String(), args, nil
 }
 
