@@ -34,6 +34,7 @@ func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogSto
 		WithLogstore(logDB),
 		WithAgent(rnr),
 		WithType(nodeType),
+		WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()),
 	)
 }
 

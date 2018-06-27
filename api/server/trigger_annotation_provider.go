@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -38,21 +37,12 @@ func annotateTriggerWithBaseUrl(baseURL string, app *models.App, t *models.Trigg
 func (tp *requestBasedTriggerAnnotator) AnnotateTrigger(ctx *gin.Context, app *models.App, t *models.Trigger) (*models.Trigger, error) {
 
 	//No, I don't feel good about myself either
-	r := ctx.Value(0)
-	if r == nil {
-		return t, nil
-	}
-	rq, ok := r.(*http.Request)
-	if !ok {
-		return t, nil
-	}
-
 	scheme := "http"
-	if rq.TLS != nil {
+	if ctx.Request.TLS != nil {
 		scheme = "https"
 	}
 
-	return annotateTriggerWithBaseUrl(fmt.Sprintf("%s://%s", scheme, rq.Host), app, t)
+	return annotateTriggerWithBaseUrl(fmt.Sprintf("%s://%s", scheme, ctx.Request.Host), app, t)
 }
 
 func NewRequestBasedTriggerAnnotator() TriggerAnnotator {
