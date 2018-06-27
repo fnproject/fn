@@ -74,7 +74,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 ### Updating function
 
 ```
-curl -H "Content-Type: application/json" -X POST -d '{
+curl -H "Content-Type: application/json" -X PATCH -d '{
     "route": {
         "memory": <memory mb number>,
         "cpus": "<cpus MilliCPUs or floating-point number>",
@@ -88,7 +88,7 @@ Eg. Updating `/myapp/hello` required memory as `100mb`, cpus as `0.2`, type `asy
 container configuration values.
 
 ```
-curl -H "Content-Type: application/json" -X POST -d '{
+curl -H "Content-Type: application/json" -X PATCH -d '{
     "route": {
         "memory": 100,
         "cpus": "0.2",
