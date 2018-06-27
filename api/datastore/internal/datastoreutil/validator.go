@@ -31,10 +31,6 @@ func (v *validator) GetAppByID(ctx context.Context, appID string) (*models.App, 
 	return v.Datastore.GetAppByID(ctx, appID)
 }
 
-func (v *validator) GetApps(ctx context.Context, appFilter *models.AppFilter) (*models.AppList, error) {
-	return v.Datastore.GetApps(ctx, appFilter)
-}
-
 // app and app.Name will never be nil/empty.
 func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
 	if app == nil {
@@ -147,11 +143,7 @@ func (v *validator) InsertTrigger(ctx context.Context, t *models.Trigger) (*mode
 	return v.Datastore.InsertTrigger(ctx, t)
 }
 
-func (v *validator) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	return v.Datastore.UpdateTrigger(ctx, trigger)
-}
-
-func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
+func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
 
 	if filter.AppID == "" {
 		return nil, models.ErrTriggerMissingAppID
@@ -181,10 +173,6 @@ func (v *validator) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 		return nil, models.ErrFnsMissingName
 	}
 	return v.Datastore.InsertFn(ctx, fn)
-}
-
-func (v *validator) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
-	return v.Datastore.UpdateFn(ctx, fn)
 }
 
 func (v *validator) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {

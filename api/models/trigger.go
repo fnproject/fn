@@ -10,6 +10,9 @@ import (
 	"github.com/fnproject/fn/api/common"
 )
 
+// For want of a better place to put this it's here
+const TriggerHTTPEndpointAnnotation = "fnproject.io/trigger/httpEndpoint"
+
 type Trigger struct {
 	ID          string          `json:"id" db:"id"`
 	Name        string          `json:"name" db:"name"`
@@ -50,7 +53,9 @@ func (t *Trigger) EqualsWithAnnotationSubset(t2 *Trigger) bool {
 	return eq
 }
 
-var triggerTypes = []string{"http"}
+const TriggerTypeHTTP = "http"
+
+var triggerTypes = []string{TriggerTypeHTTP}
 
 func ValidTriggerTypes() []string {
 	return triggerTypes
