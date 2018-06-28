@@ -26,7 +26,6 @@ func (e errorProto) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) erro
 // It returns any protocol error, if present.
 type ContainerIO interface {
 	IsStreamable() bool
-
 	// Dispatch will handle sending stdin and stdout to a container. Implementers
 	// of Dispatch may format the input and output differently. Dispatch must respect
 	// the req.Context() timeout / cancellation.
