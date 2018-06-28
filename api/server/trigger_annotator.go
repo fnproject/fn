@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
-	"net/url"
 	"strings"
 )
 
@@ -53,14 +52,9 @@ type staticUrlTriggerAnnotator struct {
 	urlBase string
 }
 
-func NewStaticURLTriggerAnnotator(baseUrl string) (TriggerAnnotator, error) {
+func NewStaticURLTriggerAnnotator(baseUrl string) TriggerAnnotator {
 
-	_, err := url.ParseRequestURI(baseUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	return &staticUrlTriggerAnnotator{urlBase: baseUrl}, nil
+	return &staticUrlTriggerAnnotator{urlBase: baseUrl}
 }
 
 func (s *staticUrlTriggerAnnotator) AnnotateTrigger(ctx *gin.Context, app *models.App, trigger *models.Trigger) (*models.Trigger, error) {

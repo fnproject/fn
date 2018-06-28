@@ -177,12 +177,8 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 
 	publicLbUrl := getEnv(EnvPublicLoadBalancerURL, "")
 	if publicLbUrl != "" {
-		annot, err := NewStaticURLTriggerAnnotator(publicLbUrl)
-		if err != nil {
-			logrus.Fatalf("Invalid value for '%s': %s", EnvPublicLoadBalancerURL, err)
-		}
 		logrus.Infof("using LB Base URL: '%s'", publicLbUrl)
-		opts = append(opts, WithTriggerAnnotator(annot))
+		opts = append(opts, WithTriggerAnnotator(NewStaticURLTriggerAnnotator(publicLbUrl)))
 	} else {
 		opts = append(opts, WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()))
 	}

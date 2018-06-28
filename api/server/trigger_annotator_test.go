@@ -38,7 +38,7 @@ func TestAnnotateTriggerDefaultProvider(t *testing.T) {
 
 	bytes, got := newT.Annotations.Get(models.TriggerHTTPEndpointAnnotation)
 	if !got {
-		t.Fatalf("Expecting annotation %s to be present but go %v", newT.Annotations)
+		t.Fatalf("Expecting annotation to be present but got %v", newT.Annotations)
 	}
 
 	var annot string
@@ -47,7 +47,7 @@ func TestAnnotateTriggerDefaultProvider(t *testing.T) {
 		t.Fatalf("Couldn't get annotation")
 	}
 
-	expected := "https://my-server.com:8192/t/myApp/url/to/somewhere"
+	expected := "http://my-server.com:8192/t/myApp/url/to/somewhere"
 	if annot != expected {
 		t.Errorf("expected annotation to be %s but was %s", expected, annot)
 	}
@@ -108,7 +108,7 @@ func TestHttpsTrigger(t *testing.T) {
 
 	bytes, got := newT.Annotations.Get(models.TriggerHTTPEndpointAnnotation)
 	if !got {
-		t.Fatalf("Expecting annotation %s to be present but go %v", newT.Annotations)
+		t.Fatalf("Expecting annotation  to be present but got %v", newT.Annotations)
 	}
 	var annot string
 	err = json.Unmarshal(bytes, &annot)
@@ -123,10 +123,7 @@ func TestHttpsTrigger(t *testing.T) {
 }
 
 func TestStaticUrlTriggerAnnotator(t *testing.T) {
-	a, err := NewStaticURLTriggerAnnotator("http://foo.bar.com/somewhere")
-	if err != nil {
-		t.Fatalf("Failed with invalid URL %s", err)
-	}
+	a := NewStaticURLTriggerAnnotator("http://foo.bar.com/somewhere")
 
 	app := &models.App{
 		ID:   "app_id",
@@ -147,7 +144,7 @@ func TestStaticUrlTriggerAnnotator(t *testing.T) {
 
 	bytes, got := newT.Annotations.Get(models.TriggerHTTPEndpointAnnotation)
 	if !got {
-		t.Fatalf("Expecting annotation %s to be present but go %v", newT.Annotations)
+		t.Fatalf("Expecting annotation to be present but got %v", newT.Annotations)
 	}
 	var annot string
 	err = json.Unmarshal(bytes, &annot)
