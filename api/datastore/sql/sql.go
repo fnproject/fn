@@ -378,7 +378,7 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 	app.ID = id.New().String()
 
 	if app.Config == nil {
-		// keeps the json from being nil
+		// keeps the JSON from being nil
 		app.Config = map[string]string{}
 	}
 
@@ -509,7 +509,7 @@ func (ds *SQLStore) GetAppByID(ctx context.Context, appID string) (*models.App, 
 
 // GetApps retrieves an array of apps according to a specific filter.
 func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
-	var res []*models.App
+	res := []*models.App{} // for JSON empty list
 
 	if filter.NameIn != nil && len(filter.NameIn) == 0 { // this basically makes sure it doesn't return ALL apps
 		return res, nil
@@ -845,7 +845,7 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 }
 
 func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
-	var res []*models.Fn // for json empty list
+	res := []*models.Fn{} // for JSON empty list
 	if filter == nil {
 		filter = new(models.FnFilter)
 	}
@@ -1338,7 +1338,7 @@ func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{
 }
 
 func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
-	var res []*models.Trigger // for json empty list
+	res := []*models.Trigger{} // for JSON  empty list
 	if filter == nil {
 		filter = new(models.TriggerFilter)
 	}
