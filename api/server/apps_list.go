@@ -27,7 +27,7 @@ func (s *Server) handleAppList(c *gin.Context) {
 		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
-	c.JSON(http.StatusOK, appListResponse{
+	c.JSON(http.StatusOK, models.AppList{
 		NextCursor: nextCursor,
 		Items:      apps,
 	})

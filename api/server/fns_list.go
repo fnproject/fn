@@ -26,7 +26,7 @@ func (s *Server) handleFnList(c *gin.Context) {
 		nextCursor = fns[len(fns)-1].Name
 	}
 
-	c.JSON(http.StatusOK, fnListResponse{
+	c.JSON(http.StatusOK, models.FnList{
 		NextCursor: nextCursor,
 		Items:      fns,
 	})

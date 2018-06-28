@@ -249,7 +249,7 @@ func TestTriggerList(t *testing.T) {
 		} else {
 			// normal path
 
-			var resp triggerListResponse
+			var resp models.TriggerList
 			err := json.NewDecoder(rec.Body).Decode(&resp)
 			if err != nil {
 				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)

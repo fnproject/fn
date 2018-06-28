@@ -301,3 +301,8 @@ type FnFilter struct {
 	Cursor  string
 	PerPage int
 }
+
+type FnList struct {
+	NextCursor string `json:"next_cursor"`
+	Items      []*Fn  `json:"items"`
+}

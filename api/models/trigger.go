@@ -192,3 +192,8 @@ type TriggerFilter struct {
 	Cursor  string
 	PerPage int
 }
+
+type TriggerList struct {
+	NextCursor string     `json:"next_cursor"`
+	Items      []*Trigger `json:"items"`
+}

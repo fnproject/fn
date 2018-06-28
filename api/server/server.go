@@ -1046,18 +1046,3 @@ type callsResponse struct {
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
 }
-
-type appListResponse struct {
-	NextCursor string        `json:"next_cursor"`
-	Items      []*models.App `json:"items"`
-}
-
-type fnListResponse struct {
-	NextCursor string       `json:"next_cursor"`
-	Items      []*models.Fn `json:"items"`
-}
-
-type triggerListResponse struct {
-	NextCursor string            `json:"next_cursor"`
-	Items      []*models.Trigger `json:"items"`
-}

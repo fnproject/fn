@@ -196,3 +196,8 @@ type AppFilter struct {
 	PerPage int
 	Cursor  string
 }
+
+type AppList struct {
+	NextCursor string `json:"next_cursor"`
+	Items      []*App `json:"items"`
+}

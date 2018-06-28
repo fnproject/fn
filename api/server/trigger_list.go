@@ -35,7 +35,7 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
-	c.JSON(http.StatusOK, triggerListResponse{
+	c.JSON(http.StatusOK, models.TriggerList{
 		NextCursor: nextCursor,
 		Items:      triggers,
 	})
