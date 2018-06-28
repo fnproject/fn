@@ -925,21 +925,21 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			{
 				v2.GET("/apps", s.handleAppList)
 				v2.POST("/apps", s.handleAppCreate)
-				v2.GET("/apps/:appId", s.handleAppGet)
-				v2.PUT("/apps/:appId", s.handleAppUpdate)
-				v2.DELETE("/apps/:appId", s.handleAppDelete)
+				v2.GET("/apps/:appID", s.handleAppGet)
+				v2.PUT("/apps/:appID", s.handleAppUpdate)
+				v2.DELETE("/apps/:appID", s.handleAppDelete)
 
 				v2.GET("/fns", s.handleFnList)
 				v2.POST("/fns", s.handleFnCreate)
-				v2.GET("/fns/:fnId", s.handleFnGet)
-				v2.PUT("/fns/:fnId", s.handleFnUpdate)
-				v2.DELETE("/fns/:fnId", s.handleFnDelete)
+				v2.GET("/fns/:fnID", s.handleFnGet)
+				v2.PUT("/fns/:fnID", s.handleFnUpdate)
+				v2.DELETE("/fns/:fnID", s.handleFnDelete)
 
 				v2.GET("/triggers", s.handleTriggerList)
 				v2.POST("/triggers", s.handleTriggerCreate)
-				v2.GET("/triggers/:triggerId", s.handleTriggerGet)
-				v2.PUT("/triggers/:triggerId", s.handleTriggerUpdate)
-				v2.DELETE("/triggers/:triggerId", s.handleTriggerDelete)
+				v2.GET("/triggers/:triggerID", s.handleTriggerGet)
+				v2.PUT("/triggers/:triggerID", s.handleTriggerUpdate)
+				v2.DELETE("/triggers/:triggerID", s.handleTriggerDelete)
 			}
 
 			{
@@ -952,7 +952,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 				runnerAppApi := runner.Group(
 
-					"/apps/:appId")
+					"/apps/:appID")
 				runnerAppApi.Use(setAppIDInCtx)
 				runnerAppApi.GET("", s.handleV1AppGetByName)
 				runnerAppApi.GET("/routes/:route", s.handleRouteGetRunner)

@@ -7,10 +7,10 @@ const (
 	Path    string = "path"
 
 	// Gin  URL template parameters
-	ParamAppID     string = "appId"
+	ParamAppID     string = "appID"
 	ParamAppName   string = "appName"
 	ParamRouteName string = "route"
-	ParamTriggerID string = "triggerId"
+	ParamTriggerID string = "triggerID"
 	ParamCallID    string = "call"
-	ParamFnID      string = "fnId"
+	ParamFnID      string = "fnID"
 )
