@@ -130,7 +130,7 @@ func (e *extds) RemoveApp(ctx context.Context, appName string) error {
 	return e.al.AfterAppDelete(ctx, &app)
 }
 
-func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
+func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) (*models.AppList, error) {
 	err := e.al.BeforeAppsList(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) ([]*model
 		return nil, err
 	}
 
-	err = e.al.AfterAppsList(ctx, apps)
+	err = e.al.AfterAppsList(ctx, apps.Items)
 	return apps, err
 }
 

@@ -28,7 +28,7 @@ func (m *metricds) GetAppByID(ctx context.Context, appID string) (*models.App, e
 	return m.ds.GetAppByID(ctx, appID)
 }
 
-func (m *metricds) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
+func (m *metricds) GetApps(ctx context.Context, filter *models.AppFilter) (*models.AppList, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_apps")
 	defer span.End()
 	return m.ds.GetApps(ctx, filter)
@@ -107,7 +107,7 @@ func (m *metricds) GetTriggerByID(ctx context.Context, triggerID string) (*model
 	return m.ds.GetTriggerByID(ctx, triggerID)
 }
 
-func (m *metricds) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
+func (m *metricds) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_triggers")
 	defer span.End()
 	return m.ds.GetTriggers(ctx, filter)
@@ -125,7 +125,7 @@ func (m *metricds) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, err
 	return m.ds.UpdateFn(ctx, fn)
 }
 
-func (m *metricds) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
+func (m *metricds) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnList, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_funcs")
 	defer span.End()
 	return m.ds.GetFns(ctx, filter)

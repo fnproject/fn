@@ -31,7 +31,7 @@ func (v *validator) GetAppByID(ctx context.Context, appID string) (*models.App, 
 	return v.Datastore.GetAppByID(ctx, appID)
 }
 
-func (v *validator) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*models.App, error) {
+func (v *validator) GetApps(ctx context.Context, appFilter *models.AppFilter) (*models.AppList, error) {
 	return v.Datastore.GetApps(ctx, appFilter)
 }
 
@@ -151,7 +151,7 @@ func (v *validator) UpdateTrigger(ctx context.Context, trigger *models.Trigger) 
 	return v.Datastore.UpdateTrigger(ctx, trigger)
 }
 
-func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
+func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
 
 	if filter.AppID == "" {
 		return nil, models.ErrTriggerMissingAppID
@@ -195,7 +195,7 @@ func (v *validator) GetFnByID(ctx context.Context, fnID string) (*models.Fn, err
 	return v.Datastore.GetFnByID(ctx, fnID)
 }
 
-func (v *validator) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
+func (v *validator) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnList, error) {
 
 	if filter.AppID == "" {
 		return nil, models.ErrFnsMissingAppID

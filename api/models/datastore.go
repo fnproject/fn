@@ -15,9 +15,9 @@ type Datastore interface {
 	// Returns ErrAppsNotFound if no app is found.
 	GetAppID(ctx context.Context, appName string) (string, error)
 
-	// GetApps gets a slice of Apps, optionally filtered by name.
+	// GetApps gets a slice of Apps, optionally filtered by name, and a cursor.
 	// Missing filter or empty name will match all Apps.
-	GetApps(ctx context.Context, filter *AppFilter) ([]*App, error)
+	GetApps(ctx context.Context, filter *AppFilter) (*AppList, error)
 
 	// InsertApp inserts an App. Returns ErrDatastoreEmptyApp when app is nil, and
 	// ErrDatastoreEmptyAppName when app.Name is empty.
@@ -63,8 +63,8 @@ type Datastore interface {
 	// ErrMissingName is func.Name is empty.
 	UpdateFn(ctx context.Context, fn *Fn) (*Fn, error)
 
-	// GetFns returns a list of funcs, applying any additional filters provided.
-	GetFns(ctx context.Context, filter *FnFilter) ([]*Fn, error)
+	// GetFns returns a list of funcs, and a cursor, applying any additional filters provided.
+	GetFns(ctx context.Context, filter *FnFilter) (*FnList, error)
 
 	// GetFnByID returns a function by ID. Returns ErrDatastoreEmptyFnID if fnID is empty.
 	// Returns ErrFnsNotFound if a fn is not found.
@@ -91,7 +91,7 @@ type Datastore interface {
 
 	// GetTriggers gets a list of triggers that match the specified filter
 	// Return ErrDatastoreEmptyAppId if no AppID set in the filter
-	GetTriggers(ctx context.Context, filter *TriggerFilter) ([]*Trigger, error)
+	GetTriggers(ctx context.Context, filter *TriggerFilter) (*TriggerList, error)
 
 	// implements io.Closer to shutdown
 	io.Closer

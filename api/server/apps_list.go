@@ -21,14 +21,10 @@ func (s *Server) handleAppList(c *gin.Context) {
 		return
 	}
 
-	var nextCursor string
-	if len(apps) > 0 && len(apps) == filter.PerPage {
-		last := []byte(apps[len(apps)-1].Name)
-		nextCursor = base64.RawURLEncoding.EncodeToString(last)
+	if len(apps.Items) > 0 && len(apps.Items) == filter.PerPage {
+		last := []byte(apps.Items[len(apps.Items)-1].Name)
+		apps.NextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
-	c.JSON(http.StatusOK, models.AppList{
-		NextCursor: nextCursor,
-		Items:      apps,
-	})
+	c.JSON(http.StatusOK, apps)
 }

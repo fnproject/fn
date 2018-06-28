@@ -2,9 +2,9 @@ package datastore
 
 import (
 	"context"
+	"encoding/base64"
 	"sort"
 	"strings"
-
 	"time"
 
 	"github.com/fnproject/fn/api/common"
@@ -75,7 +75,7 @@ func (s sortA) Len() int           { return len(s) }
 func (s sortA) Less(i, j int) bool { return strings.Compare(s[i].Name, s[j].Name) < 0 }
 func (s sortA) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*models.App, error) {
+func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) (*models.AppList, error) {
 	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
 	sort.Sort(sortA(m.Apps))
 
@@ -92,7 +92,16 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*mod
 		}
 	}
 
-	return apps, nil
+	var nextCursor string
+	if len(apps) > 0 && len(apps) == appFilter.PerPage {
+		last := []byte(apps[len(apps)-1].Name)
+		nextCursor = base64.RawURLEncoding.EncodeToString(last)
+	}
+
+	return &models.AppList{
+		NextCursor: nextCursor,
+		Items:      apps,
+	}, nil
 }
 
 func (m *mock) InsertApp(ctx context.Context, newApp *models.App) (*models.App, error) {
@@ -306,7 +315,7 @@ func (s sortF) Len() int           { return len(s) }
 func (s sortF) Less(i, j int) bool { return strings.Compare(s[i].Name, s[j].Name) < 0 }
 func (s sortF) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
+func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnList, error) {
 	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
 	sort.Sort(sortF(m.Fns))
 
@@ -324,7 +333,16 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 		}
 
 	}
-	return funcs, nil
+
+	var nextCursor string
+	if len(funcs) > 0 && len(funcs) == filter.PerPage {
+		nextCursor = funcs[len(funcs)-1].Name
+	}
+
+	return &models.FnList{
+		NextCursor: nextCursor,
+		Items:      funcs,
+	}, nil
 }
 
 func (m *mock) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
@@ -432,7 +450,7 @@ func (s sortT) Len() int           { return len(s) }
 func (s sortT) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
 func (s sortT) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
+func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
 	sort.Sort(sortT(m.Triggers))
 
 	res := []*models.Trigger{}
@@ -461,7 +479,17 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([
 			res = append(res, t)
 		}
 	}
-	return res, nil
+
+	var nextCursor string
+	if len(res) > 0 && len(res) == filter.PerPage {
+		last := []byte(res[len(res)-1].ID)
+		nextCursor = base64.RawURLEncoding.EncodeToString(last)
+	}
+
+	return &models.TriggerList{
+		NextCursor: nextCursor,
+		Items:      res,
+	}, nil
 }
 
 func (m *mock) RemoveTrigger(ctx context.Context, triggerID string) error {

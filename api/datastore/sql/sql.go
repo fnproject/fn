@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/url"
@@ -508,8 +509,8 @@ func (ds *SQLStore) GetAppByID(ctx context.Context, appID string) (*models.App, 
 }
 
 // GetApps retrieves an array of apps according to a specific filter.
-func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
-	res := []*models.App{} // for JSON empty list
+func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) (*models.AppList, error) {
+	res := &models.AppList{}
 
 	query, args, err := buildFilterAppQuery(filter)
 	if err != nil {
@@ -531,7 +532,12 @@ func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 			}
 			return res, err
 		}
-		res = append(res, &app)
+		res.Items = append(res.Items, &app)
+	}
+
+	if len(res.Items) > 0 && len(res.Items) == filter.PerPage {
+		last := []byte(res.Items[len(res.Items)-1].Name)
+		res.NextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -840,8 +846,8 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 	return fn, nil
 }
 
-func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
-	res := []*models.Fn{} // for JSON empty list
+func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnList, error) {
+	res := &models.FnList{}
 	if filter == nil {
 		filter = new(models.FnFilter)
 	}
@@ -865,14 +871,18 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mod
 		if err != nil {
 			continue
 		}
-		res = append(res, &fn)
+		res.Items = append(res.Items, &fn)
 	}
+
+	if len(res.Items) > 0 && len(res.Items) == filter.PerPage {
+		res.NextCursor = res.Items[len(res.Items)-1].Name
+	}
+
 	if err := rows.Err(); err != nil {
 		if err == sql.ErrNoRows {
 			return res, nil // no error for empty list
 		}
 	}
-
 	return res, nil
 }
 
@@ -1331,8 +1341,8 @@ func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{
 	return b.String(), args
 }
 
-func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
-	res := []*models.Trigger{} // for JSON  empty list
+func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
+	res := &models.TriggerList{}
 	if filter == nil {
 		filter = new(models.TriggerFilter)
 	}
@@ -1358,14 +1368,19 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 		if err != nil {
 			continue
 		}
-		res = append(res, &trigger)
+		res.Items = append(res.Items, &trigger)
 	}
+
+	if len(res.Items) > 0 && len(res.Items) == filter.PerPage {
+		last := []byte(res.Items[len(res.Items)-1].ID)
+		res.NextCursor = base64.RawURLEncoding.EncodeToString(last)
+	}
+
 	if err := rows.Err(); err != nil {
 		if err == sql.ErrNoRows {
 			return res, nil // no error for empty list
 		}
 	}
-
 	return res, nil
 }
 

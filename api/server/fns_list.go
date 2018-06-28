@@ -21,13 +21,5 @@ func (s *Server) handleFnList(c *gin.Context) {
 		return
 	}
 
-	var nextCursor string
-	if len(fns) > 0 && len(fns) == filter.PerPage {
-		nextCursor = fns[len(fns)-1].Name
-	}
-
-	c.JSON(http.StatusOK, models.FnList{
-		NextCursor: nextCursor,
-		Items:      fns,
-	})
+	c.JSON(http.StatusOK, fns)
 }

@@ -383,17 +383,17 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
-			if len(apps) != 2 {
-				t.Fatalf("expected result count to be 2, got %d", len(apps))
+			if len(apps.Items) != 2 {
+				t.Fatalf("expected result count to be 2, got %d", len(apps.Items))
 			}
 			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Name: a1.Name})
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
-			if len(apps) != 1 {
-				t.Fatalf("expected result count to be 1, got %d", len(apps))
+			if len(apps.Items) != 1 {
+				t.Fatalf("expected result count to be 1, got %d", len(apps.Items))
 			}
-			for _, app := range apps {
+			for _, app := range apps.Items {
 				if app.Name == a1.Name {
 					return
 				}
@@ -413,22 +413,22 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf(" error: %s", err)
 			}
-			if len(apps) != 1 {
-				t.Fatalf(" expected result count to be 1 but got %d", len(apps))
-			} else if apps[0].Name != a1.Name {
-				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a1.Name, apps[0].Name)
+			if len(apps.Items) != 1 {
+				t.Fatalf(" expected result count to be 1 but got %d", len(apps.Items))
+			} else if apps.Items[0].Name != a1.Name {
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a1.Name, apps.Items[0].Name)
 			}
 
-			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Cursor: apps[0].Name})
+			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Cursor: apps.Items[0].Name})
 			if err != nil {
 				t.Fatalf(" error: %s", err)
 			}
-			if len(apps) != 2 {
-				t.Fatalf(" expected result count to be 2 but got %d", len(apps))
-			} else if apps[0].Name != a2.Name {
-				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a2.Name, apps[0].Name)
-			} else if apps[1].Name != a3.Name {
-				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a3.Name, apps[1].Name)
+			if len(apps.Items) != 2 {
+				t.Fatalf(" expected result count to be 2 but got %d", len(apps.Items))
+			} else if apps.Items[0].Name != a2.Name {
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a2.Name, apps.Items[0].Name)
+			} else if apps.Items[1].Name != a3.Name {
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a3.Name, apps.Items[1].Name)
 			}
 
 			a4 := h.GivenAppInDb(rp.ValidApp())
@@ -437,10 +437,10 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf(" error: %s", err)
 			}
-			if len(apps) != 4 {
-				t.Fatalf(" expected result count to be 4 but got %d", len(apps))
-			} else if apps[3].Name != a4.Name {
-				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a4.Name, apps[0].Name)
+			if len(apps.Items) != 4 {
+				t.Fatalf(" expected result count to be 4 but got %d", len(apps.Items))
+			} else if apps.Items[3].Name != a4.Name {
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a4.Name, apps.Items[0].Name)
 			}
 
 		})
@@ -1000,7 +1000,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
-			if len(fns) != 0 {
+			if len(fns.Items) != 0 {
 				t.Fatal("expected result count to be  0")
 			}
 		})
@@ -1018,31 +1018,31 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
-			if len(fns) != 3 {
-				t.Fatalf("expected result count to be 3, but was %d", len(fns))
+			if len(fns.Items) != 3 {
+				t.Fatalf("expected result count to be 3, but was %d", len(fns.Items))
 			}
 			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 1})
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
-			if len(fns) != 1 {
-				t.Fatalf("expected result count to be 1, but was %d", len(fns))
+			if len(fns.Items) != 1 {
+				t.Fatalf("expected result count to be 1, but was %d", len(fns.Items))
 			}
 
-			if !f1.EqualsWithAnnotationSubset(fns[0]) {
-				t.Fatalf("Expecting function to be %#v but was %#v", f1, fns[0])
+			if !f1.EqualsWithAnnotationSubset(fns.Items[0]) {
+				t.Fatalf("Expecting function to be %#v but was %#v", f1, fns.Items[0])
 			}
 
-			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 2, Cursor: fns[0].Name})
+			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 2, Cursor: fns.Items[0].Name})
 			if err != nil {
 				t.Fatalf("error: %s", err)
 			}
-			if len(fns) != 2 {
-				t.Fatalf("expected result count to be 2 but got %d", len(fns))
-			} else if !f2.EqualsWithAnnotationSubset(fns[0]) {
-				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f2, fns[0])
-			} else if !f3.EqualsWithAnnotationSubset(fns[1]) {
-				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f3, fns[1])
+			if len(fns.Items) != 2 {
+				t.Fatalf("expected result count to be 2 but got %d", len(fns.Items))
+			} else if !f2.EqualsWithAnnotationSubset(fns.Items[0]) {
+				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f2, fns.Items[0])
+			} else if !f3.EqualsWithAnnotationSubset(fns.Items[1]) {
+				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f3, fns.Items[1])
 			}
 		})
 
@@ -1180,8 +1180,8 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("non-existant app", func(t *testing.T) {
 			nonMatchingFilter := &models.TriggerFilter{AppID: "notexist"}
 			triggers, err := ds.GetTriggers(ctx, nonMatchingFilter)
-			if len(triggers) != 0 && err == nil {
-				t.Fatalf("expected empty trigger list and no error, but got list [%v] and err %s", triggers, err)
+			if len(triggers.Items) != 0 && err == nil {
+				t.Fatalf("expected empty trigger list and no error, but got list [%v] and err %s", triggers.Items, err)
 			}
 		})
 
@@ -1225,13 +1225,13 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("Test GetTriggers(get all triggers for app), not expecting err %s", err)
 			}
 
-			if len(triggers) != 11 {
-				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 10 results, got %d", len(triggers))
+			if len(triggers.Items) != 11 {
+				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 10 results, got %d", len(triggers.Items))
 			}
 
 			for i := 1; i < 10; i++ {
-				if !storedTriggers[i].EqualsWithAnnotationSubset(triggers[i]) {
-					t.Fatalf("expecting ordered by names, but aren't: %s, %s", storedTriggers[i].Name, triggers[i].Name)
+				if !storedTriggers[i].EqualsWithAnnotationSubset(triggers.Items[i]) {
+					t.Fatalf("expecting ordered by names, but aren't: %s, %s", storedTriggers[i].Name, triggers.Items[i].Name)
 
 				}
 			}
@@ -1242,12 +1242,12 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("Test GetTriggers(filter by name), not expecting err %s", err)
 			}
 
-			if len(triggers) != 1 {
-				t.Fatalf("Test GetTriggers(filter by name), expecting 1 results, got %d", len(triggers))
+			if len(triggers.Items) != 1 {
+				t.Fatalf("Test GetTriggers(filter by name), expecting 1 results, got %d", len(triggers.Items))
 			}
 
-			if !storedTriggers[0].EqualsWithAnnotationSubset(triggers[0]) {
-				t.Fatalf("expect single result to equal first stored result : %#v != %#v", triggers[4], storedTriggers[4])
+			if !storedTriggers[0].EqualsWithAnnotationSubset(triggers.Items[0]) {
+				t.Fatalf("expect single result to equal first stored result : %#v != %#v", triggers.Items[4], storedTriggers[4])
 			}
 
 			appIDPagedFilter := &models.TriggerFilter{AppID: testApp.ID, PerPage: 5}
@@ -1256,27 +1256,27 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("Test GetTriggers(page triggers for app), not expecting err %s", err)
 			}
 
-			if len(triggers) != 5 {
-				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers))
+			if len(triggers.Items) != 5 {
+				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers.Items))
 			}
 
-			if !triggers[4].Equals(storedTriggers[4]) {
-				t.Fatalf("expect 5th result to equal 5th stored result : %#v != %#v", triggers[4], storedTriggers[4])
+			if !triggers.Items[4].Equals(storedTriggers[4]) {
+				t.Fatalf("expect 5th result to equal 5th stored result : %#v != %#v", triggers.Items[4], storedTriggers[4])
 			}
 
-			appIDPagedFilter.Cursor = triggers[4].ID
+			appIDPagedFilter.Cursor = triggers.Items[4].ID
 			triggers, err = ds.GetTriggers(ctx, appIDPagedFilter)
 
 			if err != nil {
 				t.Fatalf("Test GetTriggers(page triggers for app), not expecting err %s", err)
 			}
 
-			if len(triggers) != 5 {
-				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers))
+			if len(triggers.Items) != 5 {
+				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers.Items))
 			}
 
-			if !storedTriggers[9].EqualsWithAnnotationSubset(triggers[4]) {
-				t.Fatalf("expect 5th result to equal 9th stored result : %#v != %#v", triggers[4], storedTriggers[9])
+			if !storedTriggers[9].EqualsWithAnnotationSubset(triggers.Items[4]) {
+				t.Fatalf("expect 5th result to equal 9th stored result : %#v != %#v", triggers.Items[4], storedTriggers[9])
 			}
 
 			// components are AND'd
@@ -1285,8 +1285,8 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("Test GetTriggers(AND filtering), not expecting err %s", err)
 			}
-			if len(triggers) != 10 {
-				t.Fatalf("Test GetTriggers(AND filtering), expecting 10 results, got %d", len(triggers))
+			if len(triggers.Items) != 10 {
+				t.Fatalf("Test GetTriggers(AND filtering), expecting 10 results, got %d", len(triggers.Items))
 			}
 		})
 
