@@ -468,7 +468,6 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*
 		if err != nil {
 			return nil, err
 		}
-		logrus.Error(s)
 		filter.Cursor = string(s)
 	}
 

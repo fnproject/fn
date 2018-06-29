@@ -1013,6 +1013,18 @@ func pageParams(c *gin.Context, base64d bool) (cursor string, perPage int) {
 	return cursor, perPage
 }
 
+func pageParamsV2(c *gin.Context) (cursor string, perPage int) {
+	cursor = c.Query("cursor")
+
+	perPage, _ = strconv.Atoi(c.Query("per_page"))
+	if perPage > 100 {
+		perPage = 100
+	} else if perPage <= 0 {
+		perPage = 30
+	}
+	return cursor, perPage
+}
+
 type appResponse struct {
 	Message string      `json:"message"`
 	App     *models.App `json:"app"`

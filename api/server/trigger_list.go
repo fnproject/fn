@@ -11,7 +11,7 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	filter := &models.TriggerFilter{}
-	filter.Cursor, filter.PerPage = pageParams(c, true)
+	filter.Cursor, filter.PerPage = pageParamsV2(c)
 
 	filter.AppID = c.Query("app_id")
 

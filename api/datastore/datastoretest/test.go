@@ -175,6 +175,7 @@ func (h *Harness) GivenTriggerInDb(validTrigger *models.Trigger) *models.Trigger
 	return trigger
 
 }
+
 func (h *Harness) AppForDeletion(app *models.App) {
 	h.appIds = append(h.appIds, app.ID)
 }
@@ -204,6 +205,12 @@ type TriggerByName []*models.Trigger
 func (f TriggerByName) Len() int           { return len(f) }
 func (f TriggerByName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 func (f TriggerByName) Less(i, j int) bool { return f[i].Name < f[j].Name }
+
+type RouteByPath []*models.Route
+
+func (f RouteByPath) Len() int           { return len(f) }
+func (f RouteByPath) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
+func (f RouteByPath) Less(i, j int) bool { return f[i].Path < f[j].Path }
 
 func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
@@ -746,7 +753,7 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 		})
 
-		t.Run("pagination on routes return rotues in order ", func(t *testing.T) {
+		t.Run("pagination on routes return routes in order ", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
@@ -755,14 +762,17 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			r2 := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
 			r3 := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
 
+			gendRoutes := []*models.Route{r1, r2, r3}
+			sort.Sort(RouteByPath(gendRoutes))
+
 			routes, err := ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 1})
 			if err != nil {
 				t.Fatalf("error: %s", err)
 			}
 			if len(routes) != 1 {
 				t.Fatalf("expected result count to be 1 but got %d", len(routes))
-			} else if routes[0].Path != r1.Path {
-				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", r1.Path, routes[0].Path)
+			} else if routes[0].Path != gendRoutes[0].Path {
+				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", gendRoutes[0].Path, routes[0].Path)
 			}
 
 			routes, err = ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 2, Cursor: routes[0].Path})
@@ -772,10 +782,10 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			if len(routes) != 2 {
 				t.Fatalf("expected result count to be 2 but got %d", len(routes))
-			} else if routes[0].Path != r2.Path {
-				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", r2.Path, routes[0].Path)
-			} else if routes[1].Path != r3.Path {
-				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", r3.Path, routes[1].Path)
+			} else if routes[0].Path != gendRoutes[1].Path {
+				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", gendRoutes[1].Path, routes[0].Path)
+			} else if routes[1].Path != gendRoutes[2].Path {
+				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", gendRoutes[2].Path, routes[1].Path)
 			}
 
 			r4 := rp.ValidRoute(testApp.ID)

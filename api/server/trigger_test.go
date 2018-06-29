@@ -221,6 +221,7 @@ func TestTriggerList(t *testing.T) {
 	}{
 		{"/v2/triggers?per_page", "", http.StatusBadRequest, nil, 0, ""},
 		{"/v2/triggers?app_id=app_id1", "", http.StatusOK, nil, 4, ""},
+		{"/v2/triggers?app_id=app_id2", "", http.StatusOK, nil, 1, ""},
 		{"/v2/triggers?app_id=app_id1&name=trigger1", "", http.StatusOK, nil, 1, ""},
 		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1", "", http.StatusOK, nil, 3, ""},
 		{"/v2/triggers?app_id=app_id1&fn_id=fn_id1&per_page", "", http.StatusOK, nil, 3, ""},
