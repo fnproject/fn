@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/url"
@@ -508,12 +509,8 @@ func (ds *SQLStore) GetAppByID(ctx context.Context, appID string) (*models.App, 
 }
 
 // GetApps retrieves an array of apps according to a specific filter.
-func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
-	res := []*models.App{} // for JSON empty list
-
-	if filter.NameIn != nil && len(filter.NameIn) == 0 { // this basically makes sure it doesn't return ALL apps
-		return res, nil
-	}
+func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) (*models.AppList, error) {
+	res := &models.AppList{Items: []*models.App{}}
 
 	query, args, err := buildFilterAppQuery(filter)
 	if err != nil {
@@ -535,7 +532,12 @@ func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 			}
 			return res, err
 		}
-		res = append(res, &app)
+		res.Items = append(res.Items, &app)
+	}
+
+	if len(res.Items) > 0 && len(res.Items) == filter.PerPage {
+		last := []byte(res.Items[len(res.Items)-1].Name)
+		res.NextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -844,13 +846,16 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 	return fn, nil
 }
 
-func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
-	res := []*models.Fn{} // for JSON empty list
+func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnList, error) {
+	res := &models.FnList{Items: []*models.Fn{}}
 	if filter == nil {
 		filter = new(models.FnFilter)
 	}
 
-	filterQuery, args := buildFilterFnQuery(filter)
+	filterQuery, args, err := buildFilterFnQuery(filter)
+	if err != nil {
+		return res, err
+	}
 
 	query := fmt.Sprintf("%s %s", fnSelector, filterQuery)
 	query = ds.db.Rebind(query)
@@ -869,14 +874,19 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mod
 		if err != nil {
 			continue
 		}
-		res = append(res, &fn)
+		res.Items = append(res.Items, &fn)
 	}
+
+	if len(res.Items) > 0 && len(res.Items) == filter.PerPage {
+		last := []byte(res.Items[len(res.Items)-1].Name)
+		res.NextCursor = base64.RawURLEncoding.EncodeToString(last)
+	}
+
 	if err := rows.Err(); err != nil {
 		if err == sql.ErrNoRows {
 			return res, nil // no error for empty list
 		}
 	}
-
 	return res, nil
 }
 
@@ -1066,16 +1076,20 @@ func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}, error
 
 	var b bytes.Buffer
 
-	// where("name LIKE ?%", filter.Name) // TODO needs escaping?
-	args = where(&b, args, "name>?", filter.Cursor)
-	args = where(&b, args, "name IN (?)", filter.NameIn)
+	if filter.Cursor != "" {
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return "", args, err
+		}
+		args = where(&b, args, "name>?", string(s))
+	}
+	if filter.Name != "" {
+		args = where(&b, args, "name=?", filter.Name)
+	}
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`) // TODO assert this is indexed
 	fmt.Fprintf(&b, ` LIMIT ?`)
 	args = append(args, filter.PerPage)
-	if len(filter.NameIn) > 0 {
-		return sqlx.In(b.String(), args...)
-	}
 	return b.String(), args, nil
 }
 
@@ -1103,23 +1117,30 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	return b.String(), args
 }
 
-func buildFilterFnQuery(filter *models.FnFilter) (string, []interface{}) {
+func buildFilterFnQuery(filter *models.FnFilter) (string, []interface{}, error) {
 	if filter == nil {
-		return "", nil
+		return "", nil, nil
 	}
 	var b bytes.Buffer
 	var args []interface{}
 
 	// where(fmt.Sprintf("image LIKE '%s%%'"), filter.Image) // TODO needs escaping, prob we want prefix query to ignore tags
 	args = where(&b, args, "app_id=? ", filter.AppID)
-	args = where(&b, args, "name>?", filter.Cursor)
+
+	if filter.Cursor != "" {
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return "", args, err
+		}
+		args = where(&b, args, "name>?", string(s))
+	}
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`)
 	if filter.PerPage > 0 {
 		fmt.Fprintf(&b, ` LIMIT ?`)
 		args = append(args, filter.PerPage)
 	}
-	return b.String(), args
+	return b.String(), args, nil
 }
 
 func where(b *bytes.Buffer, args []interface{}, colOp string, val interface{}) []interface{} {
@@ -1305,7 +1326,7 @@ func (ds *SQLStore) GetTriggerByID(ctx context.Context, triggerID string) (*mode
 	return &trigger, nil
 }
 
-func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{}) {
+func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{}, error) {
 	var b bytes.Buffer
 	var args []interface{}
 
@@ -1323,29 +1344,35 @@ func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{
 	}
 
 	if filter.Cursor != "" {
-		fmt.Fprintf(&b, ` AND id > ?`)
-		args = append(args, filter.Cursor)
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return "", nil, err
+		}
+
+		fmt.Fprintf(&b, ` AND name > ?`)
+		args = append(args, string(s))
 	}
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`)
 
-	if filter.PerPage != 0 {
+	if filter.PerPage > 0 {
 		fmt.Fprintf(&b, ` LIMIT ?`)
 		args = append(args, filter.PerPage)
 	}
 
-	return b.String(), args
+	return b.String(), args, nil
 }
 
-func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
-	res := []*models.Trigger{} // for JSON  empty list
+func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
+	res := &models.TriggerList{Items: []*models.Trigger{}}
 	if filter == nil {
 		filter = new(models.TriggerFilter)
 	}
 
-	filterQuery, args := buildFilterTriggerQuery(filter)
-
-	logrus.Error(filterQuery, args)
+	filterQuery, args, err := buildFilterTriggerQuery(filter)
+	if err != nil {
+		return res, err
+	}
 
 	query := fmt.Sprintf("%s WHERE %s", triggerSelector, filterQuery)
 	query = ds.db.Rebind(query)
@@ -1364,14 +1391,19 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 		if err != nil {
 			continue
 		}
-		res = append(res, &trigger)
+		res.Items = append(res.Items, &trigger)
 	}
+
+	if len(res.Items) > 0 && len(res.Items) == filter.PerPage {
+		last := []byte(res.Items[len(res.Items)-1].Name)
+		res.NextCursor = base64.RawURLEncoding.EncodeToString(last)
+	}
+
 	if err := rows.Err(); err != nil {
 		if err == sql.ErrNoRows {
 			return res, nil // no error for empty list
 		}
 	}
-
 	return res, nil
 }
 

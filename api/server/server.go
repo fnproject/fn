@@ -1013,6 +1013,18 @@ func pageParams(c *gin.Context, base64d bool) (cursor string, perPage int) {
 	return cursor, perPage
 }
 
+func pageParamsV2(c *gin.Context) (cursor string, perPage int) {
+	cursor = c.Query("cursor")
+
+	perPage, _ = strconv.Atoi(c.Query("per_page"))
+	if perPage > 100 {
+		perPage = 100
+	} else if perPage <= 0 {
+		perPage = 30
+	}
+	return cursor, perPage
+}
+
 type appResponse struct {
 	Message string      `json:"message"`
 	App     *models.App `json:"app"`
@@ -1045,19 +1057,4 @@ type callsResponse struct {
 	Message    string         `json:"message"`
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
-}
-
-type appListResponse struct {
-	NextCursor string        `json:"next_cursor"`
-	Items      []*models.App `json:"items"`
-}
-
-type fnListResponse struct {
-	NextCursor string       `json:"next_cursor"`
-	Items      []*models.Fn `json:"items"`
-}
-
-type triggerListResponse struct {
-	NextCursor string            `json:"next_cursor"`
-	Items      []*models.Trigger `json:"items"`
 }

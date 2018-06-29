@@ -135,6 +135,22 @@ func (a1 *App) Equals(a2 *App) bool {
 	return eq
 }
 
+func (a1 *App) EqualsWithAnnotationSubset(a2 *App) bool {
+	// start off equal, check equivalence of each field.
+	// the RHS of && won't eval if eq==false so config checking is lazy
+
+	eq := true
+	eq = eq && a1.ID == a2.ID
+	eq = eq && a1.Name == a2.Name
+	eq = eq && a1.Config.Equals(a2.Config)
+	eq = eq && a1.Annotations.Subset(a2.Annotations)
+	// NOTE: datastore tests are not very fun to write with timestamp checks,
+	// and these are not values the user may set so we kind of don't care.
+	//eq = eq && time.Time(a1.CreatedAt).Equal(time.Time(a2.CreatedAt))
+	//eq = eq && time.Time(a1.UpdatedAt).Equal(time.Time(a2.UpdatedAt))
+	return eq
+}
+
 // Update adds entries from patch to a.Config and a.Annotations, and removes entries with empty values.
 func (a *App) Update(patch *App) {
 	original := a.Clone()
@@ -176,8 +192,12 @@ func (e ErrInvalidSyslog) Error() string { return string(e) }
 
 // AppFilter is the filter used for querying apps
 type AppFilter struct {
-	// NameIn will filter by all names in the list (IN query)
-	NameIn  []string
+	Name    string
 	PerPage int
 	Cursor  string
+}
+
+type AppList struct {
+	NextCursor string `json:"next_cursor,omitempty"`
+	Items      []*App `json:"items"`
 }

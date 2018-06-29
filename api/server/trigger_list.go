@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/base64"
 	"net/http"
 
 	"github.com/fnproject/fn/api/models"
@@ -12,7 +11,7 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	filter := &models.TriggerFilter{}
-	filter.Cursor, filter.PerPage = pageParams(c, true)
+	filter.Cursor, filter.PerPage = pageParamsV2(c)
 
 	filter.AppID = c.Query("app_id")
 
@@ -29,14 +28,5 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 		return
 	}
 
-	var nextCursor string
-	if len(triggers) > 0 && len(triggers) == filter.PerPage {
-		last := []byte(triggers[len(triggers)-1].ID)
-		nextCursor = base64.RawURLEncoding.EncodeToString(last)
-	}
-
-	c.JSON(http.StatusOK, triggerListResponse{
-		NextCursor: nextCursor,
-		Items:      triggers,
-	})
+	c.JSON(http.StatusOK, triggers)
 }

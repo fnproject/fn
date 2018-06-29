@@ -36,6 +36,20 @@ func (t *Trigger) Equals(t2 *Trigger) bool {
 	return eq
 }
 
+func (t *Trigger) EqualsWithAnnotationSubset(t2 *Trigger) bool {
+	eq := true
+	eq = eq && t.ID == t2.ID
+	eq = eq && t.Name == t2.Name
+	eq = eq && t.AppID == t2.AppID
+	eq = eq && t.FnID == t2.FnID
+
+	eq = eq && t.Type == t2.Type
+	eq = eq && t.Source == t2.Source
+	eq = eq && t.Annotations.Subset(t2.Annotations)
+
+	return eq
+}
+
 var triggerTypes = []string{"http"}
 
 func ValidTriggerTypes() []string {
@@ -177,4 +191,9 @@ type TriggerFilter struct {
 
 	Cursor  string
 	PerPage int
+}
+
+type TriggerList struct {
+	NextCursor string     `json:"next_cursor,omitempty"`
+	Items      []*Trigger `json:"items"`
 }

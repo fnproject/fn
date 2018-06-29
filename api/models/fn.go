@@ -231,6 +231,28 @@ func (f1 *Fn) Equals(f2 *Fn) bool {
 	return eq
 }
 
+func (f1 *Fn) EqualsWithAnnotationSubset(f2 *Fn) bool {
+	// start off equal, check equivalence of each field.
+	// the RHS of && won't eval if eq==false so config/headers checking is lazy
+
+	eq := true
+	eq = eq && f1.ID == f2.ID
+	eq = eq && f1.Name == f2.Name
+	eq = eq && f1.AppID == f2.AppID
+	eq = eq && f1.Image == f2.Image
+	eq = eq && f1.Memory == f2.Memory
+	eq = eq && f1.Format == f2.Format
+	eq = eq && f1.Timeout == f2.Timeout
+	eq = eq && f1.IdleTimeout == f2.IdleTimeout
+	eq = eq && f1.Config.Equals(f2.Config)
+	eq = eq && f1.Annotations.Subset(f2.Annotations)
+	// NOTE: datastore tests are not very fun to write with timestamp checks,
+	// and these are not values the user may set so we kind of don't care.
+	//eq = eq && time.Time(f1.CreatedAt).Equal(time.Time(f2.CreatedAt))
+	//eq = eq && time.Time(f2.UpdatedAt).Equal(time.Time(f2.UpdatedAt))
+	return eq
+}
+
 // Update updates fields in f with non-zero field values from new, and sets
 // updated_at if any of the fields change. 0-length slice Header values, and
 // empty-string Config values trigger removal of map entry.
@@ -278,4 +300,9 @@ type FnFilter struct {
 	Name    string //exact match
 	Cursor  string
 	PerPage int
+}
+
+type FnList struct {
+	NextCursor string `json:"next_cursor,omitempty"`
+	Items      []*Fn  `json:"items"`
 }

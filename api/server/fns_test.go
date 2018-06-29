@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -233,6 +234,10 @@ func TestFnList(t *testing.T) {
 
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
+	fn1b := base64.RawURLEncoding.EncodeToString([]byte(fn1))
+	fn2b := base64.RawURLEncoding.EncodeToString([]byte(fn2))
+	fn3b := base64.RawURLEncoding.EncodeToString([]byte(fn3))
+
 	for i, test := range []struct {
 		path string
 		body string
@@ -244,11 +249,11 @@ func TestFnList(t *testing.T) {
 	}{
 		{"/v2/fns", "", http.StatusBadRequest, models.ErrFnsMissingAppID, 0, ""},
 		{fmt.Sprintf("/v2/fns?app_id=%s", app1.ID), "", http.StatusOK, nil, 3, ""},
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1", app1.ID), "", http.StatusOK, nil, 1, fn1},
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn1), "", http.StatusOK, nil, 1, fn2},
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn2), "", http.StatusOK, nil, 1, fn3},
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=100&cursor=%s", app1.ID, fn3), "", http.StatusOK, nil, 0, ""}, // cursor is empty if per_page > len(results)
-		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn3), "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1", app1.ID), "", http.StatusOK, nil, 1, fn1b},
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn1b), "", http.StatusOK, nil, 1, fn2b},
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn2b), "", http.StatusOK, nil, 1, fn3b},
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=100&cursor=%s", app1.ID, fn3b), "", http.StatusOK, nil, 0, ""}, // cursor is empty if per_page > len(results)
+		{fmt.Sprintf("/v2/fns?app_id=%s&per_page=1&cursor=%s", app1.ID, fn3b), "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
@@ -269,7 +274,7 @@ func TestFnList(t *testing.T) {
 		} else {
 			// normal path
 
-			var resp fnListResponse
+			var resp models.FnList
 			err := json.NewDecoder(rec.Body).Decode(&resp)
 			if err != nil {
 				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)

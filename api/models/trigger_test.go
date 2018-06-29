@@ -26,6 +26,19 @@ func TestTriggerJsonMarshalling(t *testing.T) {
 	}
 }
 
+func TestTriggerListJsonMarshalling(t *testing.T) {
+	emptyList := &TriggerList{Items: []*Trigger{}}
+	expected := "{\"items\":[]}"
+
+	v, err := json.Marshal(emptyList)
+	if err != nil {
+		t.Fatalf("Failed to marshal json into %s: %v", expected, err)
+	}
+	if string(v) != expected {
+		t.Errorf("Invalid trigger value, expected %s, got %s", expected, string(v))
+	}
+}
+
 var httpTrigger = &Trigger{Name: "name", AppID: "foo", FnID: "bar", Type: "http", Source: "baz"}
 var invalidTrigger = &Trigger{Name: "name", AppID: "foo", FnID: "bar", Type: "error", Source: "baz"}
 
