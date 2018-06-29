@@ -852,6 +852,14 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 		filter = new(models.FnFilter)
 	}
 
+	if filter.Cursor != "" {
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		filter.Cursor = string(s)
+	}
+
 	filterQuery, args := buildFilterFnQuery(filter)
 
 	query := fmt.Sprintf("%s %s", fnSelector, filterQuery)
@@ -1353,7 +1361,6 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 		if err != nil {
 			return nil, err
 		}
-		logrus.Error(s)
 		filter.Cursor = string(s)
 	}
 

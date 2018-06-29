@@ -1061,7 +1061,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("Expecting function to be %#v but was %#v", gendFns[0], fns.Items[0])
 			}
 
-			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 2, Cursor: fns.Items[0].Name})
+			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 2, Cursor: fns.NextCursor})
 			if err != nil {
 				t.Fatalf("error: %s", err)
 			}
