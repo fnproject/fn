@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
+	"sort"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -50,7 +52,7 @@ type ResourceProvider interface {
 
 // BasicResourceProvider supplies simple objects and can be used as a base for custom resource providers
 type BasicResourceProvider struct {
-	idCount int32
+	idCount uint32
 }
 
 // DataStoreFunc provides an instance of a data store
@@ -60,8 +62,8 @@ func NewBasicResourceProvider() ResourceProvider {
 	return &BasicResourceProvider{}
 }
 
-func (brp *BasicResourceProvider) NextID() int32 {
-	return atomic.AddInt32(&brp.idCount, 1)
+func (brp *BasicResourceProvider) NextID() uint32 {
+	return atomic.AddUint32(&brp.idCount, rand.Uint32())
 }
 
 func (brp *BasicResourceProvider) DefaultCtx() context.Context {
@@ -184,6 +186,24 @@ func NewHarness(t *testing.T, ctx context.Context, ds models.Datastore) *Harness
 		ds:  ds,
 	}
 }
+
+type AppByName []*models.App
+
+func (a AppByName) Len() int           { return len(a) }
+func (a AppByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a AppByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
+
+type FnByName []*models.Fn
+
+func (f FnByName) Len() int           { return len(f) }
+func (f FnByName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
+func (f FnByName) Less(i, j int) bool { return f[i].Name < f[j].Name }
+
+type TriggerByName []*models.Trigger
+
+func (f TriggerByName) Len() int           { return len(f) }
+func (f TriggerByName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
+func (f TriggerByName) Less(i, j int) bool { return f[i].Name < f[j].Name }
 
 func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
@@ -409,14 +429,17 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			a2 := h.GivenAppInDb(rp.ValidApp())
 			a3 := h.GivenAppInDb(rp.ValidApp())
 
+			gendApps := []*models.App{a1, a2, a3}
+			sort.Sort(AppByName(gendApps))
+
 			apps, err := ds.GetApps(ctx, &models.AppFilter{PerPage: 1})
 			if err != nil {
 				t.Fatalf(" error: %s", err)
 			}
 			if len(apps.Items) != 1 {
 				t.Fatalf(" expected result count to be 1 but got %d", len(apps.Items))
-			} else if apps.Items[0].Name != a1.Name {
-				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a1.Name, apps.Items[0].Name)
+			} else if apps.Items[0].Name != gendApps[0].Name {
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", gendApps[0].Name, apps.Items[0].Name)
 			}
 
 			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Cursor: apps.Items[0].Name})
@@ -425,13 +448,15 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 			if len(apps.Items) != 2 {
 				t.Fatalf(" expected result count to be 2 but got %d", len(apps.Items))
-			} else if apps.Items[0].Name != a2.Name {
-				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a2.Name, apps.Items[0].Name)
-			} else if apps.Items[1].Name != a3.Name {
-				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a3.Name, apps.Items[1].Name)
+			} else if apps.Items[0].Name != gendApps[1].Name {
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", gendApps[1].Name, apps.Items[0].Name)
+			} else if apps.Items[1].Name != gendApps[2].Name {
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", gendApps[2].Name, apps.Items[1].Name)
 			}
 
 			a4 := h.GivenAppInDb(rp.ValidApp())
+			gendApps = append(gendApps, a4)
+			sort.Sort(AppByName(gendApps))
 
 			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
 			if err != nil {
@@ -439,8 +464,8 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 			if len(apps.Items) != 4 {
 				t.Fatalf(" expected result count to be 4 but got %d", len(apps.Items))
-			} else if apps.Items[3].Name != a4.Name {
-				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", a4.Name, apps.Items[0].Name)
+			} else if apps.Items[3].Name != gendApps[3].Name {
+				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", gendApps[4].Name, apps.Items[0].Name)
 			}
 
 		})
@@ -1013,6 +1038,9 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			f2 := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			f3 := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 
+			gendFns := []*models.Fn{f1, f2, f3}
+			sort.Sort(FnByName(gendFns))
+
 			// Testing list fns
 			fns, err := ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID})
 			if err != nil {
@@ -1029,8 +1057,8 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("expected result count to be 1, but was %d", len(fns.Items))
 			}
 
-			if !f1.EqualsWithAnnotationSubset(fns.Items[0]) {
-				t.Fatalf("Expecting function to be %#v but was %#v", f1, fns.Items[0])
+			if !gendFns[0].EqualsWithAnnotationSubset(fns.Items[0]) {
+				t.Fatalf("Expecting function to be %#v but was %#v", gendFns[0], fns.Items[0])
 			}
 
 			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 2, Cursor: fns.Items[0].Name})
@@ -1039,10 +1067,10 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 			if len(fns.Items) != 2 {
 				t.Fatalf("expected result count to be 2 but got %d", len(fns.Items))
-			} else if !f2.EqualsWithAnnotationSubset(fns.Items[0]) {
-				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f2, fns.Items[0])
-			} else if !f3.EqualsWithAnnotationSubset(fns.Items[1]) {
-				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", f3, fns.Items[1])
+			} else if !gendFns[1].EqualsWithAnnotationSubset(fns.Items[0]) {
+				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", gendFns[1].Name, fns.Items[0].Name)
+			} else if !gendFns[2].EqualsWithAnnotationSubset(fns.Items[1]) {
+				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", gendFns[2], fns.Items[1])
 			}
 		})
 
@@ -1200,6 +1228,103 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 		})
 
+		t.Run("page triggers", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
+
+			var storedTriggers []*models.Trigger
+
+			for i := 0; i < 10; i++ {
+				trigger := rp.ValidTrigger(testApp.ID, testFn.ID)
+				trigger.Source = fmt.Sprintf("src_%v", i)
+				storedTriggers = append(storedTriggers, h.GivenTriggerInDb(trigger))
+			}
+
+			sort.Sort(TriggerByName(storedTriggers))
+
+			appIDFilter := &models.TriggerFilter{AppID: testApp.ID}
+			triggers, err := ds.GetTriggers(ctx, appIDFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(page triggers), not expecting err %s", err)
+			}
+
+			if len(triggers.Items) != 10 {
+				t.Fatalf("Test GetTriggers(page triggers), expecting 10 results, got %d", len(triggers.Items))
+			}
+
+			for i := 1; i < 10; i++ {
+				if triggers.Items[i-1].Name > triggers.Items[i].Name {
+					t.Fatalf("Test GetTriggers(page triggers), names out of order, %s, %s", triggers.Items[i-1], triggers.Items[i])
+				}
+			}
+
+			fiveFilter := &models.TriggerFilter{AppID: testApp.ID, PerPage: 5}
+			triggers, err = ds.GetTriggers(ctx, fiveFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(page triggers), not expecting err %s", err)
+			}
+
+			if len(triggers.Items) != 5 {
+				t.Fatalf("Test GetTriggers(page triggers), expecting 5 results, got %d", len(triggers.Items))
+			}
+
+			for i := 0; i < 5; i++ {
+				if !triggers.Items[i].EqualsWithAnnotationSubset(storedTriggers[i]) {
+					t.Fatalf("Test GetTriggers(first five page triggers), expect equal, %s, %s", triggers.Items[i], storedTriggers[i])
+				}
+			}
+
+			if triggers.NextCursor == "" {
+				t.Fatalf("Test GetTriggers(first five page triggers), expected Cursor but got nothing")
+			}
+
+			secondFiveFilter := &models.TriggerFilter{AppID: testApp.ID, PerPage: 5, Cursor: triggers.NextCursor}
+			triggers, err = ds.GetTriggers(ctx, secondFiveFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(second five page triggers), not expecting err %s", err)
+			}
+
+			if len(triggers.Items) != 5 {
+				t.Fatalf("Test GetTriggers(second five page triggers), expecting 5 results, got %d", len(triggers.Items))
+			}
+
+			for i := 0; i < 5; i++ {
+				if !triggers.Items[i].EqualsWithAnnotationSubset(storedTriggers[i+5]) {
+					t.Fatalf("Test GetTriggers(second five page triggers), expect equal, %s, %s", triggers.Items[i], storedTriggers[i+5])
+				}
+			}
+
+			zeroFilter := &models.TriggerFilter{AppID: testApp.ID, PerPage: 0}
+			triggers, err = ds.GetTriggers(ctx, zeroFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(zero page triggers), not expecting err %s", err)
+			}
+
+			if len(triggers.Items) != 10 {
+				t.Fatalf("Test GetTriggers(zero page triggers), expecting 10 results, got %d", len(triggers.Items))
+			}
+
+			if triggers.NextCursor != "" {
+				t.Fatalf("Test GetTriggers(zero page triggers), expected no NextCursor, got %s", triggers.NextCursor)
+			}
+
+			negativeFilter := &models.TriggerFilter{AppID: testApp.ID, PerPage: -10}
+			triggers, err = ds.GetTriggers(ctx, negativeFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(negative page triggers), not expecting err %s", err)
+			}
+
+			if len(triggers.Items) != 10 {
+				t.Fatalf("Test GetTriggers(negative page triggers), expecting 10 results, got %d", len(triggers.Items))
+			}
+
+			if triggers.NextCursor != "" {
+				t.Fatalf("Test GetTriggers(negative page triggers), expected no NextCursor, got %s", triggers.NextCursor)
+			}
+		})
+
 		t.Run("filter triggers", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
@@ -1217,7 +1342,10 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			trigger := rp.ValidTrigger(testApp.ID, testFn2.ID)
 			trigger.Source = fmt.Sprintf("src_%v", 11)
-			h.GivenTriggerInDb(trigger)
+			trigger = h.GivenTriggerInDb(trigger)
+			storedTriggers = append(storedTriggers, trigger)
+
+			sort.Sort(TriggerByName(storedTriggers))
 
 			appIDFilter := &models.TriggerFilter{AppID: testApp.ID}
 			triggers, err := ds.GetTriggers(ctx, appIDFilter)
@@ -1229,10 +1357,9 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 10 results, got %d", len(triggers.Items))
 			}
 
-			for i := 1; i < 10; i++ {
+			for i := 0; i < 11; i++ {
 				if !storedTriggers[i].EqualsWithAnnotationSubset(triggers.Items[i]) {
-					t.Fatalf("expecting ordered by names, but aren't: %s, %s", storedTriggers[i].Name, triggers.Items[i].Name)
-
+					t.Fatalf("Test GetTriggers(get all triggers for app), expecting ordered by names, but aren't: %+v, %+v", storedTriggers[i], triggers.Items[i])
 				}
 			}
 
@@ -1248,35 +1375,6 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			if !storedTriggers[0].EqualsWithAnnotationSubset(triggers.Items[0]) {
 				t.Fatalf("expect single result to equal first stored result : %#v != %#v", triggers.Items[4], storedTriggers[4])
-			}
-
-			appIDPagedFilter := &models.TriggerFilter{AppID: testApp.ID, PerPage: 5}
-			triggers, err = ds.GetTriggers(ctx, appIDPagedFilter)
-			if err != nil {
-				t.Fatalf("Test GetTriggers(page triggers for app), not expecting err %s", err)
-			}
-
-			if len(triggers.Items) != 5 {
-				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers.Items))
-			}
-
-			if !triggers.Items[4].Equals(storedTriggers[4]) {
-				t.Fatalf("expect 5th result to equal 5th stored result : %#v != %#v", triggers.Items[4], storedTriggers[4])
-			}
-
-			appIDPagedFilter.Cursor = triggers.Items[4].ID
-			triggers, err = ds.GetTriggers(ctx, appIDPagedFilter)
-
-			if err != nil {
-				t.Fatalf("Test GetTriggers(page triggers for app), not expecting err %s", err)
-			}
-
-			if len(triggers.Items) != 5 {
-				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers.Items))
-			}
-
-			if !storedTriggers[9].EqualsWithAnnotationSubset(triggers.Items[4]) {
-				t.Fatalf("expect 5th result to equal 9th stored result : %#v != %#v", triggers.Items[4], storedTriggers[9])
 			}
 
 			// components are AND'd

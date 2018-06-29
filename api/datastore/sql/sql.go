@@ -875,7 +875,8 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 	}
 
 	if len(res.Items) > 0 && len(res.Items) == filter.PerPage {
-		res.NextCursor = res.Items[len(res.Items)-1].Name
+		last := []byte(res.Items[len(res.Items)-1].Name)
+		res.NextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -1327,13 +1328,13 @@ func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{
 	}
 
 	if filter.Cursor != "" {
-		fmt.Fprintf(&b, ` AND id > ?`)
+		fmt.Fprintf(&b, ` AND name > ?`)
 		args = append(args, filter.Cursor)
 	}
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`)
 
-	if filter.PerPage != 0 {
+	if filter.PerPage > 0 {
 		fmt.Fprintf(&b, ` LIMIT ?`)
 		args = append(args, filter.PerPage)
 	}
@@ -1347,9 +1348,16 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 		filter = new(models.TriggerFilter)
 	}
 
-	filterQuery, args := buildFilterTriggerQuery(filter)
+	if filter.Cursor != "" {
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		logrus.Error(s)
+		filter.Cursor = string(s)
+	}
 
-	logrus.Error(filterQuery, args)
+	filterQuery, args := buildFilterTriggerQuery(filter)
 
 	query := fmt.Sprintf("%s WHERE %s", triggerSelector, filterQuery)
 	query = ds.db.Rebind(query)
@@ -1372,7 +1380,7 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 	}
 
 	if len(res.Items) > 0 && len(res.Items) == filter.PerPage {
-		last := []byte(res.Items[len(res.Items)-1].ID)
+		last := []byte(res.Items[len(res.Items)-1].Name)
 		res.NextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
