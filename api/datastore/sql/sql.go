@@ -512,6 +512,15 @@ func (ds *SQLStore) GetAppByID(ctx context.Context, appID string) (*models.App, 
 func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) (*models.AppList, error) {
 	res := &models.AppList{}
 
+	if filter.Cursor != "" {
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		logrus.Error(s)
+		filter.Cursor = string(s)
+	}
+
 	query, args, err := buildFilterAppQuery(filter)
 	if err != nil {
 		return nil, err

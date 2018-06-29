@@ -442,7 +442,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf(" expected `app.Name` to be `%s` but it was `%s`", gendApps[0].Name, apps.Items[0].Name)
 			}
 
-			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Cursor: apps.Items[0].Name})
+			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Cursor: apps.NextCursor})
 			if err != nil {
 				t.Fatalf(" error: %s", err)
 			}
