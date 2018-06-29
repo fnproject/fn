@@ -90,7 +90,7 @@ func (m *mock) GetApps(ctx context.Context, filter *models.AppFilter) (*models.A
 		cursor = string(s)
 	}
 
-	var apps []*models.App
+	apps := []*models.App{}
 	for _, a := range m.Apps {
 		if len(apps) == filter.PerPage {
 			break
