@@ -402,11 +402,24 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("List apps", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
+
+			apps, err := ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
+			if err != nil {
+				t.Fatalf("not expecting err %s", err)
+			}
+
+			if len(apps.Items) != 0 {
+				t.Fatalf("expecting 0 results, got %d", len(apps.Items))
+			}
+			if apps.Items == nil {
+				t.Fatalf("response items must not be nil")
+			}
+
 			a1 := h.GivenAppInDb(rp.ValidApp())
 			h.GivenAppInDb(rp.ValidApp())
 
 			// Testing list apps
-			apps, err := ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
+			apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
@@ -1038,6 +1051,9 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if len(fns.Items) != 0 {
 				t.Fatal("expected result count to be  0")
 			}
+			if fns.Items == nil {
+				t.Fatal("response items must not be nil")
+			}
 		})
 
 		t.Run("basic pagination with funcs", func(t *testing.T) {
@@ -1337,11 +1353,14 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			emptyListFilter := &models.TriggerFilter{AppID: "notexist"}
 			triggers, err = ds.GetTriggers(ctx, emptyListFilter)
 			if err != nil {
-				t.Fatalf("Test GetTriggers(zero page triggers), not expecting err %s", err)
+				t.Fatalf("Test GetTriggers(notexist page triggers), not expecting err %s", err)
 			}
 
 			if len(triggers.Items) != 0 {
-				t.Fatalf("Test GetTriggers(negative page triggers), expecting 0 results, got %d", len(triggers.Items))
+				t.Fatalf("Test GetTriggers(notexist page triggers), expecting 0 results, got %d", len(triggers.Items))
+			}
+			if triggers.Items == nil {
+				t.Fatalf("Test GetTriggers(notexist page triggers), response items must not be nil")
 			}
 		})
 
