@@ -12,6 +12,7 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
+	"github.com/sirupsen/logrus"
 )
 
 type mock struct {
@@ -75,17 +76,26 @@ func (s sortA) Len() int           { return len(s) }
 func (s sortA) Less(i, j int) bool { return strings.Compare(s[i].Name, s[j].Name) < 0 }
 func (s sortA) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) (*models.AppList, error) {
+func (m *mock) GetApps(ctx context.Context, filter *models.AppFilter) (*models.AppList, error) {
 	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
 	sort.Sort(sortA(m.Apps))
 
+	if filter.Cursor != "" {
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		logrus.Error(s)
+		filter.Cursor = string(s)
+	}
+
 	var apps []*models.App
 	for _, a := range m.Apps {
-		if len(apps) == appFilter.PerPage {
+		if len(apps) == filter.PerPage {
 			break
 		}
-		if strings.Compare(appFilter.Cursor, a.Name) < 0 {
-			if appFilter.Name != "" && appFilter.Name != a.Name {
+		if strings.Compare(filter.Cursor, a.Name) < 0 {
+			if filter.Name != "" && filter.Name != a.Name {
 				continue
 			}
 			apps = append(apps, a.Clone())
@@ -93,7 +103,7 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) (*model
 	}
 
 	var nextCursor string
-	if len(apps) > 0 && len(apps) == appFilter.PerPage {
+	if len(apps) > 0 && len(apps) == filter.PerPage {
 		last := []byte(apps[len(apps)-1].Name)
 		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
@@ -447,11 +457,20 @@ func (m *mock) GetTriggerByID(ctx context.Context, triggerId string) (*models.Tr
 type sortT []*models.Trigger
 
 func (s sortT) Len() int           { return len(s) }
-func (s sortT) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
+func (s sortT) Less(i, j int) bool { return strings.Compare(s[i].Name, s[j].Name) < 0 }
 func (s sortT) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
 	sort.Sort(sortT(m.Triggers))
+
+	if filter.Cursor != "" {
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		logrus.Error(s)
+		filter.Cursor = string(s)
+	}
 
 	res := []*models.Trigger{}
 	for _, t := range m.Triggers {
@@ -460,7 +479,7 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*
 		}
 
 		matched := true
-		if filter.Cursor != "" && t.ID <= filter.Cursor {
+		if filter.Cursor != "" && t.Name <= filter.Cursor {
 			matched = false
 		}
 
@@ -482,7 +501,7 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*
 
 	var nextCursor string
 	if len(res) > 0 && len(res) == filter.PerPage {
-		last := []byte(res[len(res)-1].ID)
+		last := []byte(res[len(res)-1].Name)
 		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
