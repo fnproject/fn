@@ -198,6 +198,6 @@ type AppFilter struct {
 }
 
 type AppList struct {
-	NextCursor string `json:"next_cursor"`
+	NextCursor string `json:"next_cursor,omitempty"`
 	Items      []*App `json:"items"`
 }

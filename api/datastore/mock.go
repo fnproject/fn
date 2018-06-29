@@ -80,13 +80,14 @@ func (m *mock) GetApps(ctx context.Context, filter *models.AppFilter) (*models.A
 	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
 	sort.Sort(sortA(m.Apps))
 
+	var cursor string
 	if filter.Cursor != "" {
 		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
 		if err != nil {
 			return nil, err
 		}
 		logrus.Error(s)
-		filter.Cursor = string(s)
+		cursor = string(s)
 	}
 
 	var apps []*models.App
@@ -94,7 +95,7 @@ func (m *mock) GetApps(ctx context.Context, filter *models.AppFilter) (*models.A
 		if len(apps) == filter.PerPage {
 			break
 		}
-		if strings.Compare(filter.Cursor, a.Name) < 0 {
+		if strings.Compare(cursor, a.Name) < 0 {
 			if filter.Name != "" && filter.Name != a.Name {
 				continue
 			}
@@ -331,12 +332,21 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnL
 
 	funcs := []*models.Fn{}
 
+	var cursor string
+	if filter.Cursor != "" {
+		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		cursor = string(s)
+	}
+
 	for _, f := range m.Fns {
 		if filter.PerPage > 0 && len(funcs) == filter.PerPage {
 			break
 		}
 
-		if strings.Compare(filter.Cursor, f.Name) < 0 &&
+		if strings.Compare(cursor, f.Name) < 0 &&
 			(filter.AppID == "" || filter.AppID == f.AppID) &&
 			(filter.Name == "" || filter.Name == f.Name) {
 			funcs = append(funcs, f)
@@ -346,7 +356,8 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnL
 
 	var nextCursor string
 	if len(funcs) > 0 && len(funcs) == filter.PerPage {
-		nextCursor = funcs[len(funcs)-1].Name
+		last := []byte(funcs[len(funcs)-1].Name)
+		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
 	return &models.FnList{
@@ -463,12 +474,13 @@ func (s sortT) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
 	sort.Sort(sortT(m.Triggers))
 
+	var cursor string
 	if filter.Cursor != "" {
 		s, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
 		if err != nil {
 			return nil, err
 		}
-		filter.Cursor = string(s)
+		cursor = string(s)
 	}
 
 	res := []*models.Trigger{}
@@ -478,7 +490,7 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*
 		}
 
 		matched := true
-		if filter.Cursor != "" && t.Name <= filter.Cursor {
+		if filter.Cursor != "" && t.Name <= cursor {
 			matched = false
 		}
 

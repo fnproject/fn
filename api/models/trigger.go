@@ -194,6 +194,6 @@ type TriggerFilter struct {
 }
 
 type TriggerList struct {
-	NextCursor string     `json:"next_cursor"`
+	NextCursor string     `json:"next_cursor,omitempty"`
 	Items      []*Trigger `json:"items"`
 }

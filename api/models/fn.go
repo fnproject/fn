@@ -303,6 +303,6 @@ type FnFilter struct {
 }
 
 type FnList struct {
-	NextCursor string `json:"next_cursor"`
+	NextCursor string `json:"next_cursor,omitempty"`
 	Items      []*Fn  `json:"items"`
 }

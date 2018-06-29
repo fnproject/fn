@@ -1333,6 +1333,16 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if triggers.NextCursor != "" {
 				t.Fatalf("Test GetTriggers(negative page triggers), expected no NextCursor, got %s", triggers.NextCursor)
 			}
+
+			emptyListFilter := &models.TriggerFilter{AppID: "notexist"}
+			triggers, err = ds.GetTriggers(ctx, emptyListFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(zero page triggers), not expecting err %s", err)
+			}
+
+			if len(triggers.Items) != 0 {
+				t.Fatalf("Test GetTriggers(negative page triggers), expecting 0 results, got %d", len(triggers.Items))
+			}
 		})
 
 		t.Run("filter triggers", func(t *testing.T) {
