@@ -219,6 +219,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 
 	keys := []string{"fn_appname", "fn_path"}
 	pool.RegisterPlacerViews(keys)
+	agent.RegisterLBAgentViews(keys)
 
 	// Create an LB Agent with a Call Overrider to intercept calls in GetCall(). Overrider in this example
 	// scrubs CPU/TmpFsSize and adds FN_CHEESE key/value into extensions.

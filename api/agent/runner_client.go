@@ -233,6 +233,29 @@ func tryQueueError(err error, done chan error) {
 	}
 }
 
+func translateDate(dt string) time.Time {
+	if dt != "" {
+		trx, err := common.ParseDateTime(dt)
+		if err == nil {
+			return time.Time(trx)
+		}
+	}
+	return time.Time{}
+}
+
+func recordFinishStats(ctx context.Context, msg *pb.CallFinished) {
+
+	creatTs := translateDate(msg.GetCreatedAt())
+	startTs := translateDate(msg.GetStartedAt())
+	complTs := translateDate(msg.GetCompletedAt())
+
+	// Validate this as info *is* coming from runner and its local clock.
+	if !creatTs.IsZero() && !startTs.IsZero() && !complTs.IsZero() && !startTs.Before(creatTs) && !complTs.Before(startTs) {
+		statsLBAgentRunnerSchedLatency(ctx, startTs.Sub(creatTs))
+		statsLBAgentRunnerExecLatency(ctx, complTs.Sub(startTs))
+	}
+}
+
 func receiveFromRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
 	w := c.ResponseWriter()
 	defer close(done)
@@ -286,6 +309,7 @@ DataLoop:
 		// Finish messages required for finish/finalize the processing.
 		case *pb.RunnerMsg_Finished:
 			log.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
+			recordFinishStats(ctx, body.Finished)
 			if !body.Finished.Success {
 				err := parseError(body.Finished)
 				tryQueueError(err, done)

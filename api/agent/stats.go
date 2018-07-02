@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
@@ -56,6 +57,14 @@ func statsTooBusy(ctx context.Context) {
 	stats.Record(ctx, serverBusyMeasure.M(1))
 }
 
+func statsLBAgentRunnerSchedLatency(ctx context.Context, dur time.Duration) {
+	stats.Record(ctx, runnerSchedLatencyMeasure.M(int64(dur/time.Millisecond)))
+}
+
+func statsLBAgentRunnerExecLatency(ctx context.Context, dur time.Duration) {
+	stats.Record(ctx, runnerExecLatencyMeasure.M(int64(dur/time.Millisecond)))
+}
+
 const (
 	// TODO we should probably prefix these with calls_ ?
 	queuedMetricName     = "queued"
@@ -66,6 +75,10 @@ const (
 	timedoutMetricName   = "timeouts"
 	errorsMetricName     = "errors"
 	serverBusyMetricName = "server_busy"
+
+	// Reported By LB
+	runnerSchedLatencyMetricName = "lb_runner_sched_latency"
+	runnerExecLatencyMetricName  = "lb_runner_exec_latency"
 )
 
 var (
@@ -81,7 +94,22 @@ var (
 	dockerMeasures         = initDockerMeasures()
 	containerGaugeMeasures = initContainerGaugeMeasures()
 	containerTimeMeasures  = initContainerTimeMeasures()
+
+	// Reported By LB: How long does a runner scheduler wait for a committed call? eg. wait/launch/pull containers
+	runnerSchedLatencyMeasure = makeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
+	// Reported By LB: Function execution time inside a container.
+	runnerExecLatencyMeasure = makeMeasure(runnerExecLatencyMetricName, "Runner Container Execution Latency Reported By LBAgent", "msecs")
 )
+
+func RegisterLBAgentViews(tagKeys []string) {
+	err := view.Register(
+		createView(runnerSchedLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
+		createView(runnerExecLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot register view")
+	}
+}
 
 // RegisterAgentViews creates and registers all agent views
 func RegisterAgentViews(tagKeys []string) {

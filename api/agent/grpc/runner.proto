@@ -42,6 +42,9 @@ message CallFinished {
     string details = 2;
     int32 errorCode = 3;
     string errorStr = 4;
+    string createdAt = 5;
+    string startedAt = 6;
+    string completedAt = 7;
 }
 
 message ClientMsg {
