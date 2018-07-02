@@ -34,7 +34,7 @@ The fastest way to experience Fn is to follow the quickstart below, or you can j
 
 The command line tool isn't required, but it sure makes things a lot easier. There are a few options to install it:
 
-#### 1. Homebrew - MacOS
+#### 1. Homebrew - macOS
 
 If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you:
 
@@ -42,9 +42,11 @@ If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you:
 brew install fn
 ```
 
-#### 2. Shell script - Linux and MacOS
+#### 2. Shell script - Linux and macOS
 
-This one works on Linux and MacOS (partially on Windows):
+This one works on Linux and macOS (partially on Windows).
+
+If you are running behind a proxy first set your http_proxy and https_proxy environmental variables:
 
 ```sh
 curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
@@ -52,7 +54,8 @@ curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
 
 This will download a shell script and execute it. If the script asks for a password, that is because it invokes sudo.
 
-#### 3. Download the bin - Linux, MacOS and Windows
+
+#### 3. Download the bin - Linux, macOS and Windows
 
 Head over to our [releases](https://github.com/fnproject/cli/releases) and download it.
 
