@@ -166,12 +166,6 @@ func FromHttpTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
 		if rw, ok := c.w.(http.ResponseWriter); ok {
 			rw.Header().Add("FN_CALL_ID", id)
-			//for k, vs := range route.Headers {
-			//	for _, v := range vs {
-			//		// pre-write in these headers to response
-			//		rw.Header().Add(k, v)
-			//	}
-			//}
 		}
 
 		// this ensures that there is an image, path, timeouts, memory, etc are valid.

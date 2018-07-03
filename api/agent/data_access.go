@@ -237,3 +237,13 @@ func (da *directDataAccess) Close() error {
 	return da.mq.Close()
 
 }
+
+type noAsyncEnqueueAccess struct{}
+
+func (noAsyncEnqueueAccess) Enqueue(ctx context.Context, mCall *models.Call) error {
+	return models.ErrAsyncUnsupported
+}
+
+func NewUnsupportedAsyncEnqueueAccess() EnqueueDataAccess {
+	return &noAsyncEnqueueAccess{}
+}

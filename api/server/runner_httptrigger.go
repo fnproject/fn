@@ -14,6 +14,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 
 // handleHttpTriggerCall executes the function, for router handlers
@@ -33,13 +34,22 @@ func (s *Server) handleTriggerHttpFunctionCall2(c *gin.Context) error {
 		p = "/"
 	}
 
-	appID := c.MustGet(api.AppID).(string)
+	appName := c.Param(api.ParamAppName)
+
+	appID, err := s.lbReadAccess.GetAppID(ctx, appName)
+	if err != nil {
+		return err
+	}
+
 	app, err := s.lbReadAccess.GetAppByID(ctx, appID)
 	if err != nil {
 		return err
 	}
 
 	routePath := path.Clean(p)
+	if !strings.HasPrefix(routePath, "/") {
+		routePath = "/" + routePath
+	}
 	trigger, err := s.lbReadAccess.GetTriggerBySource(ctx, appID, "http", routePath)
 
 	if err != nil {

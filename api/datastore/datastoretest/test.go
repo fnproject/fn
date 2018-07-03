@@ -1529,6 +1529,39 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	})
 }
 
+func RunTriggerBySourceTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
+
+	t.Run("http_trigger_access", func(t *testing.T) {
+		ds := dsf(t)
+		ctx := rp.DefaultCtx()
+		t.Run("get_non_existant_trigger", func(t *testing.T) {
+			_, err := ds.GetTriggerBySource(ctx, "none", "http", "source")
+			if err != models.ErrTriggerNotFound {
+				t.Fatalf("Expecting trigger not found, got %s", err)
+			}
+		})
+
+		t.Run("get_trigger_specific_http_route", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
+			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
+			trigger, err := ds.GetTriggerBySource(ctx, testApp.ID, testTrigger.Type, testTrigger.Source)
+
+			if err != nil {
+				t.Fatalf("Expecting trigger, got error  %s", err)
+			}
+
+			if !trigger.Equals(testTrigger) {
+				t.Errorf("Expecting trigger %#v got %#v", testTrigger, trigger)
+			}
+		})
+
+	})
+
+}
+
 func RunAllTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	buf := setLogBuffer()
 	defer func() {
@@ -1541,5 +1574,6 @@ func RunAllTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	RunRoutesTest(t, dsf, rp)
 	RunFnsTest(t, dsf, rp)
 	RunTriggersTest(t, dsf, rp)
+	RunTriggerBySourceTests(t, dsf, rp)
 
 }

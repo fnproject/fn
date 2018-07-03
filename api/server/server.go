@@ -648,6 +648,7 @@ func New(ctx context.Context, opts ...Option) *Server {
 		webListenPort:   DefaultPort,
 		adminListenPort: DefaultPort,
 		grpcListenPort:  DefaultGRPCPort,
+		lbEnqueue:       agent.NewUnsupportedAsyncEnqueueAccess(),
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
 
@@ -689,6 +690,7 @@ func New(ctx context.Context, opts ...Option) *Server {
 	case ServerTypeLB:
 		requireConfigSet("lbReadAccess", s.lbReadAccess)
 		requireConfigSet("agent", s.agent)
+		requireConfigSet("lbEnqueue", s.lbEnqueue)
 
 	case ServerTypeRunner:
 		requireConfigSet("lbReadAccess", s.lbReadAccess)
@@ -714,7 +716,7 @@ func New(ctx context.Context, opts ...Option) *Server {
 	s.fnListeners = new(fnListeners)
 	s.triggerListeners = new(triggerListeners)
 
-	// TODO it's not clear that this is always correct as other stores won't  get wrapping
+	// TODO it's not clear that this is always correct as the read store  won't  get wrapping
 	s.datastore = datastore.Wrap(s.datastore)
 	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners, s.triggerListeners)
 	s.logstore = logs.Wrap(s.logstore)
@@ -1126,7 +1128,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runner.POST("/finish", s.handleRunnerFinish)
 
 			runnerAppApi := runner.Group(
-
 				"/apps/:appID")
 			runnerAppApi.Use(setAppIDInCtx)
 			runnerAppApi.GET("", s.handleV1AppGetByName)
@@ -1144,7 +1145,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			lbRouteGroup.Any("/:appName/*route", s.handleV1FunctionCall)
 
 			lbTriggerGroup := engine.Group("/t")
-			lbTriggerGroup.Use(s.checkAppPresenceByNameAtLB())
 			lbTriggerGroup.Any("/:appName", s.handleHttpTriggerCall)
 			lbTriggerGroup.Any("/:appName/*source", s.handleHttpTriggerCall)
 

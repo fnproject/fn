@@ -31,8 +31,13 @@ func NewMock() models.Datastore {
 var _ models.Datastore = &mock{}
 
 func (m *mock) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
-	//TRIGGERWIP
-	panic("implement me")
+	for _, t := range m.Triggers {
+		if t.AppID == appId && t.Type == triggerType && t.Source == source {
+			return t, nil
+		}
+	}
+
+	return nil, models.ErrTriggerNotFound
 }
 
 // args helps break tests less if we change stuff

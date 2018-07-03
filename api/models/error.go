@@ -198,6 +198,11 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("Invalid annotation change, new key(s) exceed maximum permitted number of annotations keys (%d)", maxAnnotationsKeys),
 	}
+
+	ErrAsyncUnsupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Async functions are not supported on this server"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response
