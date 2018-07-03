@@ -474,6 +474,7 @@ func WithAgentFromEnv() ServerOption {
 
 			keys := []string{"fn_appname", "fn_path"}
 			pool.RegisterPlacerViews(keys)
+			agent.RegisterLBAgentViews(keys)
 
 			s.agent, err = agent.NewLBAgent(agent.NewCachedDataAccess(cl), runnerPool, placer)
 			if err != nil {

@@ -67,9 +67,6 @@ type callHandle struct {
 	ctx        context.Context
 	c          *call // the agent's version of call
 
-	// Timings, for metrics:
-	receivedTime common.DateTime // When was the call received?
-
 	// For implementing http.ResponseWriter:
 	headers http.Header
 	status  int
@@ -203,9 +200,14 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
+
+	var createdAt string
+	var startedAt string
+	var completedAt string
 	var details string
 	var errCode int
 	var errStr string
+
 	log := common.Logger(ch.ctx)
 
 	if err != nil {
@@ -214,16 +216,40 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	}
 
 	if ch.c != nil {
-		details = ch.c.Model().ID
+		mcall := ch.c.Model()
+
+		// These timestamps are related. To avoid confusion
+		// and for robustness, nested if stmts below.
+		if !time.Time(mcall.CreatedAt).IsZero() {
+			createdAt = mcall.CreatedAt.String()
+
+			if !time.Time(mcall.StartedAt).IsZero() {
+				startedAt = mcall.StartedAt.String()
+
+				if !time.Time(mcall.CompletedAt).IsZero() {
+					completedAt = mcall.CompletedAt.String()
+				} else {
+					// IMPORTANT: We punch this in ourselves.
+					// This is because call.End() is executed asynchronously.
+					completedAt = common.DateTime(time.Now()).String()
+				}
+			}
+		}
+
+		details = mcall.ID
+
 	}
 	log.Debugf("Sending Call Finish details=%v", details)
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success:   err == nil,
-			Details:   details,
-			ErrorCode: int32(errCode),
-			ErrorStr:  errStr,
+			Success:     err == nil,
+			Details:     details,
+			ErrorCode:   int32(errCode),
+			ErrorStr:    errStr,
+			CreatedAt:   createdAt,
+			StartedAt:   startedAt,
+			CompletedAt: completedAt,
 		}}})
 
 	if errTmp != nil {
@@ -524,13 +550,22 @@ func (pr *pureRunner) spawnSubmit(state *callHandle) {
 
 // handleTryCall based on the TryCall message, tries to place the call on NBIO Agent
 func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error {
-	state.receivedTime = common.DateTime(time.Now())
+
+	start := time.Now()
+
 	var c models.Call
 	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
 	if err != nil {
 		state.enqueueCallResponse(err)
 		return err
 	}
+
+	// IMPORTANT: We clear/initialize these dates as start/created/completed dates from
+	// unmarshalled Model from LB-agent represent unrelated time-line events.
+	// From this point, CreatedAt/StartedAt/CompletedAt are based on our local clock.
+	c.CreatedAt = common.DateTime(start)
+	c.StartedAt = common.DateTime(time.Time{})
+	c.CompletedAt = common.DateTime(time.Time{})
 
 	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
 		WithWriter(state),

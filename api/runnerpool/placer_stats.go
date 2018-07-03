@@ -38,18 +38,18 @@ func newAttemptTracker(ctx context.Context) *attemptTracker {
 	}
 }
 
-func (data *attemptTracker) finalizeAttempts(isSuccess bool) {
+func (data *attemptTracker) finalizeAttempts(isCommited bool) {
 	stats.Record(data.ctx, attemptCountMeasure.M(data.attemptCount))
 
 	// IMPORTANT: here we use (lastAttemptTime - startTime). We want to exclude TryExec
-	// latency *if* TryExec() goes through with success. Placer latency metric only shows
+	// latency *if* TryExec() goes through with commit. Placer latency metric only shows
 	// how much time are spending in Placer loop/retries. The metric includes rtt/latency of
 	// *all* unsuccessful NACK (retriable) responses from runners as well. For example, if
 	// Placer loop here retries 4 runners (which takes 5 msecs each) and then 5th runner
 	// succeeds (but takes 35 seconds to finish execution), we report 20 msecs as our LB
 	// latency.
 	endTime := data.lastAttemptTime
-	if !isSuccess {
+	if !isCommited {
 		endTime = time.Now()
 	}
 
