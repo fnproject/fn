@@ -43,13 +43,15 @@ import (
 )
 
 const (
-	EnvLogLevel        = "FN_LOG_LEVEL"
-	EnvLogDest         = "FN_LOG_DEST"
-	EnvLogPrefix       = "FN_LOG_PREFIX"
-	EnvMQURL           = "FN_MQ_URL"
-	EnvDBURL           = "FN_DB_URL"
-	EnvLOGDBURL        = "FN_LOGSTORE_URL"
-	EnvRunnerURL       = "FN_RUNNER_API_URL"
+	EnvLogLevel              = "FN_LOG_LEVEL"
+	EnvLogDest               = "FN_LOG_DEST"
+	EnvLogPrefix             = "FN_LOG_PREFIX"
+	EnvMQURL                 = "FN_MQ_URL"
+	EnvDBURL                 = "FN_DB_URL"
+	EnvLOGDBURL              = "FN_LOGSTORE_URL"
+	EnvRunnerURL             = "FN_RUNNER_API_URL"
+	EnvPublicLoadBalancerURL = "FN_PUBLIC_LB_URL"
+
 	EnvRunnerAddresses = "FN_RUNNER_ADDRESSES"
 	EnvNodeType        = "FN_NODE_TYPE"
 	EnvPort            = "FN_PORT" // be careful, Gin expects this variable to be "port"
@@ -123,6 +125,7 @@ type Server struct {
 	rootMiddlewares  []fnext.Middleware
 	apiMiddlewares   []fnext.Middleware
 	promExporter     *prometheus.Exporter
+	triggerAnnotator TriggerAnnotator
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -171,6 +174,14 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithNodeCert(getEnv(EnvCert, "")))
 	opts = append(opts, WithNodeCertKey(getEnv(EnvCertKey, "")))
 	opts = append(opts, WithNodeCertAuthority(getEnv(EnvCertAuth, "")))
+
+	publicLbUrl := getEnv(EnvPublicLoadBalancerURL, "")
+	if publicLbUrl != "" {
+		logrus.Infof("using LB Base URL: '%s'", publicLbUrl)
+		opts = append(opts, WithTriggerAnnotator(NewStaticURLTriggerAnnotator(publicLbUrl)))
+	} else {
+		opts = append(opts, WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()))
+	}
 
 	// Agent handling depends on node type and several other options so it must be the last processed option.
 	// Also we only need to create an agent if this is not an API node.
@@ -495,6 +506,14 @@ func WithExtraCtx(extraCtx context.Context) ServerOption {
 	}
 }
 
+//WithTriggerAnnotator adds a trigggerEndpoint provider to the server
+func WithTriggerAnnotator(provider TriggerAnnotator) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.triggerAnnotator = provider
+		return nil
+	}
+}
+
 // WithAdminServer starts the admin server on the specified port.
 func WithAdminServer(port int) ServerOption {
 	return func(ctx context.Context, s *Server) error {
@@ -537,6 +556,9 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	case ServerTypeAPI:
 		if s.agent != nil {
 			log.Fatal("Incorrect configuration, API nodes must not have an agent initialized.")
+		}
+		if s.triggerAnnotator == nil {
+			log.Fatal("No trigger annotatator  set ")
 		}
 	default:
 		if s.agent == nil {

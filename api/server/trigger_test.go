@@ -275,10 +275,10 @@ func TestTriggerGet(t *testing.T) {
 
 	a := &models.App{ID: "appid"}
 
-	fn := &models.Fn{ID: "fnid"}
+	fn := &models.Fn{ID: "fnid", AppID: a.ID}
 	fn.SetDefaults()
 
-	trig := &models.Trigger{ID: "triggerid"}
+	trig := &models.Trigger{ID: "triggerid", FnID: fn.ID, AppID: a.ID}
 	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn}, []*models.Trigger{trig})
 
 	for i, test := range []struct {
