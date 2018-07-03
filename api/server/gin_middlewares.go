@@ -154,6 +154,7 @@ func loggerWrap(c *gin.Context) {
 
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
+
 }
 
 type ctxPathKey string
@@ -186,7 +187,7 @@ func AppFromContext(ctx context.Context) string {
 	return r
 }
 
-func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {
+func (s *Server) checkAppPresenceByNameAtLB() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 

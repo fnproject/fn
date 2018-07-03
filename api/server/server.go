@@ -157,7 +157,7 @@ const (
 
 func (s NodeType) String() string {
 	switch s {
-	default:
+	case ServerTypeFull:
 		return "full"
 	case ServerTypeAPI:
 		return "api"
@@ -167,7 +167,10 @@ func (s NodeType) String() string {
 		return "runner"
 	case ServerTypePureRunner:
 		return "pure-runner"
+	default:
+		return fmt.Sprintf("unknown(%d)", s)
 	}
+
 }
 
 // Server is the object which ties together all the fn things, it is the entrypoint
@@ -658,19 +661,46 @@ func New(ctx context.Context, opts ...Option) *Server {
 		}
 	}
 
+	requireConfigSet := func(id string, val interface{}) {
+		if val == nil {
+			log.Fatalf("Invalid configuration for server type %s, %s must be configured during startup", s.nodeType, id)
+		}
+	}
+	requireConfigNotSet := func(id string, val interface{}) {
+		if val != nil {
+			log.Fatalf("Invalid configuration for server type %s, %s must not be configured during startup", s.nodeType, id)
+		}
+	}
+
 	// Check that WithAgent options have been processed correctly.
+	// Yuck the yuck  - server should really be split into several interfaces (LB, Runner, API) and each should be instantiated separately
 	switch s.nodeType {
 	case ServerTypeAPI:
-		if s.agent != nil {
-			log.Fatal("Incorrect configuration, API nodes must not have an agent initialized.")
-		}
-		if s.triggerAnnotator == nil {
-			log.Fatal("No trigger annotatator  set ")
-		}
+		requireConfigNotSet("agent", s.agent)
+		requireConfigSet("datastore", s.datastore)
+		requireConfigSet("triggerAnnotator", s.triggerAnnotator)
+	case ServerTypeFull:
+		requireConfigSet("enqueue", s.lbEnqueue)
+		requireConfigSet("agent", s.agent)
+		requireConfigSet("lbReadAccess", s.lbReadAccess)
+		requireConfigSet("datastore", s.datastore)
+		requireConfigSet("triggerAnnotator", s.triggerAnnotator)
+
+	case ServerTypeLB:
+		requireConfigSet("lbReadAccess", s.lbReadAccess)
+		requireConfigSet("agent", s.agent)
+
+	case ServerTypeRunner:
+		requireConfigSet("lbReadAccess", s.lbReadAccess)
+		requireConfigSet("agent", s.agent)
+
+	case ServerTypePureRunner:
+		requireConfigSet("agent", s.agent)
+
 	default:
-		if s.agent == nil {
-			log.Fatal("Incorrect configuration, non-API nodes must have an agent initialized.")
-		}
+
+		log.Fatal("unknown server type %d", s.nodeType)
+
 	}
 
 	setMachineID()
@@ -684,26 +714,11 @@ func New(ctx context.Context, opts ...Option) *Server {
 	s.fnListeners = new(fnListeners)
 	s.triggerListeners = new(triggerListeners)
 
+	// TODO it's not clear that this is always correct as other stores won't  get wrapping
 	s.datastore = datastore.Wrap(s.datastore)
 	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners, s.triggerListeners)
 	s.logstore = logs.Wrap(s.logstore)
 
-	if s.lbReadAccess != nil {
-		s.lbReadAccess = s.Datastore()
-	}
-
-	if s.lbEnqueue != nil {
-		s.lbEnqueue = agent.NewDirectEnqueueAccess(s.mq)
-	}
-
-	switch s.nodeType {
-	case ServerTypeRunner, ServerTypeLB, ServerTypeAPI:
-
-		if s.lbReadAccess == nil {
-			panic(fmt.Sprintf("Missing read access on server type %d", s.nodeType))
-		}
-
-	}
 	return s
 }
 
@@ -1123,15 +1138,15 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	switch s.nodeType {
 	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
 		if !s.noHttpTriggerEndpoint {
-			runner := engine.Group("/r")
-			runner.Use(s.checkAppPresenceByNameAtRunner())
-			runner.Any("/:appName", s.handleV1FunctionCall)
-			runner.Any("/:appName/*route", s.handleV1FunctionCall)
+			lbRouteGroup := engine.Group("/r")
+			lbRouteGroup.Use(s.checkAppPresenceByNameAtLB())
+			lbRouteGroup.Any("/:appName", s.handleV1FunctionCall)
+			lbRouteGroup.Any("/:appName/*route", s.handleV1FunctionCall)
 
-			triggerRunner := engine.Group("/t")
-			triggerRunner.Use(s.checkAppPresenceByNameAtRunner())
-			triggerRunner.Any("/:appName", s.handleHttpTriggerCall)
-			triggerRunner.Any("/:appName/*source", s.handleHttpTriggerCall)
+			lbTriggerGroup := engine.Group("/t")
+			lbTriggerGroup.Use(s.checkAppPresenceByNameAtLB())
+			lbTriggerGroup.Any("/:appName", s.handleHttpTriggerCall)
+			lbTriggerGroup.Any("/:appName/*source", s.handleHttpTriggerCall)
 
 		}
 

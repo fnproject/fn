@@ -229,7 +229,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 		return nil, err
 	}
 
-	opts = append(opts, server.WithAgent(lbAgent), server.WithReadDataAccess(cl))
+	opts = append(opts, server.WithAgent(lbAgent), server.WithReadDataAccess(agent.NewCachedDataAccess(cl)))
 	return server.New(ctx, opts...), nil
 }
 
