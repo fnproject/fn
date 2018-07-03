@@ -154,6 +154,7 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
 	conf["FN_TYPE"] = route.Type
+	conf["FN_TMPSIZE"] = fmt.Sprintf("%d", route.TmpFsSize)
 
 	CPUs := route.CPUs.String()
 	if CPUs != "" {

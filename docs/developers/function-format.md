@@ -32,6 +32,7 @@ the function's format:
 * `FN_TYPE` - the type for this call, currently 'sync' or 'async'
 * `FN_MEMORY` - a number representing the amount of memory available to the call, in MB
 * `FN_CPUS` - a string representing the amount of CPU available to the call, in MilliCPUs or floating-point number, eg. `100m` or `0.1`. Header is present only if `cpus` is set for the route.
+* `FN_TMPSIZE` - a number representing the amount of writable disk space available under /tmp for the call, in MB
 
 In addition to these, all config variables set on `app.config` or `route.config` will be populated into the environment exactly as configured, for example if `app.config = { "HAMMER": "TIME" }` your environment will be populated with `HAMMER=TIME`.
 
