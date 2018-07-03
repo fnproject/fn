@@ -152,6 +152,15 @@ func (cl *client) GetRoute(ctx context.Context, appID, route string) (*models.Ro
 	return &r.R, err
 }
 
+func (cl *client) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
+	panic("implement me")
+}
+
+func (cl *client) GetFnByID(ctx context.Context, fnId string) (*models.Fn, error) {
+	//TRIGGERWIP
+	panic("implement me")
+}
+
 type httpErr struct {
 	code int
 	error

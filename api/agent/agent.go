@@ -88,24 +88,11 @@ type Agent interface {
 	io.Closer
 
 	AddCallListener(fnext.CallListener)
-
-	// Enqueue is to use the agent's sweet sweet client bindings to remotely
-	// queue async tasks and should be removed from Agent interface ASAP.
-	Enqueue(context.Context, *models.Call) error
-
-	// GetAppID is to get the match of an app name to its ID
-	GetAppID(ctx context.Context, appName string) (string, error)
-
-	// GetAppByID is to get the app by ID
-	GetAppByID(ctx context.Context, appID string) (*models.App, error)
-
-	// GetRoute is to get the route by appId and path
-	GetRoute(ctx context.Context, appID string, path string) (*models.Route, error)
 }
 
 type agent struct {
 	cfg           AgentConfig
-	da            DataAccess
+	da            CallHandler
 	callListeners []fnext.CallListener
 
 	driver drivers.Driver
@@ -121,12 +108,14 @@ type agent struct {
 	disableAsyncDequeue bool
 
 	callOverrider CallOverrider
+	// deferred actions to call at end of initialisation
+	onStartup []func()
 }
 
 type AgentOption func(*agent) error
 
 // New creates an Agent that executes functions locally as Docker containers.
-func New(da DataAccess, options ...AgentOption) Agent {
+func New(da CallHandler, options ...AgentOption) Agent {
 
 	cfg, err := NewAgentConfig()
 	if err != nil {
@@ -136,6 +125,10 @@ func New(da DataAccess, options ...AgentOption) Agent {
 	a := &agent{
 		cfg: *cfg,
 	}
+
+	a.shutWg = common.NewWaitGroup()
+	a.da = da
+	a.slotMgr = NewSlotQueueMgr()
 
 	// Allow overriding config
 	for _, option := range options {
@@ -151,24 +144,32 @@ func New(da DataAccess, options ...AgentOption) Agent {
 		a.driver = NewDockerDriver(&a.cfg)
 	}
 
-	a.da = da
-	a.slotMgr = NewSlotQueueMgr()
 	a.resources = NewResourceTracker(&a.cfg)
-	a.shutWg = common.NewWaitGroup()
 
+	for _, sup := range a.onStartup {
+		sup()
+	}
 	// TODO assert that agent doesn't get started for API nodes up above ?
-	if a.disableAsyncDequeue {
-		return a
-	}
-
-	if !a.shutWg.AddSession(1) {
-		logrus.Fatalf("cannot start agent, unable to add session")
-	}
-	go a.asyncDequeue() // safe shutdown can nanny this fine
-
 	return a
 }
 
+func (a *agent) addStartup(sup func()) {
+	a.onStartup = append(a.onStartup, sup)
+
+}
+
+// WithAsync Enables Async  operations on the agent
+func WithAsync(dqda DequeueDataAccess) AgentOption {
+	return func(a *agent) error {
+		if !a.shutWg.AddSession(1) {
+			logrus.Fatalf("cannot start agent, unable to add session")
+		}
+		a.addStartup(func() {
+			go a.asyncDequeue(dqda) // safe shutdown can nanny this fine
+		})
+		return nil
+	}
+}
 func WithConfig(cfg *AgentConfig) AgentOption {
 	return func(a *agent) error {
 		a.cfg = *cfg
@@ -184,13 +185,6 @@ func WithDockerDriver(drv drivers.Driver) AgentOption {
 		}
 
 		a.driver = drv
-		return nil
-	}
-}
-
-func WithoutAsyncDequeue() AgentOption {
-	return func(a *agent) error {
-		a.disableAsyncDequeue = true
 		return nil
 	}
 }
@@ -221,23 +215,6 @@ func NewDockerDriver(cfg *AgentConfig) *docker.DockerDriver {
 	})
 }
 
-func (a *agent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	return a.da.GetAppByID(ctx, appID)
-}
-
-func (a *agent) GetAppID(ctx context.Context, appName string) (string, error) {
-	return a.da.GetAppID(ctx, appName)
-}
-
-func (a *agent) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
-	return a.da.GetRoute(ctx, appID, path)
-}
-
-// TODO shuffle this around somewhere else (maybe)
-func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
-	return a.da.Enqueue(ctx, call)
-}
-
 func (a *agent) Close() error {
 	var err error
 
@@ -253,6 +230,9 @@ func (a *agent) Close() error {
 
 	// shutdown any db/queue resources
 	// associated with DataAccess
+
+	// TODO TRIGGERWIP: stopped agent from closing data access
+
 	daErr := a.da.Close()
 	if daErr != nil {
 		return daErr

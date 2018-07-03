@@ -40,20 +40,17 @@ func envTweaker(name, value string) func() {
 }
 
 func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
-	ds := datastore.NewMock()
 	ls := logs.NewMock()
 	var mq models.MessageQueue = &mqs.Mock{}
 	for _, a := range args {
 		switch arg := a.(type) {
-		case models.Datastore:
-			ds = arg
 		case models.MessageQueue:
 			mq = arg
 		case models.LogStore:
 			ls = arg
 		}
 	}
-	r := agent.New(agent.NewDirectDataAccess(ds, ls, mq))
+	r := agent.New(agent.NewDirectCallDataAccess(ls, mq))
 	return r, func() { r.Close() }
 }
 
@@ -219,6 +216,7 @@ func TestRouteRunnerExecEmptyBody(t *testing.T) {
 		}
 	}
 }
+
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false

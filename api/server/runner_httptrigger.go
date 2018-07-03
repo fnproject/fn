@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"path"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/fnproject/fn/api"
@@ -17,26 +16,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// handleV1FunctionCall executes the function, for router handlers
-func (s *Server) handleV1FunctionCall(c *gin.Context) {
-	err := s.handleFunctionCall2(c)
+// handleHttpTriggerCall executes the function, for router handlers
+func (s *Server) handleHttpTriggerCall(c *gin.Context) {
+	err := s.handleTriggerHttpFunctionCall2(c)
 	if err != nil {
-		handleV1ErrorResponse(c, err)
+		handleErrorResponse(c, err)
 	}
 }
 
-// handleFunctionCall2 executes the function and returns an error
+// handleTriggerHttpFunctionCall2 executes the function and returns an error
 // Requires the following in the context:
-// * "app"
-// * "path"
-func (s *Server) handleFunctionCall2(c *gin.Context) error {
+func (s *Server) handleTriggerHttpFunctionCall2(c *gin.Context) error {
 	ctx := c.Request.Context()
-	var p string
-	r := PathFromContext(ctx)
-	if r == "" {
+	p := c.Param(api.ParamSource)
+	if p == "" {
 		p = "/"
-	} else {
-		p = r
 	}
 
 	appID := c.MustGet(api.AppID).(string)
@@ -46,23 +40,22 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	}
 
 	routePath := path.Clean(p)
-	route, err := s.lbReadAccess.GetRoute(ctx, appID, routePath)
+	trigger, err := s.lbReadAccess.GetTriggerBySource(ctx, appID, "http", routePath)
+
 	if err != nil {
 		return err
 	}
+
+	fn, err := s.lbReadAccess.GetFnByID(ctx, trigger.FnID)
 	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
 	c.Status(200) // this doesn't write the header yet
 
-	return s.serve(c, app, route)
+	return s.ServeHTTPTrigger(c, app, fn, trigger)
 }
-
-var (
-	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
-)
 
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
 // TODO make async store an *http.Request? would be sexy until we have different api format...
-func (s *Server) serve(c *gin.Context, app *models.App, route *models.Route) error {
+func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	writer := syncResponseWriter{
@@ -80,7 +73,7 @@ func (s *Server) serve(c *gin.Context, app *models.App, route *models.Route) err
 
 	call, err := s.agent.GetCall(
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(app, route, c.Request),
+		agent.FromHttpTriggerRequest(app, fn, trigger, c.Request),
 	)
 	if err != nil {
 		return err
@@ -91,7 +84,9 @@ func (s *Server) serve(c *gin.Context, app *models.App, route *models.Route) err
 		c.Request = c.Request.WithContext(ctx)
 	}
 
+	// TODO TRIGGERWIP  not clear this makes sense here - but it works  so...
 	if model.Type == "async" {
+
 		// TODO we should push this into GetCall somehow (CallOpt maybe) or maybe agent.Queue(Call) ?
 		if c.Request.ContentLength > 0 {
 			buf.Grow(int(c.Request.ContentLength))
@@ -123,6 +118,8 @@ func (s *Server) serve(c *gin.Context, app *models.App, route *models.Route) err
 		return err
 	}
 
+	// TODO TRIGGERWIP  Not sure I want this evil magic in my life here - shoud remove
+
 	// if they don't set a content-type - detect it
 	if writer.Header().Get("Content-Type") == "" {
 		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
@@ -146,19 +143,3 @@ func (s *Server) serve(c *gin.Context, app *models.App, route *models.Route) err
 
 	return nil
 }
-
-var _ http.ResponseWriter = new(syncResponseWriter)
-
-// implements http.ResponseWriter
-// this little guy buffers responses from user containers and lets them still
-// set headers and such without us risking writing partial output [as much, the
-// server could still die while we're copying the buffer]. this lets us set
-// content length and content type nicely, as a bonus. it is sad, yes.
-type syncResponseWriter struct {
-	headers http.Header
-	status  int
-	*bytes.Buffer
-}
-
-func (s *syncResponseWriter) Header() http.Header  { return s.headers }
-func (s *syncResponseWriter) WriteHeader(code int) { s.status = code }

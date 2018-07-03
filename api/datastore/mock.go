@@ -28,6 +28,13 @@ func NewMock() models.Datastore {
 	return NewMockInit()
 }
 
+var _ models.Datastore = &mock{}
+
+func (m *mock) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
+	//TRIGGERWIP
+	panic("implement me")
+}
+
 // args helps break tests less if we change stuff
 func NewMockInit(args ...interface{}) models.Datastore {
 	var mocker mock

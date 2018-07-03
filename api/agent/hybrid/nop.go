@@ -13,6 +13,15 @@ import (
 // nopDataStore implements agent.DataAccess
 type nopDataStore struct{}
 
+func (cl *nopDataStore) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
+	panic("implement me")
+}
+
+func (cl *nopDataStore) GetFnByID(ctx context.Context, fnId string) (*models.Fn, error) {
+	//TRIGGERWIP
+	panic("implement me")
+}
+
 func NewNopDataStore() (agent.DataAccess, error) {
 	return &nopDataStore{}, nil
 }

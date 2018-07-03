@@ -127,6 +127,8 @@ const (
 	triggerSelector   = `SELECT id,name,app_id,fn_id,type,source,annotations,created_at,updated_at FROM triggers`
 	triggerIDSelector = triggerSelector + ` WHERE id=?`
 
+	triggerIDSourceSelector = triggerSelector + ` WHERE app_id=? AND type=? AND source=?`
+
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
 
@@ -1405,6 +1407,25 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 		}
 	}
 	return res, nil
+}
+
+func (ds *SQLStore) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
+	var trigger models.Trigger
+	// TRIGGERWIP
+	// TODO : Currently matches first trigger that has a source that matches - TODO make these unique
+
+	query := ds.db.Rebind(triggerIDSourceSelector)
+	row := ds.db.QueryRowxContext(ctx, query, appId, triggerType, source)
+
+	err := row.StructScan(&trigger)
+	if err == sql.ErrNoRows {
+		return nil, models.ErrTriggerNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return &trigger, nil
 }
 
 // Close closes the database, releasing any open resources.

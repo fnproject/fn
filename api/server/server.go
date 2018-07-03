@@ -184,6 +184,9 @@ type Server struct {
 	mq               models.MessageQueue
 	logstore         models.LogStore
 	nodeType         NodeType
+	// Agent enqueue  and read stores
+	lbEnqueue    agent.EnqueueDataAccess
+	lbReadAccess agent.ReadDataAccess
 	cert             string
 	certKey          string
 	certAuthority    string
@@ -317,6 +320,7 @@ func WithDBURL(dbURL string) Option {
 				return err
 			}
 			s.datastore = ds
+			s.lbReadAccess = agent.NewCachedDataAccess(s.datastore)
 		}
 		return nil
 	}
@@ -331,6 +335,7 @@ func WithMQURL(mqURL string) Option {
 				return err
 			}
 			s.mq = mq
+			s.lbEnqueue = agent.NewDirectEnqueueAccess(mq)
 		}
 		return nil
 	}
@@ -353,12 +358,13 @@ func WithLogURL(logstoreURL string) Option {
 // WithRunnerURL maps EnvRunnerURL
 func WithRunnerURL(runnerURL string) Option {
 	return func(ctx context.Context, s *Server) error {
+
 		if runnerURL != "" {
 			cl, err := hybrid.NewClient(runnerURL)
 			if err != nil {
 				return err
 			}
-			s.agent = agent.New(agent.NewCachedDataAccess(cl))
+			s.lbReadAccess = agent.NewCachedDataAccess(cl)
 		}
 		return nil
 	}
@@ -426,10 +432,19 @@ func WithNodeCertAuthority(ca string) Option {
 	}
 }
 
+// WithReadDataAccess overrides the LB read DataAccess for a server
+func WithReadDataAccess(ds agent.ReadDataAccess) Option {
+	return func(ctx context.Context, s *Server) error {
+		s.lbReadAccess = ds
+		return nil
+	}
+}
+
 // WithDatastore allows directly setting a datastore
 func WithDatastore(ds models.Datastore) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.datastore = ds
+		s.lbReadAccess = agent.NewCachedDataAccess(ds)
 		return nil
 	}
 }
@@ -438,6 +453,7 @@ func WithDatastore(ds models.Datastore) Option {
 func WithMQ(mq models.MessageQueue) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.mq = mq
+		s.lbEnqueue = agent.NewDirectEnqueueAccess(mq)
 		return nil
 	}
 }
@@ -497,7 +513,9 @@ func WithFullAgent() Option {
 		if s.datastore == nil || s.logstore == nil || s.mq == nil {
 			return errors.New("full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL")
 		}
-		s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+		da := agent.NewDirectCallDataAccess(s.logstore, s.mq)
+		dq := agent.NewDirectDequeueAccess(s.mq)
+		s.agent = agent.New(da, agent.WithAsync(dq))
 		return nil
 	}
 }
@@ -518,7 +536,8 @@ func WithAgentFromEnv() Option {
 			if err != nil {
 				return err
 			}
-			s.agent = agent.New(agent.NewCachedDataAccess(cl))
+
+			s.agent = agent.New(cl)
 		case ServerTypePureRunner:
 			if s.datastore != nil {
 				return errors.New("pure runner nodes must not be configured with a datastore (FN_DB_URL)")
@@ -574,7 +593,8 @@ func WithAgentFromEnv() Option {
 			pool.RegisterPlacerViews(keys)
 			agent.RegisterLBAgentViews(keys)
 
-			s.agent, err = agent.NewLBAgent(agent.NewCachedDataAccess(cl), runnerPool, placer)
+			s.lbReadAccess = agent.NewCachedDataAccess(cl)
+			s.agent, err = agent.NewLBAgent(cl, runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
 			}
@@ -668,6 +688,22 @@ func New(ctx context.Context, opts ...Option) *Server {
 	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners, s.triggerListeners)
 	s.logstore = logs.Wrap(s.logstore)
 
+	if s.lbReadAccess != nil {
+		s.lbReadAccess = s.Datastore()
+	}
+
+	if s.lbEnqueue != nil {
+		s.lbEnqueue = agent.NewDirectEnqueueAccess(s.mq)
+	}
+
+	switch s.nodeType {
+	case ServerTypeRunner, ServerTypeLB, ServerTypeAPI:
+
+		if s.lbReadAccess == nil {
+			panic(fmt.Sprintf("Missing read access on server type %d", s.nodeType))
+		}
+
+	}
 	return s
 }
 
@@ -698,6 +734,14 @@ func WithPrometheus() Option {
 		s.promExporter = exporter
 		view.RegisterExporter(exporter)
 		registerViews()
+		return nil
+	}
+}
+
+// WithoutHTTPTriggerEndpoints optionally disables the trigger and route endpoints from a LB -supporting server, allowing extensions to replace them with their own versions
+func WithoutHTTPTriggerEndpoints() Option {
+	return func(ctx context.Context, s *Server) error {
+		s.noHttpTriggerEndpoint = true
 		return nil
 	}
 }
@@ -999,87 +1043,96 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	profilerSetup(admin, "/debug")
 
 	// Pure runners don't have any route, they have grpc
-	if s.nodeType != ServerTypePureRunner {
-		if s.nodeType != ServerTypeRunner {
-			clean := engine.Group("/v1")
-			v1 := clean.Group("")
-			v1.Use(setAppNameInCtx)
-			v1.Use(s.apiMiddlewareWrapper())
-			v1.GET("/apps", s.handleV1AppList)
-			v1.POST("/apps", s.handleV1AppCreate)
+	switch s.nodeType {
+
+	case ServerTypeFull, ServerTypeAPI:
+		clean := engine.Group("/v1")
+		v1 := clean.Group("")
+		v1.Use(setAppNameInCtx)
+		v1.Use(s.apiMiddlewareWrapper())
+		v1.GET("/apps", s.handleV1AppList)
+		v1.POST("/apps", s.handleV1AppCreate)
+
+		{
+			apps := v1.Group("/apps/:appName")
+			apps.Use(appNameCheck)
 
 			{
-				apps := v1.Group("/apps/:appName")
-				apps.Use(appNameCheck)
+				withAppCheck := apps.Group("")
+				withAppCheck.Use(s.checkAppPresenceByName())
 
-				{
-					withAppCheck := apps.Group("")
-					withAppCheck.Use(s.checkAppPresenceByName())
+				withAppCheck.GET("", s.handleV1AppGetByName)
+				withAppCheck.PATCH("", s.handleV1AppUpdate)
+				withAppCheck.DELETE("", s.handleV1AppDelete)
 
-					withAppCheck.GET("", s.handleV1AppGetByName)
-					withAppCheck.PATCH("", s.handleV1AppUpdate)
-					withAppCheck.DELETE("", s.handleV1AppDelete)
-
-					withAppCheck.GET("/routes", s.handleRouteList)
-					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
-					withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
-					withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
-					withAppCheck.GET("/calls/:call", s.handleCallGet)
-					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
-					withAppCheck.GET("/calls", s.handleCallList)
-				}
-
-				apps.POST("/routes", s.handleRoutesPostPut)
-				apps.PUT("/routes/*route", s.handleRoutesPostPut)
+				withAppCheck.GET("/routes", s.handleRouteList)
+				withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
+				withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
+				withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
+				withAppCheck.GET("/calls/:call", s.handleCallGet)
+				withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
+				withAppCheck.GET("/calls", s.handleCallList)
 			}
 
-			cleanv2 := engine.Group("/v2")
-			v2 := cleanv2.Group("")
-			v2.Use(s.apiMiddlewareWrapper())
-
-			{
-				v2.GET("/apps", s.handleAppList)
-				v2.POST("/apps", s.handleAppCreate)
-				v2.GET("/apps/:appID", s.handleAppGet)
-				v2.PUT("/apps/:appID", s.handleAppUpdate)
-				v2.DELETE("/apps/:appID", s.handleAppDelete)
-
-				v2.GET("/fns", s.handleFnList)
-				v2.POST("/fns", s.handleFnCreate)
-				v2.GET("/fns/:fnID", s.handleFnGet)
-				v2.PUT("/fns/:fnID", s.handleFnUpdate)
-				v2.DELETE("/fns/:fnID", s.handleFnDelete)
-
-				v2.GET("/triggers", s.handleTriggerList)
-				v2.POST("/triggers", s.handleTriggerCreate)
-				v2.GET("/triggers/:triggerID", s.handleTriggerGet)
-				v2.PUT("/triggers/:triggerID", s.handleTriggerUpdate)
-				v2.DELETE("/triggers/:triggerID", s.handleTriggerDelete)
-			}
-
-			{
-				runner := clean.Group("/runner")
-				runner.PUT("/async", s.handleRunnerEnqueue)
-				runner.GET("/async", s.handleRunnerDequeue)
-
-				runner.POST("/start", s.handleRunnerStart)
-				runner.POST("/finish", s.handleRunnerFinish)
-
-				runnerAppApi := runner.Group(
-
-					"/apps/:appID")
-				runnerAppApi.Use(setAppIDInCtx)
-				runnerAppApi.GET("", s.handleV1AppGetByName)
-				runnerAppApi.GET("/routes/:route", s.handleRouteGetRunner)
-
-			}
+			apps.POST("/routes", s.handleRoutesPostPut)
+			apps.PUT("/routes/*route", s.handleRoutesPostPut)
 		}
 
-		if s.nodeType != ServerTypeAPI {
+		cleanv2 := engine.Group("/v2")
+		v2 := cleanv2.Group("")
+		v2.Use(s.apiMiddlewareWrapper())
+
+		{
+			v2.GET("/apps", s.handleAppList)
+			v2.POST("/apps", s.handleAppCreate)
+			v2.GET("/apps/:appID", s.handleAppGet)
+			v2.PUT("/apps/:appID", s.handleAppUpdate)
+			v2.DELETE("/apps/:appID", s.handleAppDelete)
+
+			v2.GET("/fns", s.handleFnList)
+			v2.POST("/fns", s.handleFnCreate)
+			v2.GET("/fns/:fnID", s.handleFnGet)
+			v2.PUT("/fns/:fnID", s.handleFnUpdate)
+			v2.DELETE("/fns/:fnID", s.handleFnDelete)
+
+			v2.GET("/triggers", s.handleTriggerList)
+			v2.POST("/triggers", s.handleTriggerCreate)
+			v2.GET("/triggers/:triggerID", s.handleTriggerGet)
+			v2.PUT("/triggers/:triggerID", s.handleTriggerUpdate)
+			v2.DELETE("/triggers/:triggerID", s.handleTriggerDelete)
+		}
+
+		{ // Hybrid API - this should only be enabled on API servers
+			runner := clean.Group("/runner")
+			runner.PUT("/async", s.handleRunnerEnqueue)
+			runner.GET("/async", s.handleRunnerDequeue)
+
+			runner.POST("/start", s.handleRunnerStart)
+			runner.POST("/finish", s.handleRunnerFinish)
+
+			runnerAppApi := runner.Group(
+
+				"/apps/:appID")
+			runnerAppApi.Use(setAppIDInCtx)
+			runnerAppApi.GET("", s.handleV1AppGetByName)
+			runnerAppApi.GET("/routes/:route", s.handleRouteGetRunner)
+
+		}
+	}
+
+	switch s.nodeType {
+	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
+		if !s.noHttpTriggerEndpoint {
 			runner := engine.Group("/r")
 			runner.Use(s.checkAppPresenceByNameAtRunner())
-			runner.Any("/:appName", s.handleFunctionCall)
-			runner.Any("/:appName/*route", s.handleFunctionCall)
+			runner.Any("/:appName", s.handleV1FunctionCall)
+			runner.Any("/:appName/*route", s.handleV1FunctionCall)
+
+			triggerRunner := engine.Group("/t")
+			triggerRunner.Use(s.checkAppPresenceByNameAtRunner())
+			triggerRunner.Any("/:appName", s.handleHttpTriggerCall)
+			triggerRunner.Any("/:appName/*source", s.handleHttpTriggerCall)
+
 		}
 
 	}

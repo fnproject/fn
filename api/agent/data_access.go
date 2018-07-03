@@ -11,26 +11,30 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
-// DataAccess abstracts the datastore and message queue operations done by the
-// agent, so that API nodes and runner nodes can work with the same interface
-// but actually operate on the data in different ways (by direct access or by
-// mediation through an API node).
-type DataAccess interface {
+type ReadDataAccess interface {
 	GetAppID(ctx context.Context, appName string) (string, error)
-
 	// GetAppByID abstracts querying the datastore for an app.
 	GetAppByID(ctx context.Context, appID string) (*models.App, error)
-
+	GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error)
+	GetFnByID(ctx context.Context, fnId string) (*models.Fn, error)
 	// GetRoute abstracts querying the datastore for a route within an app.
 	GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error)
+}
 
-	// Enqueue will add a Call to the queue (ultimately forwards to mq.Push).
-	Enqueue(ctx context.Context, mCall *models.Call) error
-
+type DequeueDataAccess interface {
 	// Dequeue will query the queue for the next available Call that can be run
 	// by this Agent, and reserve it (ultimately forwards to mq.Reserve).
 	Dequeue(ctx context.Context) (*models.Call, error)
+}
 
+type EnqueueDataAccess interface {
+	// Enqueue will add a Call to the queue (ultimately forwards to mq.Push).
+	Enqueue(ctx context.Context, mCall *models.Call) error
+}
+
+// CallHandler consumes the start and finish events for a call
+type CallHandler interface {
+	io.Closer
 	// Start will attempt to start the provided Call within an appropriate
 	// context.
 	Start(ctx context.Context, mCall *models.Call) error
@@ -38,25 +42,35 @@ type DataAccess interface {
 	// Finish will notify the system that the Call has been processed, and
 	// fulfill the reservation in the queue if the call came from a queue.
 	Finish(ctx context.Context, mCall *models.Call, stderr io.Reader, async bool) error
+}
+
+// DataAccess abstracts the datastore and message queue operations done by the
+// agent, so that API nodes and runner nodes can work with the same interface
+// but actually operate on the data in different ways (by direct access or by
+// mediation through an API node).
+type DataAccess interface {
+	ReadDataAccess
+	DequeueDataAccess
+	CallHandler
 
 	// Close will wait for any pending operations to complete and
 	// shuts down connections to the underlying datastore/queue resources.
 	// Close is not safe to be called from multiple threads.
-	io.Closer
+	//io.Closer
 }
 
 // CachedDataAccess wraps a DataAccess and caches the results of GetApp and GetRoute.
 type CachedDataAccess struct {
-	DataAccess
+	ReadDataAccess
 
 	cache        *cache.Cache
 	singleflight singleflight.SingleFlight
 }
 
-func NewCachedDataAccess(da DataAccess) DataAccess {
+func NewCachedDataAccess(da ReadDataAccess) ReadDataAccess {
 	cda := &CachedDataAccess{
-		DataAccess: da,
-		cache:      cache.New(5*time.Second, 1*time.Minute),
+		ReadDataAccess: da,
+		cache:          cache.New(5*time.Second, 1*time.Minute),
 	}
 	return cda
 }
@@ -70,7 +84,7 @@ func appIDCacheKey(appID string) string {
 }
 
 func (da *CachedDataAccess) GetAppID(ctx context.Context, appName string) (string, error) {
-	return da.DataAccess.GetAppID(ctx, appName)
+	return da.ReadDataAccess.GetAppID(ctx, appName)
 }
 
 func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
@@ -82,7 +96,7 @@ func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 
 	resp, err := da.singleflight.Do(key,
 		func() (interface{}, error) {
-			return da.DataAccess.GetAppByID(ctx, appID)
+			return da.ReadDataAccess.GetAppByID(ctx, appID)
 		})
 
 	if err != nil {
@@ -102,7 +116,7 @@ func (da *CachedDataAccess) GetRoute(ctx context.Context, appID string, routePat
 
 	resp, err := da.singleflight.Do(key,
 		func() (interface{}, error) {
-			return da.DataAccess.GetRoute(ctx, appID, routePath)
+			return da.ReadDataAccess.GetRoute(ctx, appID, routePath)
 		})
 
 	if err != nil {
@@ -113,46 +127,68 @@ func (da *CachedDataAccess) GetRoute(ctx context.Context, appID string, routePat
 	return r.(*models.Route), nil
 }
 
-// Close invokes close on the underlying DataAccess
-func (da *CachedDataAccess) Close() error {
-	return da.DataAccess.Close()
-}
+//// Close invokes close on the underlying DataAccess
+//func (cda *CachedDataAccess) Close() error {
+//	return cda.ReadDataAccess.Close()
+//}
 
 type directDataAccess struct {
 	mq models.MessageQueue
-	ds models.Datastore
 	ls models.LogStore
 }
 
-func NewDirectDataAccess(ds models.Datastore, ls models.LogStore, mq models.MessageQueue) DataAccess {
+type directReadAccess struct {
+	models.Datastore
+}
+
+func NewDirectReadAccess(ds models.Datastore) ReadDataAccess {
+	return &directReadAccess{
+		Datastore: ds,
+	}
+}
+
+type directDequeue struct {
+	mq models.MessageQueue
+}
+
+func (ddq *directDequeue) Dequeue(ctx context.Context) (*models.Call, error) {
+	return ddq.mq.Reserve(ctx)
+}
+
+func NewDirectDequeueAccess(mq models.MessageQueue) DequeueDataAccess {
+	return &directDequeue{
+		mq: mq,
+	}
+}
+
+type directEnequeue struct {
+	mq models.MessageQueue
+}
+
+func NewDirectEnqueueAccess(mq models.MessageQueue) EnqueueDataAccess {
+	return &directEnequeue{
+		mq: mq,
+	}
+}
+
+func (da *directEnequeue) Enqueue(ctx context.Context, mCall *models.Call) error {
+	_, err := da.mq.Push(ctx, mCall)
+	return err
+	// TODO: Insert a call in the datastore with the 'queued' state
+}
+
+func NewDirectCallDataAccess(ls models.LogStore, mq models.MessageQueue) CallHandler {
 	da := &directDataAccess{
 		mq: mq,
-		ds: ds,
 		ls: ls,
 	}
 	return da
-}
-
-func (da *directDataAccess) GetAppID(ctx context.Context, appName string) (string, error) {
-	return da.ds.GetAppID(ctx, appName)
-}
-
-func (da *directDataAccess) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	return da.ds.GetAppByID(ctx, appID)
-}
-
-func (da *directDataAccess) GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error) {
-	return da.ds.GetRoute(ctx, appID, routePath)
 }
 
 func (da *directDataAccess) Enqueue(ctx context.Context, mCall *models.Call) error {
 	_, err := da.mq.Push(ctx, mCall)
 	return err
 	// TODO: Insert a call in the datastore with the 'queued' state
-}
-
-func (da *directDataAccess) Dequeue(ctx context.Context) (*models.Call, error) {
-	return da.mq.Reserve(ctx)
 }
 
 func (da *directDataAccess) Start(ctx context.Context, mCall *models.Call) error {
@@ -183,7 +219,7 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 	if async {
 		// XXX (reed): delete MQ message, eventually
 		// YYY (hhexo): yes, once we have the queued/running/finished mechanics
-		// return da.mq.Delete(ctx, mCall)
+		// return cda.mq.Delete(ctx, mCall)
 	}
 	return nil
 }
@@ -191,14 +227,13 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 // Close calls close on the underlying Datastore and MessageQueue. If the Logstore
 // and Datastore are different, it will call Close on the Logstore as well.
 func (da *directDataAccess) Close() error {
-	err := da.ds.Close()
-	if ls, ok := da.ds.(models.LogStore); ok && ls != da.ls {
-		if daErr := da.ls.Close(); daErr != nil {
-			err = daErr
-		}
-	}
-	if mqErr := da.mq.Close(); mqErr != nil {
-		err = mqErr
-	}
-	return err
+	// TRIGGERWIP: Make sure DS is still correctly closed in server
+	//err := handler.ds.Close()
+	//if ls, ok := handler.ds.(models.LogStore); ok && ls != handler.ls {
+	//	if daErr := handler.ls.Close(); daErr != nil {
+	//		err = daErr
+	//	}
+	//}
+	return da.mq.Close()
+
 }

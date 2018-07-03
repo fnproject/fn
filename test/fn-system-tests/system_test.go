@@ -224,12 +224,12 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 
 	// Create an LB Agent with a Call Overrider to intercept calls in GetCall(). Overrider in this example
 	// scrubs CPU/TmpFsSize and adds FN_CHEESE key/value into extensions.
-	lbAgent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer, agent.WithLBCallOverrider(LBCallOverrider))
+	lbAgent, err := agent.NewLBAgent(cl, nodePool, placer, agent.WithLBCallOverrider(LBCallOverrider))
 	if err != nil {
 		return nil, err
 	}
 
-	opts = append(opts, server.WithAgent(lbAgent))
+	opts = append(opts, server.WithAgent(lbAgent), server.WithReadDataAccess(cl))
 	return server.New(ctx, opts...), nil
 }
 
@@ -267,7 +267,6 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	innerAgent := agent.New(ds,
 		agent.WithConfig(cfg),
 		agent.WithDockerDriver(drv),
-		agent.WithoutAsyncDequeue(),
 		agent.WithCallOverrider(PureRunnerCallOverrider))
 
 	cancelCtx, cancel := context.WithCancel(ctx)

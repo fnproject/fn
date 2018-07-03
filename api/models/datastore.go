@@ -93,6 +93,10 @@ type Datastore interface {
 	// Return ErrDatastoreEmptyAppId if no AppID set in the filter
 	GetTriggers(ctx context.Context, filter *TriggerFilter) (*TriggerList, error)
 
+	GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*Trigger, error)
+
+	GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*Trigger, error)
+
 	// implements io.Closer to shutdown
 	io.Closer
 }

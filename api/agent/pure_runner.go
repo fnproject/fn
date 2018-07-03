@@ -17,7 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	runner "github.com/fnproject/fn/api/agent/grpc"
+	"github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
@@ -495,23 +495,8 @@ type pureRunner struct {
 }
 
 // implements Agent
-func (pr *pureRunner) GetAppID(ctx context.Context, appName string) (string, error) {
-	return pr.a.GetAppID(ctx, appName)
-}
-
-// implements Agent
-func (pr *pureRunner) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	return pr.a.GetAppByID(ctx, appID)
-}
-
-// implements Agent
 func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
 	return pr.a.GetCall(opts...)
-}
-
-// implements Agent
-func (pr *pureRunner) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
-	return pr.a.GetRoute(ctx, appID, path)
 }
 
 // implements Agent
@@ -534,11 +519,6 @@ func (pr *pureRunner) Close() error {
 // implements Agent
 func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
-}
-
-// implements Agent
-func (pr *pureRunner) Enqueue(context.Context, *models.Call) error {
-	return errors.New("Enqueue cannot be called directly in a Pure Runner.")
 }
 
 func (pr *pureRunner) spawnSubmit(state *callHandle) {
@@ -653,9 +633,9 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 	}, nil
 }
 
-func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string) (Agent, error) {
+func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, cert string, key string, ca string) (Agent, error) {
 
-	agent := New(da, WithoutAsyncDequeue())
+	agent := New(da)
 
 	// WARNING: SSL creds are optional.
 	if cert == "" || key == "" || ca == "" {

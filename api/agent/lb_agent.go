@@ -19,7 +19,7 @@ import (
 
 type lbAgent struct {
 	cfg           AgentConfig
-	da            DataAccess
+	cda           CallHandler
 	callListeners []fnext.CallListener
 	rp            pool.RunnerPool
 	placer        pool.Placer
@@ -50,7 +50,7 @@ func WithLBCallOverrider(fn CallOverrider) LBAgentOption {
 
 // NewLBAgent creates an Agent that knows how to load-balance function calls
 // across a group of runner nodes.
-func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer, options ...LBAgentOption) (Agent, error) {
+func NewLBAgent(da CallHandler, rp pool.RunnerPool, p pool.Placer, options ...LBAgentOption) (Agent, error) {
 
 	// Yes, LBAgent and Agent both use an AgentConfig.
 	cfg, err := NewAgentConfig()
@@ -60,7 +60,7 @@ func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer, options ...LBA
 
 	a := &lbAgent{
 		cfg:    *cfg,
-		da:     da,
+		cda:    da,
 		rp:     rp,
 		placer: p,
 		shutWg: common.NewWaitGroup(),
@@ -91,23 +91,6 @@ func (a *lbAgent) fireBeforeCall(ctx context.Context, call *models.Call) error {
 // implements callTrigger
 func (a *lbAgent) fireAfterCall(ctx context.Context, call *models.Call) error {
 	return fireAfterCallFun(a.callListeners, ctx, call)
-}
-
-// implements Agent
-// GetAppID is to get the match of an app name to its ID
-func (a *lbAgent) GetAppID(ctx context.Context, appName string) (string, error) {
-	return a.da.GetAppID(ctx, appName)
-}
-
-// implements Agent
-// GetAppByID is to get the app by ID
-func (a *lbAgent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	return a.da.GetAppByID(ctx, appID)
-}
-
-// implements Agent
-func (a *lbAgent) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
-	return a.da.GetRoute(ctx, appID, path)
 }
 
 // implements Agent
@@ -144,7 +127,7 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	setupCtx(&c)
 
 	c.isLB = true
-	c.da = a.da
+	c.handler = a.cda
 	c.ct = a
 	c.stderr = &nullReadWriter{}
 	c.slotHashId = getSlotQueueKey(&c)
