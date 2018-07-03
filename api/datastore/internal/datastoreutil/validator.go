@@ -143,7 +143,7 @@ func (v *validator) InsertTrigger(ctx context.Context, t *models.Trigger) (*mode
 	return v.Datastore.InsertTrigger(ctx, t)
 }
 
-func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
+func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
 
 	if filter.AppID == "" {
 		return nil, models.ErrTriggerMissingAppID
