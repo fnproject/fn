@@ -44,7 +44,10 @@ var (
 	ErrUpdatedAtProvided = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger ID Provided for Create")}
-
+	ErrTriggersNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("Trigger not found"),
+	}
 	ErrDatastoreEmptyApp = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app"),
@@ -60,6 +63,10 @@ var (
 	ErrDatastoreEmptyFnID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Fn ID"),
+	}
+	ErrFnsNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("Function not found"),
 	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
