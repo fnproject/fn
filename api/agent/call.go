@@ -176,111 +176,12 @@ func buildCloudEvent(req *http.Request) (*cloudevent.CloudEvent, error) {
 // the function/app/trigger unwound inside the event. we also need a way to build this state up,
 // it's possible the two should interlope but maybe not. start without building squat here.
 //
-// thinking: we add the concrete event onto the call object to tote around and re-encode to the container,
-// and a call is simply the extraction of information we need from the event object for the agent to use.
-// we also need to plumb out the container responses all the way up preferably so that Submit returns an event?
-//
-// trigger only things?
-// XXX(reed): shove headers into `protocol: { headers: { } }`
-// XXX(reed): shove url into `protocol: `{ url: "" }` ? also eventURL
-// XXX(reed): shove method into `protocol: `{ method: "" }` ? also eventURL
-func FromEvent(event *cloudevent.CloudEvent) CallOpt {
-	return func(ctx context.Context, c *call) error {
-		ext, ok := event.Extensions.(map[string]interface{}) // XXX(reed): ?
-		if !ok {
-			return errors.New("cloud event extensions must be marshaled with known type")
-		}
-
-		// XXX(reed): prob need a map. ignore for a minute
-		app := ext["app"].(*models.App)
-		fn := ext["fn"].(*models.Fn)
-		trigger := ext["fn"].(*models.Trigger)
-
-		var syslogURL string
-		if app.SyslogURL != nil {
-			syslogURL = *app.SyslogURL
-		}
-
-		c.Call = &models.Call{
-			// XXX(reed): these are the fields agent needs to run the thing, everything else
-			// we can leave in cloud event format.
-			// DO NOT MODIFY FIELDS DINGUS
-			ID:          id.New().String(),
-			Image:       fn.Image,
-			Timeout:     fn.Timeout,
-			IdleTimeout: fn.IdleTimeout,
-			TmpFsSize:   0, // TODO clean up this
-			Memory:      fn.Memory,
-			CPUs:        0, // TODO clean up this
-			SyslogURL:   syslogURL,
-			// TODO - this wasn't really the intention here (that annotations would naturally cascade
-			// but seems to be necessary for some runner behaviour
-			// XXX(reed): we need annotations right?
-			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
-			// XXX(reed): some checksum / version for hotties (ugh)
-			// XXX(reed): http handler should add eventURL ?
-
-			// TODO DEPRECATE / NUKE
-			Type:   "sync",
-			Format: "cloudevent",
-		}
-
-		return nil
-	}
-}
-
-// SPEC:
-
-//cloudevent {
-//eventType: "",
-//...
-//extensions: {
-//fn: {
-//id: "",
-//name: "",
-//image: "",
-//...
-//},
-//trigger: {
-//id: "",
-//name: "",
-//...
-//},
-//app: {
-//id: "",
-//name: "",
-//}
-//protocol: {
-//type: "",
-//extensions: {
-//"": "",
-//}
-//}
-//},
-//}
-
-func buildCloudEvent(req *http.Request) (*cloudevent.CloudEvent, error) {
-	var ce cloudevent.CloudEvent
-	// XXX(reed): ???
-	ext := make(map[string]interface{}, 3)
-	ext["app"] = new(models.App)
-	ext["trigger"] = new(models.Trigger)
-	ext["fn"] = new(models.Fn)
-	ce.Extensions = ext
-	err := ce.FromRequest(req)
-	return &ce, err
-}
-
-// XXX(reed): for the split mode we need to support invoke that takes a fully built event, with
-// the function/app/trigger unwound inside the event. we also need a way to build this state up,
-// it's possible the two should interlope but maybe not. start without building squat here.
-//
 // trigger only things?
 // XXX(reed): shove headers into `protocol: { headers: { } }`
 // XXX(reed): shove url into `protocol: `{ url: "" }` ? also eventURL
 // XXX(reed): shove method into `protocol: `{ method: "" }` ? also eventURL
 func FromFullInvoke(event *cloudevent.CloudEvent) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		ext, ok := event.Extensions.(map[string]interface{}) // XXX(reed): ?
 		if !ok {
 			return errors.New("cloud event extensions must be marshaled with known type")
