@@ -168,18 +168,6 @@ func FromHttpTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			rw.Header().Add("FN_CALL_ID", id)
 		}
 
-		// this ensures that there is an image, path, timeouts, memory, etc are valid.
-		// NOTE: this means assign any changes above into route's fields
-		err = fn.Validate()
-		if err != nil {
-			return err
-		}
-
-		err = trigger.Validate()
-		if err != nil {
-			return err
-		}
-
 		var syslogURL string
 		if app.SyslogURL != nil {
 			syslogURL = *app.SyslogURL

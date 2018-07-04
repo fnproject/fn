@@ -8,11 +8,130 @@ import (
 	"strings"
 	"testing"
 
+	"context"
+	"errors"
+	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+	"os"
 )
+
+func envTweaker(name, value string) func() {
+	bck, ok := os.LookupEnv(name)
+
+	err := os.Setenv(name, value)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return func() {
+		var err error
+		if !ok {
+			err = os.Unsetenv(name)
+		} else {
+			err = os.Setenv(name, bck)
+		}
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
+func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
+	ls := logs.NewMock()
+	var mq models.MessageQueue = &mqs.Mock{}
+	for _, a := range args {
+		switch arg := a.(type) {
+		case models.MessageQueue:
+			mq = arg
+		case models.LogStore:
+			ls = arg
+		}
+	}
+	r := agent.New(agent.NewDirectCallDataAccess(ls, mq))
+	return r, func() { r.Close() }
+}
+
+func checkLogs(t *testing.T, tnum int, ds models.LogStore, callID string, expected []string) bool {
+
+	logReader, err := ds.GetLog(context.Background(), "myapp", callID)
+	if err != nil {
+		t.Errorf("Test %d: GetLog for call_id:%s returned err %s",
+			tnum, callID, err.Error())
+		return false
+	}
+
+	logBytes, err := ioutil.ReadAll(logReader)
+	if err != nil {
+		t.Errorf("Test %d: GetLog read IO call_id:%s returned err %s",
+			tnum, callID, err.Error())
+		return false
+	}
+
+	logBody := string(logBytes)
+	maxLog := len(logBody)
+	if maxLog > 1024 {
+		maxLog = 1024
+	}
+
+	for _, match := range expected {
+		if !strings.Contains(logBody, match) {
+			t.Errorf("Test %d: GetLog read IO call_id:%s cannot find: %s in logs: %s",
+				tnum, callID, match, logBody[:maxLog])
+			return false
+		}
+	}
+
+	return true
+}
+
+// implement models.MQ and models.APIError
+type errorMQ struct {
+	error
+	code int
+}
+
+func (mock *errorMQ) Push(context.Context, *models.Call) (*models.Call, error) { return nil, mock }
+func (mock *errorMQ) Reserve(context.Context) (*models.Call, error)            { return nil, mock }
+func (mock *errorMQ) Delete(context.Context, *models.Call) error               { return mock }
+func (mock *errorMQ) Code() int                                                { return mock.code }
+func (mock *errorMQ) Close() error                                             { return nil }
+func TestFailedEnqueue(t *testing.T) {
+	buf := setLogBuffer()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
+	ds := datastore.NewMockInit(
+		[]*models.App{app},
+		[]*models.Route{
+			{Path: "/dummy", Image: "dummy/dummy", Type: "async", Memory: 128, Timeout: 30, IdleTimeout: 30, AppID: app.ID},
+		},
+	)
+	err := errors.New("Unable to push task to queue")
+	mq := &errorMQ{err, http.StatusInternalServerError}
+	fnl := logs.NewMock()
+	rnr, cancelrnr := testRunner(t, ds, mq, fnl)
+	defer cancelrnr()
+
+	srv := testServer(ds, mq, fnl, rnr, ServerTypeFull)
+	for i, test := range []struct {
+		path            string
+		body            string
+		method          string
+		expectedCode    int
+		expectedHeaders map[string][]string
+	}{
+		{"/r/myapp/dummy", ``, "POST", http.StatusInternalServerError, nil},
+	} {
+		body := strings.NewReader(test.body)
+		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
+			t.Errorf("Test %d: Expected status code to be %d but was %d",
+				i, test.expectedCode, rec.Code)
+		}
+	}
+}
 
 func TestTriggerRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
@@ -202,7 +321,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{defaultFn, defaultDneFn, httpDneRegistryFn, oomFn, httpFn, jsonFn},
+		[]*models.Fn{defaultFn, defaultDneFn, httpDneRegistryFn, oomFn, httpFn, jsonFn, httpDneFn},
 		[]*models.Trigger{
 			{ID: "1", Name: "1", Source: "/", Type: "http", AppID: app.ID, FnID: defaultFn.ID},
 			{ID: "2", Name: "2", Source: "/myhot", Type: "http", AppID: app.ID, FnID: httpFn.ID},
@@ -225,25 +344,25 @@ func TestTriggerRunnerExecution(t *testing.T) {
 
 	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull)
 
-	//expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
-	//expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
-	//
-	//// Checking for EndOfLogs currently depends on scheduling of go-routines (in docker/containerd) that process stderr & stdout.
-	//// Therefore, not testing for EndOfLogs for hot containers (which has complex I/O processing) anymore.
-	//multiLogExpectCold := []string{"BeginOfLogs", "EndOfLogs"}
-	//multiLogExpectHot := []string{"BeginOfLogs" /*, "EndOfLogs" */}
-	//
-	//crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`                      // crash container
-	//oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 12000000}`             // ask for 12MB
-	//badHot := `{"echoContent": "_TRX_ID_", "invalidResponse": true, "isDebug": true}`               // write a not json/http as output
-	//ok := `{"echoContent": "_TRX_ID_", "isDebug": true}`                                            // good response / ok
-	//respTypeLie := `{"echoContent": "_TRX_ID_", "responseContentType": "foo/bar", "isDebug": true}` // Content-Type: foo/bar
-	//respTypeJason := `{"echoContent": "_TRX_ID_", "jasonContentType": "foo/bar", "isDebug": true}`  // Content-Type: foo/bar
-	//
-	//// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
-	//multiLog := `{"echoContent": "_TRX_ID_", "sleepTime": 1000, "isDebug": true}`
-	//bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
-	//smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1}`  // 1 trailer < 2K
+	expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
+	expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
+
+	// Checking for EndOfLogs currently depends on scheduling of go-routines (in docker/containerd) that process stderr & stdout.
+	// Therefore, not testing for EndOfLogs for hot containers (which has complex I/O processing) anymore.
+	multiLogExpectCold := []string{"BeginOfLogs", "EndOfLogs"}
+	multiLogExpectHot := []string{"BeginOfLogs" /*, "EndOfLogs" */}
+
+	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`                      // crash container
+	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 12000000}`             // ask for 12MB
+	badHot := `{"echoContent": "_TRX_ID_", "invalidResponse": true, "isDebug": true}`               // write a not json/http as output
+	ok := `{"echoContent": "_TRX_ID_", "isDebug": true}`                                            // good response / ok
+	respTypeLie := `{"echoContent": "_TRX_ID_", "responseContentType": "foo/bar", "isDebug": true}` // Content-Type: foo/bar
+	respTypeJason := `{"echoContent": "_TRX_ID_", "jasonContentType": "foo/bar", "isDebug": true}`  // Content-Type: foo/bar
+
+	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
+	multiLog := `{"echoContent": "_TRX_ID_", "sleepTime": 1000, "isDebug": true}`
+	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
+	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1}`  // 1 trailer < 2K
 
 	testCases := []struct {
 		path               string
@@ -254,35 +373,34 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		expectedErrSubStr  string
 		expectedLogsSubStr []string
 	}{
-		//{"/t/myapp/", ok, "GET", http.StatusOK, expHeaders, "", nil},
-		//
-		//{"/t/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
-		//// hot container now back to normal:
-		//{"/t/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, "", nil},
-		//
-		//{"/t/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
-		//// hot container now back to normal:
-		//{"/t/myapp/myhotjason", ok, "GET", http.StatusOK, expHeaders, "", nil},
-		//
-		//{"/t/myapp/myhot", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
-		//{"/t/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
-		//{"/t/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
-		//
-		//{"/t/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, "", nil},
-		//{"/t/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2", nil},
-		//{"/t/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
+		{"/t/myapp/", ok, "GET", http.StatusOK, expHeaders, "", nil},
+
+		{"/t/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
+		// hot container now back to normal:
+		{"/t/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, "", nil},
+
+		{"/t/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
+		// hot container now back to normal:
+		{"/t/myapp/myhotjason", ok, "GET", http.StatusOK, expHeaders, "", nil},
+
+		{"/t/myapp/myhot", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
+		{"/t/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
+		{"/t/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
+
+		{"/t/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/t/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2", nil},
+		{"/t/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/t/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
-		//{"/t/myapp/mydneregistry", ``, "GET", http.StatusInternalServerError, nil, "connection refused", nil},
-		//
-		//{"/t/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
-		//{"/t/myapp/myhot", multiLog, "GET", http.StatusOK, nil, "", multiLogExpectHot},
-		//{"/t/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpectCold},
-		//{"/t/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
-		//{"/t/myapp/mybigoutputjson", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		//{"/t/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
-		//{"/t/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		//{"/t/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
-		//{"/t/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
+		{"/t/myapp/mydneregistry", ``, "GET", http.StatusInternalServerError, nil, "connection refused", nil},
+		{"/t/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
+		{"/t/myapp/myhot", multiLog, "GET", http.StatusOK, nil, "", multiLogExpectHot},
+		{"/t/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpectCold},
+		{"/t/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
+		{"/t/myapp/mybigoutputjson", smalloutput, "GET", http.StatusOK, nil, "", nil},
+		{"/t/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
+		{"/t/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
+		{"/t/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
+		{"/t/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
 	}
 
 	callIds := make([]string, len(testCases))
@@ -359,14 +477,21 @@ func TestTriggerRunnerTimeout(t *testing.T) {
 	hugeMem := uint64(models.RouteMaxMemory - 1)
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
+	coldFn := &models.Fn{ID: "cold", Name: "cold", AppID: app.ID, Format: "", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
+	httpFn := &models.Fn{ID: "cold", Name: "http", AppID: app.ID, Format: "http", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
+	jsonFn := &models.Fn{ID: "json", Name: "json", AppID: app.ID, Format: "json", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
+	bigMemColdFn := &models.Fn{ID: "bigmemcold", Name: "bigmemcold", AppID: app.ID, Format: "", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
+	bigMemHotFn := &models.Fn{ID: "bigmemhot", Name: "bigmemhot", AppID: app.ID, Format: "http", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
+
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Route{
-			{Path: "/cold", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 4, IdleTimeout: 30, AppID: app.ID},
-			{Path: "/hot", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 4, IdleTimeout: 30, AppID: app.ID},
-			{Path: "/hot-json", Image: "fnproject/fn-test-utils", Type: "sync", Format: "json", Memory: 128, Timeout: 4, IdleTimeout: 30, AppID: app.ID},
-			{Path: "/bigmem-cold", Image: "fnproject/fn-test-utils", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30, AppID: app.ID},
-			{Path: "/bigmem-hot", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: hugeMem, Timeout: 1, IdleTimeout: 30, AppID: app.ID},
+		[]*models.Fn{coldFn, httpFn, jsonFn, bigMemColdFn, bigMemHotFn},
+		[]*models.Trigger{
+			{ID: "1", Name: "1", Source: "/cold", Type: "http", AppID: app.ID, FnID: coldFn.ID},
+			{ID: "2", Name: "2", Source: "/hot", Type: "http", AppID: app.ID, FnID: httpFn.ID},
+			{ID: "3", Name: "3", Source: "/hot-json", Type: "http", AppID: app.ID, FnID: jsonFn.ID},
+			{ID: "4", Name: "4", Source: "/bigmem-cold", Type: "http", AppID: app.ID, FnID: bigMemColdFn.ID},
+			{ID: "5", Name: "5", Source: "/bigmem-hot", Type: "http", AppID: app.ID, FnID: bigMemHotFn.ID},
 		},
 	)
 
@@ -383,47 +508,50 @@ func TestTriggerRunnerTimeout(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/r/myapp/cold", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
-		{"/r/myapp/cold", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
-		{"/r/myapp/hot", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
-		{"/r/myapp/hot", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
-		{"/r/myapp/hot-json", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
-		{"/r/myapp/hot-json", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
-		{"/r/myapp/bigmem-cold", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
-		{"/r/myapp/bigmem-hot", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
+		{"/t/myapp/cold", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
+		{"/t/myapp/cold", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
+		{"/t/myapp/hot", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
+		{"/t/myapp/hot", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
+		{"/t/myapp/hot-json", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
+		{"/t/myapp/hot-json", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
+		{"/t/myapp/bigmem-cold", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
+		{"/t/myapp/bigmem-hot", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
 	} {
-		trx := fmt.Sprintf("_trx_%d_", i)
-		body := strings.NewReader(strings.Replace(test.body, "_TRX_ID_", trx, 1))
-		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
-		respBytes, _ := ioutil.ReadAll(rec.Body)
-		respBody := string(respBytes)
-		maxBody := len(respBody)
-		if maxBody > 1024 {
-			maxBody = 1024
-		}
+		t.Run(fmt.Sprintf("%d_%s", i, strings.Replace(test.path, "/", "_", -1)), func(t *testing.T) {
+			trx := fmt.Sprintf("_trx_%d_", i)
+			body := strings.NewReader(strings.Replace(test.body, "_TRX_ID_", trx, 1))
+			_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+			respBytes, _ := ioutil.ReadAll(rec.Body)
+			respBody := string(respBytes)
+			maxBody := len(respBody)
+			if maxBody > 1024 {
+				maxBody = 1024
+			}
 
-		if rec.Code != test.expectedCode {
-			isFailure = true
-			t.Errorf("Test %d: Expected status code to be %d but was %d body: %#v",
-				i, test.expectedCode, rec.Code, respBody[:maxBody])
-		}
+			if rec.Code != test.expectedCode {
+				isFailure = true
+				t.Errorf("Test %d: Expected status code to be %d but was %d body: %#v",
+					i, test.expectedCode, rec.Code, respBody[:maxBody])
+			}
 
-		if rec.Code == http.StatusOK && !strings.Contains(respBody, trx) {
-			isFailure = true
-			t.Errorf("Test %d: Expected response to include %s but got body: %s",
-				i, trx, respBody[:maxBody])
+			if rec.Code == http.StatusOK && !strings.Contains(respBody, trx) {
+				isFailure = true
+				t.Errorf("Test %d: Expected response to include %s but got body: %s",
+					i, trx, respBody[:maxBody])
 
-		}
+			}
 
-		if test.expectedHeaders != nil {
-			for name, header := range test.expectedHeaders {
-				if header[0] != rec.Header().Get(name) {
-					isFailure = true
-					t.Errorf("Test %d: Expected header `%s` to be %s but was %s body: %#v",
-						i, name, header[0], rec.Header().Get(name), respBody[:maxBody])
+			if test.expectedHeaders != nil {
+				for name, header := range test.expectedHeaders {
+					if header[0] != rec.Header().Get(name) {
+						isFailure = true
+						t.Errorf("Test %d: Expected header `%s` to be %s but was %s body: %#v",
+							i, name, header[0], rec.Header().Get(name), respBody[:maxBody])
+					}
 				}
 			}
-		}
+		})
+
 	}
 }
 
@@ -432,11 +560,11 @@ func TestTriggerRunnerMinimalConcurrentHotSync(t *testing.T) {
 	buf := setLogBuffer()
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
+	fn := &models.Fn{ID: "fn_id", AppID: app.ID, Name: "myfn", Image: "fnproject/fn-test-utils", Format: "http", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 30, IdleTimeout: 5}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Route{
-			{Path: "/hot", AppID: app.ID, Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 5},
-		},
+		[]*models.Fn{fn},
+		[]*models.Trigger{{Name: "1", Source: "/hot", AppID: app.ID, FnID: fn.ID, Type: "http"}},
 	)
 
 	fnl := logs.NewMock()
@@ -452,7 +580,7 @@ func TestTriggerRunnerMinimalConcurrentHotSync(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/r/myapp/hot", `{"sleepTime": 100, "isDebug": true}`, "POST", http.StatusOK, nil},
+		{"/t/myapp/hot", `{"sleepTime": 100, "isDebug": true}`, "POST", http.StatusOK, nil},
 	} {
 		errs := make(chan error)
 		numCalls := 4

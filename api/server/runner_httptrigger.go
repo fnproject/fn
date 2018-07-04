@@ -57,6 +57,9 @@ func (s *Server) handleTriggerHttpFunctionCall2(c *gin.Context) error {
 	}
 
 	fn, err := s.lbReadAccess.GetFnByID(ctx, trigger.FnID)
+	if err != nil {
+		return err
+	}
 	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
 	c.Status(200) // this doesn't write the header yet
 
