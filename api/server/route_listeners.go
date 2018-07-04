@@ -11,6 +11,8 @@ type routeListeners []fnext.RouteListener
 
 var _ fnext.RouteListener = new(routeListeners)
 
+// AddRouteListener adds a route listener extension to the set of listeners
+// to be called around each route operation.
 func (s *Server) AddRouteListener(listener fnext.RouteListener) {
 	*s.routeListeners = append(*s.routeListeners, listener)
 }

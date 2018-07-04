@@ -9,11 +9,11 @@ import (
 
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-type OutputSize struct {
+type outputSize struct {
 	Size int `json:"size"`
 }
 
-func RandStringBytes(n int) string {
+func randStringBytes(n int) string {
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = lBytes[rand.Intn(len(lBytes))]
@@ -22,7 +22,7 @@ func RandStringBytes(n int) string {
 }
 
 func main() {
-	out := &OutputSize{Size: 64 * 1024}
+	out := &outputSize{Size: 64 * 1024}
 	json.NewDecoder(os.Stdin).Decode(out)
-	fmt.Fprintln(os.Stderr, RandStringBytes(out.Size))
+	fmt.Fprintln(os.Stderr, randStringBytes(out.Size))
 }

@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -379,29 +378,6 @@ func TestRouteRunnerExecution(t *testing.T) {
 			}
 		}
 	}
-}
-
-func getDockerId(respBytes []byte) (string, error) {
-
-	var respJs map[string]interface{}
-	var data map[string]interface{}
-
-	err := json.Unmarshal(respBytes, &respJs)
-	if err != nil {
-		return "", err
-	}
-
-	data, ok := respJs["data"].(map[string]interface{})
-	if !ok {
-		return "", errors.New("unexpected json: data map")
-	}
-
-	id, ok := data["DockerId"].(string)
-	if !ok {
-		return "", errors.New("unexpected json: docker id string")
-	}
-
-	return id, nil
 }
 
 func checkLogs(t *testing.T, tnum int, ds models.LogStore, callID string, expected []string) bool {

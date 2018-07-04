@@ -7,19 +7,12 @@ import (
 	"os"
 )
 
-type Person struct {
+type person struct {
 	Name string
 }
 
 func main() {
-
-	// b, err := ioutil.ReadAll(os.Stdin)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// fmt.Printf("BODY!!! %s", string(b))
-
-	p := &Person{Name: "World"}
+	p := &person{Name: "World"}
 	json.NewDecoder(os.Stdin).Decode(p)
 	fmt.Printf("Hello %v!\n", p.Name)
 

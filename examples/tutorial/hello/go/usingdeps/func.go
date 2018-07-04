@@ -7,12 +7,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Person struct {
+type person struct {
 	Name string
 }
 
 func main() {
-	p := &Person{Name: "World"}
+	p := &person{Name: "World"}
 	json.NewDecoder(os.Stdin).Decode(p)
 	logrus.Printf("Hello %v!\n", p.Name)
 

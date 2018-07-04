@@ -10,15 +10,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ServerOption func(context.Context, *Server) error
+// Option is a func that allows configuring a Server
+type Option func(context.Context, *Server) error
 
-//RIDProvider is used to manage request ID
+// RIDProvider is used to generate request IDs
 type RIDProvider struct {
-	HeaderName   string              //The name of the header where the reques id is stored in the incoming request
+	HeaderName   string              // The name of the header where the reques id is stored in the incoming request
 	RIDGenerator func(string) string // Function to generate the requestID
 }
 
-func WithRIDProvider(ridProvider *RIDProvider) ServerOption {
+// WithRIDProvider will generate request ids for each http request using the
+// given generator.
+func WithRIDProvider(ridProvider *RIDProvider) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.Router.Use(withRIDProvider(ridProvider))
 		return nil
@@ -37,14 +40,16 @@ func withRIDProvider(ridp *RIDProvider) func(c *gin.Context) {
 	}
 }
 
-func EnableShutdownEndpoint(ctx context.Context, halt context.CancelFunc) ServerOption {
+// EnableShutdownEndpoint adds /shutdown to initiate a shutdown of an fn server.
+func EnableShutdownEndpoint(ctx context.Context, halt context.CancelFunc) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.Router.GET("/shutdown", s.handleShutdown(halt))
 		return nil
 	}
 }
 
-func LimitRequestBody(max int64) ServerOption {
+// LimitRequestBody wraps every http request to limit its size to the specified max bytes.
+func LimitRequestBody(max int64) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.Router.Use(limitRequestBody(max))
 		return nil

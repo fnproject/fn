@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-type Person struct {
+type person struct {
 	Name string
 }
 
@@ -15,7 +15,7 @@ func main() {
 	if n == "" {
 		n = "World"
 	}
-	p := &Person{Name: n}
+	p := &person{Name: n}
 	json.NewDecoder(os.Stdin).Decode(p)
 	fmt.Printf("Hello %v!\n", p.Name)
 }

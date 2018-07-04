@@ -67,6 +67,12 @@ func TestMiddlewareChaining(t *testing.T) {
 }
 
 func TestRootMiddleware(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	app1 := &models.App{ID: "app_id_1", Name: "myapp", Config: models.Config{}}
 	app2 := &models.App{ID: "app_id_2", Name: "myapp2", Config: models.Config{}}
@@ -92,9 +98,8 @@ func TestRootMiddleware(t *testing.T) {
 			if r.Header.Get("funcit") != "" {
 				t.Log("breaker breaker!")
 				ctx := r.Context()
-				// TODO: this is a little dicey, should have some functions to set these in case the context keys change or something.
-				ctx = context.WithValue(ctx, "app_name", "myapp2")
-				ctx = context.WithValue(ctx, "path", "/app2func")
+				ctx = ContextWithApp(ctx, "myapp2")
+				ctx = ContextWithPath(ctx, "/app2func")
 				mctx := fnext.GetMiddlewareController(ctx)
 				mctx.CallFunction(w, r.WithContext(ctx))
 				return

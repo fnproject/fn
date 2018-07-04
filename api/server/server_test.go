@@ -26,7 +26,7 @@ import (
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
-func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType ServerNodeType) *Server {
+func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType NodeType) *Server {
 	return New(context.Background(),
 		WithLogLevel(getEnv(EnvLogLevel, DefaultLogLevel)),
 		WithDatastore(ds),
