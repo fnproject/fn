@@ -1079,7 +1079,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				withAppCheck := apps.Group("")
 				withAppCheck.Use(s.checkAppPresenceByName())
 
-				withAppCheck.GET("", s.handleV1AppGetByName)
+				withAppCheck.GET("", s.handleV1AppGetByIdOrName)
 				withAppCheck.PATCH("", s.handleV1AppUpdate)
 				withAppCheck.DELETE("", s.handleV1AppDelete)
 
@@ -1121,7 +1121,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		}
 
 		{ // Hybrid API - this should only be enabled on API servers
-			runner := clean.Group("/runner")
+			runner := cleanv2.Group("/runner")
 			runner.PUT("/async", s.handleRunnerEnqueue)
 			runner.GET("/async", s.handleRunnerDequeue)
 
@@ -1131,8 +1131,10 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runnerAppApi := runner.Group(
 				"/apps/:appID")
 			runnerAppApi.Use(setAppIDInCtx)
-			runnerAppApi.GET("", s.handleV1AppGetByName)
-			runnerAppApi.GET("/routes/:route", s.handleRouteGetRunner)
+			// Both of these are somewhat odd -
+			// Deprecate, remove with routes
+			runnerAppApi.GET("/routes/*route", s.handleRunnerGetRoute)
+			runnerAppApi.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
 
 		}
 	}
@@ -1140,14 +1142,15 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	switch s.nodeType {
 	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
 		if !s.noHTTTPTriggerEndpoint {
+			lbTriggerGroup := engine.Group("/t")
+			lbTriggerGroup.Any("/:appName", s.handleHttpTriggerCall)
+			lbTriggerGroup.Any("/:appName/*triggerSource", s.handleHttpTriggerCall)
+
+			// TODO Deprecate with routes
 			lbRouteGroup := engine.Group("/r")
 			lbRouteGroup.Use(s.checkAppPresenceByNameAtLB())
 			lbRouteGroup.Any("/:appName", s.handleV1FunctionCall)
 			lbRouteGroup.Any("/:appName/*route", s.handleV1FunctionCall)
-
-			lbTriggerGroup := engine.Group("/t")
-			lbTriggerGroup.Any("/:appName", s.handleHttpTriggerCall)
-			lbTriggerGroup.Any("/:appName/*source", s.handleHttpTriggerCall)
 
 		}
 

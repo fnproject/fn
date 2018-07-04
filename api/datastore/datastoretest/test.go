@@ -11,7 +11,6 @@ import (
 	"log"
 	"math/rand"
 	"sort"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -52,18 +51,20 @@ type ResourceProvider interface {
 
 // BasicResourceProvider supplies simple objects and can be used as a base for custom resource providers
 type BasicResourceProvider struct {
-	idCount uint32
+	rand *rand.Rand
 }
 
 // DataStoreFunc provides an instance of a data store
 type DataStoreFunc func(*testing.T) models.Datastore
 
 func NewBasicResourceProvider() ResourceProvider {
-	return &BasicResourceProvider{}
+	return &BasicResourceProvider{
+		rand: rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
 }
 
 func (brp *BasicResourceProvider) NextID() uint32 {
-	return atomic.AddUint32(&brp.idCount, rand.Uint32())
+	return brp.rand.Uint32()
 }
 
 func (brp *BasicResourceProvider) DefaultCtx() context.Context {
@@ -86,7 +87,7 @@ func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Tri
 		AppID:  appId,
 		FnID:   funcId,
 		Type:   "http",
-		Source: "ASource",
+		Source: fmt.Sprintf("/source_%09d", brp.NextID()),
 	}
 
 	return trigger

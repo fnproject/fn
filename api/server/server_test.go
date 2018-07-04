@@ -318,10 +318,10 @@ func TestHybridEndpoints(t *testing.T) {
 	}{
 		// TODO change all these tests to just do an async task in normal order once plumbing is done
 
-		{"post async call", "PUT", "/v1/runner/async", newCallBody(), http.StatusOK},
+		{"post async call", "PUT", "/v2/runner/async", newCallBody(), http.StatusOK},
 
 		// TODO this one only works if it's not the same as the first since update isn't hooked up
-		{"finish call", "POST", "/v1/runner/finish", newCallBody(), http.StatusOK},
+		{"finish call", "POST", "/v2/runner/finish", newCallBody(), http.StatusOK},
 
 		// TODO these won't work until update works and the agent gets shut off
 		//{"get async call", "GET", "/v1/runner/async", "", http.StatusOK},

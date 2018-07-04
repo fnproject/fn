@@ -261,9 +261,6 @@ func reqURL(req *http.Request) string {
 	return req.URL.String()
 }
 
-// TODO this currently relies on FromRequest having happened before to create the model
-// here, to be a fully qualified model. We probably should double check but having a way
-// to bypass will likely be what's used anyway unless forced.
 func FromModel(mCall *models.Call) CallOpt {
 	return func(c *call) error {
 		c.Call = mCall

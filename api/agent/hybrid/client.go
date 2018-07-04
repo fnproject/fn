@@ -39,7 +39,7 @@ func NewClient(u string) (agent.DataAccess, error) {
 	if uri.Scheme == "" {
 		uri.Scheme = "http"
 	}
-	host := uri.Scheme + "://" + uri.Host + "/v1/"
+	host := uri.Scheme + "://" + uri.Host + "/v2/"
 
 	httpClient := &http.Client{
 		Timeout: 60 * time.Second,
@@ -66,11 +66,13 @@ func NewClient(u string) (agent.DataAccess, error) {
 	}, nil
 }
 
+var noQuery = map[string]string{}
+
 func (cl *client) Enqueue(ctx context.Context, c *models.Call) error {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_enqueue")
 	defer span.End()
 
-	err := cl.do(ctx, c, nil, "PUT", "runner", "async")
+	err := cl.do(ctx, c, nil, "PUT", noQuery, "runner", "async")
 	return err
 }
 
@@ -81,7 +83,7 @@ func (cl *client) Dequeue(ctx context.Context) (*models.Call, error) {
 	var c struct {
 		C []*models.Call `json:"calls"`
 	}
-	err := cl.do(ctx, nil, &c, "GET", "runner", "async")
+	err := cl.do(ctx, nil, &c, "GET", noQuery, "runner", "async")
 	if len(c.C) > 0 {
 		return c.C[0], nil
 	}
@@ -92,7 +94,7 @@ func (cl *client) Start(ctx context.Context, c *models.Call) error {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_start")
 	defer span.End()
 
-	err := cl.do(ctx, c, nil, "POST", "runner", "start")
+	err := cl.do(ctx, c, nil, "POST", noQuery, "runner", "start")
 	return err
 }
 
@@ -114,7 +116,7 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 	}
 
 	// TODO add async bit to query params or body
-	err = cl.do(ctx, bod, nil, "POST", "runner", "finish")
+	err = cl.do(ctx, bod, nil, "POST", noQuery, "runner", "finish")
 	return err
 }
 
@@ -123,21 +125,25 @@ func (cl *client) GetAppID(ctx context.Context, appName string) (string, error) 
 	defer span.End()
 
 	var a struct {
-		A models.App `json:"app"`
+		Items []*models.App `json:"items"`
 	}
-	err := cl.do(ctx, nil, &a, "GET", "apps", appName)
-	return a.A.ID, err
+
+	err := cl.do(ctx, nil, &a, "GET", map[string]string{"name": appName}, "apps")
+
+	if len(a.Items) == 0 {
+		return "", errors.New("app not found")
+	}
+
+	return a.Items[0].ID, err
 }
 
 func (cl *client) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app_id")
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app_by_id")
 	defer span.End()
 
-	var a struct {
-		A models.App `json:"app"`
-	}
-	err := cl.do(ctx, nil, &a, "GET", "runner", "apps", appID)
-	return &a.A, err
+	var a models.App
+	err := cl.do(ctx, nil, &a, "GET", noQuery, "apps", appID)
+	return &a, err
 }
 
 func (cl *client) GetRoute(ctx context.Context, appID, route string) (*models.Route, error) {
@@ -145,20 +151,30 @@ func (cl *client) GetRoute(ctx context.Context, appID, route string) (*models.Ro
 	defer span.End()
 
 	// TODO trim prefix is pretty odd here eh?
-	var r struct {
-		R models.Route `json:"route"`
+	var r = models.Route{}
+	err := cl.do(ctx, nil, &r, "GET", noQuery, "runner", "apps", appID, "routes", strings.TrimPrefix(route, "/"))
+	return &r, err
+}
+
+func (cl *client) GetTriggerBySource(ctx context.Context, appID string, triggerType, source string) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_trigger_by_source")
+	defer span.End()
+
+	var trigger models.Trigger
+	err := cl.do(ctx, nil, &trigger, "GET", noQuery, "runner", "apps", appID, "triggerBySource", triggerType, source)
+	return &trigger, err
+}
+
+func (cl *client) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_fn_by_id")
+	defer span.End()
+
+	var fn models.Fn
+	err := cl.do(ctx, nil, &fn, "GET", noQuery, "fns", fnID)
+	if err != nil {
+		return nil, err
 	}
-	err := cl.do(ctx, nil, &r, "GET", "runner", "apps", appID, "routes", strings.TrimPrefix(route, "/"))
-	return &r.R, err
-}
-
-func (cl *client) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
-	panic("implement me")
-}
-
-func (cl *client) GetFnByID(ctx context.Context, fnId string) (*models.Fn, error) {
-	//TRIGGERWIP
-	panic("implement me")
+	return &fn, nil
 }
 
 type httpErr struct {
@@ -166,7 +182,7 @@ type httpErr struct {
 	error
 }
 
-func (cl *client) do(ctx context.Context, request, result interface{}, method string, url ...string) error {
+func (cl *client) do(ctx context.Context, request, result interface{}, method string, query map[string]string, url ...string) error {
 	// TODO determine policy (should we count to infinity?)
 
 	var b common.Backoff
@@ -179,7 +195,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		}
 
 		// TODO this isn't re-using buffers very efficiently, but retries should be rare...
-		err = cl.once(ctx, request, result, method, url...)
+		err = cl.once(ctx, request, result, method, query, url...)
 		switch err := err.(type) {
 		case nil:
 			return nil
@@ -201,7 +217,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 	return err
 }
 
-func (cl *client) once(ctx context.Context, request, result interface{}, method string, url ...string) error {
+func (cl *client) once(ctx context.Context, request, result interface{}, method string, query map[string]string, path ...string) error {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_http_do")
 	defer span.End()
 
@@ -213,7 +229,7 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 		}
 	}
 
-	req, err := http.NewRequest(method, cl.url(url...), &b)
+	req, err := http.NewRequest(method, cl.url(query, path...), &b)
 	if err != nil {
 		return err
 	}
@@ -230,16 +246,14 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 	if resp.StatusCode >= 300 {
 		// one of our errors
 		var msg struct {
-			Err *struct {
-				Msg string `json:"message"`
-			} `json:"error"`
+			Msg string `json:"message"`
 		}
 		// copy into a buffer in case it wasn't from us
 		var b bytes.Buffer
 		io.Copy(&b, resp.Body)
 		json.Unmarshal(b.Bytes(), &msg)
-		if msg.Err != nil {
-			return &httpErr{code: resp.StatusCode, error: errors.New(msg.Err.Msg)}
+		if msg.Msg != "" {
+			return &httpErr{code: resp.StatusCode, error: errors.New(msg.Msg)}
 		}
 		return &httpErr{code: resp.StatusCode, error: errors.New(b.String())}
 	}
@@ -254,8 +268,20 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 	return nil
 }
 
-func (cl *client) url(args ...string) string {
-	return cl.base + strings.Join(args, "/")
+func (cl *client) url(query map[string]string, args ...string) string {
+
+	var queryValues = make(url.Values)
+	for k, v := range query {
+		queryValues.Add(k, v)
+	}
+	queryString := queryValues.Encode()
+
+	baseUrl := cl.base + strings.Join(args, "/")
+
+	if queryString != "" {
+		baseUrl = baseUrl + "?" + queryString
+	}
+	return baseUrl
 }
 
 func (cl *client) Close() error {

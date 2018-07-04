@@ -8,7 +8,7 @@ import (
 )
 
 // TODO: Deprecate with V1 API
-func (s *Server) handleV1AppGetByName(c *gin.Context) {
+func (s *Server) handleV1AppGetByIdOrName(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	param := c.MustGet(api.AppID).(string)

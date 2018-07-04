@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/datastore/datastoretest"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -64,10 +65,29 @@ func getConfigContent(key string, respBytes []byte) (string, error) {
 	return val, nil
 }
 
-func TestCanExecuteFunction(t *testing.T) {
+type systemTestResourceProvider struct {
+	datastoretest.ResourceProvider
+}
+
+func (rp *systemTestResourceProvider) ValidFn(appID string) *models.Fn {
+	fn := rp.ResourceProvider.ValidFn(appID)
+	fn.Memory = memory
+	fn.Image = image
+	fn.Format = format
+	return fn
+}
+
+var rp = &systemTestResourceProvider{
+	ResourceProvider: datastoretest.NewBasicResourceProvider(),
+}
+
+func TestCanExecuteFunctionViaTrigger(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+
+	app := ensureApp(t, rp.ValidApp())
+	fn := ensureFn(t, rp.ValidFn(app.ID))
+	trigger := ensureTrigger(t, rp.ValidTrigger(app.ID, fn.ID))
 
 	lb, err := LB()
 	if err != nil {
@@ -77,13 +97,13 @@ func TestCanExecuteFunction(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "t", app.Name, trigger.Source)
 
 	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callTrigger(ctx, u.String(), content, output, "POST")
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -111,10 +131,12 @@ func TestCanExecuteFunction(t *testing.T) {
 	}
 }
 
-func TestCanExecuteBigOutput(t *testing.T) {
+func TestCanExecuteTriggerBigOutput(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+	app := ensureApp(t, rp.ValidApp())
+	fn := ensureFn(t, rp.ValidFn(app.ID))
+	trigger := ensureTrigger(t, rp.ValidTrigger(app.ID, fn.ID))
 
 	lb, err := LB()
 	if err != nil {
@@ -124,14 +146,14 @@ func TestCanExecuteBigOutput(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "t", app.Name, trigger.Source)
 
 	// Approx 5.3MB output
 	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true, "trailerRepeat": 410000}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callTrigger(ctx, u.String(), content, output, "POST")
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -148,10 +170,12 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	}
 }
 
-func TestCanExecuteTooBigOutput(t *testing.T) {
+func TestCanExecuteTriggerTooBigOutput(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+	app := ensureApp(t, rp.ValidApp())
+	fn := ensureFn(t, rp.ValidFn(app.ID))
+	trigger := ensureTrigger(t, rp.ValidTrigger(app.ID, fn.ID))
 
 	lb, err := LB()
 	if err != nil {
@@ -161,19 +185,19 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "t", app.Name, trigger.Source)
 
 	// > 6MB output
 	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true, "trailerRepeat": 600000}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callTrigger(ctx, u.String(), content, output, "POST")
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
 
-	exp := "{\"error\":{\"message\":\"function response too large\"}}\n"
+	exp := "{\"message\":\"function response too large\"}\n"
 	actual := output.String()
 
 	if !strings.Contains(exp, actual) || len(exp) != len(actual) {
@@ -185,10 +209,12 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 	}
 }
 
-func TestCanExecuteEmptyOutput(t *testing.T) {
+func TestCanExecuteTriggerEmptyOutput(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+	app := ensureApp(t, rp.ValidApp())
+	fn := ensureFn(t, rp.ValidFn(app.ID))
+	trigger := ensureTrigger(t, rp.ValidTrigger(app.ID, fn.ID))
 
 	lb, err := LB()
 	if err != nil {
@@ -198,14 +224,14 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "t", app.Name, trigger.Source)
 
 	// empty body output
 	body := `{"sleepTime": 0, "isDebug": true, "isEmptyBody": true}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callTrigger(ctx, u.String(), content, output, "POST")
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -221,10 +247,12 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 	}
 }
 
-func TestBasicConcurrentExecution(t *testing.T) {
+func TestBasicTriggerConcurrentExecution(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+	app := ensureApp(t, rp.ValidApp())
+	fn := ensureFn(t, rp.ValidFn(app.ID))
+	trigger := ensureTrigger(t, rp.ValidTrigger(app.ID, fn.ID))
 
 	lb, err := LB()
 	if err != nil {
@@ -234,7 +262,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "t", app.Name, trigger.Source)
 
 	results := make(chan error)
 	concurrentFuncs := 10
@@ -243,7 +271,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
-			resp, err := callFN(ctx, u.String(), content, output, "POST")
+			resp, err := callTrigger(ctx, u.String(), content, output, "POST")
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return
@@ -271,18 +299,17 @@ func TestBasicConcurrentExecution(t *testing.T) {
 
 }
 
-func TestSaturatedSystem(t *testing.T) {
+func TestTriggerSaturatedSystem(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	rt := &models.Route{
-		Path:    routeName,
-		Timeout: 1,
-		Image:   "fnproject/fn-test-utils",
-		Format:  "json",
-		Memory:  300,
-		Type:    "sync",
-	}
-	rt = ensureRoute(t, rt)
+
+	app := ensureApp(t, rp.ValidApp())
+	validFn := rp.ValidFn(app.ID)
+	validFn.ResourceConfig.Timeout = 1
+	validFn.ResourceConfig.Memory = 300
+
+	fn := ensureFn(t, validFn)
+	trigger := ensureTrigger(t, rp.ValidTrigger(app.ID, fn.ID))
 
 	lb, err := LB()
 	if err != nil {
@@ -292,19 +319,19 @@ func TestSaturatedSystem(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "t", app.Name, trigger.Source)
 
 	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callTrigger(ctx, u.String(), content, output, "POST")
 	if resp != nil || err == nil || ctx.Err() == nil {
 		t.Fatalf("Expected response: %v err:%v", resp, err)
 	}
 }
 
-func callFN(ctx context.Context, u string, content io.Reader, output io.Writer, method string) (*http.Response, error) {
+func callTrigger(ctx context.Context, u string, content io.Reader, output io.Writer, method string) (*http.Response, error) {
 	if method == "" {
 		if content == nil {
 			method = "GET"
@@ -353,38 +380,20 @@ const (
 	typ       = "sync"
 )
 
-func ensureRoute(t *testing.T, rts ...*models.Route) *models.Route {
-	var rt *models.Route
-	if len(rts) > 0 {
-		rt = rts[0]
-	} else {
-		rt = &models.Route{
-			Path:   routeName + "yabbadabbadoo",
-			Image:  image,
-			Format: format,
-			Memory: memory,
-			Type:   typ,
-		}
-	}
-	var wrapped struct {
-		Route *models.Route `json:"route"`
-	}
-
-	wrapped.Route = rt
-
+func ensureApp(t *testing.T, app *models.App) *models.App {
 	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(wrapped)
+	err := json.NewEncoder(&buf).Encode(app)
 	if err != nil {
 		t.Fatal("error encoding body", err)
 	}
 
-	urlStr := host() + "/v1/apps/" + appName + "/routes" + rt.Path
+	urlStr := host() + "/v2/apps"
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		t.Fatal("error creating url", urlStr, err)
 	}
 
-	req, err := http.NewRequest("PUT", u.String(), &buf)
+	req, err := http.NewRequest("POST", u.String(), &buf)
 	if err != nil {
 		t.Fatal("error creating request", err)
 	}
@@ -400,11 +409,90 @@ func ensureRoute(t *testing.T, rts ...*models.Route) *models.Route {
 		t.Fatal("error creating/updating app or otherwise ensuring it exists:", resp.StatusCode, buf.String())
 	}
 
-	wrapped.Route = nil
-	err = json.NewDecoder(&buf).Decode(&wrapped)
+	var appOut models.App
+	err = json.NewDecoder(&buf).Decode(&appOut)
 	if err != nil {
 		t.Fatal("error decoding response")
 	}
 
-	return wrapped.Route
+	return &appOut
+}
+
+func ensureFn(t *testing.T, fn *models.Fn) *models.Fn {
+
+	var buf bytes.Buffer
+	err := json.NewEncoder(&buf).Encode(fn)
+	if err != nil {
+		t.Fatal("error encoding body", err)
+	}
+
+	urlStr := host() + "/v2/fns"
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		t.Fatal("error creating url", urlStr, err)
+	}
+
+	req, err := http.NewRequest("POST", u.String(), &buf)
+	if err != nil {
+		t.Fatal("error creating request", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal("error creating route", err)
+	}
+
+	buf.Reset()
+	io.Copy(&buf, resp.Body)
+	if resp.StatusCode != 200 {
+		t.Fatal("error creating/updating app or otherwise ensuring it exists:", resp.StatusCode, buf.String())
+	}
+
+	var fnOut models.Fn
+	err = json.NewDecoder(&buf).Decode(&fnOut)
+	if err != nil {
+		t.Fatal("error decoding response")
+	}
+
+	return &fnOut
+
+}
+
+func ensureTrigger(t *testing.T, trigger *models.Trigger) *models.Trigger {
+
+	var buf bytes.Buffer
+	err := json.NewEncoder(&buf).Encode(trigger)
+	if err != nil {
+		t.Fatal("error encoding body", err)
+	}
+
+	urlStr := host() + "/v2/triggers"
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		t.Fatal("error creating url", urlStr, err)
+	}
+
+	req, err := http.NewRequest("POST", u.String(), &buf)
+	if err != nil {
+		t.Fatal("error creating request", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal("error creating route", err)
+	}
+
+	buf.Reset()
+	io.Copy(&buf, resp.Body)
+	if resp.StatusCode != 200 {
+		t.Fatal("error creating/updating app or otherwise ensuring it exists:", resp.StatusCode, buf.String())
+	}
+
+	var triggerOut models.Trigger
+	err = json.NewDecoder(&buf).Decode(&triggerOut)
+	if err != nil {
+		t.Fatal("error decoding response")
+	}
+
+	return &triggerOut
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"path"
 	"strconv"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"strings"
 )
 
 // handleHttpTriggerCall executes the function, for router handlers
@@ -29,7 +27,7 @@ func (s *Server) handleHttpTriggerCall(c *gin.Context) {
 // Requires the following in the context:
 func (s *Server) handleTriggerHttpFunctionCall2(c *gin.Context) error {
 	ctx := c.Request.Context()
-	p := c.Param(api.ParamSource)
+	p := c.Param(api.ParamTriggerSource)
 	if p == "" {
 		p = "/"
 	}
@@ -46,10 +44,8 @@ func (s *Server) handleTriggerHttpFunctionCall2(c *gin.Context) error {
 		return err
 	}
 
-	routePath := path.Clean(p)
-	if !strings.HasPrefix(routePath, "/") {
-		routePath = "/" + routePath
-	}
+	routePath := p
+
 	trigger, err := s.lbReadAccess.GetTriggerBySource(ctx, appID, "http", routePath)
 
 	if err != nil {

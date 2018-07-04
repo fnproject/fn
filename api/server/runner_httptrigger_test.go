@@ -259,7 +259,7 @@ func TestTriggerRunnerExecEmptyBody(t *testing.T) {
 	testCases := []struct {
 		path string
 	}{
-		{"/t/soup/cold/"},
+		{"/t/soup/cold"},
 		{"/t/soup/hothttp"},
 		{"/t/soup/hothttp"},
 		{"/t/soup/hotjson"},
@@ -267,26 +267,27 @@ func TestTriggerRunnerExecEmptyBody(t *testing.T) {
 	}
 
 	for i, test := range testCases {
-		trx := fmt.Sprintf("_trx_%d_", i)
-		body := strings.NewReader(strings.Replace(emptyBody, "_TRX_ID_", trx, 1))
-		_, rec := routerRequest(t, srv.Router, "GET", test.path, body)
-		respBytes, _ := ioutil.ReadAll(rec.Body)
-		respBody := string(respBytes)
-		maxBody := len(respBody)
-		if maxBody > 1024 {
-			maxBody = 1024
-		}
+		t.Run(fmt.Sprintf("%d_%s", i, strings.Replace(test.path, "/", "_", -1)), func(t *testing.T) {
+			trx := fmt.Sprintf("_trx_%d_", i)
+			body := strings.NewReader(strings.Replace(emptyBody, "_TRX_ID_", trx, 1))
+			_, rec := routerRequest(t, srv.Router, "GET", test.path, body)
+			respBytes, _ := ioutil.ReadAll(rec.Body)
+			respBody := string(respBytes)
+			maxBody := len(respBody)
+			if maxBody > 1024 {
+				maxBody = 1024
+			}
 
-		if rec.Code != http.StatusOK {
-			isFailure = true
-			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
-				i, http.StatusOK, rec.Code, respBody[:maxBody])
-		} else if len(respBytes) != 0 {
-			isFailure = true
-			t.Errorf("Test %d: Expected empty body but got %d. body: %s",
-				i, len(respBytes), respBody[:maxBody])
-		}
-
+			if rec.Code != http.StatusOK {
+				isFailure = true
+				t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
+					i, http.StatusOK, rec.Code, respBody[:maxBody])
+			} else if len(respBytes) != 0 {
+				isFailure = true
+				t.Errorf("Test %d: Expected empty body but got %d. body: %s",
+					i, len(respBytes), respBody[:maxBody])
+			}
+		})
 	}
 }
 
@@ -434,6 +435,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 
 			if test.expectedErrSubStr != "" && !strings.Contains(respBody, test.expectedErrSubStr) {
 				isFailure = true
+				fmt.Sprintf("Errorr %s", respBody)
 				t.Errorf("Test %d: Expected response to include %s but got body: %s",
 					i, test.expectedErrSubStr, respBody[:maxBody])
 
