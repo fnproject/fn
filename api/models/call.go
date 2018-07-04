@@ -69,9 +69,11 @@ type Call struct {
 	//   - bad_exit - exited with non-zero status due to program termination/crash.
 	// * cancelled - cancelled via API. More information in the reason field.
 	//   - client_request - Request was cancelled by a client.
+	// DEPRECATED
 	Status string `json:"status" db:"status"`
 
 	// Path of the route that is responsible for this call
+	// DEPRECATED
 	Path string `json:"path" db:"path"`
 
 	// Name of Docker image to use.
