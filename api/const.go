@@ -7,8 +7,6 @@ const (
 	AppID string = "app_id"
 	// Path is a route's path context key
 	Path string = "path"
-	// Func is a  routes function ID context key
-	FuncID    string = "func_id"
 
 	// ParamAppID is the url path parameter for app id
 	ParamAppID string = "appID"
@@ -24,5 +22,4 @@ const (
 	ParamFnID string = "fnID"
 	// ParamSource is the triggers source parameter
 	ParamSource string = "source"
-)
 )

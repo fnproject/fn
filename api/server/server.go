@@ -179,28 +179,29 @@ type Server struct {
 	Router      *gin.Engine
 	AdminRouter *gin.Engine
 
-	webListenPort    int
-	adminListenPort  int
-	grpcListenPort   int
-	agent            agent.Agent
-	datastore        models.Datastore
-	mq               models.MessageQueue
-	logstore         models.LogStore
-	nodeType         NodeType
+	webListenPort   int
+	adminListenPort int
+	grpcListenPort  int
+	agent           agent.Agent
+	datastore       models.Datastore
+	mq              models.MessageQueue
+	logstore        models.LogStore
+	nodeType        NodeType
 	// Agent enqueue  and read stores
-	lbEnqueue    agent.EnqueueDataAccess
-	lbReadAccess agent.ReadDataAccess
-	cert             string
-	certKey          string
-	certAuthority    string
-	appListeners     *appListeners
-	routeListeners   *routeListeners
-	fnListeners      *fnListeners
-	triggerListeners *triggerListeners
-	rootMiddlewares  []fnext.Middleware
-	apiMiddlewares   []fnext.Middleware
-	promExporter     *prometheus.Exporter
-	triggerAnnotator TriggerAnnotator
+	lbEnqueue              agent.EnqueueDataAccess
+	lbReadAccess           agent.ReadDataAccess
+	noHTTTPTriggerEndpoint bool
+	cert                   string
+	certKey                string
+	certAuthority          string
+	appListeners           *appListeners
+	routeListeners         *routeListeners
+	fnListeners            *fnListeners
+	triggerListeners       *triggerListeners
+	rootMiddlewares        []fnext.Middleware
+	apiMiddlewares         []fnext.Middleware
+	promExporter           *prometheus.Exporter
+	triggerAnnotator       TriggerAnnotator
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -758,7 +759,7 @@ func WithPrometheus() Option {
 // WithoutHTTPTriggerEndpoints optionally disables the trigger and route endpoints from a LB -supporting server, allowing extensions to replace them with their own versions
 func WithoutHTTPTriggerEndpoints() Option {
 	return func(ctx context.Context, s *Server) error {
-		s.noHttpTriggerEndpoint = true
+		s.noHTTTPTriggerEndpoint = true
 		return nil
 	}
 }
@@ -1138,7 +1139,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 	switch s.nodeType {
 	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
-		if !s.noHttpTriggerEndpoint {
+		if !s.noHTTTPTriggerEndpoint {
 			lbRouteGroup := engine.Group("/r")
 			lbRouteGroup.Use(s.checkAppPresenceByNameAtLB())
 			lbRouteGroup.Any("/:appName", s.handleV1FunctionCall)
