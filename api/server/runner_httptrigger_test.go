@@ -435,7 +435,6 @@ func TestTriggerRunnerExecution(t *testing.T) {
 
 			if test.expectedErrSubStr != "" && !strings.Contains(respBody, test.expectedErrSubStr) {
 				isFailure = true
-				fmt.Sprintf("Errorr %s", respBody)
 				t.Errorf("Test %d: Expected response to include %s but got body: %s",
 					i, test.expectedErrSubStr, respBody[:maxBody])
 
