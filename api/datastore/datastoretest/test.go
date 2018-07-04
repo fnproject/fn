@@ -57,6 +57,7 @@ type BasicResourceProvider struct {
 // DataStoreFunc provides an instance of a data store
 type DataStoreFunc func(*testing.T) models.Datastore
 
+//NewBasicResourceProvider creates a dumb resource provider that generates resources that have valid, random names (and other unique attributes)
 func NewBasicResourceProvider() ResourceProvider {
 	return &BasicResourceProvider{
 		rand: rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -1239,7 +1240,24 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("expected empty trigger list and no error, but got list [%v] and err %s", triggers.Items, err)
 			}
 		})
+		t.Run("duplicate trigger source of same type on same app", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			app := h.GivenAppInDb(rp.ValidApp())
+			fn := h.GivenFnInDb(rp.ValidFn(app.ID))
+			origT := h.GivenTriggerInDb(rp.ValidTrigger(app.ID, fn.ID))
 
+			newT := rp.ValidTrigger(app.ID, fn.ID)
+
+			newT.Source = origT.Source
+
+			_, err := ds.InsertTrigger(ctx, newT)
+
+			if err != models.ErrTriggerSourceExists {
+				t.Errorf("Expecting to fail with duplicate source on same app, got %s", err)
+			}
+			//todo ensure this doesn't apply when type is not equal
+		})
 		t.Run("app id not same as fn id ", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()

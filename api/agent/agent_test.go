@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -1201,44 +1200,4 @@ func TestNBIOResourceTracker(t *testing.T) {
 	if ok < 4 || ok > 5 {
 		t.Fatalf("Expected successes, but got %d", ok)
 	}
-}
-
-type closingDataAccess struct {
-	CallHandler
-	closeReturn error
-	closed      chan struct{}
-}
-
-func newClosingDataAccess(closeReturn error) *closingDataAccess {
-	ls := logs.NewMock()
-	return &closingDataAccess{
-		CallHandler: NewDirectCallDataAccess(ls, new(mqs.Mock)),
-		closed:      make(chan struct{}),
-		closeReturn: closeReturn,
-	}
-
-}
-
-func (da *closingDataAccess) Close() error {
-	close(da.closed)
-	return da.closeReturn
-}
-
-func TestClosesDataAccess(t *testing.T) {
-	da := newClosingDataAccess(nil)
-
-	a := New(da)
-	checkClose(t, a)
-	<-da.closed
-}
-
-func TestCloseReturnsDataAccessError(t *testing.T) {
-	err := errors.New("foo")
-	da := newClosingDataAccess(err)
-	a := New(da)
-
-	if cerr := a.Close(); cerr != err {
-		t.Fatalf("Wrong error returned, expected %v but got %v", err, cerr)
-	}
-	<-da.closed
 }

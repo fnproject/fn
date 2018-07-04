@@ -170,7 +170,6 @@ func (s NodeType) String() string {
 	default:
 		return fmt.Sprintf("unknown(%d)", s)
 	}
-
 }
 
 // Server is the object which ties together all the fn things, it is the entrypoint

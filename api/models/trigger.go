@@ -109,6 +109,9 @@ var (
 	ErrTriggerExists = err{
 		code:  http.StatusConflict,
 		error: errors.New("Trigger already exists")}
+	ErrTriggerSourceExists = err{
+		code:  http.StatusConflict,
+		error: errors.New("Trigger with the same type and source exists on this app")}
 )
 
 func (t *Trigger) Validate() error {

@@ -55,7 +55,7 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 	// will ensure the call exists in the db in 'running' state there.
 	// s.datastore.InsertCall(ctx, &call)
 
-	c.String(204, "")
+	c.String(http.StatusNoContent, "")
 }
 
 func (s *Server) handleRunnerDequeue(c *gin.Context) {

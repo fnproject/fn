@@ -112,7 +112,7 @@ type agent struct {
 	onStartup []func()
 }
 
-type AgentOption func(*agent) error
+type AgentOption func(*agent)
 
 // New creates an Agent that executes functions locally as Docker containers.
 func New(da CallHandler, options ...AgentOption) Agent {
@@ -149,7 +149,6 @@ func New(da CallHandler, options ...AgentOption) Agent {
 	for _, sup := range a.onStartup {
 		sup()
 	}
-	// TODO assert that agent doesn't get started for API nodes up above ?
 	return a
 }
 
@@ -228,15 +227,6 @@ func (a *agent) Close() error {
 		}
 	})
 
-	// shutdown any db/queue resources
-	// associated with DataAccess
-
-	// TODO TRIGGERWIP: stopped agent from closing data access
-
-	daErr := a.da.Close()
-	if daErr != nil {
-		return daErr
-	}
 	return err
 }
 

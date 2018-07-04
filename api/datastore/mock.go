@@ -428,6 +428,12 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 				t.Name == trigger.Name) {
 			return nil, models.ErrTriggerExists
 		}
+
+		if t.AppID == trigger.AppID &&
+			t.Source == trigger.Source &&
+			t.Type == trigger.Type {
+			return nil, models.ErrTriggerSourceExists
+		}
 	}
 
 	cl := trigger.Clone()

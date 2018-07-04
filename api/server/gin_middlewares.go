@@ -154,7 +154,6 @@ func loggerWrap(c *gin.Context) {
 
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
-
 }
 
 type ctxPathKey string

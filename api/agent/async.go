@@ -12,7 +12,6 @@ import (
 )
 
 func (a *agent) asyncDequeue(dqda DequeueDataAccess) {
-
 	// this is just so we can hang up the dequeue request if we get shut down
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -1187,6 +1187,8 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, newTrigger *models.Trigge
 		if err := r.Scan(new(int)); err != nil {
 			if err == sql.ErrNoRows {
 				return models.ErrAppsNotFound
+			} else if err != nil {
+				return err
 			}
 		}
 
@@ -1196,10 +1198,21 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, newTrigger *models.Trigge
 		if err := r.Scan(&app_id); err != nil {
 			if err == sql.ErrNoRows {
 				return models.ErrFnsNotFound
+			} else if err != nil {
+				return err
 			}
 		}
 		if app_id != trigger.AppID {
 			return models.ErrTriggerFnIDNotSameApp
+		}
+
+		query = tx.Rebind(`SELECT 1 FROM triggers WHERE app_id=? AND type=? and source=?`)
+		r = tx.QueryRowContext(ctx, query, trigger.AppID, trigger.Type, trigger.Source)
+		err := r.Scan(new(int))
+		if err == nil {
+			return models.ErrTriggerSourceExists
+		} else if err != sql.ErrNoRows {
+			return err
 		}
 
 		query = tx.Rebind(`INSERT INTO triggers (
@@ -1320,8 +1333,7 @@ func (ds *SQLStore) GetTriggerByID(ctx context.Context, triggerID string) (*mode
 	err := row.StructScan(&trigger)
 	if err == sql.ErrNoRows {
 		return nil, models.ErrTriggerNotFound
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -1405,14 +1417,13 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 		if err == sql.ErrNoRows {
 			return res, nil // no error for empty list
 		}
+		return nil, err
 	}
 	return res, nil
 }
 
 func (ds *SQLStore) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
 	var trigger models.Trigger
-	// TRIGGERWIP
-	// TODO : Currently matches first trigger that has a source that matches - TODO make these unique
 
 	query := ds.db.Rebind(triggerIDSourceSelector)
 	row := ds.db.QueryRowxContext(ctx, query, appId, triggerType, source)
@@ -1420,9 +1431,7 @@ func (ds *SQLStore) GetTriggerBySource(ctx context.Context, appId string, trigge
 	err := row.StructScan(&trigger)
 	if err == sql.ErrNoRows {
 		return nil, models.ErrTriggerNotFound
-	}
-
-	if err != nil {
+	} else if err != nil {
 		return nil, err
 	}
 	return &trigger, nil
