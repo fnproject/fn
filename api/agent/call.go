@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime"
 	"net/http"
 	"strings"
@@ -45,7 +47,7 @@ type Call interface {
 type CallOverrider func(*models.Call, map[string]string) (map[string]string, error)
 
 // TODO build w/o closures... lazy
-type CallOpt func(c *call) error
+type CallOpt func(ctx context.Context, c *call) error
 
 const (
 	ceMimeType = "application/cloudevents+json"
@@ -54,9 +56,7 @@ const (
 // FromRequest initialises a call to a route from an HTTP request
 // deprecate with routes
 func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOpt {
-	return func(c *call) error {
-		ctx := req.Context()
-
+	return func(ctx context.Context, c *call) error {
 		log := common.Logger(ctx)
 		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
 		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
@@ -108,9 +108,8 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			Path:  route.Path,
 			Image: route.Image,
 			// Delay: 0,
-			Type:   route.Type,
-			Format: route.Format,
-			// Payload: TODO,
+			Type:        route.Type,
+			Format:      route.Format,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
@@ -127,8 +126,7 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			SyslogURL:   syslogURL,
 		}
 
-		c.req = req
-		return nil
+		return setCallPayload(ctx, req.Body, c)
 	}
 }
 
@@ -183,7 +181,7 @@ func buildCloudEvent(req *http.Request) (*cloudevent.CloudEvent, error) {
 // XXX(reed): shove url into `protocol: `{ url: "" }` ? also eventURL
 // XXX(reed): shove method into `protocol: `{ method: "" }` ? also eventURL
 func FromFullInvoke(event *cloudevent.CloudEvent) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		ext, ok := event.Extensions.(map[string]interface{}) // XXX(reed): ?
 		if !ok {
 			return errors.New("cloud event extensions must be marshaled with known type")
@@ -228,10 +226,9 @@ func FromFullInvoke(event *cloudevent.CloudEvent) CallOpt {
 }
 
 // Sets up a call from an http trigger request
+// TODO this should use FromEvent
 func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
-	return func(c *call) error {
-		ctx := req.Context()
-
+	return func(ctx context.Context, c *call) error {
 		log := common.Logger(ctx)
 		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
 		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
@@ -270,9 +267,8 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			Path:  trigger.Source,
 			Image: fn.Image,
 			// Delay: 0,
-			Type:   "sync",
-			Format: fn.Format,
-			// Payload: TODO,
+			Type:        "sync",
+			Format:      fn.Format,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     fn.Timeout,
 			IdleTimeout: fn.IdleTimeout,
@@ -293,8 +289,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			SyslogURL:   syslogURL,
 		}
 
-		c.req = req
-		return nil
+		return setCallPayload(ctx, req.Body, c)
 	}
 }
 
@@ -358,51 +353,25 @@ func reqURL(req *http.Request) string {
 
 // FromModel creates a call object from an existing stored call model object, reading the body from the stored call payload
 func FromModel(mCall *models.Call) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		c.Call = mCall
-
-		req, err := http.NewRequest(c.Method, c.URL, strings.NewReader(c.Payload))
-		if err != nil {
-			return err
-		}
-		req.Header = c.Headers
-
-		c.req = req
-		// TODO anything else really?
 		return nil
 	}
 }
 
 // FromModelAndInput creates a call object from an existing stored call model object , reading the body from a provided stream
 func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		c.Call = mCall
-
-		req, err := http.NewRequest(c.Method, c.URL, in)
-		if err != nil {
-			return err
-		}
-		req.Header = c.Headers
-
-		c.req = req
-		// TODO anything else really?
-		return nil
+		return setCallPayload(ctx, in, c)
 	}
 }
 
 // WithWriter sets the writier that the call uses to send its output message to
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		c.w = w
-		return nil
-	}
-}
-
-// WithContext overrides the context on the call
-func WithContext(ctx context.Context) CallOpt {
-	return func(c *call) error {
-		c.req = c.req.WithContext(ctx)
 		return nil
 	}
 }
@@ -410,7 +379,7 @@ func WithContext(ctx context.Context) CallOpt {
 // WithExtensions adds internal attributes to the call that can be interpreted by extensions in the agent
 // Pure runner can use this to pass an extension to the call
 func WithExtensions(extensions map[string]string) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		c.extensions = extensions
 		return nil
 	}
@@ -419,18 +388,18 @@ func WithExtensions(extensions map[string]string) CallOpt {
 // GetCall builds a Call that can be used to submit jobs to the agent.
 //
 // TODO where to put this? async and sync both call this
-func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
+func (a *agent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 	var c call
 
 	for _, o := range opts {
-		err := o(&c)
+		err := o(ctx, &c)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// TODO typed errors to test
-	if c.req == nil || c.Call == nil {
+	if c.Call == nil {
 		return nil, errors.New("no model or request provided for call")
 	}
 
@@ -454,7 +423,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.handler = a.da
 	c.ct = a
-	c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, c.Call)
+	c.stderr = setupLogger(ctx, a.cfg.MaxLogSize, c.Call)
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
@@ -464,10 +433,33 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	return &c, nil
 }
 
-func setupCtx(c *call) {
-	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
-	c.req = c.req.WithContext(ctx)
+// setCallPayload sets the payload on a call, respecting the context
+func setCallPayload(ctx context.Context, input io.Reader, c *call) error {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+
+	// WARNING: we need to handle IO in a separate go-routine below
+	// to be able to detect a ctx timeout. When we timeout, we
+	// let gin/http-server to unblock the go-routine below.
+	errApp := make(chan error, 1)
+	go func() {
+		_, err := buf.ReadFrom(input)
+		if err != nil && err != io.EOF {
+			errApp <- err
+			return
+		}
+
+		c.Payload = buf.String()
+		bufPool.Put(buf)
+		close(errApp)
+	}()
+
+	select {
+	case err := <-errApp:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 type call struct {
@@ -478,7 +470,6 @@ type call struct {
 
 	handler        CallHandler
 	w              io.Writer
-	req            *http.Request
 	stderr         io.ReadWriteCloser
 	ct             callTrigger
 	slots          *slotQueue
@@ -502,13 +493,7 @@ func (c *call) Extensions() map[string]string {
 }
 
 func (c *call) RequestBody() io.ReadCloser {
-	if c.req.Body != nil && c.req.GetBody != nil {
-		rdr, err := c.req.GetBody()
-		if err == nil {
-			return rdr
-		}
-	}
-	return c.req.Body
+	return ioutil.NopCloser(strings.NewReader(c.Payload))
 }
 
 func (c *call) ResponseWriter() http.ResponseWriter {

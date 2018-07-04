@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -29,7 +30,7 @@ type ContainerIO interface {
 
 	// Dispatch will handle sending stdin and stdout to a container. Implementers
 	// of Dispatch may format the input and output differently. Dispatch must respect
-	// the req.Context() timeout / cancellation.
+	// the context timeout / cancellation.
 	Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error
 }
 
@@ -46,7 +47,6 @@ type CallInfo interface {
 	// This could be abstracted into separate Protocol objects for each type and all the following information could go in there.
 	// This is a bit confusing because we also have the protocol's for getting information in and out of the function containers.
 	ProtocolType() string
-	Request() *http.Request
 	Method() string
 	RequestURL() string
 	Headers() map[string][]string
@@ -54,7 +54,7 @@ type CallInfo interface {
 
 type callInfoImpl struct {
 	call         *models.Call
-	req          *http.Request
+	deadline     common.DateTime
 	isCloudEvent bool
 }
 
@@ -67,22 +67,14 @@ func (ci callInfoImpl) CallID() string {
 }
 
 func (ci callInfoImpl) ContentType() string {
-	return ci.req.Header.Get("Content-Type")
+	return http.Header(ci.call.Headers).Get("Content-Type")
 }
 
-// Input returns the call's input/body
 func (ci callInfoImpl) Input() io.Reader {
-	return ci.req.Body
+	return strings.NewReader(ci.call.Payload)
 }
 
-func (ci callInfoImpl) Deadline() common.DateTime {
-	deadline, ok := ci.req.Context().Deadline()
-	if !ok {
-		// In theory deadline must have been set here
-		panic("No context deadline is set in protocol, should never happen")
-	}
-	return common.DateTime(deadline)
-}
+func (ci callInfoImpl) Deadline() common.DateTime { return ci.deadline }
 
 // CallType returns whether the function call was "sync" or "async".
 func (ci callInfoImpl) CallType() string {
@@ -95,10 +87,6 @@ func (ci callInfoImpl) ProtocolType() string {
 	return "http"
 }
 
-// Request basically just for the http format, since that's the only that makes sense to have the full request as is
-func (ci callInfoImpl) Request() *http.Request {
-	return ci.req
-}
 func (ci callInfoImpl) Method() string {
 	return ci.call.Method
 }
@@ -106,16 +94,21 @@ func (ci callInfoImpl) RequestURL() string {
 	return ci.call.URL
 }
 func (ci callInfoImpl) Headers() map[string][]string {
-	return ci.req.Header
+	return ci.call.Headers
 }
 
-func NewCallInfo(isCloudEvent bool, call *models.Call, req *http.Request) CallInfo {
-	ci := &callInfoImpl{
-		isCloudEvent: isCloudEvent,
-		call:         call,
-		req:          req,
+func NewCallInfo(ctx context.Context, isCloudEvent bool, call *models.Call) CallInfo {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		// In theory deadline must have been set here
+		panic("No context deadline is set in protocol, should never happen")
 	}
-	return ci
+
+	return &callInfoImpl{
+		isCloudEvent: isCloudEvent,
+		deadline:     common.DateTime(deadline),
+		call:         call,
+	}
 }
 
 // Protocol defines all protocols that operates a ContainerIO.

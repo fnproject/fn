@@ -534,12 +534,12 @@ type pureRunner struct {
 }
 
 // implements Agent
-func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
-	return pr.a.GetCall(opts...)
+func (pr *pureRunner) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
+	return pr.a.GetCall(ctx, opts...)
 }
 
 // implements Agent
-func (pr *pureRunner) Submit(Call) error {
+func (pr *pureRunner) Submit(context.Context, Call) error {
 	return errors.New("Submit cannot be called directly in a Pure Runner.")
 }
 
@@ -560,15 +560,15 @@ func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
 }
 
-func (pr *pureRunner) spawnSubmit(state *callHandle) {
+func (pr *pureRunner) spawnSubmit(ctx context.Context, state *callHandle) {
 	go func() {
-		err := pr.a.Submit(state.c)
+		err := pr.a.Submit(ctx, state.c)
 		state.enqueueCallResponse(err)
 	}()
 }
 
 // handleTryCall based on the TryCall message, tries to place the call on NBIO Agent
-func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error {
+func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, state *callHandle) error {
 
 	start := time.Now()
 
@@ -594,9 +594,10 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	c.StartedAt = common.DateTime(time.Time{})
 	c.CompletedAt = common.DateTime(time.Time{})
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
+	ctx = state.ctx
+
+	agentCall, err := pr.a.GetCall(ctx, FromModelAndInput(&c, state.pipeToFnR),
 		WithWriter(state),
-		WithContext(state.ctx),
 		WithExtensions(tc.GetExtensions()),
 	)
 	if err != nil {
@@ -604,16 +605,16 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		return err
 	}
 
-	state.c = agent_call.(*call)
+	state.c = agentCall.(*call)
 	if tc.SlotHashId != "" {
-		hashId, err := hex.DecodeString(tc.SlotHashId)
+		hashID, err := hex.DecodeString(tc.SlotHashId)
 		if err != nil {
 			state.enqueueCallResponse(err)
 			return err
 		}
-		state.c.slotHashId = string(hashId[:])
+		state.c.slotHashId = string(hashID[:])
 	}
-	pr.spawnSubmit(state)
+	pr.spawnSubmit(ctx, state)
 
 	return nil
 }
@@ -641,7 +642,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 
 	tryMsg := state.getTryMsg()
 	if tryMsg != nil {
-		errTry := pr.handleTryCall(tryMsg, state)
+		errTry := pr.handleTryCall(ctx, tryMsg, state)
 		if errTry == nil {
 			dataFeed := state.spawnPipeToFn()
 
