@@ -112,7 +112,8 @@ type agent struct {
 	onStartup []func()
 }
 
-type AgentOption func(*agent)
+// AgentOption configures an agent at startup
+type AgentOption func(*agent) error
 
 // New creates an Agent that executes functions locally as Docker containers.
 func New(da CallHandler, options ...AgentOption) Agent {
