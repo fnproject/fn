@@ -177,7 +177,7 @@ func WithConfig(cfg *AgentConfig) AgentOption {
 	}
 }
 
-// Provide a customer driver to agent
+// WithDockerDriver Provides a customer driver to agent
 func WithDockerDriver(drv drivers.Driver) AgentOption {
 	return func(a *agent) error {
 		if a.driver != nil {
@@ -189,7 +189,7 @@ func WithDockerDriver(drv drivers.Driver) AgentOption {
 	}
 }
 
-// Agents can use this to register a CallOverrider to modify a Call and extensions
+// WithCallOverrider registers register a CallOverrider to modify a Call and extensions on call construction
 func WithCallOverrider(fn CallOverrider) AgentOption {
 	return func(a *agent) error {
 		if a.callOverrider != nil {
@@ -200,7 +200,7 @@ func WithCallOverrider(fn CallOverrider) AgentOption {
 	}
 }
 
-// Create a default docker driver from agent config
+// NewDockerDriver creates a default docker driver from agent config
 func NewDockerDriver(cfg *AgentConfig) *docker.DockerDriver {
 	return docker.NewDocker(drivers.Config{
 		DockerNetworks:       cfg.DockerNetworks,
@@ -827,7 +827,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
 
-	container, closer := NewHotContainer(ctx, call, &a.cfg)
+	container, closer := newHotContainer(ctx, call, &a.cfg)
 	defer closer()
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -1012,7 +1012,8 @@ type container struct {
 	stats  *drivers.Stats
 }
 
-func NewHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*container, func()) {
+//newHotContainer creates a container that can be used for multiple sequential events
+func newHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*container, func()) {
 	// if freezer is enabled, be consistent with freezer behavior and
 	// block stdout and stderr between calls.
 	isBlockIdleIO := MaxDisabledMsecs != cfg.FreezeIdle

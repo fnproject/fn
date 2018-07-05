@@ -250,10 +250,10 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	opts = append(opts, WithNodeCertKey(getEnv(EnvCertKey, "")))
 	opts = append(opts, WithNodeCertAuthority(getEnv(EnvCertAuth, "")))
 
-	publicLbUrl := getEnv(EnvPublicLoadBalancerURL, "")
-	if publicLbUrl != "" {
-		logrus.Infof("using LB Base URL: '%s'", publicLbUrl)
-		opts = append(opts, WithTriggerAnnotator(NewStaticURLTriggerAnnotator(publicLbUrl)))
+	publicLBURL := getEnv(EnvPublicLoadBalancerURL, "")
+	if publicLBURL != "" {
+		logrus.Infof("using LB Base URL: '%s'", publicLBURL)
+		opts = append(opts, WithTriggerAnnotator(NewStaticURLTriggerAnnotator(publicLBURL)))
 	} else {
 		opts = append(opts, WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()))
 	}
@@ -1127,13 +1127,13 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runner.POST("/start", s.handleRunnerStart)
 			runner.POST("/finish", s.handleRunnerFinish)
 
-			runnerAppApi := runner.Group(
+			runnerAppAPI := runner.Group(
 				"/apps/:appID")
-			runnerAppApi.Use(setAppIDInCtx)
+			runnerAppAPI.Use(setAppIDInCtx)
 			// Both of these are somewhat odd -
 			// Deprecate, remove with routes
-			runnerAppApi.GET("/routes/*route", s.handleRunnerGetRoute)
-			runnerAppApi.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
+			runnerAppAPI.GET("/routes/*route", s.handleRunnerGetRoute)
+			runnerAppAPI.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
 
 		}
 	}
@@ -1142,8 +1142,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
 		if !s.noHTTTPTriggerEndpoint {
 			lbTriggerGroup := engine.Group("/t")
-			lbTriggerGroup.Any("/:appName", s.handleHttpTriggerCall)
-			lbTriggerGroup.Any("/:appName/*triggerSource", s.handleHttpTriggerCall)
+			lbTriggerGroup.Any("/:appName", s.handleHTTPTriggerCall)
+			lbTriggerGroup.Any("/:appName/*triggerSource", s.handleHTTPTriggerCall)
 
 			// TODO Deprecate with routes
 			lbRouteGroup := engine.Group("/r")

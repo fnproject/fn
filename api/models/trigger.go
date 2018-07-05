@@ -10,9 +10,10 @@ import (
 	"github.com/fnproject/fn/api/common"
 )
 
-// For want of a better place to put this it's here
+// TriggerHTTPEndpointAnnotation is the annotation that exposes the HTTP trigger endpoint For want of a better place to put this it's here
 const TriggerHTTPEndpointAnnotation = "fnproject.io/trigger/httpEndpoint"
 
+// Trigger represents a binding between a Function and an external event source
 type Trigger struct {
 	ID          string          `json:"id" db:"id"`
 	Name        string          `json:"name" db:"name"`
@@ -25,6 +26,7 @@ type Trigger struct {
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
 }
 
+// Equals compares two triggers for semantic equality  it ignores timestamp fields but includes annotations
 func (t *Trigger) Equals(t2 *Trigger) bool {
 	eq := true
 	eq = eq && t.ID == t2.ID
@@ -39,6 +41,7 @@ func (t *Trigger) Equals(t2 *Trigger) bool {
 	return eq
 }
 
+// EqualsWithAnnotationSubset is equivalent to Equals except it accepts cases where t's annotations are strict subset of t2
 func (t *Trigger) EqualsWithAnnotationSubset(t2 *Trigger) bool {
 	eq := true
 	eq = eq && t.ID == t2.ID
@@ -53,14 +56,17 @@ func (t *Trigger) EqualsWithAnnotationSubset(t2 *Trigger) bool {
 	return eq
 }
 
+//TriggerTypeHTTP represents an HTTP trigger
 const TriggerTypeHTTP = "http"
 
 var triggerTypes = []string{TriggerTypeHTTP}
 
+//ValidTriggerTypes lists the supported trigger types in this service
 func ValidTriggerTypes() []string {
 	return triggerTypes
 }
 
+//ValidTriggerType checks that a given trigger type is valid on this service
 func ValidTriggerType(a string) bool {
 	for _, b := range triggerTypes {
 		if b == a {
@@ -71,49 +77,63 @@ func ValidTriggerType(a string) bool {
 }
 
 var (
+	//ErrTriggerIDProvided indicates that a trigger ID was specified when it shouldn't have been
 	ErrTriggerIDProvided = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("ID cannot be provided for Trigger creation"),
 	}
+	//ErrTriggerIDMismatch indicates an ID was provided that did not match the ID of the corresponding operation/call
 	ErrTriggerIDMismatch = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("ID in path does not match ID in body"),
 	}
+	//ErrTriggerMissingName - name not specified on a trigger object
 	ErrTriggerMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing name on Trigger")}
+	//ErrTriggerTooLongName - name exceeds maximum permitted name
 	ErrTriggerTooLongName = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("Trigger name must be %v characters or less", MaxTriggerName)}
+	//ErrTriggerInvalidName - name does not comply with naming spec
 	ErrTriggerInvalidName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid name for Trigger")}
+	//ErrTriggerMissingAppID - no API id specified on trigger creation
 	ErrTriggerMissingAppID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing App ID on Trigger")}
+	//ErrTriggerMissingFnID - no FNID specified on trigger creation
 	ErrTriggerMissingFnID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Fn ID on Trigger")}
+	//ErrTriggerFnIDNotSameApp - specified Fn does not belong to the same app as the provided AppID
 	ErrTriggerFnIDNotSameApp = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid Fn ID - not owned by specified app")}
+	//ErrTriggerTypeUnknown - unsupported trigger type
 	ErrTriggerTypeUnknown = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger Type Not Supported")}
+	//ErrTriggerMissingSource - no source spceified for trigger
 	ErrTriggerMissingSource = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Trigger Source")}
+	//ErrTriggerNotFound - trigger not found
 	ErrTriggerNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Trigger not found")}
+	//ErrTriggerExists - a trigger with the specified name already exists
 	ErrTriggerExists = err{
 		code:  http.StatusConflict,
 		error: errors.New("Trigger already exists")}
+	//ErrTriggerSourceExists - another trigger on the same app has the same source and type
 	ErrTriggerSourceExists = err{
 		code:  http.StatusConflict,
 		error: errors.New("Trigger with the same type and source exists on this app")}
 )
 
+//Validate checks that trigger has valid data for inserting into a store
 func (t *Trigger) Validate() error {
 	if t.Name == "" {
 		return ErrTriggerMissingName
@@ -152,20 +172,15 @@ func (t *Trigger) Validate() error {
 	return nil
 }
 
+// Clone creates a deep copy of a trigger
 func (t *Trigger) Clone() *Trigger {
 	clone := new(Trigger)
 	*clone = *t // shallow copy
-
-	if t.Annotations != nil {
-		clone.Annotations = make(Annotations, len(t.Annotations))
-		for k, v := range t.Annotations {
-			// TODO technically, we need to deep copy the bytes
-			clone.Annotations[k] = v
-		}
-	}
+	// annotations are immutable via their interface so can be shallow copied
 	return clone
 }
 
+// Update applies a change to a trigger
 func (t *Trigger) Update(patch *Trigger) {
 
 	original := t.Clone()
@@ -192,15 +207,20 @@ func (t *Trigger) Update(patch *Trigger) {
 	}
 }
 
+//TriggerFilter is a search criteria on triggers
 type TriggerFilter struct {
-	AppID string // this is exact match
-	FnID  string // this is exact match
-	Name  string // exact match
+	//AppID searches for triggers in APP - mandatory
+	AppID string // this is exact match mandatory
+	//FNID searches for triggers belonging to a specific function
+	FnID string // this is exact match
+	//Name is the name of the trigger
+	Name string // exact match
 
 	Cursor  string
 	PerPage int
 }
 
+//TriggerList is a container of triggers returned by search, optionally indicating the next page cursor
 type TriggerList struct {
 	NextCursor string     `json:"next_cursor,omitempty"`
 	Items      []*Trigger `json:"items"`

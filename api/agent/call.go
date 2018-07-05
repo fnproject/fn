@@ -46,16 +46,12 @@ type CallOverrider func(*models.Call, map[string]string) (map[string]string, err
 // TODO build w/o closures... lazy
 type CallOpt func(c *call) error
 
-type Param struct {
-	Key   string
-	Value string
-}
-type Params []Param
-
 const (
 	ceMimeType = "application/cloudevents+json"
 )
 
+// FromRequest initialises a call to a route from an HTTP request
+// deprecate with routes
 func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOpt {
 	return func(c *call) error {
 		ctx := req.Context()
@@ -136,7 +132,7 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 }
 
 // Sets up a call from an http trigger request
-func FromHttpTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
+func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
 	return func(c *call) error {
 		ctx := req.Context()
 
@@ -261,6 +257,7 @@ func reqURL(req *http.Request) string {
 	return req.URL.String()
 }
 
+// FromModel creates a call object from an existing stored call model object, reading the body from the stored call payload
 func FromModel(mCall *models.Call) CallOpt {
 	return func(c *call) error {
 		c.Call = mCall
@@ -277,6 +274,7 @@ func FromModel(mCall *models.Call) CallOpt {
 	}
 }
 
+// FromModelAndInput creates a call object from an existing stored call model object , reading the body from a provided stream
 func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 	return func(c *call) error {
 		c.Call = mCall
@@ -293,6 +291,7 @@ func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 	}
 }
 
+// WithWriter sets the writier that the call uses to send its output message to
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
 	return func(c *call) error {
@@ -301,6 +300,7 @@ func WithWriter(w io.Writer) CallOpt {
 	}
 }
 
+// WithContext overrides the context on the call
 func WithContext(ctx context.Context) CallOpt {
 	return func(c *call) error {
 		c.req = c.req.WithContext(ctx)
@@ -308,6 +308,7 @@ func WithContext(ctx context.Context) CallOpt {
 	}
 }
 
+// WithExtensions adds internal attributes to the call that can be interpreted by extensions in the agent
 // Pure runner can use this to pass an extension to the call
 func WithExtensions(extensions map[string]string) CallOpt {
 	return func(c *call) error {
@@ -406,6 +407,8 @@ type call struct {
 	extensions map[string]string
 }
 
+// SlotHashId returns a string identity for this call that can be used to uniquely place the call in a given container
+// This should correspond to a unique identity (including data changes) of the underlying function
 func (c *call) SlotHashId() string {
 	return c.slotHashId
 }

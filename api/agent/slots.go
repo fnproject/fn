@@ -278,6 +278,7 @@ func (a *slotQueueMgr) deleteSlotQueue(slots *slotQueue) bool {
 	return isDeleted
 }
 
+// TODO this should be at least SHA-256 or more
 var shapool = &sync.Pool{New: func() interface{} { return sha1.New() }}
 
 // TODO do better; once we have app+route versions this function

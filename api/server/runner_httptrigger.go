@@ -15,17 +15,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// handleHttpTriggerCall executes the function, for router handlers
-func (s *Server) handleHttpTriggerCall(c *gin.Context) {
-	err := s.handleTriggerHttpFunctionCall2(c)
+// handleHTTPTriggerCall executes the function, for router handlers
+func (s *Server) handleHTTPTriggerCall(c *gin.Context) {
+	err := s.handleTriggerHTTPFunctionCall2(c)
 	if err != nil {
 		handleErrorResponse(c, err)
 	}
 }
 
-// handleTriggerHttpFunctionCall2 executes the function and returns an error
+// handleTriggerHTTPFunctionCall2 executes the function and returns an error
 // Requires the following in the context:
-func (s *Server) handleTriggerHttpFunctionCall2(c *gin.Context) error {
+func (s *Server) handleTriggerHTTPFunctionCall2(c *gin.Context) error {
 	ctx := c.Request.Context()
 	p := c.Param(api.ParamTriggerSource)
 	if p == "" {
@@ -62,8 +62,8 @@ func (s *Server) handleTriggerHttpFunctionCall2(c *gin.Context) error {
 	return s.ServeHTTPTrigger(c, app, fn, trigger)
 }
 
-// TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
-// TODO make async store an *http.Request? would be sexy until we have different api format...
+//ServeHTTPTrigger serves an HTTP trigger for a given app/fn/trigger  based on the current request
+// This is exported to allow extensions to handle their own trigger naming and publishing
 func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
@@ -82,7 +82,7 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 
 	call, err := s.agent.GetCall(
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromHttpTriggerRequest(app, fn, trigger, c.Request),
+		agent.FromHTTPTriggerRequest(app, fn, trigger, c.Request),
 	)
 	if err != nil {
 		return err
