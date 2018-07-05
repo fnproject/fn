@@ -192,6 +192,8 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			URL:         reqURL(req),
 			Method:      req.Method,
 			AppID:       app.ID,
+			FnID:        fn.ID,
+			TriggerID:   trigger.ID,
 			SyslogURL:   syslogURL,
 		}
 
@@ -224,21 +226,22 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 	return conf
 }
 
-func buildTriggerConfig(app *models.App, route *models.Fn, trigger *models.Trigger) models.Config {
-	conf := make(models.Config, 8+len(app.Config)+len(route.Config))
+func buildTriggerConfig(app *models.App, fn *models.Fn, trigger *models.Trigger) models.Config {
+	conf := make(models.Config, 8+len(app.Config)+len(fn.Config))
 	for k, v := range app.Config {
 		conf[k] = v
 	}
-	for k, v := range route.Config {
+	for k, v := range fn.Config {
 		conf[k] = v
 	}
 
-	conf["FN_FORMAT"] = route.Format
+	conf["FN_FORMAT"] = fn.Format
 	conf["FN_APP_NAME"] = app.Name
 	conf["FN_PATH"] = trigger.Source
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
-	conf["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
+	conf["FN_MEMORY"] = fmt.Sprintf("%d", fn.Memory)
 	conf["FN_TYPE"] = "sync"
+	conf["FN_FN_ID"] = fn.ID
 
 	return conf
 }

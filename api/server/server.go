@@ -447,7 +447,9 @@ func WithReadDataAccess(ds agent.ReadDataAccess) Option {
 func WithDatastore(ds models.Datastore) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.datastore = ds
-		s.lbReadAccess = agent.NewCachedDataAccess(ds)
+		if s.lbReadAccess == nil {
+			s.lbReadAccess = agent.NewCachedDataAccess(ds)
+		}
 		return nil
 	}
 }
