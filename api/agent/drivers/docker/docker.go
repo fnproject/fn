@@ -646,3 +646,9 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 }
 
 var _ drivers.Driver = &DockerDriver{}
+
+func init() {
+	drivers.Register("docker", func(config drivers.Config) (drivers.Driver, error) {
+		return NewDocker(config), nil
+	})
+}

@@ -70,5 +70,5 @@ func (sqliteHelper) IsDuplicateKeyError(err error) bool {
 }
 
 func init() {
-	dbhelper.Add(sqliteHelper(0))
+	dbhelper.Register(sqliteHelper(0))
 }
