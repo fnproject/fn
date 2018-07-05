@@ -186,13 +186,13 @@ func AppFromContext(ctx context.Context) string {
 	return r
 }
 
-func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {
+func (s *Server) checkAppPresenceByNameAtLB() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
 		appName := c.Param(api.ParamAppName)
 		if appName != "" {
-			appID, err := s.agent.GetAppID(ctx, appName)
+			appID, err := s.lbReadAccess.GetAppID(ctx, appName)
 			if err != nil {
 				handleV1ErrorResponse(c, err)
 				c.Abort()

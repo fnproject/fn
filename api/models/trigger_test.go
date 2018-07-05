@@ -5,17 +5,17 @@ import (
 	"testing"
 )
 
-var openEmptyJson = `{"id":"","name":"","app_id":"","fn_id":"","created_at":"0001-01-01T00:00:00.000Z","updated_at":"0001-01-01T00:00:00.000Z","type":"","source":""`
+var openEmptyJSON = `{"id":"","name":"","app_id":"","fn_id":"","created_at":"0001-01-01T00:00:00.000Z","updated_at":"0001-01-01T00:00:00.000Z","type":"","source":""`
 
-var triggerJsonCases = []struct {
+var triggerJSONCases = []struct {
 	val       *Trigger
 	valString string
 }{
-	{val: &Trigger{}, valString: openEmptyJson + "}"},
+	{val: &Trigger{}, valString: openEmptyJSON + "}"},
 }
 
 func TestTriggerJsonMarshalling(t *testing.T) {
-	for _, tc := range triggerJsonCases {
+	for _, tc := range triggerJSONCases {
 		v, err := json.Marshal(tc.val)
 		if err != nil {
 			t.Fatalf("Failed to marshal json into %s: %v", tc.valString, err)

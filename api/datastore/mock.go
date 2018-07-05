@@ -28,6 +28,18 @@ func NewMock() models.Datastore {
 	return NewMockInit()
 }
 
+var _ models.Datastore = &mock{}
+
+func (m *mock) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
+	for _, t := range m.Triggers {
+		if t.AppID == appId && t.Type == triggerType && t.Source == source {
+			return t, nil
+		}
+	}
+
+	return nil, models.ErrTriggerNotFound
+}
+
 // args helps break tests less if we change stuff
 func NewMockInit(args ...interface{}) models.Datastore {
 	var mocker mock
@@ -415,6 +427,12 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 				t.FnID == trigger.FnID &&
 				t.Name == trigger.Name) {
 			return nil, models.ErrTriggerExists
+		}
+
+		if t.AppID == trigger.AppID &&
+			t.Source == trigger.Source &&
+			t.Type == trigger.Type {
+			return nil, models.ErrTriggerSourceExists
 		}
 	}
 

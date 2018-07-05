@@ -20,4 +20,9 @@ const (
 	ParamCallID string = "call"
 	// ParamFnID is the url path parameter for fn id
 	ParamFnID string = "fnID"
+	// ParamTriggerSource is the triggers source parameter
+	ParamTriggerSource string = "triggerSource"
+
+	//ParamTriggerType is the trigger type parameter - only used in hybrid API
+	ParamTriggerType string = "triggerType"
 )

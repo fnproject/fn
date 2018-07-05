@@ -2,60 +2,19 @@ package server
 
 import (
 	"bytes"
-	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 )
 
-func envTweaker(name, value string) func() {
-	bck, ok := os.LookupEnv(name)
-
-	err := os.Setenv(name, value)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	return func() {
-		var err error
-		if !ok {
-			err = os.Unsetenv(name)
-		} else {
-			err = os.Setenv(name, bck)
-		}
-		if err != nil {
-			panic(err.Error())
-		}
-	}
-}
-
-func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
-	ds := datastore.NewMock()
-	ls := logs.NewMock()
-	var mq models.MessageQueue = &mqs.Mock{}
-	for _, a := range args {
-		switch arg := a.(type) {
-		case models.Datastore:
-			ds = arg
-		case models.MessageQueue:
-			mq = arg
-		case models.LogStore:
-			ls = arg
-		}
-	}
-	r := agent.New(agent.NewDirectDataAccess(ds, ls, mq))
-	return r, func() { r.Close() }
-}
+// TODO Deprecate with Routes
 
 func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
@@ -219,6 +178,7 @@ func TestRouteRunnerExecEmptyBody(t *testing.T) {
 		}
 	}
 }
+
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
@@ -376,85 +336,6 @@ func TestRouteRunnerExecution(t *testing.T) {
 			if !checkLogs(t, i, ls, callIds[i], test.expectedLogsSubStr) {
 				isFailure = true
 			}
-		}
-	}
-}
-
-func checkLogs(t *testing.T, tnum int, ds models.LogStore, callID string, expected []string) bool {
-
-	logReader, err := ds.GetLog(context.Background(), "myapp", callID)
-	if err != nil {
-		t.Errorf("Test %d: GetLog for call_id:%s returned err %s",
-			tnum, callID, err.Error())
-		return false
-	}
-
-	logBytes, err := ioutil.ReadAll(logReader)
-	if err != nil {
-		t.Errorf("Test %d: GetLog read IO call_id:%s returned err %s",
-			tnum, callID, err.Error())
-		return false
-	}
-
-	logBody := string(logBytes)
-	maxLog := len(logBody)
-	if maxLog > 1024 {
-		maxLog = 1024
-	}
-
-	for _, match := range expected {
-		if !strings.Contains(logBody, match) {
-			t.Errorf("Test %d: GetLog read IO call_id:%s cannot find: %s in logs: %s",
-				tnum, callID, match, logBody[:maxLog])
-			return false
-		}
-	}
-
-	return true
-}
-
-// implement models.MQ and models.APIError
-type errorMQ struct {
-	error
-	code int
-}
-
-func (mock *errorMQ) Push(context.Context, *models.Call) (*models.Call, error) { return nil, mock }
-func (mock *errorMQ) Reserve(context.Context) (*models.Call, error)            { return nil, mock }
-func (mock *errorMQ) Delete(context.Context, *models.Call) error               { return mock }
-func (mock *errorMQ) Code() int                                                { return mock.code }
-func (mock *errorMQ) Close() error                                             { return nil }
-func TestFailedEnqueue(t *testing.T) {
-	buf := setLogBuffer()
-	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
-	ds := datastore.NewMockInit(
-		[]*models.App{app},
-		[]*models.Route{
-			{Path: "/dummy", Image: "dummy/dummy", Type: "async", Memory: 128, Timeout: 30, IdleTimeout: 30, AppID: app.ID},
-		},
-	)
-	err := errors.New("Unable to push task to queue")
-	mq := &errorMQ{err, http.StatusInternalServerError}
-	fnl := logs.NewMock()
-	rnr, cancelrnr := testRunner(t, ds, mq, fnl)
-	defer cancelrnr()
-
-	srv := testServer(ds, mq, fnl, rnr, ServerTypeFull)
-	for i, test := range []struct {
-		path            string
-		body            string
-		method          string
-		expectedCode    int
-		expectedHeaders map[string][]string
-	}{
-		{"/r/myapp/dummy", ``, "POST", http.StatusInternalServerError, nil},
-	} {
-		body := strings.NewReader(test.body)
-		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
-		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
 		}
 	}
 }

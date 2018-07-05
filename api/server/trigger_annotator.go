@@ -15,7 +15,7 @@ type TriggerAnnotator interface {
 
 type requestBasedTriggerAnnotator struct{}
 
-func annotateTriggerWithBaseUrl(baseURL string, app *models.App, t *models.Trigger) (*models.Trigger, error) {
+func annotateTriggerWithBaseURL(baseURL string, app *models.App, t *models.Trigger) (*models.Trigger, error) {
 	if t.Type != models.TriggerTypeHTTP {
 		return t, nil
 	}
@@ -41,23 +41,25 @@ func (tp *requestBasedTriggerAnnotator) AnnotateTrigger(ctx *gin.Context, app *m
 		scheme = "https"
 	}
 
-	return annotateTriggerWithBaseUrl(fmt.Sprintf("%s://%s", scheme, ctx.Request.Host), app, t)
+	return annotateTriggerWithBaseURL(fmt.Sprintf("%s://%s", scheme, ctx.Request.Host), app, t)
 }
 
+//NewRequestBasedTriggerAnnotator creates a TriggerAnnotator that inspects the incoming request host and port, and uses this to generate http trigger endpoint URLs based on those
 func NewRequestBasedTriggerAnnotator() TriggerAnnotator {
 	return &requestBasedTriggerAnnotator{}
 }
 
-type staticUrlTriggerAnnotator struct {
-	urlBase string
+type staticURLTriggerAnnotator struct {
+	baseURL string
 }
 
-func NewStaticURLTriggerAnnotator(baseUrl string) TriggerAnnotator {
+//NewStaticURLTriggerAnnotator annotates triggers bases on a given, specified URL base - e.g. "https://my.domain" --->  "https://my.domain/t/app/source"
+func NewStaticURLTriggerAnnotator(baseURL string) TriggerAnnotator {
 
-	return &staticUrlTriggerAnnotator{urlBase: baseUrl}
+	return &staticURLTriggerAnnotator{baseURL: baseURL}
 }
 
-func (s *staticUrlTriggerAnnotator) AnnotateTrigger(ctx *gin.Context, app *models.App, trigger *models.Trigger) (*models.Trigger, error) {
-	return annotateTriggerWithBaseUrl(s.urlBase, app, trigger)
+func (s *staticURLTriggerAnnotator) AnnotateTrigger(ctx *gin.Context, app *models.App, trigger *models.Trigger) (*models.Trigger, error) {
+	return annotateTriggerWithBaseURL(s.baseURL, app, trigger)
 
 }

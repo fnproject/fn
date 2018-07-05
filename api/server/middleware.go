@@ -43,7 +43,7 @@ func (c *middlewareController) CallFunction(w http.ResponseWriter, r *http.Reque
 		c.ginContext.Set(api.AppID, appID)
 	}
 
-	c.server.handleFunctionCall(c.ginContext)
+	c.server.handleV1FunctionCall(c.ginContext)
 	c.ginContext.Abort()
 }
 func (c *middlewareController) FunctionCalled() bool {

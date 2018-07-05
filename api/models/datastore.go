@@ -93,6 +93,9 @@ type Datastore interface {
 	// Return ErrDatastoreEmptyAppId if no AppID set in the filter
 	GetTriggers(ctx context.Context, filter *TriggerFilter) (*TriggerList, error)
 
+	// GetTriggerBySource loads a trigger by type and source ID - this is only needed when the data store is also used for agent read access
+	GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*Trigger, error)
+
 	// implements io.Closer to shutdown
 	io.Closer
 }

@@ -1,11 +1,10 @@
 package server
 
 import (
-	"net/http"
-
 	"fmt"
 	"github.com/fnproject/fn/api"
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 func (s *Server) handleTriggerGet(c *gin.Context) {

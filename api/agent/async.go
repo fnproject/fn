@@ -11,7 +11,7 @@ import (
 	"go.opencensus.io/trace"
 )
 
-func (a *agent) asyncDequeue() {
+func (a *agent) asyncDequeue(dqda DequeueDataAccess) {
 	// this is just so we can hang up the dequeue request if we get shut down
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -37,7 +37,7 @@ func (a *agent) asyncDequeue() {
 		case <-a.shutWg.Closer():
 			a.shutWg.DoneSession()
 			return
-		case model, ok := <-a.asyncChew(ctx):
+		case model, ok := <-a.asyncChew(ctx, dqda):
 			if ok {
 				go func(model *models.Call) {
 					a.asyncRun(ctx, model)
@@ -53,14 +53,14 @@ func (a *agent) asyncDequeue() {
 	}
 }
 
-func (a *agent) asyncChew(ctx context.Context) <-chan *models.Call {
+func (a *agent) asyncChew(ctx context.Context, dqda DequeueDataAccess) <-chan *models.Call {
 	ch := make(chan *models.Call, 1)
 
 	go func() {
 		ctx, cancel := context.WithTimeout(ctx, a.cfg.AsyncChewPoll)
 		defer cancel()
 
-		call, err := a.da.Dequeue(ctx)
+		call, err := dqda.Dequeue(ctx)
 		if call != nil {
 			ch <- call
 		} else { // call is nil / error

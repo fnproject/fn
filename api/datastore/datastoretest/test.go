@@ -11,7 +11,6 @@ import (
 	"log"
 	"math/rand"
 	"sort"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -52,18 +51,21 @@ type ResourceProvider interface {
 
 // BasicResourceProvider supplies simple objects and can be used as a base for custom resource providers
 type BasicResourceProvider struct {
-	idCount uint32
+	rand *rand.Rand
 }
 
 // DataStoreFunc provides an instance of a data store
 type DataStoreFunc func(*testing.T) models.Datastore
 
+//NewBasicResourceProvider creates a dumb resource provider that generates resources that have valid, random names (and other unique attributes)
 func NewBasicResourceProvider() ResourceProvider {
-	return &BasicResourceProvider{}
+	return &BasicResourceProvider{
+		rand: rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
 }
 
 func (brp *BasicResourceProvider) NextID() uint32 {
-	return atomic.AddUint32(&brp.idCount, rand.Uint32())
+	return brp.rand.Uint32()
 }
 
 func (brp *BasicResourceProvider) DefaultCtx() context.Context {
@@ -86,7 +88,7 @@ func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Tri
 		AppID:  appId,
 		FnID:   funcId,
 		Type:   "http",
-		Source: "ASource",
+		Source: fmt.Sprintf("/source_%09d", brp.NextID()),
 	}
 
 	return trigger
@@ -1241,7 +1243,24 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("expected empty trigger list and no error, but got list [%v] and err %s", triggers.Items, err)
 			}
 		})
+		t.Run("duplicate trigger source of same type on same app", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			app := h.GivenAppInDb(rp.ValidApp())
+			fn := h.GivenFnInDb(rp.ValidFn(app.ID))
+			origT := h.GivenTriggerInDb(rp.ValidTrigger(app.ID, fn.ID))
 
+			newT := rp.ValidTrigger(app.ID, fn.ID)
+
+			newT.Source = origT.Source
+
+			_, err := ds.InsertTrigger(ctx, newT)
+
+			if err != models.ErrTriggerSourceExists {
+				t.Errorf("Expecting to fail with duplicate source on same app, got %s", err)
+			}
+			//todo ensure this doesn't apply when type is not equal
+		})
 		t.Run("app id not same as fn id ", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
@@ -1532,6 +1551,39 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	})
 }
 
+func RunTriggerBySourceTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
+
+	t.Run("http_trigger_access", func(t *testing.T) {
+		ds := dsf(t)
+		ctx := rp.DefaultCtx()
+		t.Run("get_non_existant_trigger", func(t *testing.T) {
+			_, err := ds.GetTriggerBySource(ctx, "none", "http", "source")
+			if err != models.ErrTriggerNotFound {
+				t.Fatalf("Expecting trigger not found, got %s", err)
+			}
+		})
+
+		t.Run("get_trigger_specific_http_route", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
+			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
+			trigger, err := ds.GetTriggerBySource(ctx, testApp.ID, testTrigger.Type, testTrigger.Source)
+
+			if err != nil {
+				t.Fatalf("Expecting trigger, got error  %s", err)
+			}
+
+			if !trigger.Equals(testTrigger) {
+				t.Errorf("Expecting trigger %#v got %#v", testTrigger, trigger)
+			}
+		})
+
+	})
+
+}
+
 func RunAllTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	buf := setLogBuffer()
 	defer func() {
@@ -1544,5 +1596,6 @@ func RunAllTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	RunRoutesTest(t, dsf, rp)
 	RunFnsTest(t, dsf, rp)
 	RunTriggersTest(t, dsf, rp)
+	RunTriggerBySourceTests(t, dsf, rp)
 
 }

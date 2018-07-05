@@ -149,6 +149,12 @@ type Call struct {
 
 	// App this call belongs to.
 	AppID string `json:"app_id" db:"app_id"`
+
+	// Trigger this call belongs to.
+	TriggerID string `json:"trigger_id" db:"trigger_id"`
+
+	// Fn this call belongs to.
+	FnID string `json:"fn_id" db:"fn_id"`
 }
 
 type CallFilter struct {

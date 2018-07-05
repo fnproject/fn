@@ -17,12 +17,14 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr agent.Agen
 	ctx := context.Background()
 	engine := gin.New()
 	s := &Server{
-		agent:       rnr,
-		Router:      engine,
-		AdminRouter: engine,
-		datastore:   ds,
-		mq:          mq,
-		nodeType:    ServerTypeFull,
+		agent:        rnr,
+		Router:       engine,
+		AdminRouter:  engine,
+		datastore:    ds,
+		lbReadAccess: ds,
+		lbEnqueue:    agent.NewDirectEnqueueAccess(mq),
+		mq:           mq,
+		nodeType:     ServerTypeFull,
 	}
 
 	r := s.Router

@@ -16,6 +16,12 @@ type metricds struct {
 	ds models.Datastore
 }
 
+func (m *metricds) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_trigger_by_source")
+	defer span.End()
+	return m.ds.GetTriggerBySource(ctx, appId, triggerType, source)
+}
+
 func (m *metricds) GetAppID(ctx context.Context, appName string) (string, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_app_id")
 	defer span.End()
