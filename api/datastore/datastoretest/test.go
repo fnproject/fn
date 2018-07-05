@@ -1234,6 +1234,9 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("non-existant app", func(t *testing.T) {
 			nonMatchingFilter := &models.TriggerFilter{AppID: "notexist"}
 			triggers, err := ds.GetTriggers(ctx, nonMatchingFilter)
+			if err != nil {
+				t.Fatalf("expecting no error, got: %s", err)
+			}
 			if len(triggers.Items) != 0 && err == nil {
 				t.Fatalf("expected empty trigger list and no error, but got list [%v] and err %s", triggers.Items, err)
 			}
