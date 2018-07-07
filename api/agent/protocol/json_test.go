@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -37,19 +38,22 @@ func setupRequest(data interface{}) (*callInfoImpl, context.CancelFunc) {
 		Host: "localhost:8080",
 	}
 	var buf bytes.Buffer
-
 	if data != nil {
 		_ = json.NewEncoder(&buf).Encode(data)
 	}
 	req.Body = ioutil.NopCloser(&buf)
 
-	call := &models.Call{Type: "sync"}
-
-	// fixup URL in models.Call
-	call.URL = req.URL.String()
+	call := &models.Call{
+		Type:    "sync",
+		Method:  req.Method,
+		Headers: req.Header,
+		Payload: buf.String(),
+		URL:     req.URL.String(),
+	}
 
 	ctx, cancel := context.WithTimeout(req.Context(), 1*time.Second)
-	ci := &callInfoImpl{call: call, req: req.WithContext(ctx)}
+	deadline, _ := ctx.Deadline()
+	ci := &callInfoImpl{call: call, deadline: common.DateTime(deadline)}
 	return ci, cancel
 }
 
@@ -164,9 +168,9 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 		t.Errorf("Request body assertion mismatch: expected: %s, got %s",
 			"<empty-string>", incomingReq.Body)
 	}
-	if !models.Headers(ci.req.Header).Equals(models.Headers(incomingReq.Protocol.Headers)) {
+	if !models.Headers(ci.call.Headers).Equals(models.Headers(incomingReq.Protocol.Headers)) {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
-			ci.req.Header, incomingReq.Protocol.Headers)
+			ci.call.Headers, incomingReq.Protocol.Headers)
 	}
 	if incomingReq.Protocol.Type != ci.ProtocolType() {
 		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",

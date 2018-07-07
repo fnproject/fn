@@ -137,13 +137,11 @@ func TestFullStack(t *testing.T) {
 
 	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeFull, LimitRequestBody(32256))
 
-<<<<<<< HEAD
-	var bigbufa [65536]byte
+	var bigbufa [32257]byte
 	rand.Read(bigbufa[:])
 	bigbuf := base64.StdEncoding.EncodeToString(bigbufa[:]) // this will be > bigbufa, but json compatible
 	toobigerr := errors.New("Content-Length too large for this server")
 	gatewayerr := errors.New("container exit code")
-	bigbuf := append([]byte(`{"app":{"`), bigbufa[:]...)
 
 	for _, test := range []struct {
 		name              string
