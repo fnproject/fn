@@ -95,17 +95,6 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 
 	// TODO TRIGGERWIP  not clear this makes sense here - but it works  so...
 	if model.Type == "async" {
-
-		// TODO we should push this into GetCall somehow (CallOpt maybe) or maybe agent.Queue(Call) ?
-		if c.Request.ContentLength > 0 {
-			buf.Grow(int(c.Request.ContentLength))
-		}
-		_, err := buf.ReadFrom(c.Request.Body)
-		if err != nil {
-			return models.ErrInvalidPayload
-		}
-		model.Payload = buf.String()
-
 		err = s.lbEnqueue.Enqueue(ctx, model)
 		if err != nil {
 			return err
