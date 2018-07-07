@@ -1,5 +1,7 @@
 # Fn Project Common Events Specification  and CloudEvent protocol extensions: 
 
+*For Discussion*  - this document is not yet implemented. 
+
 
 Fn  containers communicate with the platform via the open cloud events specification 
 Cloud events is a meta-standard for defining event types exchanged between distributed systems- function containers may receive events of one type or multiple types depending on the implementation 
