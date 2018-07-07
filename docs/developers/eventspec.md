@@ -1,19 +1,19 @@
 # Fn Project Common Events Specification  and CloudEvent protocol extensions: 
 
-*For Discussion*  - this document is not yet implemented. 
+*Experimental*  - this document is not yet implemented. 
+
+This document describes the `cloudevents` function protocol, this protocol is proposed as the default and only protocol for sending and receiving data to functions. 
 
 
-Fn  containers communicate with the platform via the open cloud events specification 
-Cloud events is a meta-standard for defining event types exchanged between distributed systems- function containers may receive events of one type or multiple types depending on the implementation 
+Cloud events is a meta-standard for defining event types exchanged between distributed systems. Each cloud event has a corresponding type, and function containers may receive events of one type or multiple types depending on the implementation 
 
-Functions that return values may also respond with cloud events - this can be used to implement RPC-like interactions like HTTP. 
 
-Fn supports several common events that are used by the platform, these are used to indicate specific result such as unhandled errors, or to communicate with platform components like the HTTP gateway. 
+
+Fn supports several common event types and cloud event exxtensions that are used by the platform, these are used to indicate specific result such as unhandled errors, or to communicate with platform components like the HTTP gateway. 
 
 
 * Raw HTTP interactions encapsulated in events 
 * Internal errors 
-* No result (task complete )
 
 This doc describes tue specifications for those events: 
 
