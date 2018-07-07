@@ -220,11 +220,8 @@ func sendToRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageCl
 	// IMPORTANT: IO Read below can fail in multiple go-routine cases (in retry
 	// case especially if receiveFromRunner go-routine receives a NACK while sendToRunner is
 	// already blocked on a read) or in the case of reading the http body multiple times (retries.)
-	// Normally http.Request.Body can be read once. However runner_client users should implement/add
-	// http.Request.GetBody() function and cache the body content in the request.
-	// See lb_agent setRequestGetBody() which handles this. With GetBody installed,
-	// the 'Read' below is an actually non-blocking operation since GetBody() should hand out
-	// a new instance of io.ReadCloser() that allows repetitive reads on the http body.
+	// The 'Read' below is an actually non-blocking operation since GetBody() should hand out
+	// a new instance of io.ReadCloser() that allows repetitive reads on the call payload.
 	for {
 		// WARNING: blocking read.
 		n, err := bodyReader.Read(writeBuffer)

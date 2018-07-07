@@ -176,11 +176,15 @@ func buildCloudEvent(req *http.Request) (*cloudevent.CloudEvent, error) {
 // the function/app/trigger unwound inside the event. we also need a way to build this state up,
 // it's possible the two should interlope but maybe not. start without building squat here.
 //
+// thinking: we add the concrete event onto the call object to tote around and re-encode to the container,
+// and a call is simply the extraction of information we need from the event object for the agent to use.
+// we also need to plumb out the container responses all the way up preferably so that Submit returns an event?
+//
 // trigger only things?
 // XXX(reed): shove headers into `protocol: { headers: { } }`
 // XXX(reed): shove url into `protocol: `{ url: "" }` ? also eventURL
 // XXX(reed): shove method into `protocol: `{ method: "" }` ? also eventURL
-func FromFullInvoke(event *cloudevent.CloudEvent) CallOpt {
+func FromEvent(event *cloudevent.CloudEvent) CallOpt {
 	return func(ctx context.Context, c *call) error {
 		ext, ok := event.Extensions.(map[string]interface{}) // XXX(reed): ?
 		if !ok {
@@ -435,14 +439,13 @@ func (a *agent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 
 // setCallPayload sets the payload on a call, respecting the context
 func setCallPayload(ctx context.Context, input io.Reader, c *call) error {
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-
 	// WARNING: we need to handle IO in a separate go-routine below
 	// to be able to detect a ctx timeout. When we timeout, we
 	// let gin/http-server to unblock the go-routine below.
 	errApp := make(chan error, 1)
 	go func() {
+		buf := bufPool.Get().(*bytes.Buffer)
+		buf.Reset()
 		_, err := buf.ReadFrom(input)
 		if err != nil && err != io.EOF {
 			errApp <- err
