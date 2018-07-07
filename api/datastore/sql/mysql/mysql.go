@@ -57,5 +57,5 @@ func (mysqlHelper) IsDuplicateKeyError(err error) bool {
 }
 
 func init() {
-	dbhelper.Add(mysqlHelper(0))
+	dbhelper.Register(mysqlHelper(0))
 }

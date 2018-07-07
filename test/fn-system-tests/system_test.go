@@ -259,8 +259,12 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	}
 
 	// customer driver that overrides generic docker driver
+	d, err := agent.NewDockerDriver(cfg)
+	if err != nil {
+		return nil, err
+	}
 	drv := &customDriver{
-		drv: agent.NewDockerDriver(cfg),
+		drv: d,
 	}
 
 	// inner agent for pure-runners

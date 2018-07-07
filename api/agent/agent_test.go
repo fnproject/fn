@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"

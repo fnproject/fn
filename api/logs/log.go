@@ -24,9 +24,9 @@ type Provider interface {
 
 var providers []Provider
 
-// AddProvider globally registers a new LogStore provider
-func AddProvider(pf Provider) {
-	logrus.Infof("Adding log provider %s", pf)
+// Register globally registers a new LogStore provider
+func Register(pf Provider) {
+	logrus.Infof("Registering log provider '%s'", pf)
 	providers = append(providers, pf)
 }
 

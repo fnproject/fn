@@ -1443,6 +1443,6 @@ func (ds *SQLStore) Close() error {
 }
 
 func init() {
-	datastore.AddProvider(sqlDsProvider(0))
-	logs.AddProvider(sqlLogsProvider(0))
+	datastore.Register(sqlDsProvider(0))
+	logs.Register(sqlLogsProvider(0))
 }

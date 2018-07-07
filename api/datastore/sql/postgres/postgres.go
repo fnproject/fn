@@ -59,5 +59,5 @@ func (postgresHelper) IsDuplicateKeyError(err error) bool {
 }
 
 func init() {
-	dbhelper.Add(postgresHelper(0))
+	dbhelper.Register(postgresHelper(0))
 }

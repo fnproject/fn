@@ -5,6 +5,7 @@ package defaultexts
 
 import (
 	// import all datastore/log/mq modules for runtime config
+	_ "github.com/fnproject/fn/api/agent/drivers/docker"
 	_ "github.com/fnproject/fn/api/datastore/sql"
 	_ "github.com/fnproject/fn/api/datastore/sql/mysql"
 	_ "github.com/fnproject/fn/api/datastore/sql/postgres"

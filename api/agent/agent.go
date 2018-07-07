@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
-	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -142,7 +141,11 @@ func New(da CallHandler, options ...AgentOption) Agent {
 	logrus.Infof("agent starting cfg=%+v", a.cfg)
 
 	if a.driver == nil {
-		a.driver = NewDockerDriver(&a.cfg)
+		d, err := NewDockerDriver(&a.cfg)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to create docker driver ")
+		}
+		a.driver = d
 	}
 
 	a.resources = NewResourceTracker(&a.cfg)
@@ -201,8 +204,8 @@ func WithCallOverrider(fn CallOverrider) AgentOption {
 }
 
 // NewDockerDriver creates a default docker driver from agent config
-func NewDockerDriver(cfg *AgentConfig) *docker.DockerDriver {
-	return docker.NewDocker(drivers.Config{
+func NewDockerDriver(cfg *AgentConfig) (drivers.Driver, error) {
+	return drivers.New("docker", drivers.Config{
 		DockerNetworks:       cfg.DockerNetworks,
 		ServerVersion:        cfg.MinDockerVersion,
 		PreForkPoolSize:      cfg.PreForkPoolSize,

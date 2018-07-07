@@ -469,5 +469,5 @@ func makeKeys(names []string) []tag.Key {
 }
 
 func init() {
-	logs.AddProvider(s3StoreProvider(0))
+	logs.Register(s3StoreProvider(0))
 }

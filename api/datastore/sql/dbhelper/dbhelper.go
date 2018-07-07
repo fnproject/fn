@@ -10,9 +10,9 @@ import (
 
 var sqlHelpers []Helper
 
-//Add registers a new SQL helper
-func Add(helper Helper) {
-	logrus.Infof("Registering DB helper %s", helper)
+//Register registers a new SQL helper
+func Register(helper Helper) {
+	logrus.Infof("Registering sql helper '%s'", helper)
 	sqlHelpers = append(sqlHelpers, helper)
 }
 

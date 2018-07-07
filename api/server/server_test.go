@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/fnproject/fn/api/agent"
+	_ "github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/datastore/sql"
 	_ "github.com/fnproject/fn/api/datastore/sql/sqlite"
