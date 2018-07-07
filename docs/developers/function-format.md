@@ -141,7 +141,9 @@ Function's output should be a copy of the input CloudEvent with any fields chang
       "type": "http",
       "status_code": 200,
       "headers": {
-        "Other-Header": ["something"]
+        "Other-Header": ["something"],
+        
+        
       }
     }
   },
