@@ -1,6 +1,6 @@
 # Fn Project Common Events Specification  and CloudEvent protocol extensions: 
 
-*Experimental*  - this document is not yet implemented. 
+*Experimental*  
 
 This document describes the `cloudevents` function protocol, this protocol is proposed as the default and only protocol for sending and receiving data to functions. 
 
@@ -51,7 +51,6 @@ Produced by FDK:
     "contentType": "application/json; charset=utf-8",
     "data" : {
        "message":"An error occured in the function",
-       "fatal": false 
     }
 }
 ```
