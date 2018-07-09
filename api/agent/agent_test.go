@@ -724,7 +724,7 @@ func TestTmpFsRW(t *testing.T) {
 		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime" {
 			// good
 			isFound = true
-		} else if point == "/" && strings.HasPrefix(opts, "ro,") {
+		//} else if point == "/" && strings.HasPrefix(opts, "ro,") {
 			// Read-only root, good...
 			isRootFound = true
 		}
@@ -829,7 +829,7 @@ func TestTmpFsSize(t *testing.T) {
 		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1024" {
 			// good
 			isFound = true
-		} else if point == "/" && strings.HasPrefix(opts, "ro,") {
+		//} else if point == "/" && strings.HasPrefix(opts, "ro,") {
 			// Read-only root, good...
 			isRootFound = true
 		}
