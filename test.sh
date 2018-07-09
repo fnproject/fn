@@ -7,9 +7,9 @@ source ./helpers.sh
 
 remove_containers
 
-docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWORD=root" -p 5432:5432 -d postgres:9.3-alpine
-docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql:5.7.22
-docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
+docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWORD=root" --network=$DOCKER_NETWORK_NAME -p 5432:5432 -d postgres:9.3-alpine
+docker run --name func-mysql-test --network=$DOCKER_NETWORK_NAME -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql:5.7.22
+docker run -d --network=$DOCKER_NETWORK_NAME -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
 
 MYSQL_HOST=`host func-mysql-test`
 MYSQL_PORT=3306
