@@ -11,13 +11,13 @@ docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWOR
 docker run --name func-mysql-test --network=$DOCKER_NETWORK_NAME -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql:5.7.22
 docker run -d --network=$DOCKER_NETWORK_NAME -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
 
-MYSQL_HOST=`host func-mysql-test`
+MYSQL_HOST=`func-mysql-test`
 MYSQL_PORT=3306
 
-POSTGRES_HOST=`host func-postgres-test`
+POSTGRES_HOST=`func-postgres-test`
 POSTGRES_PORT=5432
 
-MINIO_HOST=`host func-minio-test`
+MINIO_HOST=`func-minio-test`
 MINIO_PORT=9000
 
 export POSTGRES_URL="postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/funcs?sslmode=disable"
