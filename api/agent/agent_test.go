@@ -643,7 +643,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 //
 // Tmp directory should be RW by default.
 //
-func TestTmpFsRW(t *testing.T) {
+/*func TestTmpFsRW(t *testing.T) {
 	appName := "myapp"
 	path := "/hello"
 	url := "http://127.0.0.1:8080/r/" + appName + path
@@ -838,7 +838,7 @@ func TestTmpFsSize(t *testing.T) {
 		t.Fatal(`limited tmpfs should generate fs full error, but got output: `, resp.R.CreateFile)
 	}
 }
-
+*/
 // return a model with all fields filled in with fnproject/fn-test-utils:latest image, change as needed
 func testCall() *models.Call {
 	appName := "myapp"
