@@ -28,5 +28,5 @@ go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn
 go vet $(go list ./... | grep -v vendor)
 
 remove_containers
-
-docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger.yml
+ls -lahrt `pwd`
+docker run -v `pwd`:/go/src/github.com/fnproject/fn --network=$DOCKER_NETWORK_NAME --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger.yml
