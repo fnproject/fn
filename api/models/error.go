@@ -109,6 +109,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Image"),
 	}
+	ErrRoutesInvalidImage = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid route Image"),
+	}
 	ErrRoutesMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Name"),

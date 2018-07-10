@@ -208,6 +208,7 @@ const (
 type Config struct {
 	Docker               string `json:"docker"`
 	DockerNetworks       string `json:"docker_networks"`
+	DockerLoadFile       string `json:"docker_load_file"`
 	ServerVersion        string `json:"server_version"`
 	PreForkPoolSize      uint64 `json:"pre_fork_pool_size"`
 	PreForkImage         string `json:"pre_fork_image"`

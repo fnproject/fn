@@ -64,6 +64,13 @@ message RunnerMsg {
 
 message RunnerStatus {
     int32 active = 2;  // Number of currently inflight responses
+    bool failed = 3; // if status was successful or not
+    string details = 4; // details for logging/debug
+    int32 errorCode = 5; // error code if not successful
+    string errorStr = 6; // error description if not successful
+    string createdAt = 7; // call latency details: initialization time
+    string startedAt = 8; // call latency details: start time in container
+    string completedAt = 9; // call latency details: end time
 }
 
 service RunnerProtocol {

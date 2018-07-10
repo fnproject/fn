@@ -11,6 +11,7 @@ import (
 type AgentConfig struct {
 	MinDockerVersion        string        `json:"min_docker_version"`
 	DockerNetworks          string        `json:"docker_networks"`
+	DockerLoadFile          string        `json:"docker_load_file"`
 	FreezeIdle              time.Duration `json:"freeze_idle_msecs"`
 	EjectIdle               time.Duration `json:"eject_idle_msecs"`
 	HotPoll                 time.Duration `json:"hot_poll_msecs"`
@@ -36,6 +37,7 @@ type AgentConfig struct {
 
 const (
 	EnvDockerNetworks          = "FN_DOCKER_NETWORKS"
+	EnvDockerLoadFile          = "FN_DOCKER_LOAD_FILE"
 	EnvFreezeIdle              = "FN_FREEZE_IDLE_MSECS"
 	EnvEjectIdle               = "FN_EJECT_IDLE_MSECS"
 	EnvHotPoll                 = "FN_HOT_POLL_MSECS"
@@ -96,6 +98,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce)
 	err = setEnvStr(err, EnvPreForkNetworks, &cfg.PreForkNetworks)
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
+	err = setEnvStr(err, EnvDockerLoadFile, &cfg.DockerLoadFile)
 	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)
 
 	if err != nil {

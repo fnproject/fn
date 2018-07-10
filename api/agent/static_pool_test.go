@@ -24,6 +24,10 @@ func (r *mockStaticRunner) TryExec(ctx context.Context, call pool.RunnerCall) (b
 	return true, nil
 }
 
+func (r *mockStaticRunner) Status(ctx context.Context) (bool, error) {
+	return true, nil
+}
+
 func (r *mockStaticRunner) Close(context.Context) error {
 	return ErrorGarbanzoBeans
 }

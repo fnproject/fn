@@ -34,6 +34,7 @@ type MTLSRunnerFactory func(addr, certCommonName string, pki *PKIData) (Runner, 
 // Runner is the interface to invoke the execution of a function call on a specific runner
 type Runner interface {
 	TryExec(ctx context.Context, call RunnerCall) (bool, error)
+	Status(ctx context.Context) (bool, error)
 	Close(ctx context.Context) error
 	Address() string
 }

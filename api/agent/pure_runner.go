@@ -11,14 +11,18 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/fnproject/fn/grpcutil"
@@ -491,7 +495,9 @@ type pureRunner struct {
 	gRPCServer *grpc.Server
 	creds      credentials.TransportCredentials
 	a          Agent
-	inflight   int32
+	// settings for Status call
+	statusInflight  int32
+	statusImageName string
 }
 
 // implements Agent
@@ -540,6 +546,14 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		return err
 	}
 
+	// Status image is reserved for internal Status checks.
+	// We need to make sure normal functions calls cannot call it.
+	if pr.statusImageName != "" && c.Image == pr.statusImageName {
+		err = models.ErrRoutesInvalidImage
+		state.enqueueCallResponse(err)
+		return err
+	}
+
 	// IMPORTANT: We clear/initialize these dates as start/created/completed dates from
 	// unmarshalled Model from LB-agent represent unrelated time-line events.
 	// From this point, CreatedAt/StartedAt/CompletedAt are based on our local clock.
@@ -578,8 +592,8 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	ctx := engagement.Context()
 	log := common.Logger(ctx)
 	// Keep lightweight tabs on what this runner is doing: for draindown tests
-	atomic.AddInt32(&pr.inflight, 1)
-	defer atomic.AddInt32(&pr.inflight, -1)
+	atomic.AddInt32(&pr.statusInflight, 1)
+	defer atomic.AddInt32(&pr.statusInflight, -1)
 
 	pv, ok := peer.FromContext(ctx)
 	log.Debug("Starting engagement")
@@ -626,11 +640,113 @@ DataLoop:
 	return state.waitError()
 }
 
+// Runs a status call using status image with baked in parameters.
+func (pr *pureRunner) runStatusCall(ctx context.Context, result *runner.RunnerStatus) {
+
+	log := common.Logger(ctx)
+	start := time.Now()
+
+	// construct call
+	var c models.Call
+
+	// Most of these arguments are baked in. We might want to make this
+	// more configurable.
+	c.ID = id.New().String()
+	c.Path = "/"
+	c.Image = pr.statusImageName
+	c.Type = "sync"
+	c.Format = "json"
+	c.TmpFsSize = 0
+	c.Memory = 0
+	c.CPUs = models.MilliCPUs(0)
+	c.URL = "/"
+	c.Method = "GET"
+	c.CreatedAt = common.DateTime(start)
+	c.Config = make(models.Config)
+	c.Config["FN_FORMAT"] = c.Format
+	c.Payload = "{}"
+
+	// Try to fetch ctx deadline
+	deadline, ok := ctx.Deadline()
+	if ok {
+		c.Timeout = int32(math.Min(float64(deadline.Sub(start)/time.Second), float64(1)))
+	} else {
+		c.Timeout = 10
+	}
+	c.IdleTimeout = 1
+
+	// TODO: reliably shutdown this container after executing one request.
+
+	log.Debugf("Running status call with id=%v timeout=%v image=%v", c.ID, c.Timeout, c.Image)
+
+	recorder := httptest.NewRecorder()
+	player := ioutil.NopCloser(strings.NewReader(c.Payload))
+
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, player),
+		WithWriter(recorder),
+		WithContext(ctx),
+	)
+
+	if err == nil {
+		var mcall *call
+		mcall = agent_call.(*call)
+		err = pr.a.Submit(mcall)
+	}
+
+	resp := recorder.Result()
+
+	if err != nil {
+		result.ErrorCode = int32(models.GetAPIErrorCode(err))
+		result.ErrorStr = err.Error()
+		result.Failed = true
+	} else if resp.StatusCode >= http.StatusBadRequest {
+		result.ErrorCode = int32(resp.StatusCode)
+		result.Failed = true
+	}
+
+	// These timestamps are related. To avoid confusion
+	// and for robustness, nested if stmts below.
+	if !time.Time(c.CreatedAt).IsZero() {
+		result.CreatedAt = c.CreatedAt.String()
+
+		if !time.Time(c.StartedAt).IsZero() {
+			result.StartedAt = c.StartedAt.String()
+
+			if !time.Time(c.CompletedAt).IsZero() {
+				result.CompletedAt = c.CompletedAt.String()
+			} else {
+				// IMPORTANT: We punch this in ourselves.
+				// This is because call.End() is executed asynchronously.
+				result.CompletedAt = common.DateTime(time.Now()).String()
+			}
+		}
+	}
+
+	// Status images should not output excessive data since we echo the
+	// data back to caller.
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	// Clamp the log output to 256 bytes if output is too large for logging.
+	dLen := len(body)
+	if dLen > 256 {
+		dLen = 256
+	}
+	log.Debugf("Status call with id=%v result=%+v body[0:%v]=%v", c.ID, result, dLen, string(body[:dLen]))
+
+	result.Details = string(body)
+}
+
 // implements RunnerProtocolServer
 func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
-	return &runner.RunnerStatus{
-		Active: atomic.LoadInt32(&pr.inflight),
-	}, nil
+
+	results := &runner.RunnerStatus{}
+
+	if pr.statusImageName != "" {
+		pr.runStatusCall(ctx, results)
+	}
+
+	results.Active = atomic.LoadInt32(&pr.statusInflight)
+	return results, nil
 }
 
 func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, cert string, key string, ca string) (Agent, error) {
@@ -664,6 +780,16 @@ func PureRunnerWithAgent(a Agent) PureRunnerOption {
 		}
 
 		pr.a = a
+		return nil
+	}
+}
+
+func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		if pr.statusImageName != "" {
+			return fmt.Errorf("Duplicate status image configuration old=%s new=%s", pr.statusImageName, imgName)
+		}
+		pr.statusImageName = imgName
 		return nil
 	}
 }

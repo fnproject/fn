@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -46,6 +47,7 @@ type dockerClient interface {
 	InspectContainerWithContext(container string, ctx context.Context) (*docker.Container, error)
 	Stats(opts docker.StatsOptions) error
 	Info(ctx context.Context) (*docker.DockerInfo, error)
+	LoadImages(ctx context.Context, filePath string) error
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -225,6 +227,24 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 		return nil
 	}
 	return err
+}
+
+func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) error {
+	ctx, span := trace.StartSpan(ctx, "docker_load_images")
+	defer span.End()
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// No retries here. LoadImage is typically called at startup and we fail/timeout
+	// at first attempt.
+	return d.docker.LoadImage(docker.LoadImageOptions{
+		InputStream: file,
+		Context:     ctx,
+	})
 }
 
 func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err error) {

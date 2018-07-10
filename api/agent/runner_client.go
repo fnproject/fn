@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/grpcutil"
+
+	pb_empty "github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 )
 
@@ -101,6 +104,44 @@ func isTooBusy(err error) bool {
 		}
 	}
 	return false
+}
+
+// implements Runner
+func (r *gRPCRunner) Status(ctx context.Context) (bool, error) {
+	log := common.Logger(ctx).WithField("runner_addr", r.address)
+
+	if !r.shutWg.AddSession(1) {
+		return false, ErrorRunnerClosed
+	}
+	defer r.shutWg.DoneSession()
+
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		// Create a new gRPC metadata where we store the request ID
+		mp := metadata.Pairs(common.RequestIDContextKey, rid)
+		ctx = metadata.NewOutgoingContext(ctx, mp)
+	}
+
+	status, err := r.client.Status(ctx, &pb_empty.Empty{})
+	if err != nil {
+		return false, err
+	}
+
+	creatTs := translateDate(status.GetCreatedAt())
+	startTs := translateDate(status.GetStartedAt())
+	complTs := translateDate(status.GetCompletedAt())
+
+	if !creatTs.IsZero() && !startTs.IsZero() && !complTs.IsZero() && !startTs.Before(creatTs) && !complTs.Before(startTs) {
+		statsRunnerStatusSchedLatency(ctx, startTs.Sub(creatTs))
+		statsRunnerStatusExecLatency(ctx, complTs.Sub(startTs))
+	}
+
+	log.Debugf("Status Call %+v", status)
+
+	if status.Failed {
+		return false, fmt.Errorf("Code=%v Error=\"%v\" Details=\"%v\"", status.ErrorCode, status.ErrorStr, status.Details)
+	}
+	return true, nil
 }
 
 // implements Runner

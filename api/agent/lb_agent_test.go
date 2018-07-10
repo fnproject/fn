@@ -89,6 +89,10 @@ func (r *mockRunner) decrCalls() {
 	r.curCalls--
 }
 
+func (r *mockRunner) Status(ctx context.Context) (bool, error) {
+	return true, nil
+}
+
 func (r *mockRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	err := r.checkAndIncrCalls()
 	if err != nil {

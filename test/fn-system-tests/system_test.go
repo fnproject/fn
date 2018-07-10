@@ -31,7 +31,8 @@ import (
 )
 
 const (
-	LBAddress = "http://127.0.0.1:8081"
+	LBAddress   = "http://127.0.0.1:8081"
+	StatusImage = "fnproject/fn-status-checker:latest"
 )
 
 func LB() (string, error) {
@@ -276,7 +277,10 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	cancelCtx, cancel := context.WithCancel(ctx)
 
 	// now create pure-runner that wraps agent.
-	pureRunner, err := agent.NewPureRunner(cancel, grpcAddr, agent.PureRunnerWithAgent(innerAgent))
+	pureRunner, err := agent.NewPureRunner(cancel, grpcAddr,
+		agent.PureRunnerWithAgent(innerAgent),
+		agent.PureRunnerWithStatusImage(StatusImage),
+	)
 	if err != nil {
 		return nil, err
 	}
