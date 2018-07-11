@@ -784,6 +784,10 @@ func PureRunnerWithAgent(a Agent) PureRunnerOption {
 	}
 }
 
+// PureRunnerWithStatusImage returns a PureRunnerOption that annotates a PureRunner with a
+// statusImageName attribute.  This attribute names an image name to use for the status checks.
+// Optionally, the status image can be pre-loaded into docker using FN_DOCKER_LOAD_FILE to avoid
+// docker pull during status checks.
 func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
 	return func(pr *pureRunner) error {
 		if pr.statusImageName != "" {
