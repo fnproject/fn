@@ -160,6 +160,18 @@ func (m Annotations) Get(key string) ([]byte, bool) {
 	return nil, false
 }
 
+// GetString returns a string value if the annotation value is a string, otherwise an error
+func (m Annotations) GetString(key string) (string, error) {
+	if v, ok := m[key]; ok {
+		var s string
+		if err := json.Unmarshal([]byte(*v), &s); err != nil {
+			return "", err
+		}
+		return s, nil
+	}
+	return "", errors.New("Annotation not found")
+}
+
 // Without returns a new annotations object with a value excluded
 func (m Annotations) Without(key string) Annotations {
 	nuVal := m.clone()
