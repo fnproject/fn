@@ -32,3 +32,5 @@ fnlb/fnlb
 /fnserver
 *iml
 target/
+vendor/git.apache.org/thrift.git/tutorial/erl/client.sh
+vendor/github.com/docker/docker/project/CONTRIBUTING.md
