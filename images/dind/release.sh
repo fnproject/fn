@@ -3,16 +3,16 @@
 set -exo pipefail
 
 # Ensure working dir is clean
-:'
-git status
-if [[ -z $(git status -s) ]]
-then
-  echo "tree is clean"
-else
-  echo "tree is dirty, please commit changes before running this"
-  exit 1
-fi
-'
+##
+#git status
+#if [[ -z $(git status -s) ]]
+#then
+#  echo "tree is clean"
+#else
+#  echo "tree is dirty, please commit changes before running this"
+#  exit 1
+#fi
+
 # This script should be run after its sibliing, build.sh, and
 # after any related tests have passed.
 
@@ -44,7 +44,7 @@ docker push $DOCKER_USER/dind:latest
 
 # Mark this release with a tag
 # No code changes so only the tag requires a push
-:'
-git tag -f -a "$DIND_NEW" -m "DIND release $DIND_NEW of $version"
-git push origin "$DIND_NEW"
-'
+##
+#git tag -f -a "$DIND_NEW" -m "DIND release $DIND_NEW of $version"
+#git push origin "$DIND_NEW"
+#
