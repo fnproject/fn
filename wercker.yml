@@ -38,10 +38,6 @@ build:
         name: make clear-images
         code: make clear-images
 
-#    - script:
- #       name: go test
-  #      code: govendor test -v +local
-
     - script:
         name: changed since last
         code: |
@@ -85,6 +81,15 @@ deploy:
             echo "Acquire::Check-Valid-Until \"0\";" > /etc/apt/apt.conf.d/10no--check-valid-until
             curl -fsSL https://get.docker.com/ | sudo sh
             docker version
+
+    - script:
+        name: changed since last
+        code: |
+          ( ./changed-since-last.sh
+            echo "export DIND_NEEDED DIND_TAG DIND_PREV"
+            echo "export FN_NEEDED FN_TAG FN_PREV"
+          ) > /tmp/exports.sh
+          . /tmp/exports.sh
 
     - script:
         name: deploy
