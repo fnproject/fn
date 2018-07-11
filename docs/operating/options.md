@@ -40,6 +40,7 @@ docker run -e VAR_NAME=VALUE ...
 | `FN_MAX_FS_SIZE_MB` | Set this option in MB to pass a `size` option to Docker storage driver. This limits the file system size for all containers on the system. See [Docker storage driver options per container](https://docs.docker.com/engine/reference/commandline/run/#set-storage-driver-options-per-container) documentation for details. | None |
 | `FN_DOCKER_NETWORKS` | Set this option with a list of docker networks for function containers to use. If unset, default docker network is used. | None |
 | `FN_DISABLE_READONLY_ROOTFS` | Set this option to enable writable root filesystem. By default root filesystem is mounted read-only. | None |
+| `FN_DOCKER_LOAD_FILE` | Set this option with an absolute path to a tarball to load a set of docker images during fn server startup. The tarball can be generated using [docker save](https://docs.docker.com/engine/reference/commandline/save/).  | None |
 
 ## Starting without Docker in Docker
 
