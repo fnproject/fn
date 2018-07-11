@@ -643,7 +643,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 //
 // Tmp directory should be RW by default.
 //
-/*func TestTmpFsRW(t *testing.T) {
+func TestTmpFsRW(t *testing.T) {
 	appName := "myapp"
 	path := "/hello"
 	url := "http://127.0.0.1:8080/r/" + appName + path
@@ -710,7 +710,6 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	// Let's check what mounts are on...
 	mounts := strings.Split(resp.R.MountsRead, "\n")
 	isFound := false
-	isRootFound := false
 	for _, mnt := range mounts {
 		tokens := strings.Split(mnt, " ")
 		if len(tokens) < 3 {
@@ -721,14 +720,20 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 		opts := tokens[3]
 
 		// tmp dir with RW and no other options (size, inodes, etc.)
-		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime" {
+		if point == "/tmp" {
 			isFound = true
-			isRootFound = true
+			optsPresent := strigs.Split(opts, ",")
+			optsRequired := strigs.Split("rw,nosuid,nodev,noexec,relatime", ",")
+			for _, opt := range optsRequired {
+				if !contains(optsPresent, opt) {
+					isFound = false
+				}
+			}
 		}
 	}
 
-	if !isFound || !isRootFound {
-		t.Fatal(`didn't get proper mounts for /tmp or /, got /proc/mounts content of:\n`, resp.R.MountsRead)
+	if !isFound {
+		t.Fatal(`didn't get proper mounts for /tmp, got /proc/mounts content of:\n`, resp.R.MountsRead)
 	}
 
 	// write file should not have failed...
@@ -812,7 +817,6 @@ func TestTmpFsSize(t *testing.T) {
 	// Let's check what mounts are on...
 	mounts := strings.Split(resp.R.MountsRead, "\n")
 	isFound := false
-	isRootFound := false
 	for _, mnt := range mounts {
 		tokens := strings.Split(mnt, " ")
 		if len(tokens) < 3 {
@@ -823,14 +827,20 @@ func TestTmpFsSize(t *testing.T) {
 		opts := tokens[3]
 
 		// rw tmp dir with size and inode limits applied.
-		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1024" {
+		if point == "/tmp" {
 			isFound = true
-			isRootFound = true
+			optsPresent := strigs.Split(opts, ",")
+			optsRequired := strigs.Split("rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1024", ",")
+			for _, opt := range optsRequired {
+				if !contains(optsPresent, opt) {
+					isFound = false
+				}
+			}
 		}
 	}
 
-	if !isFound || !isRootFound {
-		t.Fatal(`didn't get proper mounts for  /tmp or /, got /proc/mounts content of:\n`, resp.R.MountsRead)
+	if !isFound {
+		t.Fatal(`didn't get proper mounts for  /tmp, got /proc/mounts content of:\n`, resp.R.MountsRead)
 	}
 
 	// write file should have failed...
@@ -838,7 +848,7 @@ func TestTmpFsSize(t *testing.T) {
 		t.Fatal(`limited tmpfs should generate fs full error, but got output: `, resp.R.CreateFile)
 	}
 }
-*/
+
 // return a model with all fields filled in with fnproject/fn-test-utils:latest image, change as needed
 func testCall() *models.Call {
 	appName := "myapp"
@@ -1286,4 +1296,13 @@ func TestCloseReturnsDataAccessError(t *testing.T) {
 		t.Fatalf("Wrong error returned, expected %v but got %v", err, cerr)
 	}
 	<-da.closed
+}
+
+func contains(arr []string, str string) bool {
+	for _, a := range arr {
+		if a == str {
+			return true
+		}
+	}
+	return false
 }
