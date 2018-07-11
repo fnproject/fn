@@ -1,7 +1,7 @@
 #!/bin/bash
 set -exuo pipefail
 
-user=$DOCKER_USER
+user="fnproject"
 image="fnserver"
 image_deprecated="functions"
 
@@ -40,15 +40,16 @@ git push
 git push origin $version
 '
 # Finally, push docker images
-docker tag $user/$image:latest $user/$image:$version
-docker push $user/$image:$version
-docker push $user/$image:latest
+docker tag $user/$image:latest $DOCKER_USER/$image:$version
+docker tag $user/$image:latest $DOCKER_USER/$image:latest
+docker push $DOCKER_USER/$image:$version
+docker push $DOCKER_USER/$image:latest
 
 # Deprecated images, should remove this sometime in near future
-docker tag $user/$image:latest $user/$image_deprecated:$version
-docker tag $user/$image:latest $user/$image_deprecated:latest
-docker push $user/$image_deprecated:$version
-docker push $user/$image_deprecated:latest
+docker tag $user/$image:latest $DOCKER_USER/$image_deprecated:$version
+docker tag $user/$image:latest $DOCKER_USER/$image_deprecated:latest
+docker push $DOCKER_USER/$image_deprecated:$version
+docker push $DOCKER_USER/$image_deprecated:latest
 
 # release test utils docker image
 (cd images/fn-test-utils && ./release.sh)
