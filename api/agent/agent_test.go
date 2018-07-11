@@ -722,8 +722,8 @@ func TestTmpFsRW(t *testing.T) {
 		// tmp dir with RW and no other options (size, inodes, etc.)
 		if point == "/tmp" {
 			isFound = true
-			optsPresent := strigs.Split(opts, ",")
-			optsRequired := strigs.Split("rw,nosuid,nodev,noexec,relatime", ",")
+			optsPresent := strings.Split(opts, ",")
+			optsRequired := strings.Split("rw,nosuid,nodev,noexec,relatime", ",")
 			for _, opt := range optsRequired {
 				if !contains(optsPresent, opt) {
 					isFound = false
@@ -829,8 +829,8 @@ func TestTmpFsSize(t *testing.T) {
 		// rw tmp dir with size and inode limits applied.
 		if point == "/tmp" {
 			isFound = true
-			optsPresent := strigs.Split(opts, ",")
-			optsRequired := strigs.Split("rw,nosuid,nodev,noexec,relatime", ",")
+			optsPresent := strings.Split(opts, ",")
+			optsRequired := strings.Split("rw,nosuid,nodev,noexec,relatim", ",")
 			for _, opt := range optsRequired {
 				if !contains(optsPresent, opt) {
 					isFound = false
