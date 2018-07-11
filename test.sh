@@ -29,4 +29,8 @@ go vet $(go list ./... | grep -v vendor)
 
 remove_containers
 ls -lahrt `pwd`
-docker run -v `pwd`:/go/src/github.com/fnproject/fn --network=$DOCKER_NETWORK_NAME --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger.yml
+docker volume create fn
+docker create --mount source=fn,target=/fn --name ubuntu_ephemeral ubuntu
+docker cp `pwd`/. ubuntu_ephemeral:/fn/.
+docker rm ubuntu_ephemeral
+docker run --mount source=fn,target=/go/src/github.com/fnproject/fn --network=$DOCKER_NETWORK_NAME --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger.yml
