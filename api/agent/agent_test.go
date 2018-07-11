@@ -830,7 +830,7 @@ func TestTmpFsSize(t *testing.T) {
 		if point == "/tmp" {
 			isFound = true
 			optsPresent := strings.Split(opts, ",")
-			optsRequired := strings.Split("rw,nosuid,nodev,noexec,relatim", ",")
+			optsRequired := strings.Split("rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1024", ",")
 			for _, opt := range optsRequired {
 				if !contains(optsPresent, opt) {
 					isFound = false
