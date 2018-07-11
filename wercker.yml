@@ -61,36 +61,6 @@ build:
             make test -j $(nproc)
           fi
 
-deploy:
-  docker: true
-  base-path: /go/src/github.com/fnproject/fn
-  steps:
-    - script:
-        name: Set env variables
-        code: |
-          mkdir -p /home/circleci/go
-          export GOVERSION=1.10
-          export OS=linux
-          export ARCH=amd64
-          export FN_LOG_LEVEL=debug
-
-    - script:
-        name: install docker
-        code: |
-            rm -rf /var/cache/apt/archives && ln -s ~/.apt-cache /var/cache/apt/archives && mkdir -p ~/.apt-cache/partial
-            echo "Acquire::Check-Valid-Until \"0\";" > /etc/apt/apt.conf.d/10no--check-valid-until
-            curl -fsSL https://get.docker.com/ | sudo sh
-            docker version
-
-    - script:
-        name: changed since last
-        code: |
-          ( ./changed-since-last.sh
-            echo "export DIND_NEEDED DIND_TAG DIND_PREV"
-            echo "export FN_NEEDED FN_TAG FN_PREV"
-          ) > /tmp/exports.sh
-          . /tmp/exports.sh
-
     - script:
         name: deploy
         code: |
