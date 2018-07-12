@@ -13,8 +13,6 @@ build:
           export OS=linux
           export ARCH=amd64
           export FN_LOG_LEVEL=debug
-          cd /go/src/github.com/fnproject/fn
-          df -kah .
 
     - script:
         name: go version
