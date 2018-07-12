@@ -18,6 +18,8 @@ import (
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/grpcutil"
+
+	pb_empty "github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 )
 
@@ -101,6 +103,44 @@ func isTooBusy(err error) bool {
 		}
 	}
 	return false
+}
+
+// Translate runner.RunnerStatus to runnerpool.RunnerStatus
+func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStatus {
+	if status == nil {
+		return nil
+	}
+
+	creat, _ := common.ParseDateTime(status.CreatedAt)
+	start, _ := common.ParseDateTime(status.StartedAt)
+	compl, _ := common.ParseDateTime(status.CompletedAt)
+
+	return &pool.RunnerStatus{
+		ActiveRequestCount: status.Active,
+		StatusFailed:       status.Failed,
+		StatusId:           status.Id,
+		Details:            status.Details,
+		ErrorCode:          status.ErrorCode,
+		ErrorStr:           status.ErrorStr,
+		CreatedAt:          creat,
+		StartedAt:          start,
+		CompletedAt:        compl,
+	}
+}
+
+// implements Runner
+func (r *gRPCRunner) Status(ctx context.Context) (*pool.RunnerStatus, error) {
+	log := common.Logger(ctx).WithField("runner_addr", r.address)
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		// Create a new gRPC metadata where we store the request ID
+		mp := metadata.Pairs(common.RequestIDContextKey, rid)
+		ctx = metadata.NewOutgoingContext(ctx, mp)
+	}
+
+	status, err := r.client.Status(ctx, &pb_empty.Empty{})
+	log.WithError(err).Debugf("Status Call %+v", status)
+	return TranslateGRPCStatusToRunnerStatus(status), err
 }
 
 // implements Runner

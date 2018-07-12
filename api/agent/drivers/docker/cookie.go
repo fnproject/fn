@@ -25,6 +25,18 @@ type cookie struct {
 	drv *DockerDriver
 }
 
+func (c *cookie) configureMem(log logrus.FieldLogger) {
+	if c.task.Memory() == 0 {
+		return
+	}
+
+	mem := int64(c.task.Memory())
+
+	c.opts.Config.Memory = mem
+	c.opts.Config.MemorySwap = mem // disables swap
+	c.opts.Config.KernelMemory = mem
+}
+
 func (c *cookie) configureFsSize(log logrus.FieldLogger) {
 	if c.task.FsSize() == 0 {
 		return

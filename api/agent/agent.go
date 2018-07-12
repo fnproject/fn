@@ -207,6 +207,7 @@ func WithCallOverrider(fn CallOverrider) AgentOption {
 func NewDockerDriver(cfg *AgentConfig) (drivers.Driver, error) {
 	return drivers.New("docker", drivers.Config{
 		DockerNetworks:       cfg.DockerNetworks,
+		DockerLoadFile:       cfg.DockerLoadFile,
 		ServerVersion:        cfg.MinDockerVersion,
 		PreForkPoolSize:      cfg.PreForkPoolSize,
 		PreForkImage:         cfg.PreForkImage,

@@ -92,6 +92,13 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		}
 	}
 
+	if conf.DockerLoadFile != "" {
+		err = loadDockerImages(driver, conf.DockerLoadFile)
+		if err != nil {
+			logrus.WithError(err).Fatalf("cannot load docker images in %s", conf.DockerLoadFile)
+		}
+	}
+
 	return driver
 }
 
@@ -116,6 +123,12 @@ func checkDockerVersion(driver *DockerDriver, expected string) error {
 	}
 
 	return nil
+}
+
+func loadDockerImages(driver *DockerDriver, filePath string) error {
+	ctx, log := common.LoggerWithFields(context.Background(), logrus.Fields{"stack": "loadDockerImages"})
+	log.Infof("Loading docker images from %v", filePath)
+	return driver.docker.LoadImages(ctx, filePath)
 }
 
 func registryFromEnv() map[string]docker.AuthConfiguration {
@@ -208,9 +221,6 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 	opts := docker.CreateContainerOptions{
 		Name: task.Id(),
 		Config: &docker.Config{
-			Memory:       int64(task.Memory()),
-			MemorySwap:   int64(task.Memory()), // disables swap
-			KernelMemory: int64(task.Memory()),
 			Image:        task.Image(),
 			OpenStdin:    true,
 			AttachStdout: true,
@@ -234,6 +244,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 		drv:  drv,
 	}
 
+	cookie.configureMem(log)
 	cookie.configureCmd(log)
 	cookie.configureEnv(log)
 	cookie.configureCPU(log)

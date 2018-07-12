@@ -48,6 +48,6 @@ docker tag $user/$image:latest $user/$image_deprecated:latest
 docker push $user/$image_deprecated:$version
 docker push $user/$image_deprecated:latest
 
-# release test utils docker image
 (cd images/fn-test-utils && ./release.sh)
+(cd images/fn-status-checker && ./release.sh)
 
