@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -489,15 +488,43 @@ func (ch *callHandle) getDataMsg() *runner.DataFrame {
 	return msg
 }
 
+const (
+	// Here we give 5 seconds of timeout inside the container. We hardcode these numbers here to
+	// ensure we control idle timeout & timeout as well as how long should cache be valid.
+	// A cache duration of idleTimeout + 500 msecs allows us to reuse the cache, for about 1.5 secs,
+	// and during this time, since we allow no queries to go through, the hot container times out.
+	//
+	// For now, status tests a single case: a new hot container is spawned when cache is expired
+	// and when a query is allowed to run.
+	// TODO: we might want to mix this up and perhaps allow that hot container to handle
+	// more than one query to test both 'new hot container' and 'old hot container' cases.
+	StatusCallTimeout       = int32(5)
+	StatusCallIdleTimeout   = int32(1)
+	StatusCallCacheDuration = time.Duration(500)*time.Millisecond + time.Duration(StatusCallIdleTimeout)*time.Second
+)
+
+// statusTracker maintains cache data/state/locks for Status Call invocations.
+type statusTracker struct {
+	inflight  int32
+	imageName string
+
+	// lock protects expiry/cache/wait fields below. RunnerStatus ptr itself
+	// stored every time status image is executed. Cache fetches use a shallow
+	// copy of RunnerStatus to ensure consistency. Shallow copy is sufficient
+	// since we set/save contents of RunnerStatus once.
+	lock   sync.Mutex
+	expiry time.Time
+	cache  *runner.RunnerStatus
+	wait   chan struct{}
+}
+
 // pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
 // and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
 	gRPCServer *grpc.Server
 	creds      credentials.TransportCredentials
 	a          Agent
-	// settings for Status call
-	statusInflight  int32
-	statusImageName string
+	status     statusTracker
 }
 
 // implements Agent
@@ -548,7 +575,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 
 	// Status image is reserved for internal Status checks.
 	// We need to make sure normal functions calls cannot call it.
-	if pr.statusImageName != "" && c.Image == pr.statusImageName {
+	if pr.status.imageName != "" && c.Image == pr.status.imageName {
 		err = models.ErrRoutesInvalidImage
 		state.enqueueCallResponse(err)
 		return err
@@ -592,8 +619,8 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	ctx := engagement.Context()
 	log := common.Logger(ctx)
 	// Keep lightweight tabs on what this runner is doing: for draindown tests
-	atomic.AddInt32(&pr.statusInflight, 1)
-	defer atomic.AddInt32(&pr.statusInflight, -1)
+	atomic.AddInt32(&pr.status.inflight, 1)
+	defer atomic.AddInt32(&pr.status.inflight, -1)
 
 	pv, ok := peer.FromContext(ctx)
 	log.Debug("Starting engagement")
@@ -641,8 +668,9 @@ DataLoop:
 }
 
 // Runs a status call using status image with baked in parameters.
-func (pr *pureRunner) runStatusCall(ctx context.Context, result *runner.RunnerStatus) {
+func (pr *pureRunner) runStatusCall(ctx context.Context, timeout, idleTimeout int32) *runner.RunnerStatus {
 
+	result := &runner.RunnerStatus{}
 	log := common.Logger(ctx)
 	start := time.Now()
 
@@ -653,7 +681,7 @@ func (pr *pureRunner) runStatusCall(ctx context.Context, result *runner.RunnerSt
 	// more configurable.
 	c.ID = id.New().String()
 	c.Path = "/"
-	c.Image = pr.statusImageName
+	c.Image = pr.status.imageName
 	c.Type = "sync"
 	c.Format = "json"
 	c.TmpFsSize = 0
@@ -665,15 +693,8 @@ func (pr *pureRunner) runStatusCall(ctx context.Context, result *runner.RunnerSt
 	c.Config = make(models.Config)
 	c.Config["FN_FORMAT"] = c.Format
 	c.Payload = "{}"
-
-	// Try to fetch ctx deadline
-	deadline, ok := ctx.Deadline()
-	if ok {
-		c.Timeout = int32(math.Min(float64(deadline.Sub(start)/time.Second), float64(1)))
-	} else {
-		c.Timeout = 10
-	}
-	c.IdleTimeout = 1
+	c.Timeout = timeout
+	c.IdleTimeout = idleTimeout
 
 	// TODO: reliably shutdown this container after executing one request.
 
@@ -725,6 +746,7 @@ func (pr *pureRunner) runStatusCall(ctx context.Context, result *runner.RunnerSt
 	// Status images should not output excessive data since we echo the
 	// data back to caller.
 	body, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
 
 	// Clamp the log output to 256 bytes if output is too large for logging.
 	dLen := len(body)
@@ -734,19 +756,87 @@ func (pr *pureRunner) runStatusCall(ctx context.Context, result *runner.RunnerSt
 	log.Debugf("Status call with id=%v result=%+v body[0:%v]=%v", c.ID, result, dLen, string(body[:dLen]))
 
 	result.Details = string(body)
+	result.Id = c.ID
+	return result
+}
+
+// Handles a status call concurrency and caching.
+func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatus, error) {
+	var myChan chan struct{}
+
+	isWaiter := false
+	isCached := false
+	now := time.Now()
+
+	pr.status.lock.Lock()
+
+	if now.Before(pr.status.expiry) {
+		// cache is still valid.
+		isCached = true
+	} else if pr.status.wait != nil {
+		// A wait channel is already installed, we must wait
+		isWaiter = true
+		myChan = pr.status.wait
+	} else {
+		// Wait channel is not present, we install a new one.
+		myChan = make(chan struct{})
+		pr.status.wait = myChan
+	}
+
+	pr.status.lock.Unlock()
+
+	// We either need to wait and/or serve the request from cache
+	if isWaiter || isCached {
+		if isWaiter {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-myChan:
+			}
+		}
+
+		var cacheObj runner.RunnerStatus
+
+		// A shallow copy is sufficient here, as we do not modify nested data in
+		// RunnerStatus in any way.
+		pr.status.lock.Lock()
+
+		cacheObj = *pr.status.cache
+
+		pr.status.lock.Unlock()
+
+		cacheObj.Active = atomic.LoadInt32(&pr.status.inflight)
+		return &cacheObj, nil
+	}
+
+	cachePtr := pr.runStatusCall(ctx, StatusCallTimeout, StatusCallIdleTimeout)
+	cachePtr.Active = atomic.LoadInt32(&pr.status.inflight)
+	now = time.Now()
+
+	// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
+	// copy of 'cache'
+	pr.status.lock.Lock()
+
+	pr.status.cache = cachePtr
+	pr.status.expiry = now.Add(StatusCallCacheDuration)
+	pr.status.wait = nil
+
+	pr.status.lock.Unlock()
+
+	// signal waiters
+	close(myChan)
+	return cachePtr, nil
 }
 
 // implements RunnerProtocolServer
 func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
-
-	results := &runner.RunnerStatus{}
-
-	if pr.statusImageName != "" {
-		pr.runStatusCall(ctx, results)
+	// Status using image name is disabled. We return inflight request count only
+	if pr.status.imageName == "" {
+		return &runner.RunnerStatus{
+			Active: atomic.LoadInt32(&pr.status.inflight),
+		}, nil
 	}
-
-	results.Active = atomic.LoadInt32(&pr.statusInflight)
-	return results, nil
+	return pr.handleStatusCall(ctx)
 }
 
 func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, cert string, key string, ca string) (Agent, error) {
@@ -790,10 +880,10 @@ func PureRunnerWithAgent(a Agent) PureRunnerOption {
 // docker pull during status checks.
 func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
 	return func(pr *pureRunner) error {
-		if pr.statusImageName != "" {
-			return fmt.Errorf("Duplicate status image configuration old=%s new=%s", pr.statusImageName, imgName)
+		if pr.status.imageName != "" {
+			return fmt.Errorf("Duplicate status image configuration old=%s new=%s", pr.status.imageName, imgName)
 		}
-		pr.statusImageName = imgName
+		pr.status.imageName = imgName
 		return nil
 	}
 }

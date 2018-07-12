@@ -65,14 +65,6 @@ func statsLBAgentRunnerExecLatency(ctx context.Context, dur time.Duration) {
 	stats.Record(ctx, runnerExecLatencyMeasure.M(int64(dur/time.Millisecond)))
 }
 
-func statsRunnerStatusSchedLatency(ctx context.Context, dur time.Duration) {
-	stats.Record(ctx, runnerSchedLatencyMeasure.M(int64(dur/time.Millisecond)))
-}
-
-func statsRunnerStatusExecLatency(ctx context.Context, dur time.Duration) {
-	stats.Record(ctx, runnerExecLatencyMeasure.M(int64(dur/time.Millisecond)))
-}
-
 const (
 	// TODO we should probably prefix these with calls_ ?
 	queuedMetricName     = "queued"
@@ -87,9 +79,6 @@ const (
 	// Reported By LB
 	runnerSchedLatencyMetricName = "lb_runner_sched_latency"
 	runnerExecLatencyMetricName  = "lb_runner_exec_latency"
-
-	runnerStatusSchedLatencyMetricName = "runner_status_sched_latency"
-	runnerStatusExecLatencyMetricName  = "runner_status_exec_latency"
 )
 
 var (
@@ -110,25 +99,12 @@ var (
 	runnerSchedLatencyMeasure = makeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
 	// Reported By LB: Function execution time inside a container.
 	runnerExecLatencyMeasure = makeMeasure(runnerExecLatencyMetricName, "Runner Container Execution Latency Reported By LBAgent", "msecs")
-
-	runnerStatusSchedLatencyMeasure = makeMeasure(runnerStatusSchedLatencyMetricName, "Runner Status Scheduler Latency", "msecs")
-	runnerStatusExecLatencyMeasure  = makeMeasure(runnerStatusExecLatencyMetricName, "Runner Status Container Execution Latency", "msecs")
 )
 
 func RegisterLBAgentViews(tagKeys []string) {
 	err := view.Register(
 		createView(runnerSchedLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
 		createView(runnerExecLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
-	)
-	if err != nil {
-		logrus.WithError(err).Fatal("cannot register view")
-	}
-}
-
-func RegisterRunnerStatusViews(tagKeys []string) {
-	err := view.Register(
-		createView(runnerStatusSchedLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
-		createView(runnerStatusExecLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")

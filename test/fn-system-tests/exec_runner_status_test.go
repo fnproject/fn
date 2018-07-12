@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runnerpool"
 )
 
 // We should not be able to invoke a StatusImage
@@ -85,13 +86,59 @@ func TestExecuteRunnerStatus(t *testing.T) {
 		t.Fatalf("Getting Runners from Pool failed no-runners")
 	}
 
+	concurrency := 10
+	res := make(chan *runnerpool.RunnerStatus, concurrency*len(runners))
+
 	for _, runner := range runners {
-		isOK, err := runner.Status(ctx)
-		if err != nil {
-			t.Fatalf("Runners Status failed for %v err=%v", runner.Address(), err)
-		}
-		if !isOK {
-			t.Fatalf("Runners Status not OK for %v", runner.Address())
+		for i := 0; i < concurrency; i++ {
+			go func(dest runnerpool.Runner) {
+				status, err := dest.Status(ctx)
+				if err != nil {
+					t.Fatalf("Runners Status failed for %v err=%v", dest.Address(), err)
+				}
+				if status == nil || status.StatusFailed {
+					t.Fatalf("Runners Status not OK for %v %v", dest.Address(), status)
+				}
+				t.Logf("Runner %v got Status=%+v", dest.Address(), status)
+				res <- status
+			}(runner)
 		}
 	}
+
+	lookup := make(map[string][]*runnerpool.RunnerStatus)
+
+	for i := 0; i < concurrency*len(runners); i++ {
+		status := <-res
+		lookup[status.StatusId] = append(lookup[status.StatusId], status)
+	}
+
+	// WARNING: Possibly flappy test below. Might need to relax the numbers below.
+	// Why 3? We have a idleTimeout + gracePeriod = 1.5 secs (for cache timeout) for status calls.
+	// This normally should easily serve all the queries above. (We have 3 runners, each should
+	// easily take on 10 status calls for that period.
+	if len(lookup) > 3 {
+		for key, arr := range lookup {
+			t.Fatalf("key=%v count=%v", key, len(arr))
+		}
+	}
+
+	// delay
+	time.Sleep(time.Duration(2 * time.Second))
+
+	// now we should get fresh data
+	for _, dest := range runners {
+		status, err := dest.Status(ctx)
+		if err != nil {
+			t.Fatalf("Runners Status failed for %v err=%v", dest.Address(), err)
+		}
+		if status == nil || status.StatusFailed {
+			t.Fatalf("Runners Status not OK for %v %v", dest.Address(), status)
+		}
+		t.Logf("Runner %v got Status=%+v", dest.Address(), status)
+		_, ok := lookup[status.StatusId]
+		if ok {
+			t.Fatalf("Runners Status did not return fresh status id %v %v", dest.Address(), status)
+		}
+	}
+
 }

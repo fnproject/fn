@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
@@ -106,15 +105,32 @@ func isTooBusy(err error) bool {
 	return false
 }
 
-// implements Runner
-func (r *gRPCRunner) Status(ctx context.Context) (bool, error) {
-	log := common.Logger(ctx).WithField("runner_addr", r.address)
-
-	if !r.shutWg.AddSession(1) {
-		return false, ErrorRunnerClosed
+// Translate runner.RunnerStatus to runnerpool.RunnerStatus
+func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStatus {
+	if status == nil {
+		return nil
 	}
-	defer r.shutWg.DoneSession()
 
+	creat, _ := common.ParseDateTime(status.CreatedAt)
+	start, _ := common.ParseDateTime(status.StartedAt)
+	compl, _ := common.ParseDateTime(status.CompletedAt)
+
+	return &pool.RunnerStatus{
+		ActiveRequestCount: status.Active,
+		StatusFailed:       status.Failed,
+		StatusId:           status.Id,
+		Details:            status.Details,
+		ErrorCode:          status.ErrorCode,
+		ErrorStr:           status.ErrorStr,
+		CreatedAt:          creat,
+		StartedAt:          start,
+		CompletedAt:        compl,
+	}
+}
+
+// implements Runner
+func (r *gRPCRunner) Status(ctx context.Context) (*pool.RunnerStatus, error) {
+	log := common.Logger(ctx).WithField("runner_addr", r.address)
 	rid := common.RequestIDFromContext(ctx)
 	if rid != "" {
 		// Create a new gRPC metadata where we store the request ID
@@ -123,25 +139,8 @@ func (r *gRPCRunner) Status(ctx context.Context) (bool, error) {
 	}
 
 	status, err := r.client.Status(ctx, &pb_empty.Empty{})
-	if err != nil {
-		return false, err
-	}
-
-	creatTs := translateDate(status.GetCreatedAt())
-	startTs := translateDate(status.GetStartedAt())
-	complTs := translateDate(status.GetCompletedAt())
-
-	if !creatTs.IsZero() && !startTs.IsZero() && !complTs.IsZero() && !startTs.Before(creatTs) && !complTs.Before(startTs) {
-		statsRunnerStatusSchedLatency(ctx, startTs.Sub(creatTs))
-		statsRunnerStatusExecLatency(ctx, complTs.Sub(startTs))
-	}
-
-	log.Debugf("Status Call %+v", status)
-
-	if status.Failed {
-		return false, fmt.Errorf("Code=%v Error=\"%v\" Details=\"%v\"", status.ErrorCode, status.ErrorStr, status.Details)
-	}
-	return true, nil
+	log.WithError(err).Debugf("Status Call %+v", status)
+	return TranslateGRPCStatusToRunnerStatus(status), err
 }
 
 // implements Runner
