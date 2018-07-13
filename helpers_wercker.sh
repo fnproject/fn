@@ -60,6 +60,7 @@ function spawn_mysql {
         -p ${PORT}:3306 \
         -e MYSQL_DATABASE=funcs \
         -e MYSQL_ROOT_PASSWORD=root \
+        --network=$DOCKER_NETWORK_NAME \
         -d mysql:5.7.22)
 
     echo "mysql://root:root@tcp(${HOST}:${PORT})/funcs"
@@ -73,6 +74,7 @@ function spawn_postgres {
         -e "POSTGRES_DB=funcs" \
         -e "POSTGRES_PASSWORD=root" \
         -p ${PORT}:5432 \
+        --network=$DOCKER_NETWORK_NAME \
         -d postgres:9.3-alpine)
 
     echo "postgres://postgres:root@${HOST}:${PORT}/funcs?sslmode=disable"
@@ -86,6 +88,7 @@ function spawn_minio {
         -p ${PORT}:9000 \
         -e "MINIO_ACCESS_KEY=admin" \
         -e "MINIO_SECRET_KEY=password" \
+        --network=$DOCKER_NETWORK_NAME \
         -d minio/minio server /data)
 
     echo "s3://admin:password@${HOST}:${PORT}/us-east-1/fnlogs"
