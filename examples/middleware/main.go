@@ -25,15 +25,14 @@ func main() {
 		})
 	})
 
-	funcServer.AddMiddleware(&CustomMiddleware{})
+	funcServer.AddMiddleware(&customMiddleware{})
 
 	funcServer.Start(ctx)
 }
 
-type CustomMiddleware struct {
-}
+type customMiddleware struct{}
 
-func (h *CustomMiddleware) Handle(next http.Handler) http.Handler {
+func (h *customMiddleware) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("CustomMiddleware called")
 
@@ -48,7 +47,9 @@ func (h *CustomMiddleware) Handle(next http.Handler) http.Handler {
 			return
 		}
 		fmt.Println("auth succeeded!")
-		r = r.WithContext(context.WithValue(r.Context(), "user", "I'm in!"))
+		r = r.WithContext(context.WithValue(r.Context(), contextKey("user"), "I'm in!"))
 		next.ServeHTTP(w, r)
 	})
 }
+
+type contextKey string

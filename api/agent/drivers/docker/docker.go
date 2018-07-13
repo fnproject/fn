@@ -22,7 +22,6 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 )
 
@@ -93,6 +92,13 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		}
 	}
 
+	if conf.DockerLoadFile != "" {
+		err = loadDockerImages(driver, conf.DockerLoadFile)
+		if err != nil {
+			logrus.WithError(err).Fatalf("cannot load docker images in %s", conf.DockerLoadFile)
+		}
+	}
+
 	return driver
 }
 
@@ -117,6 +123,12 @@ func checkDockerVersion(driver *DockerDriver, expected string) error {
 	}
 
 	return nil
+}
+
+func loadDockerImages(driver *DockerDriver, filePath string) error {
+	ctx, log := common.LoggerWithFields(context.Background(), logrus.Fields{"stack": "loadDockerImages"})
+	log.Infof("Loading docker images from %v", filePath)
+	return driver.docker.LoadImages(ctx, filePath)
 }
 
 func registryFromEnv() map[string]docker.AuthConfiguration {
@@ -144,37 +156,37 @@ func (drv *DockerDriver) Close() error {
 	return err
 }
 
-func (drv *DockerDriver) pickPool(ctx context.Context, container *docker.CreateContainerOptions) string {
+func (drv *DockerDriver) pickPool(ctx context.Context, c *cookie) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "tryUsePool"})
 
-	if drv.pool == nil || container.HostConfig.NetworkMode != "" {
-		return ""
+	if drv.pool == nil || c.opts.HostConfig.NetworkMode != "" {
+		return
 	}
 
 	id, err := drv.pool.AllocPoolId()
 	if err != nil {
 		log.WithError(err).Error("Could not fetch pre fork pool container")
-		return ""
+		return
 	}
 
 	// We are able to fetch a container from pool. Now, use its
 	// network, ipc and pid namespaces.
-	container.HostConfig.NetworkMode = fmt.Sprintf("container:%s", id)
-	//container.HostConfig.IpcMode = linker
-	//container.HostConfig.PidMode = linker
-	return id
+	c.opts.HostConfig.NetworkMode = fmt.Sprintf("container:%s", id)
+	//c.opts.HostConfig.IpcMode = linker
+	//c.opts.HostConfig.PidMode = linker
+	c.poolId = id
 }
 
-func (drv *DockerDriver) unpickPool(poolId string) {
-	if poolId != "" && drv.pool != nil {
-		drv.pool.FreePoolId(poolId)
+func (drv *DockerDriver) unpickPool(c *cookie) {
+	if c.poolId != "" && drv.pool != nil {
+		drv.pool.FreePoolId(c.poolId)
 	}
 }
 
-func (drv *DockerDriver) pickNetwork(container *docker.CreateContainerOptions) string {
+func (drv *DockerDriver) pickNetwork(c *cookie) {
 
-	if len(drv.networks) == 0 || container.HostConfig.NetworkMode != "" {
-		return ""
+	if len(drv.networks) == 0 || c.opts.HostConfig.NetworkMode != "" {
+		return
 	}
 
 	var id string
@@ -190,137 +202,25 @@ func (drv *DockerDriver) pickNetwork(container *docker.CreateContainerOptions) s
 	drv.networks[id]++
 	drv.networksLock.Unlock()
 
-	container.HostConfig.NetworkMode = id
-	return id
+	c.opts.HostConfig.NetworkMode = id
+	c.netId = id
 }
 
-func (drv *DockerDriver) unpickNetwork(netId string) {
-	if netId != "" {
-		drv.networksLock.Lock()
-		drv.networks[netId]--
-		drv.networksLock.Unlock()
-	}
-}
-
-func (drv *DockerDriver) configureFs(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	if task.FsSize() != 0 {
-		// If defined, impose file system size limit. In MB units.
-		if container.HostConfig.StorageOpt == nil {
-			container.HostConfig.StorageOpt = make(map[string]string)
-		}
-
-		opt := fmt.Sprintf("%vM", task.FsSize())
-
-		log.WithFields(logrus.Fields{"size": opt, "call_id": task.Id()}).Debug("setting storage option")
-		container.HostConfig.StorageOpt["size"] = opt
-	}
-
-	container.HostConfig.ReadonlyRootfs = drv.conf.EnableReadOnlyRootFs
-}
-
-func (drv *DockerDriver) configureTmpFs(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	if task.TmpFsSize() == 0 && !drv.conf.EnableReadOnlyRootFs {
-		return
-	}
-
-	if container.HostConfig.Tmpfs == nil {
-		container.HostConfig.Tmpfs = make(map[string]string)
-	}
-
-	var tmpFsOption string
-	if task.TmpFsSize() != 0 {
-		if drv.conf.MaxTmpFsInodes != 0 {
-			tmpFsOption = fmt.Sprintf("size=%dm,nr_inodes=%d", task.TmpFsSize(), drv.conf.MaxTmpFsInodes)
-		} else {
-			tmpFsOption = fmt.Sprintf("size=%dm", task.TmpFsSize())
-		}
-	}
-	target := "/tmp"
-
-	log.WithFields(logrus.Fields{"target": target, "options": tmpFsOption, "call_id": task.Id()}).Debug("setting tmpfs")
-	container.HostConfig.Tmpfs[target] = tmpFsOption
-}
-
-func (drv *DockerDriver) configureVolumes(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	if len(task.Volumes()) == 0 {
-		return
-	}
-
-	if container.Config.Volumes == nil {
-		container.Config.Volumes = map[string]struct{}{}
-	}
-
-	for _, mapping := range task.Volumes() {
-		hostDir := mapping[0]
-		containerDir := mapping[1]
-		container.Config.Volumes[containerDir] = struct{}{}
-		mapn := fmt.Sprintf("%s:%s", hostDir, containerDir)
-		container.HostConfig.Binds = append(container.HostConfig.Binds, mapn)
-		log.WithFields(logrus.Fields{"volumes": mapn, "call_id": task.Id()}).Debug("setting volumes")
+func (drv *DockerDriver) unpickNetwork(c *cookie) {
+	if c.netId != "" {
+		c.drv.networksLock.Lock()
+		c.drv.networks[c.netId]--
+		c.drv.networksLock.Unlock()
 	}
 }
 
-func (drv *DockerDriver) configureCPU(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
-	// eg: task.CPUQuota() of 8000 means CPUQuota of 8 * 100000 usecs in 100000 usec period,
-	// which is approx 8 CPUS in CFS world.
-	// Also see docker run options --cpu-quota and --cpu-period
-	if task.CPUs() == 0 {
-		return
-	}
+func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
 
-	quota := int64(task.CPUs() * 100)
-	period := int64(100000)
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "CreateCookie"})
 
-	log.WithFields(logrus.Fields{"quota": quota, "period": period, "call_id": task.Id()}).Debug("setting CPU")
-	container.HostConfig.CPUQuota = quota
-	container.HostConfig.CPUPeriod = period
-}
-
-func (drv *DockerDriver) configureWorkDir(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	if wd := task.WorkDir(); wd != "" {
-		log.WithFields(logrus.Fields{"wd": wd, "call_id": task.Id()}).Debug("setting work dir")
-		container.Config.WorkingDir = wd
-	}
-}
-
-func (drv *DockerDriver) configureHostname(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	if container.HostConfig.NetworkMode == "" {
-		// hostname and container NetworkMode is not compatible.
-		log.WithFields(logrus.Fields{"hostname": drv.hostname, "call_id": task.Id()}).Debug("setting hostname")
-		container.Config.Hostname = drv.hostname
-	}
-}
-
-func (drv *DockerDriver) configureCmd(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	if task.Command() == "" {
-		return
-	}
-
-	// NOTE: this is hyper-sensitive and may not be correct like this even, but it passes old tests
-	cmd := strings.Fields(task.Command())
-	log.WithFields(logrus.Fields{"call_id": task.Id(), "cmd": cmd, "len": len(cmd)}).Debug("docker command")
-	container.Config.Cmd = cmd
-}
-
-func (drv *DockerDriver) configureEnv(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	envvars := make([]string, 0, len(task.EnvVars()))
-	for name, val := range task.EnvVars() {
-		envvars = append(envvars, name+"="+val)
-	}
-
-	container.Config.Env = envvars
-}
-
-func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Prepare"})
-
-	container := docker.CreateContainerOptions{
+	opts := docker.CreateContainerOptions{
 		Name: task.Id(),
 		Config: &docker.Config{
-			Memory:       int64(task.Memory()),
-			MemorySwap:   int64(task.Memory()), // disables swap
-			KernelMemory: int64(task.Memory()),
 			Image:        task.Image(),
 			OpenStdin:    true,
 			AttachStdout: true,
@@ -333,91 +233,64 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 			LogConfig: docker.LogConfig{
 				Type: "none",
 			},
+			ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,
 		},
 		Context: ctx,
 	}
 
-	drv.configureCmd(log, &container, task)
-	drv.configureEnv(log, &container, task)
-	drv.configureCPU(log, &container, task)
-	drv.configureFs(log, &container, task)
-	drv.configureTmpFs(log, &container, task)
-	drv.configureVolumes(log, &container, task)
-	drv.configureWorkDir(log, &container, task)
-
-	poolId := drv.pickPool(ctx, &container)
-	netId := drv.pickNetwork(&container)
-
-	drv.configureHostname(log, &container, task)
-
-	err := drv.ensureImage(ctx, task)
-	if err != nil {
-		drv.unpickPool(poolId)
-		drv.unpickNetwork(netId)
-		return nil, err
+	cookie := &cookie{
+		opts: opts,
+		task: task,
+		drv:  drv,
 	}
 
-	_, err = drv.docker.CreateContainer(container)
+	cookie.configureMem(log)
+	cookie.configureCmd(log)
+	cookie.configureEnv(log)
+	cookie.configureCPU(log)
+	cookie.configureFsSize(log)
+	cookie.configureTmpFs(log)
+	cookie.configureVolumes(log)
+	cookie.configureWorkDir(log)
+
+	// Order is important, if pool is enabled, it overrides pick network
+	drv.pickPool(ctx, cookie)
+	drv.pickNetwork(cookie)
+
+	// Order is important, Hostname doesn't play well with Network config
+	cookie.configureHostname(log)
+
+	return cookie, nil
+}
+
+func (drv *DockerDriver) PrepareCookie(ctx context.Context, c drivers.Cookie) error {
+
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "PrepareCookie"})
+	cookie, ok := c.(*cookie)
+	if !ok {
+		return errors.New("unknown cookie implementation")
+	}
+
+	err := drv.ensureImage(ctx, cookie.task)
+	if err != nil {
+		return err
+	}
+
+	_, err = drv.docker.CreateContainer(cookie.opts)
 	if err != nil {
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
 		if err != docker.ErrContainerAlreadyExists {
-			log.WithFields(logrus.Fields{"call_id": task.Id(), "command": container.Config.Cmd, "memory": container.Config.Memory,
-				"cpu_quota": task.CPUs(), "hostname": container.Config.Hostname, "name": container.Name,
-				"image": container.Config.Image, "volumes": container.Config.Volumes, "binds": container.HostConfig.Binds, "container": container.Name,
+			log.WithFields(logrus.Fields{"call_id": cookie.task.Id(), "command": cookie.opts.Config.Cmd, "memory": cookie.opts.Config.Memory,
+				"cpu_quota": cookie.task.CPUs(), "hostname": cookie.opts.Config.Hostname, "name": cookie.opts.Name,
+				"image": cookie.opts.Config.Image, "volumes": cookie.opts.Config.Volumes, "binds": cookie.opts.HostConfig.Binds, "container": cookie.opts.Name,
 			}).WithError(err).Error("Could not create container")
-
 			// NOTE: if the container fails to create we don't really want to show to user since they aren't directly configuring the container
-			drv.unpickPool(poolId)
-			drv.unpickNetwork(netId)
-			return nil, err
+			return err
 		}
 	}
 
 	// discard removal error
-	return &cookie{id: task.Id(), task: task, drv: drv, poolId: poolId, netId: netId}, nil
-}
-
-type cookie struct {
-	id     string
-	poolId string
-	netId  string
-	task   drivers.ContainerTask
-	drv    *DockerDriver
-}
-
-func (c *cookie) Close(ctx context.Context) error {
-	defer func() {
-		c.drv.unpickPool(c.poolId)
-		c.drv.unpickNetwork(c.netId)
-	}()
-
-	return c.drv.removeContainer(ctx, c.id)
-}
-
-func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
-	return c.drv.run(ctx, c.id, c.task)
-}
-
-func (c *cookie) Freeze(ctx context.Context) error {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Freeze"})
-	log.WithFields(logrus.Fields{"call_id": c.id}).Debug("docker pause")
-
-	err := c.drv.docker.PauseContainer(c.id, ctx)
-	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.id}).Error("error pausing container")
-	}
-	return err
-}
-
-func (c *cookie) Unfreeze(ctx context.Context) error {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Unfreeze"})
-	log.WithFields(logrus.Fields{"call_id": c.id}).Debug("docker unpause")
-
-	err := c.drv.docker.UnpauseContainer(c.id, ctx)
-	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.id}).Error("error unpausing container")
-	}
-	return err
+	return nil
 }
 
 func (drv *DockerDriver) removeContainer(ctx context.Context, container string) error {
@@ -673,7 +546,7 @@ func cherryPick(ds *docker.Stats) drivers.Stat {
 	}
 
 	return drivers.Stat{
-		Timestamp: strfmt.DateTime(ds.Read),
+		Timestamp: common.DateTime(ds.Read),
 		Metrics: map[string]uint64{
 			// source: https://godoc.org/github.com/fsouza/go-dockerclient#Stats
 			// ex (for future expansion): {"read":"2016-08-03T18:08:05Z","pids_stats":{},"network":{},"networks":{"eth0":{"rx_bytes":508,"tx_packets":6,"rx_packets":6,"tx_bytes":508}},"memory_stats":{"stats":{"cache":16384,"pgpgout":281,"rss":8826880,"pgpgin":2440,"total_rss":8826880,"hierarchical_memory_limit":536870912,"total_pgfault":3809,"active_anon":8843264,"total_active_anon":8843264,"total_pgpgout":281,"total_cache":16384,"pgfault":3809,"total_pgpgin":2440},"max_usage":8953856,"usage":8953856,"limit":536870912},"blkio_stats":{"io_service_bytes_recursive":[{"major":202,"op":"Read"},{"major":202,"op":"Write"},{"major":202,"op":"Sync"},{"major":202,"op":"Async"},{"major":202,"op":"Total"}],"io_serviced_recursive":[{"major":202,"op":"Read"},{"major":202,"op":"Write"},{"major":202,"op":"Sync"},{"major":202,"op":"Async"},{"major":202,"op":"Total"}]},"cpu_stats":{"cpu_usage":{"percpu_usage":[47641874],"usage_in_usermode":30000000,"total_usage":47641874},"system_cpu_usage":8880800500000000,"throttling_data":{}},"precpu_stats":{"cpu_usage":{"percpu_usage":[44946186],"usage_in_usermode":30000000,"total_usage":44946186},"system_cpu_usage":8880799510000000,"throttling_data":{}}}
@@ -781,4 +654,12 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 		err := errors.New("container out of memory, you may want to raise route.memory for this route (default: 128MB)")
 		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, err)
 	}
+}
+
+var _ drivers.Driver = &DockerDriver{}
+
+func init() {
+	drivers.Register("docker", func(config drivers.Config) (drivers.Driver, error) {
+		return NewDocker(config), nil
+	})
 }

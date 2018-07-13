@@ -17,38 +17,43 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// handleFunctionCall executes the function, for router handlers
-func (s *Server) handleFunctionCall(c *gin.Context) {
+// handleV1FunctionCall executes the function, for router handlers
+func (s *Server) handleV1FunctionCall(c *gin.Context) {
 	err := s.handleFunctionCall2(c)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 	}
 }
 
 // handleFunctionCall2 executes the function and returns an error
 // Requires the following in the context:
-// * "app_name"
+// * "app"
 // * "path"
 func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	ctx := c.Request.Context()
 	var p string
-	r := ctx.Value(api.Path)
-	if r == nil {
+	r := PathFromContext(ctx)
+	if r == "" {
 		p = "/"
 	} else {
-		p = r.(string)
+		p = r
 	}
 
 	appID := c.MustGet(api.AppID).(string)
-	app, err := s.agent.GetAppByID(ctx, appID)
+	app, err := s.lbReadAccess.GetAppByID(ctx, appID)
 	if err != nil {
 		return err
 	}
 
+	routePath := path.Clean(p)
+	route, err := s.lbReadAccess.GetRoute(ctx, appID, routePath)
+	if err != nil {
+		return err
+	}
 	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
 	c.Status(200) // this doesn't write the header yet
 
-	return s.serve(c, app, path.Clean(p))
+	return s.serve(c, app, route)
 }
 
 var (
@@ -57,7 +62,7 @@ var (
 
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
 // TODO make async store an *http.Request? would be sexy until we have different api format...
-func (s *Server) serve(c *gin.Context, app *models.App, path string) error {
+func (s *Server) serve(c *gin.Context, app *models.App, route *models.Route) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	writer := syncResponseWriter{
@@ -75,13 +80,13 @@ func (s *Server) serve(c *gin.Context, app *models.App, path string) error {
 
 	call, err := s.agent.GetCall(
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(s.agent, app, path, c.Request),
+		agent.FromRequest(app, route, c.Request),
 	)
 	if err != nil {
 		return err
 	}
 	model := call.Model()
-	{ // scope this, to disallow ctx use outside of this scope. add id for handleErrorResponse logger
+	{ // scope this, to disallow ctx use outside of this scope. add id for handleV1ErrorResponse logger
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
 		c.Request = c.Request.WithContext(ctx)
 	}
@@ -97,8 +102,7 @@ func (s *Server) serve(c *gin.Context, app *models.App, path string) error {
 		}
 		model.Payload = buf.String()
 
-		// TODO idk where to put this, but agent is all runner really has...
-		err = s.agent.Enqueue(c.Request.Context(), model)
+		err = s.lbEnqueue.Enqueue(c.Request.Context(), model)
 		if err != nil {
 			return err
 		}

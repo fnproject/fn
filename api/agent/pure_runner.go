@@ -13,15 +13,18 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	runner "github.com/fnproject/fn/api/agent/grpc"
+	"github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
-	"github.com/go-openapi/strfmt"
+	"github.com/fnproject/fn/grpcutil"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -66,9 +69,6 @@ type callHandle struct {
 	engagement runner.RunnerProtocol_EngageServer
 	ctx        context.Context
 	c          *call // the agent's version of call
-
-	// Timings, for metrics:
-	receivedTime strfmt.DateTime // When was the call received?
 
 	// For implementing http.ResponseWriter:
 	headers http.Header
@@ -203,9 +203,15 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
+
+	var createdAt string
+	var startedAt string
+	var completedAt string
 	var details string
 	var errCode int
 	var errStr string
+
+	log := common.Logger(ch.ctx)
 
 	if err != nil {
 		errCode = models.GetAPIErrorCode(err)
@@ -213,27 +219,50 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	}
 
 	if ch.c != nil {
-		details = ch.c.Model().ID
-	}
+		mcall := ch.c.Model()
 
-	common.Logger(ch.ctx).Debugf("Sending Call Finish details=%v", details)
+		// These timestamps are related. To avoid confusion
+		// and for robustness, nested if stmts below.
+		if !time.Time(mcall.CreatedAt).IsZero() {
+			createdAt = mcall.CreatedAt.String()
+
+			if !time.Time(mcall.StartedAt).IsZero() {
+				startedAt = mcall.StartedAt.String()
+
+				if !time.Time(mcall.CompletedAt).IsZero() {
+					completedAt = mcall.CompletedAt.String()
+				} else {
+					// IMPORTANT: We punch this in ourselves.
+					// This is because call.End() is executed asynchronously.
+					completedAt = common.DateTime(time.Now()).String()
+				}
+			}
+		}
+
+		details = mcall.ID
+
+	}
+	log.Debugf("Sending Call Finish details=%v", details)
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success:   err == nil,
-			Details:   details,
-			ErrorCode: int32(errCode),
-			ErrorStr:  errStr,
+			Success:     err == nil,
+			Details:     details,
+			ErrorCode:   int32(errCode),
+			ErrorStr:    errStr,
+			CreatedAt:   createdAt,
+			StartedAt:   startedAt,
+			CompletedAt: completedAt,
 		}}})
 
 	if errTmp != nil {
-		common.Logger(ch.ctx).WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
+		log.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
 		return
 	}
 
 	errTmp = ch.finalize()
 	if errTmp != nil {
-		common.Logger(ch.ctx).WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
+		log.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
 	}
 }
 
@@ -459,41 +488,56 @@ func (ch *callHandle) getDataMsg() *runner.DataFrame {
 	return msg
 }
 
-// TODO: decomission/remove this once dependencies are cleaned up
-type CapacityGate interface {
-	CheckAndReserveCapacity(units uint64) error
-	ReleaseCapacity(units uint64)
+const (
+	// Here we give 5 seconds of timeout inside the container. We hardcode these numbers here to
+	// ensure we control idle timeout & timeout as well as how long should cache be valid.
+	// A cache duration of idleTimeout + 500 msecs allows us to reuse the cache, for about 1.5 secs,
+	// and during this time, since we allow no queries to go through, the hot container times out.
+	//
+	// For now, status tests a single case: a new hot container is spawned when cache is expired
+	// and when a query is allowed to run.
+	// TODO: we might want to mix this up and perhaps allow that hot container to handle
+	// more than one query to test both 'new hot container' and 'old hot container' cases.
+	StatusCallTimeout       = int32(5)
+	StatusCallIdleTimeout   = int32(1)
+	StatusCallCacheDuration = time.Duration(500)*time.Millisecond + time.Duration(StatusCallIdleTimeout)*time.Second
+)
+
+// statusTracker maintains cache data/state/locks for Status Call invocations.
+type statusTracker struct {
+	inflight  int32
+	imageName string
+
+	// lock protects expiry/cache/wait fields below. RunnerStatus ptr itself
+	// stored every time status image is executed. Cache fetches use a shallow
+	// copy of RunnerStatus to ensure consistency. Shallow copy is sufficient
+	// since we set/save contents of RunnerStatus once.
+	lock   sync.Mutex
+	expiry time.Time
+	cache  *runner.RunnerStatus
+	wait   chan struct{}
 }
 
 // pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
 // and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
 	gRPCServer *grpc.Server
-	listen     string
+	creds      credentials.TransportCredentials
 	a          Agent
-	inflight   int32
+	status     statusTracker
 }
 
-func (pr *pureRunner) GetAppID(ctx context.Context, appName string) (string, error) {
-	return pr.a.GetAppID(ctx, appName)
-}
-
-func (pr *pureRunner) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	return pr.a.GetAppByID(ctx, appID)
-}
-
+// implements Agent
 func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
 	return pr.a.GetCall(opts...)
 }
 
-func (pr *pureRunner) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
-	return pr.a.GetRoute(ctx, appID, path)
-}
-
+// implements Agent
 func (pr *pureRunner) Submit(Call) error {
 	return errors.New("Submit cannot be called directly in a Pure Runner.")
 }
 
+// implements Agent
 func (pr *pureRunner) Close() error {
 	// First stop accepting requests
 	pr.gRPCServer.GracefulStop()
@@ -505,12 +549,9 @@ func (pr *pureRunner) Close() error {
 	return nil
 }
 
+// implements Agent
 func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
-}
-
-func (pr *pureRunner) Enqueue(context.Context, *models.Call) error {
-	return errors.New("Enqueue cannot be called directly in a Pure Runner.")
 }
 
 func (pr *pureRunner) spawnSubmit(state *callHandle) {
@@ -522,7 +563,9 @@ func (pr *pureRunner) spawnSubmit(state *callHandle) {
 
 // handleTryCall based on the TryCall message, tries to place the call on NBIO Agent
 func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error {
-	state.receivedTime = strfmt.DateTime(time.Now())
+
+	start := time.Now()
+
 	var c models.Call
 	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
 	if err != nil {
@@ -530,7 +573,26 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		return err
 	}
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR), WithWriter(state), WithContext(state.ctx))
+	// Status image is reserved for internal Status checks.
+	// We need to make sure normal functions calls cannot call it.
+	if pr.status.imageName != "" && c.Image == pr.status.imageName {
+		err = models.ErrRoutesInvalidImage
+		state.enqueueCallResponse(err)
+		return err
+	}
+
+	// IMPORTANT: We clear/initialize these dates as start/created/completed dates from
+	// unmarshalled Model from LB-agent represent unrelated time-line events.
+	// From this point, CreatedAt/StartedAt/CompletedAt are based on our local clock.
+	c.CreatedAt = common.DateTime(start)
+	c.StartedAt = common.DateTime(time.Time{})
+	c.CompletedAt = common.DateTime(time.Time{})
+
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
+		WithWriter(state),
+		WithContext(state.ctx),
+		WithExtensions(tc.GetExtensions()),
+	)
 	if err != nil {
 		state.enqueueCallResponse(err)
 		return err
@@ -550,25 +612,25 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	return nil
 }
 
+// implements RunnerProtocolServer
 // Handles a client engagement
 func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) error {
 	grpc.EnableTracing = false
-
+	ctx := engagement.Context()
+	log := common.Logger(ctx)
 	// Keep lightweight tabs on what this runner is doing: for draindown tests
-	atomic.AddInt32(&pr.inflight, 1)
-	defer atomic.AddInt32(&pr.inflight, -1)
+	atomic.AddInt32(&pr.status.inflight, 1)
+	defer atomic.AddInt32(&pr.status.inflight, -1)
 
-	log := common.Logger(engagement.Context())
-	pv, ok := peer.FromContext(engagement.Context())
+	pv, ok := peer.FromContext(ctx)
 	log.Debug("Starting engagement")
 	if ok {
 		log.Debug("Peer is ", pv)
 	}
-	md, ok := metadata.FromIncomingContext(engagement.Context())
+	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		log.Debug("MD is ", md)
 	}
-
 	state := NewCallHandle(engagement)
 
 	tryMsg := state.getTryMsg()
@@ -605,80 +667,266 @@ DataLoop:
 	return state.waitError()
 }
 
-func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
-	return &runner.RunnerStatus{
-		Active: atomic.LoadInt32(&pr.inflight),
-	}, nil
-}
+// Runs a status call using status image with baked in parameters.
+func (pr *pureRunner) runStatusCall(ctx context.Context, timeout, idleTimeout int32) *runner.RunnerStatus {
 
-func (pr *pureRunner) Start() error {
-	logrus.Info("Pure Runner listening on ", pr.listen)
-	lis, err := net.Listen("tcp", pr.listen)
+	result := &runner.RunnerStatus{}
+	log := common.Logger(ctx)
+	start := time.Now()
+
+	// construct call
+	var c models.Call
+
+	// Most of these arguments are baked in. We might want to make this
+	// more configurable.
+	c.ID = id.New().String()
+	c.Path = "/"
+	c.Image = pr.status.imageName
+	c.Type = "sync"
+	c.Format = "json"
+	c.TmpFsSize = 0
+	c.Memory = 0
+	c.CPUs = models.MilliCPUs(0)
+	c.URL = "/"
+	c.Method = "GET"
+	c.CreatedAt = common.DateTime(start)
+	c.Config = make(models.Config)
+	c.Config["FN_FORMAT"] = c.Format
+	c.Payload = "{}"
+	c.Timeout = timeout
+	c.IdleTimeout = idleTimeout
+
+	// TODO: reliably shutdown this container after executing one request.
+
+	log.Debugf("Running status call with id=%v timeout=%v image=%v", c.ID, c.Timeout, c.Image)
+
+	recorder := httptest.NewRecorder()
+	player := ioutil.NopCloser(strings.NewReader(c.Payload))
+
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, player),
+		WithWriter(recorder),
+		WithContext(ctx),
+	)
+
+	if err == nil {
+		var mcall *call
+		mcall = agent_call.(*call)
+		err = pr.a.Submit(mcall)
+	}
+
+	resp := recorder.Result()
+
 	if err != nil {
-		return fmt.Errorf("Could not listen on %s: %s", pr.listen, err)
+		result.ErrorCode = int32(models.GetAPIErrorCode(err))
+		result.ErrorStr = err.Error()
+		result.Failed = true
+	} else if resp.StatusCode >= http.StatusBadRequest {
+		result.ErrorCode = int32(resp.StatusCode)
+		result.Failed = true
 	}
 
-	if err := pr.gRPCServer.Serve(lis); err != nil {
-		return fmt.Errorf("grpc serve error: %s", err)
+	// These timestamps are related. To avoid confusion
+	// and for robustness, nested if stmts below.
+	if !time.Time(c.CreatedAt).IsZero() {
+		result.CreatedAt = c.CreatedAt.String()
+
+		if !time.Time(c.StartedAt).IsZero() {
+			result.StartedAt = c.StartedAt.String()
+
+			if !time.Time(c.CompletedAt).IsZero() {
+				result.CompletedAt = c.CompletedAt.String()
+			} else {
+				// IMPORTANT: We punch this in ourselves.
+				// This is because call.End() is executed asynchronously.
+				result.CompletedAt = common.DateTime(time.Now()).String()
+			}
+		}
 	}
-	return err
+
+	// Status images should not output excessive data since we echo the
+	// data back to caller.
+	body, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	// Clamp the log output to 256 bytes if output is too large for logging.
+	dLen := len(body)
+	if dLen > 256 {
+		dLen = 256
+	}
+	log.Debugf("Status call with id=%v result=%+v body[0:%v]=%v", c.ID, result, dLen, string(body[:dLen]))
+
+	result.Details = string(body)
+	result.Id = c.ID
+	return result
 }
 
-func UnsecuredPureRunner(cancel context.CancelFunc, addr string, da DataAccess) (Agent, error) {
-	return NewPureRunner(cancel, addr, da, "", "", "", nil)
+// Handles a status call concurrency and caching.
+func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatus, error) {
+	var myChan chan struct{}
+
+	isWaiter := false
+	isCached := false
+	now := time.Now()
+
+	pr.status.lock.Lock()
+
+	if now.Before(pr.status.expiry) {
+		// cache is still valid.
+		isCached = true
+	} else if pr.status.wait != nil {
+		// A wait channel is already installed, we must wait
+		isWaiter = true
+		myChan = pr.status.wait
+	} else {
+		// Wait channel is not present, we install a new one.
+		myChan = make(chan struct{})
+		pr.status.wait = myChan
+	}
+
+	pr.status.lock.Unlock()
+
+	// We either need to wait and/or serve the request from cache
+	if isWaiter || isCached {
+		if isWaiter {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-myChan:
+			}
+		}
+
+		var cacheObj runner.RunnerStatus
+
+		// A shallow copy is sufficient here, as we do not modify nested data in
+		// RunnerStatus in any way.
+		pr.status.lock.Lock()
+
+		cacheObj = *pr.status.cache
+
+		pr.status.lock.Unlock()
+
+		cacheObj.Active = atomic.LoadInt32(&pr.status.inflight)
+		return &cacheObj, nil
+	}
+
+	cachePtr := pr.runStatusCall(ctx, StatusCallTimeout, StatusCallIdleTimeout)
+	cachePtr.Active = atomic.LoadInt32(&pr.status.inflight)
+	now = time.Now()
+
+	// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
+	// copy of 'cache'
+	pr.status.lock.Lock()
+
+	pr.status.cache = cachePtr
+	pr.status.expiry = now.Add(StatusCallCacheDuration)
+	pr.status.wait = nil
+
+	pr.status.lock.Unlock()
+
+	// signal waiters
+	close(myChan)
+	return cachePtr, nil
 }
 
-func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string) (Agent, error) {
-	return NewPureRunner(cancel, addr, da, cert, key, ca, nil)
+// implements RunnerProtocolServer
+func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
+	// Status using image name is disabled. We return inflight request count only
+	if pr.status.imageName == "" {
+		return &runner.RunnerStatus{
+			Active: atomic.LoadInt32(&pr.status.inflight),
+		}, nil
+	}
+	return pr.handleStatusCall(ctx)
 }
 
-func ValidatePureRunnerConfig() AgentOption {
-	return func(a *agent) error {
+func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, cert string, key string, ca string) (Agent, error) {
 
-		if a.cfg.MaxResponseSize == 0 {
-			return errors.New("pure runner requires MaxResponseSize limits")
-		}
-		if a.cfg.MaxRequestSize == 0 {
-			return errors.New("pure runner requires MaxRequestSize limits")
-		}
+	agent := New(da)
 
-		// pure runner requires a non-blocking resource tracker
-		if !a.cfg.EnableNBResourceTracker {
-			return errors.New("pure runner requires EnableNBResourceTracker true")
-		}
+	// WARNING: SSL creds are optional.
+	if cert == "" || key == "" || ca == "" {
+		return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent))
+	}
+	return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent), PureRunnerWithSSL(cert, key, ca))
+}
 
+type PureRunnerOption func(*pureRunner) error
+
+func PureRunnerWithSSL(cert string, key string, ca string) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		c, err := createCreds(cert, key, ca)
+		if err != nil {
+			return fmt.Errorf("Failed to create pure runner credentials: %s", err)
+		}
+		pr.creds = c
 		return nil
 	}
 }
 
-func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, unused CapacityGate) (Agent, error) {
-	// TODO: gate unused, decommission/remove it after cleaning up dependencies to it.
+func PureRunnerWithAgent(a Agent) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		if pr.a != nil {
+			return errors.New("Failed to create pure runner: agent already created")
+		}
 
-	a := createAgent(da, ValidatePureRunnerConfig())
-	var pr *pureRunner
-	var err error
-	if cert != "" && key != "" && ca != "" {
-		c, err := creds(cert, key, ca)
-		if err != nil {
-			logrus.WithField("runner_addr", addr).Warn("Failed to create credentials!")
-			return nil, err
+		pr.a = a
+		return nil
+	}
+}
+
+// PureRunnerWithStatusImage returns a PureRunnerOption that annotates a PureRunner with a
+// statusImageName attribute.  This attribute names an image name to use for the status checks.
+// Optionally, the status image can be pre-loaded into docker using FN_DOCKER_LOAD_FILE to avoid
+// docker pull during status checks.
+func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		if pr.status.imageName != "" {
+			return fmt.Errorf("Duplicate status image configuration old=%s new=%s", pr.status.imageName, imgName)
 		}
-		pr, err = createPureRunner(addr, a, c)
+		pr.status.imageName = imgName
+		return nil
+	}
+}
+
+func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunnerOption) (Agent, error) {
+
+	pr := &pureRunner{}
+
+	for _, option := range options {
+		err := option(pr)
 		if err != nil {
-			return nil, err
-		}
-	} else {
-		logrus.Warn("Running pure runner in insecure mode!")
-		pr, err = createPureRunner(addr, a, nil)
-		if err != nil {
-			return nil, err
+			logrus.WithError(err).Fatalf("error in pure runner options")
 		}
 	}
 
+	if pr.a == nil {
+		logrus.Fatal("agent not provided in pure runner options")
+	}
+
+	var opts []grpc.ServerOption
+
+	opts = append(opts, grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor))
+	opts = append(opts, grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor))
+
+	if pr.creds != nil {
+		opts = append(opts, grpc.Creds(pr.creds))
+	} else {
+		logrus.Warn("Running pure runner in insecure mode!")
+	}
+
+	pr.gRPCServer = grpc.NewServer(opts...)
+	runner.RegisterRunnerProtocolServer(pr.gRPCServer, pr)
+
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		logrus.WithError(err).Fatalf("Could not listen on %s", addr)
+	}
+
+	logrus.Info("Pure Runner listening on ", addr)
+
 	go func() {
-		err := pr.Start()
-		if err != nil {
-			logrus.WithError(err).Error("Failed to start pure runner")
+		if err := pr.gRPCServer.Serve(lis); err != nil {
+			logrus.WithError(err).Error("grpc serve error")
 			cancel()
 		}
 	}()
@@ -686,7 +934,11 @@ func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert s
 	return pr, nil
 }
 
-func creds(cert string, key string, ca string) (credentials.TransportCredentials, error) {
+func createCreds(cert string, key string, ca string) (credentials.TransportCredentials, error) {
+	if cert == "" || key == "" || ca == "" {
+		return nil, errors.New("Failed to create credentials, cert/key/ca not provided")
+	}
+
 	// Load the certificates from disk
 	certificate, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -711,20 +963,5 @@ func creds(cert string, key string, ca string) (credentials.TransportCredentials
 	}), nil
 }
 
-func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials) (*pureRunner, error) {
-	var srv *grpc.Server
-	if creds != nil {
-		srv = grpc.NewServer(grpc.Creds(creds))
-	} else {
-		srv = grpc.NewServer()
-	}
-
-	pr := &pureRunner{
-		gRPCServer: srv,
-		listen:     addr,
-		a:          a,
-	}
-
-	runner.RegisterRunnerProtocolServer(srv, pr)
-	return pr, nil
-}
+var _ runner.RunnerProtocolServer = &pureRunner{}
+var _ Agent = &pureRunner{}

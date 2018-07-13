@@ -1,4 +1,4 @@
-// Package datastore provides access to the Google Cloud Datastore API.
+// Package datastore provides access to the Cloud Datastore API.
 //
 // See https://cloud.google.com/datastore/
 //

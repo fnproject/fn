@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/fnproject/fn/api/common"
 )
 
 const (
@@ -17,7 +17,6 @@ const (
 
 	MaxSyncTimeout  = 120  // 2 minutes
 	MaxAsyncTimeout = 3600 // 1 hour
-	MaxIdleTimeout  = MaxAsyncTimeout
 )
 
 var RouteMaxMemory = uint64(8 * 1024)
@@ -38,8 +37,8 @@ type Route struct {
 	TmpFsSize   uint32          `json:"tmpfs_size" db:"tmpfs_size"`
 	Config      Config          `json:"config,omitempty" db:"config"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
-	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 // SetDefaults sets zeroed field to defaults.
@@ -73,13 +72,6 @@ func (r *Route) SetDefaults() {
 		r.IdleTimeout = DefaultIdleTimeout
 	}
 
-	if time.Time(r.CreatedAt).IsZero() {
-		r.CreatedAt = strfmt.DateTime(time.Now())
-	}
-
-	if time.Time(r.UpdatedAt).IsZero() {
-		r.UpdatedAt = strfmt.DateTime(time.Now())
-	}
 }
 
 // Validate validates all field values, returning the first error, if any.
@@ -243,7 +235,7 @@ func (r *Route) Update(patch *Route) {
 	r.Annotations = r.Annotations.MergeChange(patch.Annotations)
 
 	if !r.Equals(original) {
-		r.UpdatedAt = strfmt.DateTime(time.Now())
+		r.UpdatedAt = common.DateTime(time.Now())
 	}
 }
 

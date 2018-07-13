@@ -2,8 +2,7 @@ package datastoreutil
 
 import (
 	"context"
-
-	"github.com/jmoiron/sqlx"
+	"time"
 
 	"github.com/fnproject/fn/api/models"
 )
@@ -26,14 +25,10 @@ func (v *validator) GetAppID(ctx context.Context, appName string) (string, error
 
 func (v *validator) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	if appID == "" {
-		return nil, models.ErrDatastoreEmptyAppID
+		return nil, models.ErrAppsMissingID
 	}
 
 	return v.Datastore.GetAppByID(ctx, appID)
-}
-
-func (v *validator) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*models.App, error) {
-	return v.Datastore.GetApps(ctx, appFilter)
 }
 
 // app and app.Name will never be nil/empty.
@@ -41,8 +36,9 @@ func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App
 	if app == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
-
-	app.SetDefaults()
+	if app.ID != "" {
+		return nil, models.ErrAppIDProvided
+	}
 	if err := app.Validate(); err != nil {
 		return nil, err
 	}
@@ -56,7 +52,7 @@ func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App
 		return nil, models.ErrDatastoreEmptyApp
 	}
 	if app.ID == "" {
-		return nil, models.ErrDatastoreEmptyAppID
+		return nil, models.ErrAppsMissingID
 	}
 
 	return v.Datastore.UpdateApp(ctx, app)
@@ -65,7 +61,7 @@ func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App
 // name will never be empty.
 func (v *validator) RemoveApp(ctx context.Context, appID string) error {
 	if appID == "" {
-		return models.ErrDatastoreEmptyAppID
+		return models.ErrAppsMissingID
 	}
 
 	return v.Datastore.RemoveApp(ctx, appID)
@@ -74,7 +70,7 @@ func (v *validator) RemoveApp(ctx context.Context, appID string) error {
 // appName and routePath will never be empty.
 func (v *validator) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	if appID == "" {
-		return nil, models.ErrDatastoreEmptyAppID
+		return nil, models.ErrRoutesMissingAppID
 	}
 	if routePath == "" {
 		return nil, models.ErrRoutesMissingPath
@@ -86,7 +82,7 @@ func (v *validator) GetRoute(ctx context.Context, appID, routePath string) (*mod
 // appName will never be empty
 func (v *validator) GetRoutesByApp(ctx context.Context, appID string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	if appID == "" {
-		return nil, models.ErrDatastoreEmptyAppID
+		return nil, models.ErrRoutesMissingAppID
 	}
 
 	return v.Datastore.GetRoutesByApp(ctx, appID, routeFilter)
@@ -98,7 +94,6 @@ func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*mode
 		return nil, models.ErrDatastoreEmptyRoute
 	}
 
-	route.SetDefaults()
 	if err := route.Validate(); err != nil {
 		return nil, err
 	}
@@ -123,7 +118,7 @@ func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 // appName and routePath will never be empty.
 func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath string) error {
 	if appID == "" {
-		return models.ErrDatastoreEmptyAppID
+		return models.ErrRoutesMissingAppID
 	}
 	if routePath == "" {
 		return models.ErrRoutesMissingPath
@@ -132,7 +127,74 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
-// GetDatabase returns the underlying sqlx database implementation
-func (v *validator) GetDatabase() *sqlx.DB {
-	return v.Datastore.GetDatabase()
+func (v *validator) InsertTrigger(ctx context.Context, t *models.Trigger) (*models.Trigger, error) {
+
+	if t.ID != "" {
+		return nil, models.ErrTriggerIDProvided
+	}
+
+	if !time.Time(t.CreatedAt).IsZero() {
+		return nil, models.ErrCreatedAtProvided
+	}
+	if !time.Time(t.UpdatedAt).IsZero() {
+		return nil, models.ErrUpdatedAtProvided
+	}
+
+	return v.Datastore.InsertTrigger(ctx, t)
+}
+
+func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) (*models.TriggerList, error) {
+
+	if filter.AppID == "" {
+		return nil, models.ErrTriggerMissingAppID
+	}
+
+	return v.Datastore.GetTriggers(ctx, filter)
+}
+func (v *validator) RemoveTrigger(ctx context.Context, triggerID string) error {
+	if triggerID == "" {
+		return models.ErrMissingID
+	}
+
+	return v.Datastore.RemoveTrigger(ctx, triggerID)
+}
+
+func (v *validator) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	if fn == nil {
+		return nil, models.ErrDatastoreEmptyFn
+	}
+	if fn.ID != "" {
+		return nil, models.ErrFnsIDProvided
+	}
+	if fn.AppID == "" {
+		return nil, models.ErrFnsMissingAppID
+	}
+	if fn.Name == "" {
+		return nil, models.ErrFnsMissingName
+	}
+	return v.Datastore.InsertFn(ctx, fn)
+}
+
+func (v *validator) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
+	if fnID == "" {
+		return nil, models.ErrDatastoreEmptyFnID
+	}
+
+	return v.Datastore.GetFnByID(ctx, fnID)
+}
+
+func (v *validator) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnList, error) {
+
+	if filter.AppID == "" {
+		return nil, models.ErrFnsMissingAppID
+	}
+
+	return v.Datastore.GetFns(ctx, filter)
+}
+
+func (v *validator) RemoveFn(ctx context.Context, fnID string) error {
+	if fnID == "" {
+		return models.ErrDatastoreEmptyFnID
+	}
+	return v.Datastore.RemoveFn(ctx, fnID)
 }

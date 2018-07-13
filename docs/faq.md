@@ -182,3 +182,7 @@ State management is not part of Fn but you can use any storage service or databa
 The problem you face is the lack of a guarantee of which instance of a hot function is called.  Standard practice is to externalize state.
 
 If your need for stateful functions is motivated by managing steps of a workflow that spans several functions (or several calls to the same function), check out [Fn Flow](https://github.com/fnproject/flow). 
+
+### Can functions write to a non-persistent location?
+
+Functions can only write to /tmp. Each function is configured with its own /tmp as non-persistent disk space. The size of this disk space is set as part of the function configuration.

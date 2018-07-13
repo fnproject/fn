@@ -259,3 +259,45 @@ func TestMergeAnnotations(t *testing.T) {
 	}
 
 }
+
+func TestGetAnnotations(t *testing.T) {
+	annotations := EmptyAnnotations()
+	annotations, err := annotations.With("string-annotation", "string-value")
+	if err != nil {
+		t.Fatal("Cannot add string annotation")
+	}
+	annotations, err = annotations.With("array-annotation", []string{"string-1", "string-2"})
+	if err != nil {
+		t.Fatal("Cannot add array annotation")
+	}
+	strAnnotation, ok := annotations.Get("string-annotation")
+	if !ok {
+		t.Error("Cannot get string annotation")
+	}
+	expected := "\"string-value\""
+	if string(strAnnotation) != expected {
+		t.Errorf("Got unexpected value for string annotation. Got: %s Expected %s", strAnnotation, expected)
+	}
+	arrAnnotation, ok := annotations.Get("array-annotation")
+	if !ok {
+		t.Error("Cannot get array annotation")
+	}
+	expected = "[\"string-1\",\"string-2\"]"
+	if string(arrAnnotation) != expected {
+		t.Errorf("Got unexpected value for array annotation. Got: %s Expected %s", strAnnotation, expected)
+	}
+
+	stringAnnotation, err := annotations.GetString("string-annotation")
+	if err != nil {
+		t.Fatalf("Error decoding string annotation: %v", err)
+	}
+	expected = "string-value"
+	if stringAnnotation != expected {
+		t.Errorf("Got unexpected decoded value for string annotation. Got: %s Expected %s", strAnnotation, expected)
+	}
+
+	_, err = annotations.GetString("array-annotation")
+	if err == nil {
+		t.Error("Expected error trying to retrieve a string value for array annotation")
+	}
+}

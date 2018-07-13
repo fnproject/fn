@@ -6,6 +6,7 @@ import "google/protobuf/empty.proto";
 message TryCall {
     string models_call_json = 1;
     string slot_hash_id = 2;
+    map<string,string> extensions = 3;
 }
 
 // Data sent C2S and S2C - as soon as the runner sees the first of these it
@@ -41,6 +42,9 @@ message CallFinished {
     string details = 2;
     int32 errorCode = 3;
     string errorStr = 4;
+    string createdAt = 5;
+    string startedAt = 6;
+    string completedAt = 7;
 }
 
 message ClientMsg {
@@ -60,6 +64,14 @@ message RunnerMsg {
 
 message RunnerStatus {
     int32 active = 2;  // Number of currently inflight responses
+    bool failed = 3; // if status was successful or not
+    string id = 4; // call id if status image was used
+    string details = 5; // details for logging/debug
+    int32 errorCode = 6; // error code if not successful
+    string errorStr = 7; // error description if not successful
+    string createdAt = 8; // call latency details: initialization time
+    string startedAt = 9; // call latency details: start time in container
+    string completedAt = 10; // call latency details: end time
 }
 
 service RunnerProtocol {

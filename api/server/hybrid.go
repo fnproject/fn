@@ -5,9 +5,14 @@ import (
 	"strings"
 	"time"
 
+	"errors"
+	"fmt"
+	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"path"
 )
 
 func (s *Server) handleRunnerEnqueue(c *gin.Context) {
@@ -50,9 +55,7 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 	// will ensure the call exists in the db in 'running' state there.
 	// s.datastore.InsertCall(ctx, &call)
 
-	c.JSON(200, struct {
-		M string `json:"msg"`
-	}{M: "enqueued call"})
+	c.String(http.StatusNoContent, "")
 }
 
 func (s *Server) handleRunnerDequeue(c *gin.Context) {
@@ -119,7 +122,7 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 	// cover our tracks since if the db is down we can't run anything anyway (treat as such).
 	// TODO do this client side and validate it here?
 	//call.Status = "running"
-	//call.StartedAt = strfmt.DateTime(time.Now())
+	//call.StartedAt = common.DateTime(time.Now())
 	//err := s.datastore.UpdateCall(c.Request.Context(), &call)
 	//if err != nil {
 	//if err == InvalidStatusChange {
@@ -133,13 +136,11 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 		return
 	}
 	//}
-	//handleErrorResponse(c, err)
+	//handleV1ErrorResponse(c, err)
 	//return
 	//}
 
-	c.JSON(200, struct {
-		M string `json:"msg"`
-	}{M: "slingshot: engage"})
+	c.String(http.StatusNoContent, "")
 }
 
 func (s *Server) handleRunnerFinish(c *gin.Context) {
@@ -184,7 +185,49 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	//// note: Not returning err here since the job could have already finished successfully.
 	//}
 
-	c.JSON(200, struct {
-		M string `json:"msg"`
-	}{M: "good night, sweet prince"})
+	c.String(http.StatusNoContent, "")
+}
+
+// This is a sort of interim route  that is V2 API style but due for deprectation
+func (s *Server) handleRunnerGetRoute(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	routePath := path.Clean("/" + c.MustGet(api.Path).(string))
+	route, err := s.datastore.GetRoute(ctx, c.MustGet(api.AppID).(string), routePath)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, route)
+}
+
+func (s *Server) handleRunnerGetTriggerBySource(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	appId := c.MustGet(api.AppID).(string)
+
+	triggerType := c.Param(api.ParamTriggerType)
+	if triggerType == "" {
+		handleErrorResponse(c, errors.New("no trigger type in request"))
+		return
+	}
+	triggerSource := strings.TrimPrefix(c.Param(api.ParamTriggerSource), "/")
+
+	trigger, err := s.datastore.GetTriggerBySource(ctx, appId, triggerType, triggerSource)
+
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+	// Not clear that we really need to annotate the trigger here but ... lets do it just in case.
+	app, err := s.datastore.GetAppByID(ctx, trigger.AppID)
+
+	if err != nil {
+		handleErrorResponse(c, fmt.Errorf("unexpected error - trigger app not available: %s", err))
+	}
+
+	s.triggerAnnotator.AnnotateTrigger(c, app, trigger)
+
+	c.JSON(http.StatusOK, trigger)
 }

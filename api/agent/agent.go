@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/syslog"
 	"strings"
@@ -11,16 +12,13 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
-	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
-	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 )
 
@@ -89,24 +87,11 @@ type Agent interface {
 	io.Closer
 
 	AddCallListener(fnext.CallListener)
-
-	// Enqueue is to use the agent's sweet sweet client bindings to remotely
-	// queue async tasks and should be removed from Agent interface ASAP.
-	Enqueue(context.Context, *models.Call) error
-
-	// GetAppID is to get the match of an app name to its ID
-	GetAppID(ctx context.Context, appName string) (string, error)
-
-	// GetAppByID is to get the app by ID
-	GetAppByID(ctx context.Context, appID string) (*models.App, error)
-
-	// GetRoute is to get the route by appId and path
-	GetRoute(ctx context.Context, appID string, path string) (*models.Route, error)
 }
 
 type agent struct {
 	cfg           AgentConfig
-	da            DataAccess
+	da            CallHandler
 	callListeners []fnext.CallListener
 
 	driver drivers.Driver
@@ -116,31 +101,22 @@ type agent struct {
 	resources ResourceTracker
 
 	// used to track running calls / safe shutdown
-	shutWg       *common.WaitGroup
-	shutonce     sync.Once
-	callEndCount int64
+	shutWg              *common.WaitGroup
+	shutonce            sync.Once
+	callEndCount        int64
+	disableAsyncDequeue bool
+
+	callOverrider CallOverrider
+	// deferred actions to call at end of initialisation
+	onStartup []func()
 }
 
+// AgentOption configures an agent at startup
 type AgentOption func(*agent) error
 
 // New creates an Agent that executes functions locally as Docker containers.
-func New(da DataAccess, options ...AgentOption) Agent {
-	a := createAgent(da, options...).(*agent)
-	if !a.shutWg.AddSession(1) {
-		logrus.Fatalf("cannot start agent, unable to add session")
-	}
-	go a.asyncDequeue() // safe shutdown can nanny this fine
-	return a
-}
+func New(da CallHandler, options ...AgentOption) Agent {
 
-func WithConfig(cfg *AgentConfig) AgentOption {
-	return func(a *agent) error {
-		a.cfg = *cfg
-		return nil
-	}
-}
-
-func createAgent(da DataAccess, options ...AgentOption) Agent {
 	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
@@ -149,6 +125,10 @@ func createAgent(da DataAccess, options ...AgentOption) Agent {
 	a := &agent{
 		cfg: *cfg,
 	}
+
+	a.shutWg = common.NewWaitGroup()
+	a.da = da
+	a.slotMgr = NewSlotQueueMgr()
 
 	// Allow overriding config
 	for _, option := range options {
@@ -160,43 +140,83 @@ func createAgent(da DataAccess, options ...AgentOption) Agent {
 
 	logrus.Infof("agent starting cfg=%+v", a.cfg)
 
-	// TODO: Create drivers.New(runnerConfig)
-	a.driver = docker.NewDocker(drivers.Config{
-		DockerNetworks:       a.cfg.DockerNetworks,
-		ServerVersion:        a.cfg.MinDockerVersion,
-		PreForkPoolSize:      a.cfg.PreForkPoolSize,
-		PreForkImage:         a.cfg.PreForkImage,
-		PreForkCmd:           a.cfg.PreForkCmd,
-		PreForkUseOnce:       a.cfg.PreForkUseOnce,
-		PreForkNetworks:      a.cfg.PreForkNetworks,
-		MaxTmpFsInodes:       a.cfg.MaxTmpFsInodes,
-		EnableReadOnlyRootFs: !a.cfg.DisableReadOnlyRootFs,
-	})
+	if a.driver == nil {
+		d, err := NewDockerDriver(&a.cfg)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to create docker driver ")
+		}
+		a.driver = d
+	}
 
-	a.da = da
-	a.slotMgr = NewSlotQueueMgr()
 	a.resources = NewResourceTracker(&a.cfg)
-	a.shutWg = common.NewWaitGroup()
 
-	// TODO assert that agent doesn't get started for API nodes up above ?
+	for _, sup := range a.onStartup {
+		sup()
+	}
 	return a
 }
 
-func (a *agent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	return a.da.GetAppByID(ctx, appID)
+func (a *agent) addStartup(sup func()) {
+	a.onStartup = append(a.onStartup, sup)
+
 }
 
-func (a *agent) GetAppID(ctx context.Context, appName string) (string, error) {
-	return a.da.GetAppID(ctx, appName)
+// WithAsync Enables Async  operations on the agent
+func WithAsync(dqda DequeueDataAccess) AgentOption {
+	return func(a *agent) error {
+		if !a.shutWg.AddSession(1) {
+			logrus.Fatalf("cannot start agent, unable to add session")
+		}
+		a.addStartup(func() {
+			go a.asyncDequeue(dqda) // safe shutdown can nanny this fine
+		})
+		return nil
+	}
+}
+func WithConfig(cfg *AgentConfig) AgentOption {
+	return func(a *agent) error {
+		a.cfg = *cfg
+		return nil
+	}
 }
 
-func (a *agent) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
-	return a.da.GetRoute(ctx, appID, path)
+// WithDockerDriver Provides a customer driver to agent
+func WithDockerDriver(drv drivers.Driver) AgentOption {
+	return func(a *agent) error {
+		if a.driver != nil {
+			return errors.New("cannot add driver to agent, driver already exists")
+		}
+
+		a.driver = drv
+		return nil
+	}
 }
 
-// TODO shuffle this around somewhere else (maybe)
-func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
-	return a.da.Enqueue(ctx, call)
+// WithCallOverrider registers register a CallOverrider to modify a Call and extensions on call construction
+func WithCallOverrider(fn CallOverrider) AgentOption {
+	return func(a *agent) error {
+		if a.callOverrider != nil {
+			return errors.New("lb-agent call overriders already exists")
+		}
+		a.callOverrider = fn
+		return nil
+	}
+}
+
+// NewDockerDriver creates a default docker driver from agent config
+func NewDockerDriver(cfg *AgentConfig) (drivers.Driver, error) {
+	return drivers.New("docker", drivers.Config{
+		DockerNetworks:       cfg.DockerNetworks,
+		DockerLoadFile:       cfg.DockerLoadFile,
+		ServerVersion:        cfg.MinDockerVersion,
+		PreForkPoolSize:      cfg.PreForkPoolSize,
+		PreForkImage:         cfg.PreForkImage,
+		PreForkCmd:           cfg.PreForkCmd,
+		PreForkUseOnce:       cfg.PreForkUseOnce,
+		PreForkNetworks:      cfg.PreForkNetworks,
+		MaxTmpFsInodes:       cfg.MaxTmpFsInodes,
+		EnableReadOnlyRootFs: !cfg.DisableReadOnlyRootFs,
+	})
 }
 
 func (a *agent) Close() error {
@@ -212,12 +232,6 @@ func (a *agent) Close() error {
 		}
 	})
 
-	// shutdown any db/queue resources
-	// associated with DataAccess
-	daErr := a.da.Close()
-	if daErr != nil {
-		return daErr
-	}
 	return err
 }
 
@@ -764,7 +778,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	deadline := time.Now().Add(time.Duration(call.Timeout) * time.Second)
 
 	// add Fn-specific information to the config to shove everything into env vars for cold
-	call.Config["FN_DEADLINE"] = strfmt.DateTime(deadline).String()
+	call.Config["FN_DEADLINE"] = common.DateTime(deadline).String()
 	call.Config["FN_METHOD"] = call.Model().Method
 	call.Config["FN_REQUEST_URL"] = call.Model().URL
 	call.Config["FN_CALL_ID"] = call.Model().ID
@@ -789,9 +803,12 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		stats:   &call.Stats,
 	}
 
-	// pull & create container before we return a slot, so as to be friendly
-	// about timing out if this takes a while...
-	cookie, err := a.driver.Prepare(ctx, container)
+	cookie, err := a.driver.CreateCookie(ctx, container)
+	if err == nil {
+		// pull & create container before we return a slot, so as to be friendly
+		// about timing out if this takes a while...
+		err = a.driver.PrepareCookie(ctx, cookie)
+	}
 
 	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
 
@@ -814,18 +831,25 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
 
-	container, closer := NewHotContainer(ctx, call, &a.cfg)
+	container, closer := newHotContainer(ctx, call, &a.cfg)
 	defer closer()
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
-	cookie, err := a.driver.Prepare(ctx, container)
+	cookie, err := a.driver.CreateCookie(ctx, container)
 	if err != nil {
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 		return
 	}
+
 	defer cookie.Close(ctx) // NOTE ensure this ctx doesn't time out
+
+	err = a.driver.PrepareCookie(ctx, cookie)
+	if err != nil {
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+		return
+	}
 
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
@@ -972,14 +996,15 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 // and stderr can be swapped out by new calls in the container.  input and
 // output must be copied in and out.
 type container struct {
-	id        string // contrived
-	image     string
-	env       map[string]string
-	memory    uint64
-	cpus      uint64
-	fsSize    uint64
-	tmpFsSize uint64
-	timeout   time.Duration // cold only (superfluous, but in case)
+	id         string // contrived
+	image      string
+	env        map[string]string
+	extensions map[string]string
+	memory     uint64
+	cpus       uint64
+	fsSize     uint64
+	tmpFsSize  uint64
+	timeout    time.Duration // cold only (superfluous, but in case)
 
 	stdin       io.Reader
 	stdout      io.Writer
@@ -991,7 +1016,8 @@ type container struct {
 	stats  *drivers.Stats
 }
 
-func NewHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*container, func()) {
+//newHotContainer creates a container that can be used for multiple sequential events
+func newHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*container, func()) {
 	// if freezer is enabled, be consistent with freezer behavior and
 	// block stdout and stderr between calls.
 	isBlockIdleIO := MaxDisabledMsecs != cfg.FreezeIdle
@@ -1054,6 +1080,7 @@ func NewHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*contai
 			id:          id, // XXX we could just let docker generate ids...
 			image:       call.Image,
 			env:         map[string]string(call.Config),
+			extensions:  call.extensions,
 			memory:      call.Memory,
 			cpus:        uint64(call.CPUs),
 			fsSize:      cfg.MaxFsSize,
@@ -1108,11 +1135,12 @@ func (c *container) Memory() uint64                 { return c.memory * 1024 * 1
 func (c *container) CPUs() uint64                   { return c.cpus }
 func (c *container) FsSize() uint64                 { return c.fsSize }
 func (c *container) TmpFsSize() uint64              { return c.tmpFsSize }
+func (c *container) Extensions() map[string]string  { return c.extensions }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	for key, value := range stat.Metrics {
-		if m, ok := measures[key]; ok {
+		if m, ok := dockerMeasures[key]; ok {
 			stats.Record(ctx, m.M(int64(value)))
 		}
 	}
@@ -1122,22 +1150,6 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 		*(c.stats) = append(*(c.stats), stat)
 	}
 	c.swapMu.Unlock()
-}
-
-var measures map[string]*stats.Int64Measure
-
-func init() {
-	// TODO this is nasty figure out how to use opencensus to not have to declare these
-	keys := []string{"net_rx", "net_tx", "mem_limit", "mem_usage", "disk_read", "disk_write", "cpu_user", "cpu_total", "cpu_kernel"}
-
-	measures = make(map[string]*stats.Int64Measure)
-	for _, key := range keys {
-		units := "bytes"
-		if strings.Contains(key, "cpu") {
-			units = "cpu"
-		}
-		measures[key] = makeMeasure("docker_stats_"+key, "docker container stats for "+key, units, view.Distribution())
-	}
 }
 
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {

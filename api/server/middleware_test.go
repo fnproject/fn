@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"fmt"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -66,11 +67,15 @@ func TestMiddlewareChaining(t *testing.T) {
 }
 
 func TestRootMiddleware(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
-	app1 := &models.App{Name: "myapp", Config: models.Config{}}
-	app1.SetDefaults()
-	app2 := &models.App{Name: "myapp2", Config: models.Config{}}
-	app2.SetDefaults()
+	app1 := &models.App{ID: "app_id_1", Name: "myapp", Config: models.Config{}}
+	app2 := &models.App{ID: "app_id_2", Name: "myapp2", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app1, app2},
 		[]*models.Route{
@@ -93,9 +98,8 @@ func TestRootMiddleware(t *testing.T) {
 			if r.Header.Get("funcit") != "" {
 				t.Log("breaker breaker!")
 				ctx := r.Context()
-				// TODO: this is a little dicey, should have some functions to set these in case the context keys change or something.
-				ctx = context.WithValue(ctx, "app", "myapp2")
-				ctx = context.WithValue(ctx, "path", "/app2func")
+				ctx = ContextWithApp(ctx, "myapp2")
+				ctx = ContextWithPath(ctx, "/app2func")
 				mctx := fnext.GetMiddlewareController(ctx)
 				mctx.CallFunction(w, r.WithContext(ctx))
 				return
@@ -132,28 +136,31 @@ func TestRootMiddleware(t *testing.T) {
 		{"/r/myapp/myroute", `{"isDebug": true}`, "GET", map[string][]string{}, http.StatusOK, "middle"},
 		{"/v1/apps", `{"isDebug": true}`, "GET", map[string][]string{"funcit": {"Test"}}, http.StatusOK, "johnny"},
 	} {
-		body := strings.NewReader(test.body)
-		req, err := http.NewRequest(test.method, "http://127.0.0.1:8080"+test.path, body)
-		if err != nil {
-			t.Fatalf("Test: Could not create %s request to %s: %v", test.method, test.path, err)
-		}
-		for k, v := range test.headers {
-			req.Header.Add(k, v[0])
-		}
-		t.Log("TESTING:", req.URL.String())
-		_, rec := routerRequest2(t, srv.Router, req)
-		// t.Log("REC: %+v\n", rec)
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			body := strings.NewReader(test.body)
+			req, err := http.NewRequest(test.method, "http://127.0.0.1:8080"+test.path, body)
+			if err != nil {
+				t.Fatalf("Test: Could not create %s request to %s: %v", test.method, test.path, err)
+			}
+			for k, v := range test.headers {
+				req.Header.Add(k, v[0])
+			}
+			t.Log("TESTING:", req.URL.String())
+			_, rec := routerRequest2(t, srv.Router, req)
+			// t.Log("REC: %+v\n", rec)
 
-		result, err := ioutil.ReadAll(rec.Result().Body)
-		if err != nil {
-			t.Fatal(err)
-		}
+			result, err := ioutil.ReadAll(rec.Result().Body)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		rbody := string(result)
-		t.Logf("Test %v: response body: %v", i, rbody)
-		if !strings.Contains(rbody, test.expectedInBody) {
-			t.Fatal(i, "middleware didn't work correctly", string(result))
-		}
+			rbody := string(result)
+			t.Logf("Test %v: response body: %v", i, rbody)
+			if !strings.Contains(rbody, test.expectedInBody) {
+				t.Fatal(i, "middleware didn't work correctly", string(result))
+			}
+		})
+
 	}
 
 	req, err := http.NewRequest("POST", "http://127.0.0.1:8080/v1/apps", strings.NewReader("{\"app\": {\"name\": \"myapp3\"}}"))

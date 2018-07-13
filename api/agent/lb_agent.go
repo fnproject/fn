@@ -19,80 +19,81 @@ import (
 
 type lbAgent struct {
 	cfg           AgentConfig
-	da            DataAccess
+	cda           CallHandler
 	callListeners []fnext.CallListener
 	rp            pool.RunnerPool
 	placer        pool.Placer
-
-	shutWg       *common.WaitGroup
-	callEndCount int64
+	callOverrider CallOverrider
+	shutWg        *common.WaitGroup
+	callEndCount  int64
 }
 
-func NewLBAgentConfig() (*AgentConfig, error) {
-	cfg, err := NewAgentConfig()
-	if err != nil {
-		return cfg, err
+type LBAgentOption func(*lbAgent) error
+
+func WithLBAgentConfig(cfg *AgentConfig) LBAgentOption {
+	return func(a *lbAgent) error {
+		a.cfg = *cfg
+		return nil
 	}
-	if cfg.MaxRequestSize == 0 {
-		return cfg, errors.New("lb-agent requires MaxRequestSize limit")
-	}
-	if cfg.MaxResponseSize == 0 {
-		return cfg, errors.New("lb-agent requires MaxResponseSize limit")
-	}
-	return cfg, nil
 }
 
-// NewLBAgentWithConfig creates an Agent configured with a supplied AgentConfig
-func NewLBAgentWithConfig(da DataAccess, rp pool.RunnerPool, p pool.Placer, cfg *AgentConfig) (Agent, error) {
-	logrus.Infof("lb-agent starting cfg=%+v", cfg)
-	a := &lbAgent{
-		cfg:    *cfg,
-		da:     da,
-		rp:     rp,
-		placer: p,
-		shutWg: common.NewWaitGroup(),
+// LB agents can use this to register a CallOverrider to modify a Call and extensions
+func WithLBCallOverrider(fn CallOverrider) LBAgentOption {
+	return func(a *lbAgent) error {
+		if a.callOverrider != nil {
+			return errors.New("lb-agent call overriders already exists")
+		}
+		a.callOverrider = fn
+		return nil
 	}
-	return a, nil
 }
 
 // NewLBAgent creates an Agent that knows how to load-balance function calls
 // across a group of runner nodes.
-func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
+func NewLBAgent(da CallHandler, rp pool.RunnerPool, p pool.Placer, options ...LBAgentOption) (Agent, error) {
 
-	// TODO: Move the constants above to Agent Config or an LB specific LBAgentConfig
-	cfg, err := NewLBAgentConfig()
+	// Yes, LBAgent and Agent both use an AgentConfig.
+	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in lb-agent config cfg=%+v", cfg)
 	}
-	return NewLBAgentWithConfig(da, rp, p, cfg)
+
+	a := &lbAgent{
+		cfg:    *cfg,
+		cda:    da,
+		rp:     rp,
+		placer: p,
+		shutWg: common.NewWaitGroup(),
+	}
+
+	// Allow overriding config
+	for _, option := range options {
+		err = option(a)
+		if err != nil {
+			logrus.WithError(err).Fatalf("error in lb-agent options")
+		}
+	}
+
+	logrus.Infof("lb-agent starting cfg=%+v", a.cfg)
+	return a, nil
 }
 
+// implements Agent
 func (a *lbAgent) AddCallListener(listener fnext.CallListener) {
 	a.callListeners = append(a.callListeners, listener)
 }
 
+// implements callTrigger
 func (a *lbAgent) fireBeforeCall(ctx context.Context, call *models.Call) error {
 	return fireBeforeCallFun(a.callListeners, ctx, call)
 }
 
+// implements callTrigger
 func (a *lbAgent) fireAfterCall(ctx context.Context, call *models.Call) error {
 	return fireAfterCallFun(a.callListeners, ctx, call)
 }
 
-// GetAppID is to get the match of an app name to its ID
-func (a *lbAgent) GetAppID(ctx context.Context, appName string) (string, error) {
-	return a.da.GetAppID(ctx, appName)
-}
-
-// GetAppByID is to get the app by ID
-func (a *lbAgent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	return a.da.GetAppByID(ctx, appID)
-}
-
-func (a *lbAgent) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
-	return a.da.GetRoute(ctx, appID, path)
-}
-
+// implements Agent
 func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	var c call
 
@@ -108,6 +109,16 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
+	// If overrider is present, let's allow it to modify models.Call
+	// and call extensions
+	if a.callOverrider != nil {
+		ext, err := a.callOverrider(c.Call, c.extensions)
+		if err != nil {
+			return nil, err
+		}
+		c.extensions = ext
+	}
+
 	err := setMaxBodyLimit(&a.cfg, &c)
 	if err != nil {
 		return nil, err
@@ -116,14 +127,14 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	setupCtx(&c)
 
 	c.isLB = true
-	c.da = a.da
+	c.handler = a.cda
 	c.ct = a
 	c.stderr = &nullReadWriter{}
 	c.slotHashId = getSlotQueueKey(&c)
-
 	return &c, nil
 }
 
+// implements Agent
 func (a *lbAgent) Close() error {
 
 	// start closing the front gate first
@@ -140,18 +151,7 @@ func (a *lbAgent) Close() error {
 	return err
 }
 
-func GetGroupID(call *models.Call) string {
-	// TODO until fn supports metadata, allow LB Group ID to
-	// be overridden via configuration.
-	// Note that employing this mechanism will expose the value of the
-	// LB Group ID to the function as an environment variable!
-	lbgID := call.Config["FN_LB_GROUP_ID"]
-	if lbgID == "" {
-		return "default"
-	}
-	return lbgID
-}
-
+// implements Agent
 func (a *lbAgent) Submit(callI Call) error {
 	if !a.shutWg.AddSession(1) {
 		return models.ErrCallTimeoutServerBusy
@@ -241,6 +241,7 @@ func (a *lbAgent) setRequestBody(ctx context.Context, call *call) (*bytes.Buffer
 	}
 }
 
+// implements Agent
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	logrus.Error("Enqueue not implemented")
 	return errors.New("Enqueue not implemented")
@@ -272,3 +273,6 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isSt
 	handleStatsDequeue(ctx, err)
 	return transformTimeout(err, true)
 }
+
+var _ Agent = &lbAgent{}
+var _ callTrigger = &lbAgent{}

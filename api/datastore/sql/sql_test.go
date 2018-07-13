@@ -6,10 +6,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
+	"github.com/fnproject/fn/api/datastore/datastoretest"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/datastore/sql/migratex"
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
+	_ "github.com/fnproject/fn/api/datastore/sql/mysql"
+	_ "github.com/fnproject/fn/api/datastore/sql/postgres"
+	_ "github.com/fnproject/fn/api/datastore/sql/sqlite"
 	logstoretest "github.com/fnproject/fn/api/logs/testing"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
@@ -62,7 +65,9 @@ func TestDatastore(t *testing.T) {
 		ds := f(t)
 		return datastoreutil.NewValidator(ds)
 	}
-	datastoretest.Test(t, f2)
+	t.Run(u.Scheme, func(t *testing.T) {
+		datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider())
+	})
 
 	// also logs
 	logstoretest.Test(t, f(t))
@@ -93,7 +98,7 @@ func TestDatastore(t *testing.T) {
 		}
 
 		// test fresh w/o migrations
-		datastoretest.Test(t, f2)
+		t.Run(u.Scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
 
 		// also test sql implements logstore
 		logstoretest.Test(t, f(t))
@@ -116,7 +121,7 @@ func TestDatastore(t *testing.T) {
 		}
 
 		// test that migrations work & things work with them
-		datastoretest.Test(t, f2)
+		t.Run(u.Scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
 
 		// also test sql implements logstore
 		logstoretest.Test(t, f(t))

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/fnproject/fn/api/common"
 )
 
 // A DriverCookie identifies a unique request to run a task.
@@ -40,6 +40,12 @@ type Cookie interface {
 
 	// Unfreeze a frozen container to unpause frozen processes
 	Unfreeze(ctx context.Context) error
+
+	// Fetch driver specific container configuration. Use this to
+	// access the container create options. If Driver.Prepare() is not
+	// yet called with the cookie, then this can be used to modify container
+	// create options.
+	ContainerOptions() interface{}
 }
 
 type WaitResult interface {
@@ -51,7 +57,11 @@ type WaitResult interface {
 }
 
 type Driver interface {
-	// Prepare can be used in order to do any preparation that a specific driver
+	// Create a new cookie with defaults and/or settings from container task.
+	// Callers should Close the cookie regardless of whether they prepare or run it.
+	CreateCookie(ctx context.Context, task ContainerTask) (Cookie, error)
+
+	// PrepareCookie can be used in order to do any preparation that a specific driver
 	// may need to do before running the task, and can be useful to put
 	// preparation that the task can recover from into (i.e. if pulling an image
 	// fails because a registry is down, the task doesn't need to be failed).  It
@@ -59,7 +69,7 @@ type Driver interface {
 	// Callers should Close the cookie regardless of whether they run it.
 	//
 	// The returned cookie should respect the task's timeout when it is run.
-	Prepare(ctx context.Context, task ContainerTask) (Cookie, error)
+	PrepareCookie(ctx context.Context, cookie Cookie) error
 
 	// close & shutdown the driver
 	Close() error
@@ -129,11 +139,14 @@ type ContainerTask interface {
 	// Close is used to perform cleanup after task execution.
 	// Close should be safe to call multiple times.
 	Close()
+
+	// Extra Configuration Options
+	Extensions() map[string]string
 }
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.
 type Stat struct {
-	Timestamp strfmt.DateTime   `json:"timestamp"`
+	Timestamp common.DateTime   `json:"timestamp"`
 	Metrics   map[string]uint64 `json:"metrics"`
 }
 
@@ -195,6 +208,7 @@ const (
 type Config struct {
 	Docker               string `json:"docker"`
 	DockerNetworks       string `json:"docker_networks"`
+	DockerLoadFile       string `json:"docker_load_file"`
 	ServerVersion        string `json:"server_version"`
 	PreForkPoolSize      uint64 `json:"pre_fork_pool_size"`
 	PreForkImage         string `json:"pre_fork_image"`
@@ -224,7 +238,7 @@ func average(samples []Stat) (Stat, bool) {
 		}
 	}
 
-	s.Timestamp = strfmt.DateTime(time.Unix(0, t))
+	s.Timestamp = common.DateTime(time.Unix(0, t))
 	for k, v := range s.Metrics {
 		s.Metrics[k] = v / uint64(l)
 	}

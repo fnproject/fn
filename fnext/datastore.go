@@ -6,11 +6,15 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
-func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener) models.Datastore {
+// NewDatastore returns a Datastore that wraps the provided Datastore, calling any relevant
+// listeners around any of the Datastore methods.
+func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener, fl FnListener, tl TriggerListener) models.Datastore {
 	return &extds{
 		Datastore: ds,
 		al:        al,
 		rl:        rl,
+		fl:        fl,
+		tl:        tl,
 	}
 }
 
@@ -18,6 +22,53 @@ type extds struct {
 	models.Datastore
 	al AppListener
 	rl RouteListener
+	fl FnListener
+	tl TriggerListener
+}
+
+func (e *extds) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	err := e.tl.BeforeTriggerCreate(ctx, trigger)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := e.Datastore.InsertTrigger(ctx, trigger)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.tl.AfterTriggerCreate(ctx, t)
+	return t, err
+}
+
+func (e *extds) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	err := e.tl.BeforeTriggerUpdate(ctx, trigger)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := e.Datastore.UpdateTrigger(ctx, trigger)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.tl.AfterTriggerUpdate(ctx, t)
+	return t, err
+}
+
+func (e *extds) RemoveTrigger(ctx context.Context, triggerID string) error {
+	err := e.tl.BeforeTriggerDelete(ctx, triggerID)
+	if err != nil {
+		return err
+	}
+
+	err = e.Datastore.RemoveTrigger(ctx, triggerID)
+	if err != nil {
+		return err
+	}
+
+	err = e.tl.AfterTriggerDelete(ctx, triggerID)
+	return err
 }
 
 func (e *extds) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
@@ -81,7 +132,7 @@ func (e *extds) RemoveApp(ctx context.Context, appName string) error {
 	return e.al.AfterAppDelete(ctx, &app)
 }
 
-func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
+func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) (*models.AppList, error) {
 	err := e.al.BeforeAppsList(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -92,7 +143,7 @@ func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) ([]*model
 		return nil, err
 	}
 
-	err = e.al.AfterAppsList(ctx, apps)
+	err = e.al.AfterAppsList(ctx, apps.Items)
 	return apps, err
 }
 
@@ -126,14 +177,70 @@ func (e *extds) UpdateRoute(ctx context.Context, route *models.Route) (*models.R
 	return route, err
 }
 
-func (e *extds) RemoveRoute(ctx context.Context, appName string, routePath string) error {
-	err := e.rl.BeforeRouteDelete(ctx, appName, routePath)
+func (e *extds) RemoveRoute(ctx context.Context, appId string, routePath string) error {
+	err := e.rl.BeforeRouteDelete(ctx, appId, routePath)
 	if err != nil {
 		return err
 	}
-	err = e.Datastore.RemoveRoute(ctx, appName, routePath)
+	err = e.Datastore.RemoveRoute(ctx, appId, routePath)
 	if err != nil {
 		return err
 	}
-	return e.rl.AfterRouteDelete(ctx, appName, routePath)
+	return e.rl.AfterRouteDelete(ctx, appId, routePath)
+}
+
+func (e *extds) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	err := e.fl.BeforeFnCreate(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := e.Datastore.InsertFn(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.fl.AfterFnCreate(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func (e *extds) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	err := e.fl.BeforeFnUpdate(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := e.Datastore.UpdateFn(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.fl.AfterFnUpdate(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+
+}
+
+func (e *extds) RemoveFn(ctx context.Context, fnID string) error {
+	err := e.fl.BeforeFnDelete(ctx, fnID)
+
+	if err != nil {
+		return err
+	}
+
+	err = e.Datastore.RemoveFn(ctx, fnID)
+	if err != nil {
+		return err
+	}
+
+	err = e.fl.AfterFnDelete(ctx, fnID)
+	if err != nil {
+		return err
+	}
+	return nil
 }

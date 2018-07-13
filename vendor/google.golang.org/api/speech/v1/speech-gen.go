@@ -433,7 +433,7 @@ func (s *RecognizeRequest) MarshalJSON() ([]byte, error) {
 // `SpeechRecognitionResult`
 // messages.
 type RecognizeResponse struct {
-	// Results: *Output-only* Sequential list of transcription results
+	// Results: Output only. Sequential list of transcription results
 	// corresponding to
 	// sequential portions of audio.
 	Results []*SpeechRecognitionResult `json:"results,omitempty"`
@@ -469,6 +469,21 @@ func (s *RecognizeResponse) MarshalJSON() ([]byte, error) {
 // specific words and phrases
 // in the results.
 type SpeechContext struct {
+	// BiasingStrength: Strength of biasing to use (strong, medium or weak).
+	// If you use strong
+	// biasing option then more likely to see those phrases in the results.
+	// If
+	// biasing streangth is not specified then by default medium biasing
+	// would be
+	// used.
+	//
+	// Possible values:
+	//   "BIASING_STRENGTH_UNSPECIFIED"
+	//   "LOW" - Low bias
+	//   "MEDIUM" - Medium bias
+	//   "HIGH" - High bias
+	BiasingStrength string `json:"biasingStrength,omitempty"`
+
 	// Phrases: *Optional* A list of strings containing words and phrases
 	// "hints" so that
 	// the speech recognition is more likely to recognize them. This can be
@@ -482,7 +497,7 @@ type SpeechContext struct {
 	// [usage limits](https://cloud.google.com/speech/limits#content).
 	Phrases []string `json:"phrases,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "Phrases") to
+	// ForceSendFields is a list of field names (e.g. "BiasingStrength") to
 	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
 	// non-interface field appearing in ForceSendFields will be sent to the
@@ -490,12 +505,13 @@ type SpeechContext struct {
 	// used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "Phrases") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
+	// NullFields is a list of field names (e.g. "BiasingStrength") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
 	NullFields []string `json:"-"`
 }
 
@@ -508,8 +524,8 @@ func (s *SpeechContext) MarshalJSON() ([]byte, error) {
 // SpeechRecognitionAlternative: Alternative hypotheses (a.k.a. n-best
 // list).
 type SpeechRecognitionAlternative struct {
-	// Confidence: *Output-only* The confidence estimate between 0.0 and
-	// 1.0. A higher number
+	// Confidence: Output only. The confidence estimate between 0.0 and 1.0.
+	// A higher number
 	// indicates an estimated greater likelihood that the recognized words
 	// are
 	// correct. This field is set only for the top alternative of a
@@ -522,12 +538,15 @@ type SpeechRecognitionAlternative struct {
 	// not set.
 	Confidence float64 `json:"confidence,omitempty"`
 
-	// Transcript: *Output-only* Transcript text representing the words that
+	// Transcript: Output only. Transcript text representing the words that
 	// the user spoke.
 	Transcript string `json:"transcript,omitempty"`
 
-	// Words: *Output-only* A list of word-specific information for each
+	// Words: Output only. A list of word-specific information for each
 	// recognized word.
+	// Note: When enable_speaker_diarization is true, you will see all the
+	// words
+	// from the beginning of the audio.
 	Words []*WordInfo `json:"words,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Confidence") to
@@ -570,7 +589,7 @@ func (s *SpeechRecognitionAlternative) UnmarshalJSON(data []byte) error {
 // SpeechRecognitionResult: A speech recognition result corresponding to
 // a portion of the audio.
 type SpeechRecognitionResult struct {
-	// Alternatives: *Output-only* May contain one or more recognition
+	// Alternatives: Output only. May contain one or more recognition
 	// hypotheses (up to the
 	// maximum specified in `max_alternatives`).
 	// These alternatives are ordered in terms of accuracy, with the top
@@ -722,7 +741,7 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 
 // WordInfo: Word-specific information for recognized words.
 type WordInfo struct {
-	// EndTime: *Output-only* Time offset relative to the beginning of the
+	// EndTime: Output only. Time offset relative to the beginning of the
 	// audio,
 	// and corresponding to the end of the spoken word.
 	// This field is only set if `enable_word_time_offsets=true` and only
@@ -732,7 +751,18 @@ type WordInfo struct {
 	// vary.
 	EndTime string `json:"endTime,omitempty"`
 
-	// StartTime: *Output-only* Time offset relative to the beginning of the
+	// SpeakerTag: Output only. A distinct integer value is assigned for
+	// every speaker within
+	// the audio. This field specifies which one of those speakers was
+	// detected to
+	// have spoken this word. Value ranges from '1' to
+	// diarization_speaker_count.
+	// speaker_tag is set if enable_speaker_diarization = 'true' and only in
+	// the
+	// top alternative.
+	SpeakerTag int64 `json:"speakerTag,omitempty"`
+
+	// StartTime: Output only. Time offset relative to the beginning of the
 	// audio,
 	// and corresponding to the start of the spoken word.
 	// This field is only set if `enable_word_time_offsets=true` and only
@@ -742,8 +772,7 @@ type WordInfo struct {
 	// vary.
 	StartTime string `json:"startTime,omitempty"`
 
-	// Word: *Output-only* The word corresponding to this set of
-	// information.
+	// Word: Output only. The word corresponding to this set of information.
 	Word string `json:"word,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "EndTime") to

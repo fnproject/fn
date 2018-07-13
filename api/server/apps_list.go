@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/base64"
 	"net/http"
 
 	"github.com/fnproject/fn/api/models"
@@ -12,7 +11,10 @@ func (s *Server) handleAppList(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	filter := &models.AppFilter{}
-	filter.Cursor, filter.PerPage = pageParams(c, true)
+
+	filter.Cursor, filter.PerPage = pageParamsV2(c)
+
+	filter.Name = c.Query("name")
 
 	apps, err := s.datastore.GetApps(ctx, filter)
 	if err != nil {
@@ -20,15 +22,5 @@ func (s *Server) handleAppList(c *gin.Context) {
 		return
 	}
 
-	var nextCursor string
-	if len(apps) > 0 && len(apps) == filter.PerPage {
-		last := []byte(apps[len(apps)-1].Name)
-		nextCursor = base64.RawURLEncoding.EncodeToString(last)
-	}
-
-	c.JSON(http.StatusOK, appsResponse{
-		Message:    "Successfully listed applications",
-		NextCursor: nextCursor,
-		Apps:       apps,
-	})
+	c.JSON(http.StatusOK, apps)
 }

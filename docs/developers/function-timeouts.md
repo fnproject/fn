@@ -1,6 +1,6 @@
 # Function timeouts
 
-Within Function API, each functions supplied with 2 timeouts parameters, both optional, see [swagger.yaml](swagger.yml) for more details.
+Within Function API, each functions supplied with 2 timeouts parameters, both optional, see [swagger.yaml](../swagger.yml) for more details.
 So, what are those timeouts and what are they used for?
 
 ## Function call timeout
@@ -34,7 +34,7 @@ This type of timeout defines for how long should hot function hang around before
 }
 ```
 
-This timeout parameter is valid for hot functions, see what [hot functions](developers/hot-functions.md) is. By default this parameter equals to 30 seconds.
+This timeout parameter is valid for hot functions, see what [hot functions](hot-functions.md) is. By default this parameter equals to 30 seconds.
 It starts after last request being processed by hot function.
 
 ## Correlation between idle and regular timeout

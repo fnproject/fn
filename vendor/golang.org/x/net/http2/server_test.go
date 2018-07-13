@@ -1760,6 +1760,42 @@ func TestServer_Response_Data_Sniff_DoesntOverride(t *testing.T) {
 	})
 }
 
+func TestServer_Response_Nosniff_WithoutContentType(t *testing.T) {
+	const msg = "<html>this is HTML."
+	testServerResponse(t, func(w http.ResponseWriter, r *http.Request) error {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(200)
+		io.WriteString(w, msg)
+		return nil
+	}, func(st *serverTester) {
+		getSlash(st)
+		hf := st.wantHeaders()
+		if hf.StreamEnded() {
+			t.Fatal("don't want END_STREAM, expecting data")
+		}
+		if !hf.HeadersEnded() {
+			t.Fatal("want END_HEADERS flag")
+		}
+		goth := st.decodeHeader(hf.HeaderBlockFragment())
+		wanth := [][2]string{
+			{":status", "200"},
+			{"x-content-type-options", "nosniff"},
+			{"content-type", "application/octet-stream"},
+			{"content-length", strconv.Itoa(len(msg))},
+		}
+		if !reflect.DeepEqual(goth, wanth) {
+			t.Errorf("Got headers %v; want %v", goth, wanth)
+		}
+		df := st.wantData()
+		if !df.StreamEnded() {
+			t.Error("expected DATA to have END_STREAM flag")
+		}
+		if got := string(df.Data()); got != msg {
+			t.Errorf("got DATA %q; want %q", got, msg)
+		}
+	})
+}
+
 func TestServer_Response_TransferEncoding_chunked(t *testing.T) {
 	const msg = "hi"
 	testServerResponse(t, func(w http.ResponseWriter, r *http.Request) error {
@@ -3722,4 +3758,23 @@ func TestIssue20704Race(t *testing.T) {
 		// reading the body:
 		resp.Body.Close()
 	}
+}
+
+func TestServer_Rejects_TooSmall(t *testing.T) {
+	testServerResponse(t, func(w http.ResponseWriter, r *http.Request) error {
+		return nil
+	}, func(st *serverTester) {
+		st.writeHeaders(HeadersFrameParam{
+			StreamID: 1, // clients send odd numbers
+			BlockFragment: st.encodeHeader(
+				":method", "POST",
+				"content-length", "4",
+			),
+			EndStream:  false, // to say DATA frames are coming
+			EndHeaders: true,
+		})
+		st.writeData(1, true, []byte("12345"))
+
+		st.wantRSTStream(1, ErrCodeProtocol)
+	})
 }

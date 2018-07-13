@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	pb "github.com/fnproject/fn/api/agent/grpc"
@@ -17,6 +18,8 @@ import (
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/grpcutil"
+
+	pb_empty "github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 )
 
@@ -51,6 +54,7 @@ func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool
 	}, nil
 }
 
+// implements Runner
 func (r *gRPCRunner) Close(context.Context) error {
 	r.shutWg.CloseGroup()
 	return r.conn.Close()
@@ -81,6 +85,7 @@ func runnerConnection(address, runnerCertCN string, pki *pool.PKIData) (*grpc.Cl
 	return conn, protocolClient, nil
 }
 
+// implements Runner
 func (r *gRPCRunner) Address() string {
 	return r.address
 }
@@ -100,6 +105,45 @@ func isTooBusy(err error) bool {
 	return false
 }
 
+// Translate runner.RunnerStatus to runnerpool.RunnerStatus
+func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStatus {
+	if status == nil {
+		return nil
+	}
+
+	creat, _ := common.ParseDateTime(status.CreatedAt)
+	start, _ := common.ParseDateTime(status.StartedAt)
+	compl, _ := common.ParseDateTime(status.CompletedAt)
+
+	return &pool.RunnerStatus{
+		ActiveRequestCount: status.Active,
+		StatusFailed:       status.Failed,
+		StatusId:           status.Id,
+		Details:            status.Details,
+		ErrorCode:          status.ErrorCode,
+		ErrorStr:           status.ErrorStr,
+		CreatedAt:          creat,
+		StartedAt:          start,
+		CompletedAt:        compl,
+	}
+}
+
+// implements Runner
+func (r *gRPCRunner) Status(ctx context.Context) (*pool.RunnerStatus, error) {
+	log := common.Logger(ctx).WithField("runner_addr", r.address)
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		// Create a new gRPC metadata where we store the request ID
+		mp := metadata.Pairs(common.RequestIDContextKey, rid)
+		ctx = metadata.NewOutgoingContext(ctx, mp)
+	}
+
+	status, err := r.client.Status(ctx, &pb_empty.Empty{})
+	log.WithError(err).Debugf("Status Call %+v", status)
+	return TranslateGRPCStatusToRunnerStatus(status), err
+}
+
+// implements Runner
 func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	log := common.Logger(ctx).WithField("runner_addr", r.address)
 
@@ -118,6 +162,12 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		return true, err
 	}
 
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		// Create a new gRPC metadata where we store the request ID
+		mp := metadata.Pairs(common.RequestIDContextKey, rid)
+		ctx = metadata.NewOutgoingContext(ctx, mp)
+	}
 	runnerConnection, err := r.client.Engage(ctx)
 	if err != nil {
 		log.WithError(err).Error("Unable to create client to runner node")
@@ -128,6 +178,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{
 		ModelsCallJson: string(modelJSON),
 		SlotHashId:     hex.EncodeToString([]byte(call.SlotHashId())),
+		Extensions:     call.Extensions(),
 	}}})
 	if err != nil {
 		log.WithError(err).Error("Failed to send message to runner node")
@@ -222,6 +273,29 @@ func tryQueueError(err error, done chan error) {
 	}
 }
 
+func translateDate(dt string) time.Time {
+	if dt != "" {
+		trx, err := common.ParseDateTime(dt)
+		if err == nil {
+			return time.Time(trx)
+		}
+	}
+	return time.Time{}
+}
+
+func recordFinishStats(ctx context.Context, msg *pb.CallFinished) {
+
+	creatTs := translateDate(msg.GetCreatedAt())
+	startTs := translateDate(msg.GetStartedAt())
+	complTs := translateDate(msg.GetCompletedAt())
+
+	// Validate this as info *is* coming from runner and its local clock.
+	if !creatTs.IsZero() && !startTs.IsZero() && !complTs.IsZero() && !startTs.Before(creatTs) && !complTs.Before(startTs) {
+		statsLBAgentRunnerSchedLatency(ctx, startTs.Sub(creatTs))
+		statsLBAgentRunnerExecLatency(ctx, complTs.Sub(startTs))
+	}
+}
+
 func receiveFromRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
 	w := c.ResponseWriter()
 	defer close(done)
@@ -275,6 +349,7 @@ DataLoop:
 		// Finish messages required for finish/finalize the processing.
 		case *pb.RunnerMsg_Finished:
 			log.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
+			recordFinishStats(ctx, body.Finished)
 			if !body.Finished.Success {
 				err := parseError(body.Finished)
 				tryQueueError(err, done)
@@ -305,3 +380,5 @@ DataLoop:
 		tryQueueError(ErrorPureRunnerNoEOF, done)
 	}
 }
+
+var _ pool.Runner = &gRPCRunner{}

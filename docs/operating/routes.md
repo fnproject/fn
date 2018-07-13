@@ -8,7 +8,7 @@ the required memory as well as CPU limits for each function.
 ## Route level configuration
 
 When creating a route, you can configure it to tweak its behavior, the possible
-choices are: `memory`, `cpus`, `type` and `config`.
+choices are: `memory`, `cpus`, `type`, `config` and `tmpfs_size`.
 
 `memory` is number of usable MiB for this function. If during the execution it
 exceeds this maximum threshold, it will halt and return an error in the logs. It
@@ -26,6 +26,10 @@ Default: `sync`.
 
 `config` is a map of values passed to the route runtime in the form of
 environment variables.
+
+`tmpfs_size` is number of usable MiB allocated for /tmp for non-persistent storage
+per function. It expects to be an integer. If set to `0` the size is not set and
+limits are applied based on available system memory by the kernel. Default: `0`.
 
 Note: Route level configuration overrides app level configuration.
 
@@ -74,7 +78,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 ### Updating function
 
 ```
-curl -H "Content-Type: application/json" -X POST -d '{
+curl -H "Content-Type: application/json" -X PATCH -d '{
     "route": {
         "memory": <memory mb number>,
         "cpus": "<cpus MilliCPUs or floating-point number>",
@@ -88,7 +92,7 @@ Eg. Updating `/myapp/hello` required memory as `100mb`, cpus as `0.2`, type `asy
 container configuration values.
 
 ```
-curl -H "Content-Type: application/json" -X POST -d '{
+curl -H "Content-Type: application/json" -X PATCH -d '{
     "route": {
         "memory": 100,
         "cpus": "0.2",

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
-	"github.com/fsouza/go-dockerclient"
 )
 
 type taskDockerTest struct {
@@ -23,7 +22,6 @@ func (f *taskDockerTest) Command() string { return "" }
 func (f *taskDockerTest) EnvVars() map[string]string {
 	return map[string]string{"FN_FORMAT": "default"}
 }
-func (f *taskDockerTest) Labels() map[string]string               { return nil }
 func (f *taskDockerTest) Id() string                              { return f.id }
 func (f *taskDockerTest) Group() string                           { return "" }
 func (f *taskDockerTest) Image() string                           { return "fnproject/fn-test-utils" }
@@ -38,6 +36,7 @@ func (f *taskDockerTest) TmpFsSize() uint64                       { return 0 }
 func (f *taskDockerTest) WorkDir() string                         { return "" }
 func (f *taskDockerTest) Close()                                  {}
 func (f *taskDockerTest) Input() io.Reader                        { return f.input }
+func (f *taskDockerTest) Extensions() map[string]string           { return nil }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})
@@ -47,11 +46,17 @@ func TestRunnerDocker(t *testing.T) {
 
 	task := &taskDockerTest{"test-docker", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
 
-	cookie, err := dkr.Prepare(ctx, task)
+	cookie, err := dkr.CreateCookie(ctx, task)
+	if err != nil {
+		t.Fatal("Couldn't create task cookie")
+	}
+
+	defer cookie.Close(ctx)
+
+	err = dkr.PrepareCookie(ctx, cookie)
 	if err != nil {
 		t.Fatal("Couldn't prepare task test")
 	}
-	defer cookie.Close(ctx)
 
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
@@ -81,13 +86,26 @@ func TestRunnerDockerNetworks(t *testing.T) {
 	task1 := &taskDockerTest{"test-docker1", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
 	task2 := &taskDockerTest{"test-docker2", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
 
-	cookie1, err := dkr.Prepare(ctx, task1)
+	cookie1, err := dkr.CreateCookie(ctx, task1)
+	if err != nil {
+		t.Fatal("Couldn't create task1 cookie")
+	}
+
+	defer cookie1.Close(ctx)
+
+	err = dkr.PrepareCookie(ctx, cookie1)
 	if err != nil {
 		t.Fatal("Couldn't prepare task1 test")
 	}
-	defer cookie1.Close(ctx)
 
-	cookie2, err := dkr.Prepare(ctx, task2)
+	cookie2, err := dkr.CreateCookie(ctx, task2)
+	if err != nil {
+		t.Fatal("Couldn't create task2 cookie")
+	}
+
+	defer cookie2.Close(ctx)
+
+	err = dkr.PrepareCookie(ctx, cookie2)
 	if err != nil {
 		t.Fatal("Couldn't prepare task2 test")
 	}
@@ -142,11 +160,17 @@ func TestRunnerDockerStdin(t *testing.T) {
 
 	task := &taskDockerTest{"test-docker-stdin", bytes.NewBufferString(input), &output, &errors}
 
-	cookie, err := dkr.Prepare(ctx, task)
+	cookie, err := dkr.CreateCookie(ctx, task)
+	if err != nil {
+		t.Fatal("Couldn't create task cookie")
+	}
+
+	defer cookie.Close(ctx)
+
+	err = dkr.PrepareCookie(ctx, cookie)
 	if err != nil {
 		t.Fatal("Couldn't prepare task test")
 	}
-	defer cookie.Close(ctx)
 
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
@@ -170,20 +194,21 @@ func TestRunnerDockerStdin(t *testing.T) {
 	}
 }
 
-func TestRegistry(t *testing.T) {
-	image := "fnproject/fn-test-utils"
-
-	sizer, err := CheckRegistry(context.Background(), image, docker.AuthConfiguration{})
-	if err != nil {
-		t.Fatal("expected registry check not to fail, got:", err)
-	}
-
-	size, err := sizer.Size()
-	if err != nil {
-		t.Fatal("expected sizer not to fail, got:", err)
-	}
-
-	if size <= 0 {
-		t.Fatal("expected positive size for image that exists, got size:", size)
-	}
-}
+//
+//func TestRegistry(t *testing.T) {
+//	image := "fnproject/fn-test-utils"
+//
+//	sizer, err := CheckRegistry(context.Background(), image, docker.AuthConfiguration{})
+//	if err != nil {
+//		t.Fatal("expected registry check not to fail, got:", err)
+//	}
+//
+//	size, err := sizer.Size()
+//	if err != nil {
+//		t.Fatal("expected sizer not to fail, got:", err)
+//	}
+//
+//	if size <= 0 {
+//		t.Fatal("expected positive size for image that exists, got size:", size)
+//	}
+//}

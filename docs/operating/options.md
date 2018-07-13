@@ -31,8 +31,8 @@ docker run -e VAR_NAME=VALUE ...
 | `FN_API_CORS_ORIGINS` | A comma separated list of URLs to enable [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) for (or `*` for all domains). This corresponds to the allowed origins in the `Acccess-Control-Allow-Origin` header.  | None |
 | `FN_API_CORS_HEADERS` | A comma separated list of Headers to enable [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) for. This corresponds to the allowed headers in the `Access-Control-Allow-Headers` header.  | Origin,Content-Length,Content-Type |
 | `FN_FREEZE_IDLE_MSECS` | Set this option to specify the amount of time to wait in milliseconds before pausing/freezing an idle hot container. Set to 0 to freeze idle containers without any delay. Set to negative integer to disable freeze/pause of idle hot containers. | 50 |
- `FN_EJECT_IDLE_MSECS` | Set this option to specify the amount of time in milliseconds to periodically check to terminate an idle hot container if the system is starved for CPU and Memory resources. Set to negative integer to disable this feature. | 1000 |
- `FN_MAX_RESPONSE_SIZE` | Set this option to specify the http body or json response size in bytes from the containers. | 0 (off) |
+| `FN_EJECT_IDLE_MSECS` | Set this option to specify the amount of time in milliseconds to periodically check to terminate an idle hot container if the system is starved for CPU and Memory resources. Set to negative integer to disable this feature. | 1000 |
+| `FN_MAX_RESPONSE_SIZE` | Set this option to specify the http body or json response size in bytes from the containers. | 0 (off) |
 | `DOCKER_HOST` | Docker remote API URL. | /var/run/docker.sock |
 | `DOCKER_API_VERSION` | Docker remote API version. | 1.24 |
 | `DOCKER_TLS_VERIFY` | Set this option to enable/disable Docker remote API over TLS/SSL. | 0 |
@@ -40,6 +40,7 @@ docker run -e VAR_NAME=VALUE ...
 | `FN_MAX_FS_SIZE_MB` | Set this option in MB to pass a `size` option to Docker storage driver. This limits the file system size for all containers on the system. See [Docker storage driver options per container](https://docs.docker.com/engine/reference/commandline/run/#set-storage-driver-options-per-container) documentation for details. | None |
 | `FN_DOCKER_NETWORKS` | Set this option with a list of docker networks for function containers to use. If unset, default docker network is used. | None |
 | `FN_DISABLE_READONLY_ROOTFS` | Set this option to enable writable root filesystem. By default root filesystem is mounted read-only. | None |
+| `FN_DOCKER_LOAD_FILE` | Set this option with an absolute path to a tarball to load a set of docker images during fn server startup. The tarball can be generated using [docker save](https://docs.docker.com/engine/reference/commandline/save/).  | None |
 
 ## Starting without Docker in Docker
 

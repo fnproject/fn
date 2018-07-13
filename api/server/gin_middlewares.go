@@ -61,8 +61,8 @@ func traceWrap(c *gin.Context) {
 		logrus.Fatal(err)
 	}
 	ctx, err := tag.New(c.Request.Context(),
-		tag.Insert(appKey, c.Param(api.CApp)),
-		tag.Insert(pathKey, c.Param(api.CRoute)),
+		tag.Insert(appKey, c.Param(api.ParamAppName)),
+		tag.Insert(pathKey, c.Param(api.ParamRouteName)),
 	)
 	if err != nil {
 		logrus.Fatal(err)
@@ -79,7 +79,6 @@ func traceWrap(c *gin.Context) {
 }
 
 func apiMetricsWrap(s *Server) {
-
 	measure := func(engine *gin.Engine) func(*gin.Context) {
 		var routes gin.RoutesInfo
 		return func(c *gin.Context) {
@@ -133,7 +132,7 @@ func panicWrap(c *gin.Context) {
 			if !ok {
 				err = fmt.Errorf("fn: %v", rec)
 			}
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 			c.Abort()
 		}
 	}(c)
@@ -143,29 +142,59 @@ func panicWrap(c *gin.Context) {
 func loggerWrap(c *gin.Context) {
 	ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-	if appName := c.Param(api.CApp); appName != "" {
-		c.Set(api.App, appName)
-		ctx = context.WithValue(ctx, api.App, appName)
+	if appName := c.Param(api.ParamAppName); appName != "" {
+		c.Set(api.AppName, appName)
+		ctx = ContextWithApp(ctx, appName)
 	}
 
-	if routePath := c.Param(api.CRoute); routePath != "" {
+	if routePath := c.Param(api.ParamRouteName); routePath != "" {
 		c.Set(api.Path, routePath)
-		ctx = context.WithValue(ctx, api.Path, routePath)
+		ctx = ContextWithPath(ctx, routePath)
 	}
 
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
 }
 
-func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {
+type ctxPathKey string
+
+// ContextWithPath sets the routePath value on a context, it may be retrieved
+// using PathFromContext.
+// TODO this is also used as a gin.Key -- stop one of these two things.
+func ContextWithPath(ctx context.Context, routePath string) context.Context {
+	return context.WithValue(ctx, ctxPathKey(api.Path), routePath)
+}
+
+// PathFromContext returns the path from a context, if set.
+func PathFromContext(ctx context.Context) string {
+	r, _ := ctx.Value(ctxPathKey(api.Path)).(string)
+	return r
+}
+
+type ctxAppKey string
+
+// ContextWithApp sets the app name value on a context, it may be retrieved
+// using AppFromContext.
+// TODO this is also used as a gin.Key -- stop one of these two things.
+func ContextWithApp(ctx context.Context, app string) context.Context {
+	return context.WithValue(ctx, ctxAppKey(api.AppName), app)
+}
+
+// AppFromContext returns the app from a context, if set.
+func AppFromContext(ctx context.Context) string {
+	r, _ := ctx.Value(ctxAppKey(api.AppName)).(string)
+	return r
+}
+
+func (s *Server) checkAppPresenceByNameAtLB() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-		appName := c.Param(api.CApp)
+		appName := c.Param(api.ParamAppName)
 		if appName != "" {
-			appID, err := s.agent.GetAppID(ctx, appName)
+			appID, err := s.lbReadAccess.GetAppID(ctx, appName)
 			if err != nil {
-				handleErrorResponse(c, err)
+				handleV1ErrorResponse(c, err)
 				c.Abort()
 				return
 			}
@@ -181,11 +210,11 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-		appName := c.MustGet(api.App).(string)
+		appName := c.MustGet(api.AppName).(string)
 		if appName != "" {
 			appID, err := s.datastore.GetAppID(ctx, appName)
 			if err != nil {
-				handleErrorResponse(c, err)
+				handleV1ErrorResponse(c, err)
 				c.Abort()
 				return
 			}
@@ -199,17 +228,28 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 
 func setAppNameInCtx(c *gin.Context) {
 	// add appName to context
-	appName := c.GetString(api.App)
+	appName := c.GetString(api.AppName)
 	if appName != "" {
 		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), fnext.AppNameKey, appName))
 	}
 	c.Next()
 }
 
+func setAppIDInCtx(c *gin.Context) {
+	// add appName to context
+	appID := c.Param(api.ParamAppID)
+
+	if appID != "" {
+		c.Set(api.AppID, appID)
+		c.Request = c.Request.WithContext(c)
+	}
+	c.Next()
+}
+
 func appNameCheck(c *gin.Context) {
-	appName := c.GetString(api.App)
+	appName := c.GetString(api.AppName)
 	if appName == "" {
-		handleErrorResponse(c, models.ErrAppsMissingName)
+		handleV1ErrorResponse(c, models.ErrAppsMissingName)
 		c.Abort()
 		return
 	}

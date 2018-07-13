@@ -21,7 +21,7 @@ func (v *validator) InsertLog(ctx context.Context, appID, callID string, callLog
 		return models.ErrDatastoreEmptyCallID
 	}
 	if appID == "" {
-		return models.ErrDatastoreEmptyAppID
+		return models.ErrMissingAppID
 	}
 	return v.LogStore.InsertLog(ctx, appID, callID, callLog)
 }
@@ -32,7 +32,7 @@ func (v *validator) GetLog(ctx context.Context, appID, callID string) (io.Reader
 		return nil, models.ErrDatastoreEmptyCallID
 	}
 	if appID == "" {
-		return nil, models.ErrDatastoreEmptyAppID
+		return nil, models.ErrMissingAppID
 	}
 	return v.LogStore.GetLog(ctx, appID, callID)
 }
@@ -43,7 +43,7 @@ func (v *validator) InsertCall(ctx context.Context, call *models.Call) error {
 		return models.ErrDatastoreEmptyCallID
 	}
 	if call.AppID == "" {
-		return models.ErrDatastoreEmptyAppID
+		return models.ErrMissingAppID
 	}
 	return v.LogStore.InsertCall(ctx, call)
 }
@@ -54,7 +54,7 @@ func (v *validator) GetCall(ctx context.Context, appID, callID string) (*models.
 		return nil, models.ErrDatastoreEmptyCallID
 	}
 	if appID == "" {
-		return nil, models.ErrDatastoreEmptyAppID
+		return nil, models.ErrMissingAppID
 	}
 	return v.LogStore.GetCall(ctx, appID, callID)
 }

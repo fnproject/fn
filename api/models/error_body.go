@@ -1,11 +1,11 @@
 package models
 
-type ErrorBody struct {
+type Error struct {
 	Message string `json:"message,omitempty"`
 	Fields  string `json:"fields,omitempty"`
 }
 
 // Validate validates this error body
-func (m *ErrorBody) Validate() error {
+func (m *Error) Validate() error {
 	return nil
 }

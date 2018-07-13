@@ -15,12 +15,12 @@ func (s *Server) handleRouteDelete(c *gin.Context) {
 	routePath := path.Clean(c.MustGet(api.Path).(string))
 
 	if _, err := s.datastore.GetRoute(ctx, appID, routePath); err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
 	if err := s.datastore.RemoveRoute(ctx, appID, routePath); err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 

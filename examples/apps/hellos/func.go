@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-type Link struct {
+type link struct {
 	Text string
 	Href string
 }
@@ -42,14 +42,14 @@ func main() {
 	data := struct {
 		Title string
 		Body  string
-		Items []Link
+		Items []link
 	}{
 		Title: "My App",
 		Body:  "This is my app. It may not be the best app, but it's my app. And it's multilingual!",
-		Items: []Link{
-			Link{"Ruby", fmt.Sprintf("/r/%s/ruby", appName)},
-			Link{"Node", fmt.Sprintf("/r/%s/node", appName)},
-			Link{"Python", fmt.Sprintf("/r/%s/python", appName)},
+		Items: []link{
+			link{"Ruby", fmt.Sprintf("/r/%s/ruby", appName)},
+			link{"Node", fmt.Sprintf("/r/%s/node", appName)},
+			link{"Python", fmt.Sprintf("/r/%s/python", appName)},
 		},
 	}
 

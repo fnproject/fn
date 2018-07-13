@@ -8,7 +8,9 @@ import (
 
 // TODO we can put constants all in this file too
 const (
-	maxAppName = 30
+	maxAppName     = 30
+	maxFnName      = 30
+	MaxTriggerName = 30
 )
 
 var (
@@ -24,61 +26,48 @@ var (
 		code:  http.StatusServiceUnavailable,
 		error: errors.New("Timed out - server too busy"),
 	}
-	ErrAppsMissingName = err{
+
+	ErrMissingID = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Missing app name"),
-	}
-	ErrAppsTooLongName = err{
+		error: errors.New("Missing ID")}
+
+	ErrMissingAppID = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("App name must be %v characters or less", maxAppName),
-	}
-	ErrAppsInvalidName = err{
+		error: errors.New("Missing App ID")}
+	ErrMissingName = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Invalid app name"),
-	}
-	ErrAppsAlreadyExists = err{
-		code:  http.StatusConflict,
-		error: errors.New("App already exists"),
-	}
-	ErrAppsMissingNew = err{
+		error: errors.New("Missing Name")}
+
+	ErrCreatedAtProvided = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Missing new application"),
-	}
-	ErrAppsNameImmutable = err{
-		code:  http.StatusConflict,
-		error: errors.New("Could not update - name is immutable"),
-	}
-	ErrAppsNotFound = err{
-		code:  http.StatusNotFound,
-		error: errors.New("App not found"),
-	}
-	ErrDeleteAppsWithRoutes = err{
-		code:  http.StatusConflict,
-		error: errors.New("Cannot remove apps with routes"),
-	}
+		error: errors.New("Trigger Created At Provided for Create")}
+	ErrUpdatedAtProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger ID Provided for Create")}
+
 	ErrDatastoreEmptyApp = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app"),
-	}
-	ErrDatastoreEmptyAppID = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing app ID"),
-	}
-	ErrDatastoreEmptyRoute = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route"),
-	}
-	ErrDatastoreEmptyKey = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing key"),
 	}
 	ErrDatastoreEmptyCallID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
 	}
+	ErrDatastoreEmptyFn = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn"),
+	}
+	ErrDatastoreEmptyFnID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn ID"),
+	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid payload"),
+	}
+	ErrDatastoreEmptyRoute = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing route"),
 	}
 	ErrRoutesAlreadyExists = err{
 		code:  http.StatusConflict,
@@ -120,6 +109,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Image"),
 	}
+	ErrRoutesInvalidImage = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid route Image"),
+	}
 	ErrRoutesMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Name"),
@@ -127,10 +120,6 @@ var (
 	ErrRoutesMissingPath = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Path"),
-	}
-	ErrRoutesMissingType = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route Type"),
 	}
 	ErrPathMalformed = err{
 		code:  http.StatusBadRequest,
@@ -156,9 +145,18 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
+	ErrInvalidMemory = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
+	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call not found"),
+	}
+	ErrInvalidCPUs = err{
+		code: http.StatusBadRequest,
+		error: fmt.Errorf("Cpus is invalid. Value should be either between [%.3f and %.3f] or [%dm and %dm] milliCPU units",
+			float64(MinMilliCPUs)/1000.0, float64(MaxMilliCPUs)/1000.0, MinMilliCPUs, MaxMilliCPUs),
 	}
 	ErrCallLogNotFound = err{
 		code:  http.StatusNotFound,
@@ -175,11 +173,6 @@ var (
 	ErrPathNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Path not found"),
-	}
-	ErrInvalidCPUs = err{
-		code: http.StatusBadRequest,
-		error: fmt.Errorf("Cpus is invalid. Value should be either between [%.3f and %.3f] or [%dm and %dm] milliCPU units",
-			float64(MinMilliCPUs)/1000.0, float64(MaxMilliCPUs)/1000.0, MinMilliCPUs, MaxMilliCPUs),
 	}
 	ErrFunctionResponseTooBig = err{
 		code:  http.StatusBadGateway,
@@ -208,6 +201,11 @@ var (
 	ErrTooManyAnnotationKeys = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("Invalid annotation change, new key(s) exceed maximum permitted number of annotations keys (%d)", maxAnnotationsKeys),
+	}
+
+	ErrAsyncUnsupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Async functions are not supported on this server"),
 	}
 )
 
@@ -240,11 +238,11 @@ func GetAPIErrorCode(e error) int {
 	return 0
 }
 
-// Error uniform error output
-type Error struct {
-	Error *ErrorBody `json:"error,omitempty"`
+// ErrorWrapper uniform error output (v1)  only
+type ErrorWrapper struct {
+	Error *Error `json:"error,omitempty"`
 }
 
-func (m *Error) Validate() error {
+func (m *ErrorWrapper) Validate() error {
 	return nil
 }

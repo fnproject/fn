@@ -17,12 +17,14 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr agent.Agen
 	ctx := context.Background()
 	engine := gin.New()
 	s := &Server{
-		agent:       rnr,
-		Router:      engine,
-		AdminRouter: engine,
-		datastore:   ds,
-		mq:          mq,
-		nodeType:    ServerTypeFull,
+		agent:        rnr,
+		Router:       engine,
+		AdminRouter:  engine,
+		datastore:    ds,
+		lbReadAccess: ds,
+		lbEnqueue:    agent.NewDirectEnqueueAccess(mq),
+		mq:           mq,
+		nodeType:     ServerTypeFull,
 	}
 
 	r := s.Router
@@ -36,8 +38,7 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr agent.Agen
 func TestRouteRunnerAsyncExecution(t *testing.T) {
 	buf := setLogBuffer()
 
-	app := &models.App{Name: "myapp", Config: map[string]string{"app": "true"}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: map[string]string{"app": "true"}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{

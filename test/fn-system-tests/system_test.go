@@ -6,14 +6,23 @@ import (
 	"fmt"
 
 	"github.com/fnproject/fn/api/agent"
+	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/hybrid"
+	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/server"
+	_ "github.com/fnproject/fn/api/server/defaultexts"
 
+	// We need docker client here, since we have a custom driver that wraps generic
+	// docker driver.
+	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 
+	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -21,8 +30,17 @@ import (
 	"time"
 )
 
-type SystemTestNodePool struct {
-	runners []pool.Runner
+const (
+	LBAddress   = "http://127.0.0.1:8081"
+	StatusImage = "fnproject/fn-status-checker:latest"
+)
+
+func LB() (string, error) {
+	u, err := url.Parse(LBAddress)
+	if err != nil {
+		return "", err
+	}
+	return u.Host, nil
 }
 
 func NewSystemTestNodePool() (pool.RunnerPool, error) {
@@ -40,7 +58,7 @@ type state struct {
 	cancel func()
 }
 
-func SetUpSystem() (*state, error) {
+func setUpSystem() (*state, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	state := &state{
 		cancel: cancel,
@@ -88,7 +106,33 @@ func SetUpSystem() (*state, error) {
 	return state, nil
 }
 
+func downloadMetrics() {
+
+	fileName, ok := os.LookupEnv("SYSTEM_TEST_PROMETHEUS_FILE")
+	if !ok || fileName == "" {
+		return
+	}
+
+	resp, err := http.Get(LBAddress + "/metrics")
+	if err != nil {
+		logrus.WithError(err).Fatal("Fetching metrics, got unexpected error")
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logrus.WithError(err).Fatal("Reading metrics body, got unexpected error")
+	}
+
+	err = ioutil.WriteFile(fileName, body, 0644)
+	if err != nil {
+		logrus.WithError(err).Fatalf("Writing metrics body to %v, got unexpected error", fileName)
+	}
+}
+
 func CleanUpSystem(st *state) error {
+
+	downloadMetrics()
+
 	_, err := http.Get("http://127.0.0.1:8081/shutdown")
 	if err != nil {
 		return err
@@ -132,7 +176,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 	defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	nodeType := server.ServerTypeAPI
-	opts := make([]server.ServerOption, 0)
+	opts := make([]server.Option, 0)
 	opts = append(opts, server.WithWebPort(8085))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
@@ -141,13 +185,14 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithMQURL(getEnv(server.EnvMQURL, defaultMQ)))
 	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.WithLogstoreFromDatastore())
+	opts = append(opts, server.WithTriggerAnnotator(server.NewStaticURLTriggerAnnotator("http://localhost:8081")))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
 	return server.New(ctx, opts...), nil
 }
 
 func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	nodeType := server.ServerTypeLB
-	opts := make([]server.ServerOption, 0)
+	opts := make([]server.Option, 0)
 	opts = append(opts, server.WithWebPort(8081))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
@@ -156,6 +201,12 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithMQURL(""))
 	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
+	ridProvider := &server.RIDProvider{
+		HeaderName:   "fn_request_id",
+		RIDGenerator: common.FnRequestID,
+	}
+	opts = append(opts, server.WithRIDProvider(ridProvider))
+	opts = append(opts, server.WithPrometheus())
 
 	apiURL := "http://127.0.0.1:8085"
 	cl, err := hybrid.NewClient(apiURL)
@@ -167,18 +218,25 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 		return nil, err
 	}
 	placer := pool.NewNaivePlacer()
-	agent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer)
+
+	keys := []string{"fn_appname", "fn_path"}
+	pool.RegisterPlacerViews(keys)
+	agent.RegisterLBAgentViews(keys)
+
+	// Create an LB Agent with a Call Overrider to intercept calls in GetCall(). Overrider in this example
+	// scrubs CPU/TmpFsSize and adds FN_CHEESE key/value into extensions.
+	lbAgent, err := agent.NewLBAgent(cl, nodePool, placer, agent.WithLBCallOverrider(LBCallOverrider))
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, server.WithAgent(agent))
 
+	opts = append(opts, server.WithAgent(lbAgent), server.WithReadDataAccess(agent.NewCachedDataAccess(cl)))
 	return server.New(ctx, opts...), nil
 }
 
 func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, error) {
 	nodeType := server.ServerTypePureRunner
-	opts := make([]server.ServerOption, 0)
+	opts := make([]server.Option, 0)
 	opts = append(opts, server.WithWebPort(8082+nodeNum))
 	opts = append(opts, server.WithGRPCPort(9190+nodeNum))
 	opts = append(opts, server.WithType(nodeType))
@@ -194,14 +252,40 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 		return nil, err
 	}
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
-	cancelCtx, cancel := context.WithCancel(ctx)
 
-	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, ds, "", "", "", nil)
+	// This is our Agent config, which we will use for both inner agent and docker.
+	cfg, err := agent.NewAgentConfig()
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, server.WithAgent(prAgent), server.WithExtraCtx(cancelCtx))
 
+	// customer driver that overrides generic docker driver
+	d, err := agent.NewDockerDriver(cfg)
+	if err != nil {
+		return nil, err
+	}
+	drv := &customDriver{
+		drv: d,
+	}
+
+	// inner agent for pure-runners
+	innerAgent := agent.New(ds,
+		agent.WithConfig(cfg),
+		agent.WithDockerDriver(drv),
+		agent.WithCallOverrider(PureRunnerCallOverrider))
+
+	cancelCtx, cancel := context.WithCancel(ctx)
+
+	// now create pure-runner that wraps agent.
+	pureRunner, err := agent.NewPureRunner(cancel, grpcAddr,
+		agent.PureRunnerWithAgent(innerAgent),
+		agent.PureRunnerWithStatusImage(StatusImage),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	opts = append(opts, server.WithAgent(pureRunner), server.WithExtraCtx(cancelCtx))
 	return server.New(ctx, opts...), nil
 }
 
@@ -240,7 +324,7 @@ func getEnvInt(key string, fallback int) int {
 func whoAmI() net.IP {
 	ints, _ := net.Interfaces()
 	for _, i := range ints {
-		if i.Name == "docker0" || i.Name == "lo" {
+		if i.Name == "docker0" || i.Name == "vboxnet0" || i.Name == "lo" {
 			// not perfect
 			continue
 		}
@@ -258,7 +342,7 @@ func whoAmI() net.IP {
 }
 
 func TestMain(m *testing.M) {
-	state, err := SetUpSystem()
+	state, err := setUpSystem()
 	if err != nil {
 		logrus.WithError(err).Fatal("Could not initialize system")
 		os.Exit(1)
@@ -274,3 +358,83 @@ func TestMain(m *testing.M) {
 	}
 	os.Exit(result)
 }
+
+// Memory Only LB Agent Call Option
+func LBCallOverrider(c *models.Call, exts map[string]string) (map[string]string, error) {
+
+	// Set TmpFsSize and CPU to unlimited. This means LB operates on Memory
+	// only. Operators/Service providers are expected to override this
+	// and apply their own filter to set/override CPU/TmpFsSize/Memory
+	// and Extension variables.
+	c.TmpFsSize = 0
+	c.CPUs = models.MilliCPUs(0)
+	delete(c.Config, "FN_CPUS")
+
+	if exts == nil {
+		exts = make(map[string]string)
+	}
+
+	// Add an FN_CHEESE extension to be intercepted and specially handled by Pure Runner customDriver below
+	exts["FN_CHEESE"] = "Tete de Moine"
+	return exts, nil
+}
+
+// Pure Runner Agent Call Option
+func PureRunnerCallOverrider(c *models.Call, exts map[string]string) (map[string]string, error) {
+
+	if exts == nil {
+		exts = make(map[string]string)
+	}
+
+	// Add an FN_WINE extension, just an example...
+	exts["FN_WINE"] = "1982 Margaux"
+	return exts, nil
+}
+
+// An example Pure Runner docker driver. Using CreateCookie, it intercepts a generated cookie to
+// add an environment variable FN_CHEESE if it finds a FN_CHEESE extension.
+type customDriver struct {
+	drv drivers.Driver
+}
+
+// implements Driver
+func (d *customDriver) CreateCookie(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
+	cookie, err := d.drv.CreateCookie(ctx, task)
+	if err != nil {
+		return cookie, err
+	}
+
+	// docker driver specific data
+	obj := cookie.ContainerOptions()
+	opts, ok := obj.(docker.CreateContainerOptions)
+	if !ok {
+		logrus.Fatal("Unexpected driver, should be docker")
+	}
+
+	// if call extensions include 'foo', then let's add FN_CHEESE env vars, which should
+	// end up in Env/Config.
+	ext := task.Extensions()
+	cheese, ok := ext["FN_CHEESE"]
+	if ok {
+		opts.Config.Env = append(opts.Config.Env, "FN_CHEESE="+cheese)
+	}
+
+	wine, ok := ext["FN_WINE"]
+	if ok {
+		opts.Config.Env = append(opts.Config.Env, "FN_WINE="+wine)
+	}
+
+	return cookie, nil
+}
+
+// implements Driver
+func (d *customDriver) PrepareCookie(ctx context.Context, cookie drivers.Cookie) error {
+	return d.drv.PrepareCookie(ctx, cookie)
+}
+
+// implements Driver
+func (d *customDriver) Close() error {
+	return d.drv.Close()
+}
+
+var _ drivers.Driver = &customDriver{}

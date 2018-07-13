@@ -10,13 +10,13 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/fnproject/fn/api/agent"
+	_ "github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/datastore/sql"
-	"github.com/fnproject/fn/api/id"
+	_ "github.com/fnproject/fn/api/datastore/sql/sqlite"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
@@ -25,7 +25,7 @@ import (
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
-func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType ServerNodeType) *Server {
+func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType NodeType) *Server {
 	return New(context.Background(),
 		WithLogLevel(getEnv(EnvLogLevel, DefaultLogLevel)),
 		WithDatastore(ds),
@@ -33,6 +33,7 @@ func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogSto
 		WithLogstore(logDB),
 		WithAgent(rnr),
 		WithType(nodeType),
+		WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()),
 	)
 }
 
@@ -83,6 +84,15 @@ func newRouterRequest(t *testing.T, method, path string, body io.Reader) (*http.
 	rec := httptest.NewRecorder()
 	rec.Body = new(bytes.Buffer)
 	return req, rec
+}
+
+func getV1ErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) *models.ErrorWrapper {
+	var err models.ErrorWrapper
+	decodeErr := json.NewDecoder(rec.Body).Decode(&err)
+	if decodeErr != nil {
+		t.Error("Test: Expected not empty response body")
+	}
+	return &err
 }
 
 func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) *models.Error {
@@ -149,14 +159,17 @@ func TestFullStack(t *testing.T) {
 		{"get deleted app", "GET", "/v1/apps/myapp", ``, http.StatusNotFound, 0},
 		{"get deleteds route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusNotFound, 0},
 	} {
-		_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
+		t.Run(test.name, func(t *testing.T) {
+			_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
 
-		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
-			t.Log(rec.Body.String())
-			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
-				test.name, test.expectedCode, rec.Code)
-		}
+			if rec.Code != test.expectedCode {
+				t.Log(buf.String())
+				t.Log(rec.Body.String())
+				t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
+					test.name, test.expectedCode, rec.Code)
+			}
+		})
+
 	}
 }
 
@@ -206,13 +219,16 @@ func TestRunnerNode(t *testing.T) {
 		{"get all routes not found", "GET", "/v1/apps/myapp/routes", ``, http.StatusBadRequest, 0},
 		{"delete app not found", "DELETE", "/v1/apps/myapp", ``, http.StatusBadRequest, 0},
 	} {
-		_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
+		t.Run(test.name, func(t *testing.T) {
+			_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
 
-		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
-			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
-				test.name, test.expectedCode, rec.Code)
-		}
+			if rec.Code != test.expectedCode {
+				t.Log(buf.String())
+				t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
+					test.name, test.expectedCode, rec.Code)
+			}
+		})
+
 	}
 }
 
@@ -257,62 +273,6 @@ func TestApiNode(t *testing.T) {
 		{"get deleted route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusNotFound, 0},
 	} {
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
-		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
-			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
-				test.name, test.expectedCode, rec.Code)
-		}
-	}
-}
-
-func TestHybridEndpoints(t *testing.T) {
-	buf := setLogBuffer()
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
-	ds := datastore.NewMockInit(
-		[]*models.App{app},
-		[]*models.Route{{
-			AppID: app.ID,
-			Path:  "yodawg",
-		}},
-	)
-
-	logDB := logs.NewMock()
-
-	srv := testServer(ds, &mqs.Mock{}, logDB, nil /* TODO */, ServerTypeAPI)
-
-	newCallBody := func() string {
-		call := &models.Call{
-			AppID: app.ID,
-			ID:    id.New().String(),
-			Path:  "yodawg",
-			// TODO ?
-		}
-		var b bytes.Buffer
-		json.NewEncoder(&b).Encode(&call)
-		return b.String()
-	}
-
-	for _, test := range []struct {
-		name         string
-		method       string
-		path         string
-		body         string
-		expectedCode int
-	}{
-		// TODO change all these tests to just do an async task in normal order once plumbing is done
-
-		{"post async call", "PUT", "/v1/runner/async", newCallBody(), http.StatusOK},
-
-		// TODO this one only works if it's not the same as the first since update isn't hooked up
-		{"finish call", "POST", "/v1/runner/finish", newCallBody(), http.StatusOK},
-
-		// TODO these won't work until update works and the agent gets shut off
-		//{"get async call", "GET", "/v1/runner/async", "", http.StatusOK},
-		//{"start call", "POST", "/v1/runner/start", "TODO", http.StatusOK},
-	} {
-		_, rec := routerRequest(t, srv.Router, test.method, test.path, strings.NewReader(test.body))
-
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
 			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",

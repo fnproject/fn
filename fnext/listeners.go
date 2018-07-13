@@ -6,7 +6,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
-// AppListener is an interface used to inject custom code at key points in app lifecycle.
+// AppListener is an interface used to inject custom code at key points in the app lifecycle.
 type AppListener interface {
 	// BeforeAppCreate called right before creating App in the database
 	BeforeAppCreate(ctx context.Context, app *models.App) error
@@ -41,6 +41,7 @@ type AppListener interface {
 	// }
 }
 
+// RouteListener is an interface used to inject custom code at key points in the route lifecycle.
 type RouteListener interface {
 	// BeforeRouteCreate called before route created in the datastore
 	BeforeRouteCreate(ctx context.Context, route *models.Route) error
@@ -51,12 +52,44 @@ type RouteListener interface {
 	// AfterRouteUpdate called after route updated in datastore
 	AfterRouteUpdate(ctx context.Context, route *models.Route) error
 	// BeforeRouteDelete called before route deleted from the datastore
-	BeforeRouteDelete(ctx context.Context, appName string, routePath string) error
+	BeforeRouteDelete(ctx context.Context, appId string, routePath string) error
 	// AfterRouteDelete called after route deleted from the datastore
-	AfterRouteDelete(ctx context.Context, appName string, routePath string) error
+	AfterRouteDelete(ctx context.Context, appId string, routePath string) error
 }
 
-// CallListener enables callbacks around Call events
+// FnListener enables callbacks around Fn events
+type FnListener interface {
+	// BeforeFnCreate called before fn created in the datastore
+	BeforeFnCreate(ctx context.Context, fn *models.Fn) error
+	// AfterFnCreate called after fn create in the datastore
+	AfterFnCreate(ctx context.Context, fn *models.Fn) error
+	// BeforeFnUpdate called before fn update in datastore
+	BeforeFnUpdate(ctx context.Context, fn *models.Fn) error
+	// AfterFnUpdate called after fn updated in datastore
+	AfterFnUpdate(ctx context.Context, fn *models.Fn) error
+	// BeforeFnDelete called before fn deleted from the datastore
+	BeforeFnDelete(ctx context.Context, fnID string) error
+	// AfterFnDelete called after fn deleted from the datastore
+	AfterFnDelete(ctx context.Context, fnID string) error
+}
+
+//// TriggerListener enables callbacks around Trigger events
+type TriggerListener interface {
+	// BeforeTriggerCreate called before trigger created in the datastore
+	BeforeTriggerCreate(ctx context.Context, trigger *models.Trigger) error
+	// AfterTriggerCreate called after trigger create in the datastore
+	AfterTriggerCreate(ctx context.Context, trigger *models.Trigger) error
+	// BeforeTriggerUpdate called before trigger update in datastore
+	BeforeTriggerUpdate(ctx context.Context, trigger *models.Trigger) error
+	// AfterTriggerUpdate called after trigger updated in datastore
+	AfterTriggerUpdate(ctx context.Context, trigger *models.Trigger) error
+	// BeforeTriggerDelete called before trigger deleted from the datastore
+	BeforeTriggerDelete(ctx context.Context, triggerId string) error
+	// AfterTriggerDelete called after trigger deleted from the datastore
+	AfterTriggerDelete(ctx context.Context, triggerId string) error
+}
+
+// CallListener enables callbacks around Call events.
 type CallListener interface {
 	// BeforeCall called before a function is executed
 	BeforeCall(ctx context.Context, call *models.Call) error

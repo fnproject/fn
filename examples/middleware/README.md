@@ -13,7 +13,7 @@ Then test with:
 
 ```sh
 # First, create an app
-fn apps create myapp
+fn create app myapp
 # And test
 curl http://localhost:8080/v1/apps
 ```

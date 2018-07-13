@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
-	"github.com/go-openapi/strfmt"
 )
 
 func TestCallGet(t *testing.T) {
@@ -24,8 +24,7 @@ func TestCallGet(t *testing.T) {
 		}
 	}()
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{Name: "myapp", ID: "app_id"}
 	call := &models.Call{
 		AppID: app.ID,
 		ID:    id.New().String(),
@@ -39,7 +38,7 @@ func TestCallGet(t *testing.T) {
 		Timeout:     30,
 		IdleTimeout: 30,
 		Memory:      256,
-		CreatedAt:   strfmt.DateTime(time.Now()),
+		CreatedAt:   common.DateTime(time.Now()),
 		URL:         "http://localhost:8080/r/myapp/thisisatest",
 		Method:      "GET",
 	}
@@ -73,7 +72,7 @@ func TestCallGet(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(resp.Error.Message)
@@ -94,8 +93,7 @@ func TestCallList(t *testing.T) {
 		}
 	}()
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{Name: "myapp", ID: "app_id"}
 
 	call := &models.Call{
 		AppID: app.ID,
@@ -110,16 +108,16 @@ func TestCallList(t *testing.T) {
 		Timeout:     30,
 		IdleTimeout: 30,
 		Memory:      256,
-		CreatedAt:   strfmt.DateTime(time.Now()),
+		CreatedAt:   common.DateTime(time.Now()),
 		URL:         "http://localhost:8080/r/myapp/thisisatest",
 		Method:      "GET",
 	}
 	c2 := *call
 	c3 := *call
-	c2.CreatedAt = strfmt.DateTime(time.Now().Add(100 * time.Second))
+	c2.CreatedAt = common.DateTime(time.Now().Add(100 * time.Second))
 	c2.ID = id.New().String()
 	c2.Path = "test2"
-	c3.CreatedAt = strfmt.DateTime(time.Now().Add(200 * time.Second))
+	c3.CreatedAt = common.DateTime(time.Now().Add(200 * time.Second))
 	c3.ID = id.New().String()
 	c3.Path = "/test3"
 
@@ -168,7 +166,7 @@ func TestCallList(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if resp.Error == nil || !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s`, got: `%s`",

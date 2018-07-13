@@ -19,23 +19,18 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-ignored = ["github.com/fnproject/fn/cli"]
+# filter out unused transitive deps
+ignored = ["github.com/fnproject/fn/cli",
+           "github.com/Microsoft/go-winio*",
+           "github.com/Azure/go-ansiterm*"]
 
 [[constraint]]
   name = "github.com/boltdb/bolt"
   revision = "fa5367d20c994db73282594be0146ab221657943"
 
 [[constraint]]
-  name = "github.com/fnproject/fn_go"
-  version = "0.2.6"
-
-[[constraint]]
   name = "github.com/gin-gonic/gin"
   version = "v1.2"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/go-openapi/strfmt"
 
 [[constraint]]
   branch = "master"
@@ -49,9 +44,6 @@ ignored = ["github.com/fnproject/fn/cli"]
   name = "github.com/sirupsen/logrus"
   revision = "89742aefa4b206dcf400792f3bd35b542998eb3b"
 
-[[constraint]]
-  name = "github.com/docker/distribution"
-  revision = "bc3c7b0525e59d3ecfab3e1568350895fd4a462f"
 
 [[constraint]]
   # NOTE: locked for a reason - https://github.com/go-sql-driver/mysql/issues/657
@@ -81,3 +73,7 @@ ignored = ["github.com/fnproject/fn/cli"]
 [[constraint]]
   name = "github.com/dchest/siphash"
   version = "1.1.0"
+
+[[override]]
+  name = "github.com/docker/docker"
+  revision = "29fc64b590badcb1c3f5beff7563ffd31eb58974"

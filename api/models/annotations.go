@@ -32,6 +32,10 @@ func (m Annotations) Equals(other Annotations) bool {
 	if len(m) != len(other) {
 		return false
 	}
+	return m.Subset(other)
+}
+
+func (m Annotations) Subset(other Annotations) bool {
 	for k1, v1 := range m {
 		v2, _ := other[k1]
 		if v2 == nil {
@@ -154,6 +158,18 @@ func (m Annotations) Get(key string) ([]byte, bool) {
 		return *v, ok
 	}
 	return nil, false
+}
+
+// GetString returns a string value if the annotation value is a string, otherwise an error
+func (m Annotations) GetString(key string) (string, error) {
+	if v, ok := m[key]; ok {
+		var s string
+		if err := json.Unmarshal([]byte(*v), &s); err != nil {
+			return "", err
+		}
+		return s, nil
+	}
+	return "", errors.New("Annotation not found")
 }
 
 // Without returns a new annotations object with a value excluded

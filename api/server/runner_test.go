@@ -2,66 +2,23 @@ package server
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 )
 
-func envTweaker(name, value string) func() {
-	bck, ok := os.LookupEnv(name)
-
-	err := os.Setenv(name, value)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	return func() {
-		var err error
-		if !ok {
-			err = os.Unsetenv(name)
-		} else {
-			err = os.Setenv(name, bck)
-		}
-		if err != nil {
-			panic(err.Error())
-		}
-	}
-}
-
-func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
-	ds := datastore.NewMock()
-	ls := logs.NewMock()
-	var mq models.MessageQueue = &mqs.Mock{}
-	for _, a := range args {
-		switch arg := a.(type) {
-		case models.Datastore:
-			ds = arg
-		case models.MessageQueue:
-			mq = arg
-		case models.LogStore:
-			ls = arg
-		}
-	}
-	r := agent.New(agent.NewDirectDataAccess(ds, ls, mq))
-	return r, func() { r.Close() }
-}
+// TODO Deprecate with Routes
 
 func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 	)
@@ -90,7 +47,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
@@ -104,8 +61,7 @@ func TestRouteRunnerGet(t *testing.T) {
 func TestRouteRunnerPost(t *testing.T) {
 	buf := setLogBuffer()
 
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 	)
@@ -136,7 +92,7 @@ func TestRouteRunnerPost(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 			respMsg := resp.Error.Message
 			expMsg := test.expectedError.Error()
 			if respMsg != expMsg && !strings.Contains(respMsg, expMsg) {
@@ -162,8 +118,7 @@ func TestRouteRunnerExecEmptyBody(t *testing.T) {
 	rHdr := map[string][]string{"X-Function": {"Test"}}
 	rImg := "fnproject/fn-test-utils"
 
-	app := &models.App{Name: "soup"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "soup"}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -223,6 +178,7 @@ func TestRouteRunnerExecEmptyBody(t *testing.T) {
 		}
 	}
 }
+
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
@@ -243,8 +199,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rImgBs1 := "fnproject/imagethatdoesnotexist"
 	rImgBs2 := "localhost:5050/fnproject/imagethatdoesnotexist"
 
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp"}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -385,109 +340,6 @@ func TestRouteRunnerExecution(t *testing.T) {
 	}
 }
 
-func getDockerId(respBytes []byte) (string, error) {
-
-	var respJs map[string]interface{}
-	var data map[string]interface{}
-
-	err := json.Unmarshal(respBytes, &respJs)
-	if err != nil {
-		return "", err
-	}
-
-	data, ok := respJs["data"].(map[string]interface{})
-	if !ok {
-		return "", errors.New("unexpected json: data map")
-	}
-
-	id, ok := data["DockerId"].(string)
-	if !ok {
-		return "", errors.New("unexpected json: docker id string")
-	}
-
-	return id, nil
-}
-
-func checkLogs(t *testing.T, tnum int, ds models.LogStore, callID string, expected []string) bool {
-
-	logReader, err := ds.GetLog(context.Background(), "myapp", callID)
-	if err != nil {
-		t.Errorf("Test %d: GetLog for call_id:%s returned err %s",
-			tnum, callID, err.Error())
-		return false
-	}
-
-	logBytes, err := ioutil.ReadAll(logReader)
-	if err != nil {
-		t.Errorf("Test %d: GetLog read IO call_id:%s returned err %s",
-			tnum, callID, err.Error())
-		return false
-	}
-
-	logBody := string(logBytes)
-	maxLog := len(logBody)
-	if maxLog > 1024 {
-		maxLog = 1024
-	}
-
-	for _, match := range expected {
-		if !strings.Contains(logBody, match) {
-			t.Errorf("Test %d: GetLog read IO call_id:%s cannot find: %s in logs: %s",
-				tnum, callID, match, logBody[:maxLog])
-			return false
-		}
-	}
-
-	return true
-}
-
-// implement models.MQ and models.APIError
-type errorMQ struct {
-	error
-	code int
-}
-
-func (mock *errorMQ) Push(context.Context, *models.Call) (*models.Call, error) { return nil, mock }
-func (mock *errorMQ) Reserve(context.Context) (*models.Call, error)            { return nil, mock }
-func (mock *errorMQ) Delete(context.Context, *models.Call) error               { return mock }
-func (mock *errorMQ) Code() int                                                { return mock.code }
-func (mock *errorMQ) Close() error                                             { return nil }
-func TestFailedEnqueue(t *testing.T) {
-	buf := setLogBuffer()
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
-	ds := datastore.NewMockInit(
-		[]*models.App{app},
-		[]*models.Route{
-			{Path: "/dummy", Image: "dummy/dummy", Type: "async", Memory: 128, Timeout: 30, IdleTimeout: 30, AppID: app.ID},
-		},
-	)
-	err := errors.New("Unable to push task to queue")
-	mq := &errorMQ{err, http.StatusInternalServerError}
-	fnl := logs.NewMock()
-	rnr, cancelrnr := testRunner(t, ds, mq, fnl)
-	defer cancelrnr()
-
-	srv := testServer(ds, mq, fnl, rnr, ServerTypeFull)
-	for i, test := range []struct {
-		path            string
-		body            string
-		method          string
-		expectedCode    int
-		expectedHeaders map[string][]string
-	}{
-		{"/r/myapp/dummy", ``, "POST", http.StatusInternalServerError, nil},
-	} {
-		body := strings.NewReader(test.body)
-		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
-		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
-		}
-	}
-}
-
 func TestRouteRunnerTimeout(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
@@ -503,8 +355,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	models.RouteMaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
 	hugeMem := uint64(models.RouteMaxMemory - 1)
 
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -577,8 +428,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 	buf := setLogBuffer()
 
-	app := &models.App{Name: "myapp", Config: models.Config{}}
-	app.SetDefaults()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
@@ -638,30 +488,3 @@ func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 		}
 	}
 }
-
-//func TestMatchRoute(t *testing.T) {
-//buf := setLogBuffer()
-//for i, test := range []struct {
-//baseRoute      string
-//route          string
-//expectedParams []Param
-//}{
-//{"/myroute/", `/myroute/`, nil},
-//{"/myroute/:mybigparam", `/myroute/1`, []Param{{"mybigparam", "1"}}},
-//{"/:param/*test", `/1/2`, []Param{{"param", "1"}, {"test", "/2"}}},
-//} {
-//if params, match := matchRoute(test.baseRoute, test.route); match {
-//if test.expectedParams != nil {
-//for j, param := range test.expectedParams {
-//if params[j].Key != param.Key || params[j].Value != param.Value {
-//t.Log(buf.String())
-//t.Errorf("Test %d: expected param %d, key = %s, value = %s", i, j, param.Key, param.Value)
-//}
-//}
-//}
-//} else {
-//t.Log(buf.String())
-//t.Errorf("Test %d: %s should match %s", i, test.route, test.baseRoute)
-//}
-//}
-//}
