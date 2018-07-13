@@ -1,9 +1,12 @@
 #!/bin/bash
 set -exo pipefail
 
+function get_host {
+    echo $1
+}
+
 function get_port {
     local NAME=$1
-    local PORT_START=${FN_TEST_PORT_RANGE_START:-33000}
 
     local SERVICE_LIST=(
         "fn_basic_tests_minio"
@@ -17,11 +20,23 @@ function get_port {
         "fn_system_tests_postgres"
     )
 
+    local SERVICE_PORT_LIST=(
+        9000
+        3306
+        5432
+        9000
+        3306
+        5432
+        9000
+        3306
+        5432
+    )
+
     local IDX=0
     while [ ${IDX} -lt ${#SERVICE_LIST[@]} ]
     do
         if [ ${SERVICE_LIST[$IDX]} = "${NAME}" ]; then
-            echo $((${PORT_START}+${IDX}))
+            echo ${SERVICE_PORT_LIST[$IDX]}
             return
         fi
         IDX=$(($IDX+1))
@@ -40,43 +55,40 @@ function spawn_sqlite3 {
 function spawn_mysql {
     local CONTEXT=$1
     local PORT=$(get_port ${CONTEXT}_mysql)
-    local HOST=${CONTEXT}_mysql
+    local HOST=$(get_host ${CONTEXT}_mysql)
     local ID=$(docker run --name ${CONTEXT}_mysql \
-        -p 3306:3306 \
+        -p ${PORT}:3306 \
         -e MYSQL_DATABASE=funcs \
         -e MYSQL_ROOT_PASSWORD=root \
-        --network=$DOCKER_NETWORK_NAME \
         -d mysql:5.7.22)
 
-    echo "mysql://root:root@tcp(${HOST}:3306)/funcs"
+    echo "mysql://root:root@tcp(${HOST}:${PORT})/funcs"
 }
 
 function spawn_postgres {
     local CONTEXT=$1
     local PORT=$(get_port ${CONTEXT}_postgres)
-    local HOST=${CONTEXT}_postgres
+    local HOST=$(get_host ${CONTEXT}_postgres)
     local ID=$(docker run --name ${CONTEXT}_postgres \
         -e "POSTGRES_DB=funcs" \
         -e "POSTGRES_PASSWORD=root" \
-        -p 5432:5432 \
-        --network=$DOCKER_NETWORK_NAME \
+        -p ${PORT}:5432 \
         -d postgres:9.3-alpine)
 
-    echo "postgres://postgres:root@${HOST}:5432/funcs?sslmode=disable"
+    echo "postgres://postgres:root@${HOST}:${PORT}/funcs?sslmode=disable"
 }
 
 function spawn_minio {
     local CONTEXT=$1
     local PORT=$(get_port ${CONTEXT}_minio)
-    local HOST=${CONTEXT}_minio
+    local HOST=$(get_host ${CONTEXT}_minio)
     local ID=$(docker run --name ${CONTEXT}_minio \
-        -p 9000:9000 \
+        -p ${PORT}:9000 \
         -e "MINIO_ACCESS_KEY=admin" \
         -e "MINIO_SECRET_KEY=password" \
-        --network=$DOCKER_NETWORK_NAME \
         -d minio/minio server /data)
 
-    echo "s3://admin:password@${HOST}:9000/us-east-1/fnlogs"
+    echo "s3://admin:password@${HOST}:${PORT}/us-east-1/fnlogs"
 }
 
 function docker_pull_postgres {
