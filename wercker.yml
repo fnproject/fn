@@ -58,7 +58,7 @@ build:
         name: FNSERVER
         code: |
           if [[ -n "$FN_NEEDED" ]]; then
-            make test -j $(nproc)
+            make test-wercker -j $(nproc)
           fi
 
     - script:
@@ -73,6 +73,6 @@ build:
                 make release-dind-wercker
               fi
               if [[ -n "$FN_NEEDED" ]]; then
-                make release-fnserver
+                make release-fnserver-wercker
               fi
             fi
