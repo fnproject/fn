@@ -110,3 +110,14 @@ docker-test:
 	-v $(shell docker run --rm -ti -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn')
 
 all: dep build
+
+test-wercker: checkfmt pull-images test-basic-wercker test-middleware test-extensions test-api test-system
+
+test-basic-wercker: checkfmt pull-images fn-test-utils
+	./test_wercker.sh
+
+release-dind-wercker:
+	(cd images/dind && ./release_wercker.sh)
+
+release-fnserver-wercker:
+	./release_wercker.sh	

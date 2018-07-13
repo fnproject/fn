@@ -70,7 +70,7 @@ build:
               git config --global user.name "CI"
               git branch --set-upstream-to=origin/${WERCKER_GIT_BRANCH} ${WERCKER_GIT_BRANCH}
               if [[ -n "$DIND_NEEDED" ]]; then
-                make release-dind
+                make release-dind-wercker
               fi
               if [[ -n "$FN_NEEDED" ]]; then
                 make release-fnserver
