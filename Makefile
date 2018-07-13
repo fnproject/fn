@@ -132,13 +132,31 @@ docker-test:
 .PHONY: all
 all: dep build
 
-test-wercker: checkfmt pull-images test-basic-wercker test-middleware test-extensions test-api test-system
+.PHONY: test-wercker
+test-wercker: checkfmt pull-images test-basic-wercker test-middleware-wercker test-extensions-wercker test-system-wercker
 
-test-basic-wercker: checkfmt pull-images fn-test-utils
+.PHONY: test-middleware-wercker
+test-middleware: test-basic-wercker
+	cd examples/middleware && go build
+
+.PHONY: test-extensions-wercker
+test-extensions: test-basic-wercker
+	cd examples/extensions && go build
+
+.PHONY: test-basic-wercker
+test-basic-wercker: checkfmt pull-images fn-test-utils fn-status-checker
 	./test_wercker.sh
 
+.PHONY: test-system-wercker
+test-system-wercker: test-basic-wercker
+	./system_test.sh sqlite3
+	./system_test.sh mysql
+	./system_test.sh postgres
+
+.PHONY: release-dind-wercker
 release-dind-wercker:
 	(cd images/dind && ./release_wercker.sh)
 
+.PHONY: release-fnserver-wercker
 release-fnserver-wercker:
 	./release_wercker.sh	

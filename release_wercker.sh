@@ -53,4 +53,5 @@ docker push $DOCKER_USER/$image_deprecated:latest
 
 # release test utils docker image
 (cd images/fn-test-utils && ./release_wercker.sh)
+(cd images/fn-status-checker && ./release_wercker.sh)
 
