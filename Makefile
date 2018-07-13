@@ -136,11 +136,11 @@ all: dep build
 test-wercker: checkfmt pull-images test-basic-wercker test-middleware-wercker test-extensions-wercker test-system-wercker
 
 .PHONY: test-middleware-wercker
-test-middleware: test-basic-wercker
+test-middleware-wercker: test-basic-wercker
 	cd examples/middleware && go build
 
 .PHONY: test-extensions-wercker
-test-extensions: test-basic-wercker
+test-extensions-wercker: test-basic-wercker
 	cd examples/extensions && go build
 
 .PHONY: test-basic-wercker
