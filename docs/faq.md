@@ -154,7 +154,7 @@ We currently don't yet offer Fn as a managed service which would manage network 
 
 We support 'hot functions' (see the end of [this tutorial](https://github.com/fnproject/tutorials/blob/master/JavaFDKIntroduction/README.md) for an example).  Hot functions will continue to live if they are used but, if not, will eventually be cleaned up.
 
-Function timeout is configurable. Please see <https://github.com/fnproject/fn/blob/master/docs/developers/function-file.md>. Note though configurable, timeouts do have limits. For example, sync functions have a maximum upper limit of 120 seconds.
+Function timeout is configurable. Please see <https://github.com/fnproject/fn/blob/master/docs/developers/func-file.md>. Note though configurable, timeouts do have limits. For example, sync functions have a maximum upper limit of 120 seconds.
 
 ### How does the service trace the liveliness of the function? If my function dies/crashes will the service provision it again?
 
