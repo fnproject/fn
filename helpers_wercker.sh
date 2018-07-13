@@ -48,7 +48,7 @@ function spawn_mysql {
         --network=$DOCKER_NETWORK_NAME \
         -d mysql:5.7.22)
 
-    echo "mysql://root:root@tcp(${HOST}:${PORT})/funcs"
+    echo "mysql://root:root@tcp(${HOST}:3306)/funcs"
 }
 
 function spawn_postgres {
@@ -62,7 +62,7 @@ function spawn_postgres {
         --network=$DOCKER_NETWORK_NAME \
         -d postgres:9.3-alpine)
 
-    echo "postgres://postgres:root@${HOST}:${PORT}/funcs?sslmode=disable"
+    echo "postgres://postgres:root@${HOST}:5432/funcs?sslmode=disable"
 }
 
 function spawn_minio {
@@ -76,7 +76,7 @@ function spawn_minio {
         --network=$DOCKER_NETWORK_NAME \
         -d minio/minio server /data)
 
-    echo "s3://admin:password@${HOST}:${PORT}/us-east-1/fnlogs"
+    echo "s3://admin:password@${HOST}:9000/us-east-1/fnlogs"
 }
 
 function docker_pull_postgres {
