@@ -36,6 +36,7 @@ type MTLSRunnerFactory func(addr, certCommonName string, pki *PKIData) (Runner, 
 type RunnerStatus struct {
 	ActiveRequestCount int32           // Number of active running requests on Runner
 	StatusFailed       bool            // True if Status execution failed
+	Cached             bool            // True if Status was provided from cache
 	StatusId           string          // Call ID for Status
 	Details            string          // General/Debug Log information
 	ErrorCode          int32           // If StatusFailed, then error code is set

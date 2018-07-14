@@ -805,6 +805,7 @@ func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatu
 
 		pr.status.lock.Unlock()
 
+		cacheObj.Cached = true
 		cacheObj.Active = atomic.LoadInt32(&pr.status.inflight)
 		return &cacheObj, nil
 	}
