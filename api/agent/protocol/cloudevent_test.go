@@ -37,7 +37,7 @@ func TestJSONMap(t *testing.T) {
 	in := strings.NewReader(`{"yo":"dawg"}`)
 
 	var ib, ob bytes.Buffer
-	cep := &CloudEventProtocol{
+	cep := &cloudEventProtocol{
 		in:  &ib,
 		out: &ob,
 	}
@@ -71,7 +71,7 @@ func TestJSONNotMap(t *testing.T) {
 	in := strings.NewReader(`true`)
 
 	var ib, ob bytes.Buffer
-	cep := &CloudEventProtocol{
+	cep := &cloudEventProtocol{
 		in:  &ib,
 		out: &ob,
 	}

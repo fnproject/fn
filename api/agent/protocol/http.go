@@ -9,38 +9,56 @@ import (
 
 	"go.opencensus.io/trace"
 
+	"bytes"
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/models"
+	"github.com/pkg/errors"
 )
 
-// HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant
+// httpProtocol converts stdin/stdout streams into HTTP/1.1 compliant
 // communication. It relies on Content-Length to know when to stop reading from
 // containers stdout. It also mandates valid HTTP headers back and forth, thus
 // returning errors in case of parsing problems.
-type HTTPProtocol struct {
+type httpProtocol struct {
 	in  io.Writer
 	out io.Reader
 }
 
-func (p *HTTPProtocol) IsStreamable() bool { return true }
+func (p *httpProtocol) IsStreamable() bool { return true }
 
-func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+func (h *httpProtocol) Dispatch(ctx context.Context, evt *event.Event, w io.Writer) (*event.Event, error) {
 	ctx, span := trace.StartSpan(ctx, "dispatch_http")
 	defer span.End()
 
-	req, err := http.NewRequest(ci.Method(), ci.RequestURL(), ci.Input())
+	var method, requestURL string
+	var headers http.Header
+
+	if evt.HasExtension(event.ExtIoFnProjectHTTPReq) {
+		var httpState event.HTTPReqExt
+		err := evt.ReadExtension(event.ExtIoFnProjectHTTPReq, &httpState)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Invalid %s extension data, %s", event.ExtIoFnProjectHTTPReq, err.Error()))
+		}
+	} else {
+		method = http.MethodGet
+		requestURL = "http://fnproject.io/non-http-input"
+
+	}
+
+	req, err := http.NewRequest(method, requestURL, bytes.NewReader(evt.Data))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req = req.WithContext(ctx)
-	req.Header = http.Header(ci.Headers())
+	req.Header = http.Header(headers)
 
-	req.RequestURI = ci.RequestURL() // force set to this, for req.Write to use (TODO? still?)
+	req.RequestURI = requestURL // force set to this, for req.Write to use (TODO? still?)
 
 	// Add Fn-specific headers for this protocol
 	req.Header.Set("FN_DEADLINE", ci.Deadline().String())
-	req.Header.Set("FN_METHOD", ci.Method())
-	req.Header.Set("FN_REQUEST_URL", ci.RequestURL())
+	req.Header.Set("FN_METHOD", method)
+	req.Header.Set("FN_REQUEST_URL", requestURL)
 	req.Header.Set("FN_CALL_ID", ci.CallID())
 
 	_, span = trace.StartSpan(ctx, "dispatch_http_write_request")

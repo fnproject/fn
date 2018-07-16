@@ -12,6 +12,7 @@ import (
 
 	"go.opencensus.io/trace"
 
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -60,21 +61,16 @@ func (p *JSONProtocol) IsStreamable() bool {
 	return true
 }
 
-func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
+func (h *JSONProtocol) writeJSONToContainer(ci *event.Event) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf)
-
-	_, err := io.Copy(buf, ci.Input())
-	if err != nil {
-		return err
-	}
 
 	body := buf.String()
 
 	in := jsonIn{
 		Body:        body,
-		ContentType: ci.ContentType(),
+		ContentType: ci.ContentType,
 		CallID:      ci.CallID(),
 		Deadline:    ci.Deadline().String(),
 		Protocol: CallRequestHTTP{
@@ -88,7 +84,7 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 	return json.NewEncoder(h.in).Encode(in)
 }
 
-func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Event, error) {
 	ctx, span := trace.StartSpan(ctx, "dispatch_json")
 	defer span.End()
 
@@ -96,7 +92,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	err := h.writeJSONToContainer(ci)
 	span.End()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_read_response")
@@ -115,7 +111,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	if !ok {
 		// logs can just copy the full thing in there, headers and all.
 		err := json.NewEncoder(w).Encode(jout)
-		return isExcessData(err, decoder)
+		return checkExcessData(err, decoder)
 	}
 
 	// this has to be done for pulling out:
@@ -144,25 +140,24 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	}
 
 	_, err = io.WriteString(rw, jout.Body)
-	return isExcessData(err, decoder)
+	return checkExcessData(err, decoder)
 }
 
-func isExcessData(err error, decoder *json.Decoder) error {
-	if err == nil {
-		// Now check for excess output, if this is the case, we can be certain that the next request will fail.
-		reader, ok := decoder.Buffered().(*bytes.Reader)
-		if ok && reader.Len() > 0 {
-			// Let's check if extra data is whitespace, which is valid/ignored in json
-			for {
-				r, _, err := reader.ReadRune()
-				if err == io.EOF {
-					break
-				}
-				if !unicode.IsSpace(r) {
-					return ErrExcessData
-				}
+func checkExcessData(decoder *json.Decoder) error {
+	// Now check for excess output, if this is the case, we can be certain that the next request will fail.
+	reader, ok := decoder.Buffered().(*bytes.Reader)
+	if ok && reader.Len() > 0 {
+		// Let's check if extra data is whitespace, which is valid/ignored in json
+		for {
+			r, _, err := reader.ReadRune()
+			if err == io.EOF {
+				break
+			}
+			if !unicode.IsSpace(r) {
+				return ErrExcessData
 			}
 		}
 	}
-	return err
+
+	return nil
 }

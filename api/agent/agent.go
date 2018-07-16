@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
+	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
