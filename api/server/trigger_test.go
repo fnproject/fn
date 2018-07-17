@@ -123,7 +123,7 @@ func TestTriggerCreate(t *testing.T) {
 				t.Errorf("Test %d: error decoding body for GET 'ok' json, it was a lie: %v", i, err)
 			}
 
-			if !triggerGet.Equals(&trigger) {
+			if !trigger.EqualsWithAnnotationSubset(&triggerGet) {
 				t.Errorf("Test %d: GET trigger should match result of PUT trigger: %v, %v", i, triggerGet, trigger)
 			}
 
@@ -429,7 +429,7 @@ func TestTriggerUpdate(t *testing.T) {
 			}
 
 			trig.Name = test.name
-			if !triggerGet.Equals(trig) {
+			if !trig.EqualsWithAnnotationSubset(&triggerGet) {
 				t.Errorf("Test%d: trigger should be updated: %v : %v", i, trig, triggerGet)
 			}
 		}
