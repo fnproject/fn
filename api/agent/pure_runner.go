@@ -501,6 +501,10 @@ const (
 	StatusCallTimeout       = int32(5)
 	StatusCallIdleTimeout   = int32(1)
 	StatusCallCacheDuration = time.Duration(500)*time.Millisecond + time.Duration(StatusCallIdleTimeout)*time.Second
+
+	// Total context timeout (scheduler+execution.) We need to allocate plenty of time here.
+	// 60 seconds should be enough to provoke disk I/O errors, docker timeouts. etc.
+	StatusCtxTimeout = time.Duration(60 * time.Second)
 )
 
 // statusTracker maintains cache data/state/locks for Status Call invocations.
@@ -668,7 +672,16 @@ DataLoop:
 }
 
 // Runs a status call using status image with baked in parameters.
-func (pr *pureRunner) runStatusCall(ctx context.Context, timeout, idleTimeout int32) *runner.RunnerStatus {
+func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
+
+	// IMPORTANT: We have to use our own context with a set timeout in order
+	// to ignore client timeouts. Original 'ctx' here carries client side deadlines.
+	// Since these deadlines can vary, in order to make sure Status runs predictably we
+	// use a hardcoded preset timeout 'ctxTimeout' instead.
+	// TODO: It would be good to copy original ctx key/value pairs into our new
+	// context for tracking, etc. But go-lang context today does not seem to allow this.
+	execCtx, execCtxCancel := context.WithTimeout(context.Background(), StatusCtxTimeout)
+	defer execCtxCancel()
 
 	result := &runner.RunnerStatus{}
 	log := common.Logger(ctx)
@@ -693,19 +706,19 @@ func (pr *pureRunner) runStatusCall(ctx context.Context, timeout, idleTimeout in
 	c.Config = make(models.Config)
 	c.Config["FN_FORMAT"] = c.Format
 	c.Payload = "{}"
-	c.Timeout = timeout
-	c.IdleTimeout = idleTimeout
+	c.Timeout = StatusCallTimeout
+	c.IdleTimeout = StatusCallIdleTimeout
 
 	// TODO: reliably shutdown this container after executing one request.
 
-	log.Debugf("Running status call with id=%v timeout=%v image=%v", c.ID, c.Timeout, c.Image)
+	log.Debugf("Running status call with id=%v image=%v", c.ID, c.Image)
 
 	recorder := httptest.NewRecorder()
 	player := ioutil.NopCloser(strings.NewReader(c.Payload))
 
 	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, player),
 		WithWriter(recorder),
-		WithContext(ctx),
+		WithContext(execCtx),
 	)
 
 	if err == nil {
@@ -810,7 +823,7 @@ func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatu
 		return &cacheObj, nil
 	}
 
-	cachePtr := pr.runStatusCall(ctx, StatusCallTimeout, StatusCallIdleTimeout)
+	cachePtr := pr.runStatusCall(ctx)
 	cachePtr.Active = atomic.LoadInt32(&pr.status.inflight)
 	now = time.Now()
 
