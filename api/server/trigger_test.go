@@ -310,6 +310,58 @@ func TestTriggerGet(t *testing.T) {
 	}
 }
 
+func TestHTTPTriggerEndpointAnnotations(t *testing.T) {
+
+	a := &models.App{ID: "appid", Name: "myapp"}
+	fn := &models.Fn{ID: "fnid", AppID: a.ID}
+	fn.SetDefaults()
+	trig := &models.Trigger{ID: "triggerid", FnID: fn.ID, AppID: a.ID, Type: "http", Source: "/myt"}
+	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn}, []*models.Trigger{trig})
+
+	srv := testServer(commonDS, &mqs.Mock{}, logs.NewMock(), nil, ServerTypeAPI)
+
+	_, rec := routerRequest(t, srv.Router, "GET", "/v2/triggers/triggerid", bytes.NewBuffer([]byte("")))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected code %s != 200", rec.Code)
+	}
+	var triggerGet models.Trigger
+	err := json.NewDecoder(rec.Body).Decode(&triggerGet)
+	if err != nil {
+		t.Fatalf("Invalid json from server %s", err)
+	}
+
+	const triggerEndpoint = "fnproject.io/trigger/httpEndpoint"
+	v, err := triggerGet.Annotations.GetString(triggerEndpoint)
+	if err != nil {
+		t.Fatalf("failed to get trigger %s", err)
+	}
+	if v != "http://127.0.0.1:8080/t/myapp/myt" {
+		t.Errorf("unexpected trigger val %s", v)
+	}
+
+	_, rec = routerRequest(t, srv.Router, "GET", "/v2/triggers?app_id=appid", bytes.NewBuffer([]byte("")))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected code %s != 200", rec.Code)
+	}
+	var triggerList models.TriggerList
+	err = json.NewDecoder(rec.Body).Decode(&triggerList)
+	if err != nil {
+		t.Fatalf("Invalid json from server %s : %s", err, string(rec.Body.Bytes()))
+	}
+
+	if len(triggerList.Items) != 1 {
+		t.Fatalf("Unexpected trigger list result")
+	}
+
+	v, err = triggerList.Items[0].Annotations.GetString(triggerEndpoint)
+	if v != "http://127.0.0.1:8080/t/myapp/myt" {
+		t.Errorf("unexpected trigger val %s", v)
+	}
+
+}
+
 func TestTriggerUpdate(t *testing.T) {
 	buf := setLogBuffer()
 	defer func() {

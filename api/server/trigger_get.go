@@ -22,7 +22,11 @@ func (s *Server) handleTriggerGet(c *gin.Context) {
 		handleErrorResponse(c, fmt.Errorf("unexpected error - trigger app not available: %s", err))
 	}
 
-	s.triggerAnnotator.AnnotateTrigger(c, app, trigger)
+	trigger, err = s.triggerAnnotator.AnnotateTrigger(c, app, trigger)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
 
 	c.JSON(http.StatusOK, trigger)
 }
