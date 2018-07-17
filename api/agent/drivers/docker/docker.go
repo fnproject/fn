@@ -319,6 +319,16 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 			config = v
 			break
 		}
+
+		if reg != "" {
+			continue
+		}
+
+		// reg is empty, so we want to auth agains dockerhub
+		if url, _ := registryURL(v.ServerAddress); url == hubURL {
+			config = v
+			break
+		}
 	}
 
 	if task, ok := task.(Auther); ok {
