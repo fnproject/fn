@@ -8,7 +8,7 @@ import (
 
 const testStringEvent = `
 {
-    "cloudEventsVersion" : "0.1",
+    "DefaultCloudEventVersion" : "0.1",
     "eventType" : "com.example.someevent",
     "eventTypeVersion" : "1.0",
     "source" : "/mycontext",
@@ -27,7 +27,7 @@ const testStringEvent = `
 `
 const testJSONEvent = `
 {
-    "cloudEventsVersion" : "0.1",
+    "DefaultCloudEventVersion" : "0.1",
     "eventType" : "com.example.someevent",
     "eventTypeVersion" : "1.0",
     "source" : "/mycontext",

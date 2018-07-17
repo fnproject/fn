@@ -7,17 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 	"unicode"
 
 	"go.opencensus.io/trace"
 
 	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/models"
-)
-
-var (
-	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
 // CallRequestHTTP for the protocol that was used by the end user to call this function. We only have HTTP right now.
@@ -38,14 +33,14 @@ type CallResponseHTTP struct {
 type jsonIn struct {
 	CallID      string          `json:"call_id"`
 	Deadline    string          `json:"deadline"`
-	Body        string          `json:"body"`
+	Body        json.RawMessage `json:"body"`
 	ContentType string          `json:"content_type"`
 	Protocol    CallRequestHTTP `json:"protocol"`
 }
 
 // jsonOut the expected response from the function container
 type jsonOut struct {
-	Body        string            `json:"body"`
+	Body        json.RawMessage   `json:"body"`
 	ContentType string            `json:"content_type"`
 	Protocol    *CallResponseHTTP `json:"protocol,omitempty"`
 }
@@ -62,22 +57,44 @@ func (p *JSONProtocol) IsStreamable() bool {
 }
 
 func (h *JSONProtocol) writeJSONToContainer(ci *event.Event) error {
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufPool.Put(buf)
 
-	body := buf.String()
+	callID, err := ci.GetCallID()
+	if err != nil {
+		return err
+	}
+
+	deadline, err := ci.GetDeadline()
+	if err != nil {
+		return err
+	}
+
+	var method, requestURL string
+	var headers http.Header
+
+	if ci.HasExtension(event.ExtIoFnProjectHTTPReq) {
+		var ext event.HTTPReqExt
+		err = ci.ReadExtension(event.ExtIoFnProjectHTTPReq, &ext)
+		if err != nil {
+			fmt.Errorf("invalid HTTP metadata on incoming event: %s", err)
+		}
+		method = ext.Method
+		requestURL = ext.RequestURL
+		headers = ext.Headers
+	} else {
+		method = "GET"
+		requestURL = "http://example.com"
+	}
 
 	in := jsonIn{
-		Body:        body,
+		Body:        ci.Data,
 		ContentType: ci.ContentType,
-		CallID:      ci.CallID(),
-		Deadline:    ci.Deadline().String(),
+		CallID:      callID,
+		Deadline:    deadline.String(),
 		Protocol: CallRequestHTTP{
-			Type:       ci.ProtocolType(),
-			Method:     ci.Method(),
-			RequestURL: ci.RequestURL(),
-			Headers:    ci.Headers(),
+			Type:       "http",
+			Method:     method,
+			RequestURL: requestURL,
+			Headers:    headers,
 		},
 	}
 
@@ -101,46 +118,35 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Ev
 	err = decoder.Decode(&jout)
 	span.End()
 	if err != nil {
-		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
+		return nil, models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_write_response")
 	defer span.End()
 
-	rw, ok := w.(http.ResponseWriter)
-	if !ok {
-		// logs can just copy the full thing in there, headers and all.
-		err := json.NewEncoder(w).Encode(jout)
-		return checkExcessData(err, decoder)
-	}
-
+	var headers http.Header
+	status := 200
 	// this has to be done for pulling out:
 	// - status code
 	// - body
 	// - headers
 	if jout.Protocol != nil {
+		status = jout.Protocol.StatusCode
 		p := jout.Protocol
+
 		for k, v := range p.Headers {
 			for _, vv := range v {
-				rw.Header().Add(k, vv) // on top of any specified on the route
+				// largely do this to normalise header names
+				headers.Add(k, vv)
 			}
 		}
 	}
-	// after other header setting, top level content_type takes precedence and is
-	// absolute (if set). it is expected that if users want to set multiple
-	// values they put it in the string, e.g. `"content-type:"application/json; charset=utf-8"`
-	// TODO this value should not exist since it's redundant in proto headers?
-	if jout.ContentType != "" {
-		rw.Header().Set("Content-Type", jout.ContentType)
-	}
 
-	// we must set all headers before writing the status, see http.ResponseWriter contract
-	if p := jout.Protocol; p != nil && p.StatusCode != 0 {
-		rw.WriteHeader(p.StatusCode)
+	evt, err := event.CreateHttpRespEvent("http://fnproject.io", jout.Body, jout.ContentType, status, headers)
+	if err != nil {
+		return nil, err
 	}
-
-	_, err = io.WriteString(rw, jout.Body)
-	return checkExcessData(err, decoder)
+	return evt, checkExcessData(decoder)
 }
 
 func checkExcessData(decoder *json.Decoder) error {

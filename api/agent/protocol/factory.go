@@ -18,7 +18,7 @@ type errorProto struct {
 }
 
 func (e errorProto) IsStreamable() bool { return false }
-func (e errorProto) Dispatch(ctx context.Context, ci *event.Event, w io.Writer) (*event.Event, error) {
+func (e errorProto) Dispatch(ctx context.Context, ci *event.Event) (*event.Event, error) {
 	return nil, e
 }
 

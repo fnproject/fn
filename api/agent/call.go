@@ -17,6 +17,7 @@ import (
 	"github.com/fnproject/cloudevent"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
@@ -29,6 +30,9 @@ type Call interface {
 	// try to discourage use elsewhere until this gets pushed down more...
 	Model() *models.Call
 
+	// Get the raw input event for this call
+	InputEvent() *event.Event
+
 	// Start will be called before this call is executed, it may be used to
 	// guarantee mutual exclusion, check docker permissions, update timestamps,
 	// etc.
@@ -40,7 +44,7 @@ type Call interface {
 	// regardless of whether the execution failed or not. An error will be passed
 	// to End, which if nil indicates a successful execution. Any error returned
 	// from End will be returned as the error from Submit.
-	End(ctx context.Context, err error) error
+	End(ctx context.Context, output *event.Event, err error) error
 }
 
 // Interceptor in GetCall
@@ -234,23 +238,14 @@ func FromEvent(event *cloudevent.CloudEvent) CallOpt {
 func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
 	return func(ctx context.Context, c *call) error {
 		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				fn.Format = models.FormatCloudEvent
-			}
-		}
 
-		if fn.Format == "" {
-			fn.Format = models.FormatDefault
+		intputEvent, err := event.FromHTTPTriggerRequest(req, 1024*1024)
+		if err != nil {
+			return err
+		}
+		format := fn.Format
+		if format == "" {
+			format = models.FormatDefault
 		}
 
 		id := id.New().String()
@@ -272,7 +267,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			Image: fn.Image,
 			// Delay: 0,
 			Type:        "sync",
-			Format:      fn.Format,
+			Format:      format,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     fn.Timeout,
 			IdleTimeout: fn.IdleTimeout,
@@ -467,10 +462,7 @@ func setCallPayload(ctx context.Context, input io.Reader, c *call) error {
 
 type call struct {
 	*models.Call
-
-	// IsCloudEvent flag whether this was ingested as a cloud event. This may become the default or only way.
-	IsCloudEvent bool `json:"is_cloud_event"`
-
+	inputEvent     *event.Event
 	handler        CallHandler
 	w              io.Writer
 	stderr         io.ReadWriteCloser

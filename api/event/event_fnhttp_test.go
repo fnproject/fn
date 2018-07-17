@@ -34,40 +34,40 @@ func TestRawHTTPReq(t *testing.T) {
 		{
 			name: "calculates host based on request ",
 			req:  httptest.NewRequest("GET", "/r/test?foo=bar", bytes.NewReader([]byte{})),
-			json: `{"cloudEventsVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPReq":{"method":"GET","requestURL":"http://example.com/r/test?foo=bar"}}}`,
+			json: `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPReq":{"method":"GET","requestURL":"http://example.com/r/test?foo=bar"}}}`,
 		},
 		{
 			name: "get no body",
 			req:  httptest.NewRequest("GET", "http://example.com/r/test?foo=bar", bytes.NewReader([]byte{})),
-			json: `{"cloudEventsVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPReq":{"method":"GET","requestURL":"http://example.com/r/test?foo=bar"}}}`,
+			json: `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPReq":{"method":"GET","requestURL":"http://example.com/r/test?foo=bar"}}}`,
 		},
 		{
 			name: "post json body",
 			req:  withHeaders(httptest.NewRequest("POST", "http://example.com/r/test?foo=bar", bytes.NewReader([]byte(`{"content":["foo"]}`))), "Content-Type", "application/json"),
-			json: `{"cloudEventsVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPReq":{"method":"POST","headers":{"Content-Type":["application/json"]},"requestURL":"http://example.com/r/test?foo=bar"}},"data":{"content":["foo"]}}`,
+			json: `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","contentType":"application/json","extensions":{"ioFnProjectHTTPReq":{"method":"POST","headers":{"Content-Type":["application/json"]},"requestURL":"http://example.com/r/test?foo=bar"}},"data":{"content":["foo"]}}`,
 		},
 		{
 			name: "post string body",
 			req:  withHeaders(httptest.NewRequest("POST", "http://example.com/r/test?foo=bar", bytes.NewReader([]byte(`Foo bar`))), "Content-type", "application/wibble"),
-			json: `{"cloudEventsVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPReq":{"method":"POST","headers":{"Content-Type":["application/wibble"]},"requestURL":"http://example.com/r/test?foo=bar"}},"data":"Foo bar"}`,
+			json: `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","contentType":"application/wibble","extensions":{"ioFnProjectHTTPReq":{"method":"POST","headers":{"Content-Type":["application/wibble"]},"requestURL":"http://example.com/r/test?foo=bar"}},"data":"Foo bar"}`,
 		},
 		{
 			name: "post string body with Escaping ",
 			req:  withHeaders(httptest.NewRequest("POST", "http://example.com/r/test?foo=bar", bytes.NewReader([]byte(`Foo\n bar`))), "Content-type", "application/wibble"),
 			json: `{
-	"cloudEventsVersion":"0.1",	"eventID":"EVENT",	"source":"http://example.com/r/test?foo=bar",	"eventType":"io.fnproject.httpRequest",	"eventTypeVersion":"0.1",	"eventTime":"1970-01-01T00:00:00.000Z",	"extensions":{	"ioFnProjectHTTPReq":{	"method":"POST","headers":{"Content-Type":["application/wibble"]},"requestURL":"http://example.com/r/test?foo=bar"}},"data":"Foo\\n bar"}`,
+	"DefaultCloudEventVersion":"0.1",	"eventID":"EVENT",	"source":"http://example.com/r/test?foo=bar",	"eventType":"io.fnproject.httpRequest",	"eventTypeVersion":"0.1",	"eventTime":"1970-01-01T00:00:00.000Z",	"contentType":"application/wibble","extensions":{	"ioFnProjectHTTPReq":{	"method":"POST","headers":{"Content-Type":["application/wibble"]},"requestURL":"http://example.com/r/test?foo=bar"}},"data":"Foo\\n bar"}`,
 		},
 		{
 			name: "No content type on incoming req with body ",
 			req:  httptest.NewRequest("POST", "http://example.com/r/test?foo=bar", bytes.NewReader([]byte(`Foo\n bar`))),
-			json: `{"cloudEventsVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPReq":{"method":"POST","requestURL":"http://example.com/r/test?foo=bar"}},"data":"Foo\\n bar"}`,
+			json: `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/r/test?foo=bar","eventType":"io.fnproject.httpRequest","eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","contentType":"application/octet-stream","extensions":{"ioFnProjectHTTPReq":{"method":"POST","requestURL":"http://example.com/r/test?foo=bar"}},"data":"Foo\\n bar"}`,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			ce, err := FromHTTPTrigger(tc.req)
+			ce, err := FromHTTPTriggerRequest(tc.req, 4096)
 			if err != nil {
 				t.Fatal("Failed to produce event", err)
 			}
@@ -97,6 +97,11 @@ func TestRawHTTPReq(t *testing.T) {
 
 func TestUnsupportedReq(t *testing.T) {
 
+	var overlengthEscapedArray = make([]byte, 4096)
+	for i := range overlengthEscapedArray {
+		overlengthEscapedArray[i] = '\\'
+	}
+
 	tcs := []struct {
 		name  string
 		req   *http.Request
@@ -110,14 +115,138 @@ func TestUnsupportedReq(t *testing.T) {
 			req:   withHeaders(httptest.NewRequest("PUT", "http://example.com/r/test?foo=bar", bytes.NewReader([]byte{'\x80', '\x81'})), "Content-Type", "wibble/foo"),
 			error: ErrUnsupportedBodyEncoding,
 		},
+		{name: "over-length-encoded-string",
+			req:   withHeaders(httptest.NewRequest("PUT", "http://example.com/r/test?foo=bar", bytes.NewReader(overlengthEscapedArray)), "Content-Type", "wibble/foo"),
+			error: ErrEncodedBodyTooLong,
+		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := FromHTTPTrigger(tc.req)
+			_, err := FromHTTPTriggerRequest(tc.req, 4096)
 
 			if err != tc.error {
-				t.Fatal("expecting error %s , but got %s ", tc.error, err)
+				t.Fatalf("expecting error %s , but got %s ", tc.error, err)
+			}
+
+		})
+	}
+}
+
+func TestValidHTTPResp(t *testing.T) {
+
+	tcs := []struct {
+		name   string
+		status int
+		header map[string][]string
+		body   []byte
+		json   string
+	}{
+		{
+			name:   "empty response",
+			status: 200,
+			json:   `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/","eventType":"io.fnproject.httpResponse", "eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPResp":{"status":200}}}`,
+		},
+
+		{
+			name:   "non-200",
+			status: 404,
+			json:   `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/","eventType":"io.fnproject.httpResponse", "eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPResp":{"status":404}}}`,
+		},
+
+		{
+			name:   "json-body-no-contentType",
+			status: 200,
+			body:   []byte(`{"test":"foo","bar":1,"baz":[101]}`),
+			json:   `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/","eventType":"io.fnproject.httpResponse", "eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPResp":{"status":200}},"contentType":"application/octet-stream", "data":"{\"test\":\"foo\",\"bar\":1,\"baz\":[101]}"}`,
+		},
+
+		{
+			name:   "json-body-json-contentType",
+			status: 200,
+			header: map[string][]string{"Content-type": {"application/json"}},
+			body:   []byte(`{"test":"foo","bar":1,"baz":[101]}`),
+			json:   `{"DefaultCloudEventVersion":"0.1","eventID":"EVENT","source":"http://example.com/","eventType":"io.fnproject.httpResponse", "eventTypeVersion":"0.1","eventTime":"1970-01-01T00:00:00.000Z","extensions":{"ioFnProjectHTTPResp":{"status":200,"headers":{"Content-Type":["application/json"]}}},"contentType":"application/json", "data":{"test":"foo","bar":1,"baz":[101]}}`,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			start := time.Now()
+
+			r := httptest.NewRecorder()
+			for k, vs := range tc.header {
+				for _, v := range vs {
+					r.Header().Add(k, v)
+				}
+			}
+
+			r.WriteHeader(tc.status)
+			r.Write(tc.body)
+
+			ce, err := FromHTTPResponse("http://example.com/", 4096, r.Result())
+
+			if err != nil {
+				t.Fatal("Failed to produce event", err)
+			}
+			if ce.EventID == "" {
+				t.Errorf("expecting event ID, got nothing ")
+			}
+
+			if time.Time(ce.EventTime).Before(start) || time.Time(ce.EventTime).After(time.Now()) {
+				t.Errorf("Event time was not current, got %s", ce.EventTime.String())
+			}
+			// zero these out for checks
+			ce.EventID = "EVENT"
+			ce.EventTime = common.NewDateTime()
+
+			j, err := json.Marshal(ce)
+
+			if err != nil {
+				t.Fatal("Failed to marshal event to JSON ", err)
+			}
+			if !jsonEqual(t, string(j), tc.json) {
+				t.Errorf("Expected `%s`, got `%s`", tc.json, string(j))
+			}
+
+		})
+	}
+}
+
+func TestUnsupportedResp(t *testing.T) {
+
+	tcs := []struct {
+		name   string
+		status int
+		header map[string][]string
+		body   []byte
+		error  error
+	}{
+		{name: "response with empty JSON body",
+			status: 200,
+			header: map[string][]string{"Content-type": {"application/json"}},
+			body:   []byte("{"),
+			error:  ErrInvalidJSONBody,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+
+			r := httptest.NewRecorder()
+			for k, vs := range tc.header {
+				for _, v := range vs {
+					r.Header().Add(k, v)
+				}
+			}
+
+			r.WriteHeader(tc.status)
+			r.Write(tc.body)
+
+			_, err := FromHTTPResponse("http://example.com/", 4096, r.Result())
+
+			if err != tc.error {
+				t.Fatalf("expecting error %s , but got %s ", tc.error, err)
 			}
 
 		})

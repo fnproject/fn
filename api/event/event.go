@@ -6,9 +6,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// TODO :  Ideally this would be able to pass an arbitrary byte stream in its body (i.e. not be subject to JSON limitations)   but it's not now
+// Currently this only accepts valid JSON bodies, or non-json content that is valid UTF-8
+// TODO:
+
 // Event is the official JSON representation of a Event: https://github.com/cloudevents/spec/blob/master/serialization.md
 type Event struct {
-	CloudEventsVersion string                     `json:"cloudEventsVersion"`
+	CloudEventsVersion string                     `json:"DefaultCloudEventVersion"`
 	EventID            string                     `json:"eventID"`
 	Source             string                     `json:"source"`
 	EventType          string                     `json:"eventType"`
