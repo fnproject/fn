@@ -323,7 +323,7 @@ func TestHTTPTriggerEndpointAnnotations(t *testing.T) {
 	_, rec := routerRequest(t, srv.Router, "GET", "/v2/triggers/triggerid", bytes.NewBuffer([]byte("")))
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected code %s != 200", rec.Code)
+		t.Fatalf("expected code %d != 200", rec.Code)
 	}
 	var triggerGet models.Trigger
 	err := json.NewDecoder(rec.Body).Decode(&triggerGet)
@@ -343,7 +343,7 @@ func TestHTTPTriggerEndpointAnnotations(t *testing.T) {
 	_, rec = routerRequest(t, srv.Router, "GET", "/v2/triggers?app_id=appid", bytes.NewBuffer([]byte("")))
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected code %s != 200", rec.Code)
+		t.Fatalf("expected code %d != 200", rec.Code)
 	}
 	var triggerList models.TriggerList
 	err = json.NewDecoder(rec.Body).Decode(&triggerList)
