@@ -45,6 +45,11 @@ type runResult struct {
 	status string
 }
 
+type driverAuthConfig struct {
+	auth       docker.AuthConfiguration
+	subdomains map[string]bool
+}
+
 func (r *runResult) Error() error   { return r.err }
 func (r *runResult) Status() string { return r.status }
 
@@ -52,7 +57,7 @@ type DockerDriver struct {
 	conf     drivers.Config
 	docker   dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
 	hostname string
-	auths    map[string]docker.AuthConfiguration
+	auths    map[string]driverAuthConfig
 	pool     DockerPool
 	// protects networks map
 	networksLock sync.Mutex
@@ -66,11 +71,16 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		logrus.WithError(err).Fatal("couldn't resolve hostname")
 	}
 
+	auths, err := registryFromEnv()
+	if err != nil {
+		logrus.WithError(err).Fatal("couldn't initialize registry")
+	}
+
 	driver := &DockerDriver{
 		conf:     conf,
 		docker:   newClient(),
 		hostname: hostname,
-		auths:    registryFromEnv(),
+		auths:    auths,
 	}
 
 	if conf.ServerVersion != "" {
@@ -129,23 +139,6 @@ func loadDockerImages(driver *DockerDriver, filePath string) error {
 	ctx, log := common.LoggerWithFields(context.Background(), logrus.Fields{"stack": "loadDockerImages"})
 	log.Infof("Loading docker images from %v", filePath)
 	return driver.docker.LoadImages(ctx, filePath)
-}
-
-func registryFromEnv() map[string]docker.AuthConfiguration {
-	var auths *docker.AuthConfigurations
-	var err error
-	if reg := os.Getenv("DOCKER_AUTH"); reg != "" {
-		// TODO docker does not use this itself, we should get rid of env docker config (nor is this documented..)
-		auths, err = docker.NewAuthConfigurations(strings.NewReader(reg))
-	} else {
-		auths, err = docker.NewAuthConfigurationsFromDockerCfg()
-	}
-
-	if err != nil {
-		logrus.WithError(err).Info("no docker auths from config files found (this is fine)")
-		return nil
-	}
-	return auths.Configs
 }
 
 func (drv *DockerDriver) Close() error {
@@ -304,63 +297,41 @@ func (drv *DockerDriver) removeContainer(ctx context.Context, container string) 
 }
 
 func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.ContainerTask) error {
-	reg, _, _ := drivers.ParseImage(task.Image())
+	reg, repo, tag := drivers.ParseImage(task.Image())
 
 	// ask for docker creds before looking for image, as the tasker may need to
 	// validate creds even if the image is downloaded.
 
-	var config docker.AuthConfiguration // default, tries docker hub w/o user/pass
-
-	// if any configured host auths match task registry, try them (task docker auth can override)
-	// TODO this is still a little hairy using suffix, we should probably try to parse it as a
-	// url and extract the host (from both the config file & image)
-	for _, v := range drv.auths {
-		if reg != "" && strings.HasSuffix(v.ServerAddress, reg) {
-			config = v
-			break
-		}
-	}
+	config := findRegistryConfig(reg, drv.auths)
 
 	if task, ok := task.(Auther); ok {
 		var err error
 		_, span := trace.StartSpan(ctx, "docker_auth")
-		config, err = task.DockerAuth()
+		authConfig, err := task.DockerAuth()
 		span.End()
 		if err != nil {
 			return err
 		}
+		config = &authConfig
 	}
 
-	if reg != "" {
-		config.ServerAddress = reg
-	}
+	globalRepo := path.Join(reg, repo)
 
 	// see if we already have it, if not, pull it
 	_, err := drv.docker.InspectImage(ctx, task.Image())
 	if err == docker.ErrNoSuchImage {
-		err = drv.pullImage(ctx, task, config)
+		err = drv.pullImage(ctx, task, *config, globalRepo, tag)
 	}
 
 	return err
 }
 
-func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTask, config docker.AuthConfiguration) error {
+func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTask, config docker.AuthConfiguration, globalRepo, tag string) error {
 	log := common.Logger(ctx)
-	reg, repo, tag := drivers.ParseImage(task.Image())
-	globalRepo := path.Join(reg, repo)
-	if reg != "" {
-		config.ServerAddress = reg
-	}
-
-	var err error
-	config.ServerAddress, err = registryURL(config.ServerAddress)
-	if err != nil {
-		return err
-	}
 
 	log.WithFields(logrus.Fields{"registry": config.ServerAddress, "username": config.Username, "image": task.Image()}).Info("Pulling image")
 
-	err = drv.docker.PullImage(docker.PullImageOptions{Repository: globalRepo, Tag: tag, Context: ctx}, config)
+	err := drv.docker.PullImage(docker.PullImageOptions{Repository: globalRepo, Tag: tag, Context: ctx}, config)
 	if err != nil {
 		log.WithFields(logrus.Fields{"registry": config.ServerAddress, "username": config.Username, "image": task.Image()}).WithError(err).Error("Failed to pull image")
 
