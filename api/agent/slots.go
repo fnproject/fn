@@ -243,14 +243,7 @@ func (a *slotQueue) exitContainerState(conType ContainerStateType) {
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
 // a container will be locked up forever waiting for slot to free.
-func (a *slotQueueMgr) getSlotQueue(call *call) (*slotQueue, bool) {
-
-	var key string
-	if call.slotHashId != "" {
-		key = call.slotHashId
-	} else {
-		key = getSlotQueueKey(call)
-	}
+func (a *slotQueueMgr) getSlotQueue(key string) (*slotQueue, bool) {
 
 	a.hMu.Lock()
 	slots, ok := a.hot[key]

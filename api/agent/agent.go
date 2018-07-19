@@ -97,6 +97,7 @@ type agent struct {
 	driver drivers.Driver
 
 	slotMgr *slotQueueMgr
+	evictor Evictor
 	// track usage
 	resources ResourceTracker
 
@@ -129,6 +130,7 @@ func New(da CallHandler, options ...AgentOption) Agent {
 	a.shutWg = common.NewWaitGroup()
 	a.da = da
 	a.slotMgr = NewSlotQueueMgr()
+	a.evictor = NewEvictor()
 
 	// Allow overriding config
 	for _, option := range options {
@@ -421,7 +423,12 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
 		var isNew bool
-		call.slots, isNew = a.slotMgr.getSlotQueue(call)
+
+		if call.slotHashId == "" {
+			call.slotHashId = getSlotQueueKey(call)
+		}
+
+		call.slots, isNew = a.slotMgr.getSlotQueue(call.slotHashId)
 		call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
 		if isNew {
 			go a.hotLauncher(ctx, call)
@@ -501,7 +508,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	state := NewContainerState()
 	state.UpdateState(ctx, ContainerStateWait, call.slots)
 
-	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
+	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Debug("Hot function launcher attempting to start a container")
 
 	mem := call.Memory + uint64(call.TmpFsSize)
 
@@ -525,18 +532,27 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, mem, uint64(call.CPUs), isAsync, isNB):
 		if tok != nil && tok.Error() != nil {
-			tryNotify(notifyChan, tok.Error())
+			// before returning error response, as a last resort, try evicting idle containers.
+			if tok.Error() != CapacityFull || !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) {
+				tryNotify(notifyChan, tok.Error())
+			}
 		} else if a.shutWg.AddSession(1) {
 			go func() {
 				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
 				a.runHot(ctx, call, tok, state)
 				a.shutWg.DoneSession()
 			}()
+			// early return (do not allow container state to switch to ContainerStateDone)
 			return
 		}
 		if tok != nil {
 			tok.Close()
 		}
+	// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
+	// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
+	// idle container.
+	case <-time.After(a.cfg.HotPoll):
+		a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs))
 	case <-ctx.Done(): // timeout
 	case <-a.shutWg.Closer(): // server shutdown
 	}
@@ -913,14 +929,15 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	var err error
 	isFrozen := false
+	isEvictable := false
 
 	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
-	ejectTicker := time.NewTicker(a.cfg.EjectIdle)
+	ejectTimer := time.NewTimer(a.cfg.EjectIdle)
 
 	defer freezeTimer.Stop()
 	defer idleTimer.Stop()
-	defer ejectTicker.Stop()
+	defer ejectTimer.Stop()
 
 	// log if any error is encountered
 	defer func() {
@@ -937,6 +954,8 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		}
 		isFrozen = true
 	}
+
+	evictor := a.evictor.GetEvictor(call.ID, call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
 	state.UpdateState(ctx, ContainerStateIdle, call.slots)
 	s := call.slots.queueSlot(slot)
@@ -956,17 +975,19 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 				isFrozen = true
 			}
 			continue
-		case <-ejectTicker.C:
-			// if someone is waiting for resource in our slot queue, we must not terminate,
-			// otherwise, see if other slot queues have resource waiters that are blocked.
-			stats := call.slots.getStats()
-			if stats.containerStates[ContainerStateWait] > 0 ||
-				a.resources.GetResourceTokenWaiterCount() <= 0 {
-				continue
-			}
+		case <-evictor.C:
 			logger.Debug("attempting hot function eject")
+		case <-ejectTimer.C:
+			// we've been idle too long, now we are ejectable
+			a.evictor.RegisterEvictor(evictor)
+			isEvictable = true
+			continue
 		}
 		break
+	}
+
+	if isEvictable {
+		a.evictor.UnregisterEvictor(evictor)
 	}
 
 	// if we can acquire token, that means we are here due to
