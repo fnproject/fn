@@ -933,11 +933,11 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
-	ejectTicker := time.NewTimer(a.cfg.EjectIdle)
+	ejectTimer := time.NewTimer(a.cfg.EjectIdle)
 
 	defer freezeTimer.Stop()
 	defer idleTimer.Stop()
-	defer ejectTicker.Stop()
+	defer ejectTimer.Stop()
 
 	// log if any error is encountered
 	defer func() {
@@ -977,7 +977,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 			continue
 		case <-evictor.C:
 			logger.Debug("attempting hot function eject")
-		case <-ejectTicker.C:
+		case <-ejectTimer.C:
 			// we've been idle too long, now we are ejectable
 			a.evictor.RegisterEvictor(evictor)
 			isEvictable = true

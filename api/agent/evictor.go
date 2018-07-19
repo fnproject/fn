@@ -86,7 +86,7 @@ func (e *evictor) GetEvictor(id, slotId string, mem, cpu uint64) *EvictToken {
 }
 
 func (e *evictor) RegisterEvictor(token *EvictToken) {
-	if !token.isEligible() {
+	if !token.isEligible() || token.isEvicted() {
 		return
 	}
 
@@ -134,6 +134,7 @@ func (e *evictor) PerformEviction(slotId string, mem, cpu uint64) bool {
 	isSatisfied := false
 
 	var keys []string
+	var chans []chan struct{}
 
 	e.lock.Lock()
 
@@ -156,6 +157,8 @@ func (e *evictor) PerformEviction(slotId string, mem, cpu uint64) bool {
 
 	// If we can satisfy the need, then let's commit/perform eviction
 	if isSatisfied {
+
+		chans = make([]chan struct{}, 0, len(keys))
 		idx := 0
 		for _, id := range keys {
 
@@ -168,11 +171,16 @@ func (e *evictor) PerformEviction(slotId string, mem, cpu uint64) bool {
 				}
 			}
 
-			close(e.tokens[id].C)
+			chans = append(chans, e.tokens[id].C)
 			delete(e.tokens, id)
 		}
 	}
 
 	e.lock.Unlock()
+
+	for _, ch := range chans {
+		close(ch)
+	}
+
 	return isSatisfied
 }
