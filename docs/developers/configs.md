@@ -11,7 +11,7 @@ fn config app myapp LOG_LEVEL debug
 
 ## 2. Function configuration from func.yaml
 
-See [Function file](func-file.md) for more info. 
+See [Function file](func-file.md) for more info.
 
 ## 3. Route level configuration
 
