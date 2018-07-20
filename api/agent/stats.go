@@ -75,6 +75,7 @@ const (
 	timedoutMetricName   = "timeouts"
 	errorsMetricName     = "errors"
 	serverBusyMetricName = "server_busy"
+	retryMetricName      = "retry"
 
 	// Reported By LB
 	runnerSchedLatencyMetricName = "lb_runner_sched_latency"
@@ -84,16 +85,17 @@ const (
 var (
 	queuedMeasure = makeMeasure(queuedMetricName, "calls currently queued against agent", "")
 	// TODO this is a dupe of sum {complete,failed} ?
-	callsMeasure           = makeMeasure(callsMetricName, "calls created in agent", "")
-	runningMeasure         = makeMeasure(runningMetricName, "calls currently running in agent", "")
-	completedMeasure       = makeMeasure(completedMetricName, "calls completed in agent", "")
-	failedMeasure          = makeMeasure(failedMetricName, "calls failed in agent", "")
-	timedoutMeasure        = makeMeasure(timedoutMetricName, "calls timed out in agent", "")
-	errorsMeasure          = makeMeasure(errorsMetricName, "calls errored in agent", "")
-	serverBusyMeasure      = makeMeasure(serverBusyMetricName, "calls where server was too busy in agent", "")
-	dockerMeasures         = initDockerMeasures()
-	containerGaugeMeasures = initContainerGaugeMeasures()
-	containerTimeMeasures  = initContainerTimeMeasures()
+	callsMeasure            = makeMeasure(callsMetricName, "calls created in agent", "")
+	runningMeasure          = makeMeasure(runningMetricName, "calls currently running in agent", "")
+	completedMeasure        = makeMeasure(completedMetricName, "calls completed in agent", "")
+	failedMeasure           = makeMeasure(failedMetricName, "calls failed in agent", "")
+	timedoutMeasure         = makeMeasure(timedoutMetricName, "calls timed out in agent", "")
+	errorsMeasure           = makeMeasure(errorsMetricName, "calls errored in agent", "")
+	serverBusyMeasure       = makeMeasure(serverBusyMetricName, "calls where server was too busy in agent", "")
+	dockerMeasures          = initDockerMeasures()
+	containerGaugeMeasures  = initContainerGaugeMeasures()
+	containerTimeMeasures   = initContainerTimeMeasures()
+	perInstanceRetryMeasure = makeMeasure(retryMetricName, "per-invocation retry count", "")
 
 	// Reported By LB: How long does a runner scheduler wait for a committed call? eg. wait/launch/pull containers
 	runnerSchedLatencyMeasure = makeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
@@ -105,6 +107,7 @@ func RegisterLBAgentViews(tagKeys []string) {
 	err := view.Register(
 		createView(runnerSchedLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
 		createView(runnerExecLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
+		createView(perInstanceRetryMeasure, view.Distribution(0, 1, 2, 3, 4, 5, 6, 7, 8, 9), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
