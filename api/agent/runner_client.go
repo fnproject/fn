@@ -117,6 +117,8 @@ func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStat
 
 	return &pool.RunnerStatus{
 		ActiveRequestCount: status.Active,
+		RequestsReceived:   status.RequestsReceived,
+		RequestsHandled:    status.RequestsHandled,
 		StatusFailed:       status.Failed,
 		Cached:             status.Cached,
 		StatusId:           status.Id,
