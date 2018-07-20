@@ -6,15 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"mime"
 	"net/http"
-	"strings"
 	"time"
 
 	"go.opencensus.io/trace"
 
-	"github.com/fnproject/cloudevent"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/event"
@@ -29,9 +25,6 @@ type Call interface {
 	// is only because the front end has different responses based on call type.
 	// try to discourage use elsewhere until this gets pushed down more...
 	Model() *models.Call
-
-	// Get the raw input event for this call
-	InputEvent() *event.Event
 
 	// Start will be called before this call is executed, it may be used to
 	// guarantee mutual exclusion, check docker permissions, update timestamps,
@@ -53,29 +46,10 @@ type CallOverrider func(*models.Call, map[string]string) (map[string]string, err
 // TODO build w/o closures... lazy
 type CallOpt func(ctx context.Context, c *call) error
 
-const (
-	ceMimeType = "application/cloudevents+json"
-)
-
-// FromRequest initialises a call to a route from an HTTP request
+// FromRouteEvent initialises a call to a route from an HTTP request
 // deprecate with routes
-func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOpt {
+func FromRouteAndEvent(app *models.App, route *models.Route, inputevent *event.Event) CallOpt {
 	return func(ctx context.Context, c *call) error {
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				route.Format = models.FormatCloudEvent
-			}
-		}
 
 		if route.Format == "" {
 			route.Format = models.FormatDefault
@@ -83,21 +57,9 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 
 		id := id.New().String()
 
-		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
-		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
-		if rw, ok := c.w.(http.ResponseWriter); ok {
-			rw.Header().Add("FN_CALL_ID", id)
-			for k, vs := range route.Headers {
-				for _, v := range vs {
-					// pre-write in these headers to response
-					rw.Header().Add(k, v)
-				}
-			}
-		}
-
 		// this ensures that there is an image, path, timeouts, memory, etc are valid.
 		// NOTE: this means assign any changes above into route's fields
-		err = route.Validate()
+		err := route.Validate()
 		if err != nil {
 			return err
 		}
@@ -107,10 +69,14 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			syslogURL = *app.SyslogURL
 		}
 
+		err = inputevent.SetExtension(event.ExtIoFnProjectCallID, id)
+		if err != nil {
+			return err
+		}
 		c.Call = &models.Call{
-			ID:    id,
-			Path:  route.Path,
-			Image: route.Image,
+			ID:         id,
+			InputEvent: inputevent,
+			Image:      route.Image,
 			// Delay: 0,
 			Type:        route.Type,
 			Format:      route.Format,
@@ -122,173 +88,64 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			CPUs:        route.CPUs,
 			Config:      buildConfig(app, route),
 			Annotations: app.Annotations.MergeChange(route.Annotations),
-			Headers:     req.Header,
 			CreatedAt:   common.DateTime(time.Now()),
-			URL:         reqURL(req),
-			Method:      req.Method,
+			Path:        route.Path,
 			AppID:       app.ID,
-			SyslogURL:   syslogURL,
-		}
-
-		return setCallPayload(ctx, req.Body, c)
-	}
-}
-
-// SPEC:
-
-//cloudevent {
-//eventType: "",
-//...
-//extensions: {
-//fn: {
-//id: "",
-//name: "",
-//image: "",
-//...
-//},
-//trigger: {
-//id: "",
-//name: "",
-//...
-//},
-//app: {
-//id: "",
-//name: "",
-//}
-//protocol: {
-//type: "",
-//extensions: {
-//"": "",
-//}
-//}
-//},
-//}
-
-func buildCloudEvent(req *http.Request) (*cloudevent.CloudEvent, error) {
-	var ce cloudevent.CloudEvent
-	// XXX(reed): ???
-	ext := make(map[string]interface{}, 3)
-	ext["app"] = new(models.App)
-	ext["trigger"] = new(models.Trigger)
-	ext["fn"] = new(models.Fn)
-	ce.Extensions = ext
-	err := ce.FromRequest(req)
-	return &ce, err
-}
-
-// XXX(reed): for the split mode we need to support invoke that takes a fully built event, with
-// the function/app/trigger unwound inside the event. we also need a way to build this state up,
-// it's possible the two should interlope but maybe not. start without building squat here.
-//
-// thinking: we add the concrete event onto the call object to tote around and re-encode to the container,
-// and a call is simply the extraction of information we need from the event object for the agent to use.
-// we also need to plumb out the container responses all the way up preferably so that Submit returns an event?
-//
-// trigger only things?
-// XXX(reed): shove headers into `protocol: { headers: { } }`
-// XXX(reed): shove url into `protocol: `{ url: "" }` ? also eventURL
-// XXX(reed): shove method into `protocol: `{ method: "" }` ? also eventURL
-func FromEvent(event *cloudevent.CloudEvent) CallOpt {
-	return func(ctx context.Context, c *call) error {
-		ext, ok := event.Extensions.(map[string]interface{}) // XXX(reed): ?
-		if !ok {
-			return errors.New("cloud event extensions must be marshaled with known type")
-		}
-
-		// XXX(reed): prob need a map. ignore for a minute
-		app := ext["app"].(*models.App)
-		fn := ext["fn"].(*models.Fn)
-		trigger := ext["fn"].(*models.Trigger)
-
-		var syslogURL string
-		if app.SyslogURL != nil {
-			syslogURL = *app.SyslogURL
-		}
-
-		c.Call = &models.Call{
-			// XXX(reed): these are the fields agent needs to run the thing, everything else
-			// we can leave in cloud event format.
-			// DO NOT MODIFY FIELDS DINGUS
-			ID:          id.New().String(),
-			Image:       fn.Image,
-			Timeout:     fn.Timeout,
-			IdleTimeout: fn.IdleTimeout,
-			TmpFsSize:   0, // TODO clean up this
-			Memory:      fn.Memory,
-			CPUs:        0, // TODO clean up this
-			SyslogURL:   syslogURL,
-			// TODO - this wasn't really the intention here (that annotations would naturally cascade
-			// but seems to be necessary for some runner behaviour
-			// XXX(reed): we need annotations right?
-			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
-			// XXX(reed): some checksum / version for hotties (ugh)
-			// XXX(reed): http handler should add eventURL ?
-
-			// TODO DEPRECATE / NUKE
-			Type:   "sync",
-			Format: "cloudevent",
+			// For deletion but this deals with slot key and logging issues.
+			FnID:      "route:" + route.Path,
+			SyslogURL: syslogURL,
 		}
 
 		return nil
 	}
 }
 
-// Sets up a call from an http trigger request
-// TODO this should use FromEvent
-func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
+//
+func FromEvent(app *models.App, fn *models.Fn, inputevent *event.Event) CallOpt {
 	return func(ctx context.Context, c *call) error {
-		log := common.Logger(ctx)
-
-		intputEvent, err := event.FromHTTPTriggerRequest(req, 1024*1024)
-		if err != nil {
-			return err
-		}
-		format := fn.Format
-		if format == "" {
-			format = models.FormatDefault
-		}
-
-		id := id.New().String()
-
-		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
-		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
-		if rw, ok := c.w.(http.ResponseWriter); ok {
-			rw.Header().Add("FN_CALL_ID", id)
-		}
-
 		var syslogURL string
 		if app.SyslogURL != nil {
 			syslogURL = *app.SyslogURL
 		}
+		callID := id.New().String()
+
+		err := inputevent.SetExtension(event.ExtIoFnProjectCallID, callID)
+		if err != nil {
+			return err
+		}
 
 		c.Call = &models.Call{
-			ID:    id,
-			Path:  trigger.Source,
-			Image: fn.Image,
-			// Delay: 0,
-			Type:        "sync",
-			Format:      format,
-			Priority:    new(int32), // TODO this is crucial, apparently
+			// XXX(reed): these are the fields agent needs to run the thing, everything else
+			// we can leave in cloud inputevent format.
+			// DO NOT MODIFY FIELDS DINGUS
+			ID:          callID,
+			Image:       fn.Image,
 			Timeout:     fn.Timeout,
+			InputEvent:  inputevent,
 			IdleTimeout: fn.IdleTimeout,
 			TmpFsSize:   0, // TODO clean up this
 			Memory:      fn.Memory,
 			CPUs:        0, // TODO clean up this
-			Config:      buildTriggerConfig(app, fn, trigger),
+			SyslogURL:   syslogURL,
+			Config:      buildEventConfig(app, fn, inputevent.Source),
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
-			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
-			Headers:     req.Header,
-			CreatedAt:   common.DateTime(time.Now()),
-			URL:         reqURL(req),
-			Method:      req.Method,
-			AppID:       app.ID,
-			FnID:        fn.ID,
-			TriggerID:   trigger.ID,
-			SyslogURL:   syslogURL,
+			// XXX(reed): we need annotations right?
+			Annotations: app.Annotations.MergeChange(fn.Annotations),
+			// XXX(reed): some checksum / version for hotties (ugh)
+			// XXX(reed): http handler should add eventURL ?
+
+			// XXX(occ) : do we need these any more they are primarily being used for context logging a
+			FnID:  fn.ID,
+			AppID: app.ID,
+			// TODO deprecate
+			Path: "/" + fn.ID,
+			// TODO DEPRECATE / NUKE
+			Type:   "sync",
+			Format: fn.Format,
 		}
 
-		return setCallPayload(ctx, req.Body, c)
+		return nil
 	}
 }
 
@@ -316,7 +173,7 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 	return conf
 }
 
-func buildTriggerConfig(app *models.App, fn *models.Fn, trigger *models.Trigger) models.Config {
+func buildEventConfig(app *models.App, fn *models.Fn, source string) models.Config {
 	conf := make(models.Config, 8+len(app.Config)+len(fn.Config))
 	for k, v := range app.Config {
 		conf[k] = v
@@ -327,7 +184,7 @@ func buildTriggerConfig(app *models.App, fn *models.Fn, trigger *models.Trigger)
 
 	conf["FN_FORMAT"] = fn.Format
 	conf["FN_APP_NAME"] = app.Name
-	conf["FN_PATH"] = trigger.Source
+	conf["FN_PATH"] = source
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", fn.Memory)
 	conf["FN_TYPE"] = "sync"
@@ -354,23 +211,7 @@ func reqURL(req *http.Request) string {
 func FromModel(mCall *models.Call) CallOpt {
 	return func(ctx context.Context, c *call) error {
 		c.Call = mCall
-		return nil
-	}
-}
 
-// FromModelAndInput creates a call object from an existing stored call model object , reading the body from a provided stream
-func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
-	return func(ctx context.Context, c *call) error {
-		c.Call = mCall
-		return setCallPayload(ctx, in, c)
-	}
-}
-
-// WithWriter sets the writier that the call uses to send its output message to
-// TODO this should be required
-func WithWriter(w io.Writer) CallOpt {
-	return func(ctx context.Context, c *call) error {
-		c.w = w
 		return nil
 	}
 }
@@ -423,48 +264,43 @@ func (a *agent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 	c.handler = a.da
 	c.ct = a
 	c.stderr = setupLogger(ctx, a.cfg.MaxLogSize, c.Call)
-	if c.w == nil {
-		// send STDOUT to logs if no writer given (async...)
-		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
-		c.w = c.stderr
-	}
 
 	return &c, nil
 }
 
 // setCallPayload sets the payload on a call, respecting the context
-func setCallPayload(ctx context.Context, input io.Reader, c *call) error {
+func readBufferedInput(ctx context.Context, input io.Reader, c *call) ([]byte, error) {
 	// WARNING: we need to handle IO in a separate go-routine below
 	// to be able to detect a ctx timeout. When we timeout, we
 	// let gin/http-server to unblock the go-routine below.
-	errApp := make(chan error, 1)
+	type resultOrError struct {
+		result []byte
+		err    error
+	}
+
+	res := make(chan resultOrError, 1)
 	go func() {
-		buf := bufPool.Get().(*bytes.Buffer)
-		buf.Reset()
+		buf := &bytes.Buffer{}
 		_, err := buf.ReadFrom(input)
 		if err != nil && err != io.EOF {
-			errApp <- err
+			res <- resultOrError{err: err}
 			return
 		}
 
-		c.Payload = buf.String()
-		bufPool.Put(buf)
-		close(errApp)
+		res <- resultOrError{result: buf.Bytes(), err: nil}
 	}()
 
 	select {
-	case err := <-errApp:
-		return err
+	case r := <-res:
+		return r.result, r.err
 	case <-ctx.Done():
-		return ctx.Err()
+		return nil, ctx.Err()
 	}
 }
 
 type call struct {
 	*models.Call
-	inputEvent     *event.Event
 	handler        CallHandler
-	w              io.Writer
 	stderr         io.ReadWriteCloser
 	ct             callTrigger
 	slots          *slotQueue
@@ -477,6 +313,8 @@ type call struct {
 	extensions map[string]string
 }
 
+var _ Call = &call{}
+
 // SlotHashId returns a string identity for this call that can be used to uniquely place the call in a given container
 // This should correspond to a unique identity (including data changes) of the underlying function
 func (c *call) SlotHashId() string {
@@ -485,14 +323,6 @@ func (c *call) SlotHashId() string {
 
 func (c *call) Extensions() map[string]string {
 	return c.extensions
-}
-
-func (c *call) RequestBody() io.ReadCloser {
-	return ioutil.NopCloser(strings.NewReader(c.Payload))
-}
-
-func (c *call) ResponseWriter() http.ResponseWriter {
-	return c.w.(http.ResponseWriter)
 }
 
 func (c *call) StdErr() io.ReadWriteCloser {
@@ -513,11 +343,12 @@ func (c *call) Start(ctx context.Context) error {
 	c.StartedAt = common.DateTime(time.Now())
 	c.Status = "running"
 
-	if !c.isLB {
-		if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
-			rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
-		}
-	}
+	// Remove LB-Wait stuff
+	//if !c.isLB {
+	//	if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
+	//		rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
+	//	}
+	//}
 
 	if c.Type == models.TypeAsync {
 		// XXX (reed): make sure MQ reservation is lengthy. to skirt MQ semantics,
@@ -544,7 +375,7 @@ func (c *call) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *call) End(ctx context.Context, errIn error) error {
+func (c *call) End(ctx context.Context, event *event.Event, errIn error) error {
 	ctx, span := trace.StartSpan(ctx, "agent_call_end")
 	defer span.End()
 

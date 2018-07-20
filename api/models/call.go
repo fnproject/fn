@@ -1,10 +1,9 @@
 package models
 
 import (
-	"net/http"
-
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
 )
 
 const (
@@ -90,15 +89,10 @@ type Call struct {
 	// Format is the format to pass input into the function.
 	Format string `json:"format,omitempty" db:"-"`
 
-	// Payload for the call. This is only used by async calls, to store their input.
+	// Payload for the call. this is  used when the event is marshalled via RPC
 	// TODO should we copy it into here too for debugging sync?
-	Payload string `json:"payload,omitempty" db:"-"`
-
-	// Full request url that spawned this invocation.
-	URL string `json:"url,omitempty" db:"-"`
-
-	// Method of the http request used to make this call.
-	Method string `json:"method,omitempty" db:"-"`
+	// This is intentionally  not marshalled in the JSON body
+	InputEvent *event.Event
 
 	// Priority of the call. Higher has more priority. 3 levels from 0-2. Calls
 	// at same priority are processed in FIFO order.
@@ -124,11 +118,8 @@ type Call struct {
 	// Config is the set of configuration variables for the call
 	Config Config `json:"config,omitempty" db:"-"`
 
-	// Annotations is the set of annotations for the app/route of the call.
+	// Annotations is the set of annotations for the app/route/fn of the call.
 	Annotations Annotations `json:"annotations,omitempty" db:"-"`
-
-	// Headers are headers from the request that created this call
-	Headers http.Header `json:"headers,omitempty" db:"-"`
 
 	// SyslogURL is a syslog URL to send all logs to.
 	SyslogURL string `json:"syslog_url,omitempty" db:"-"`
@@ -153,7 +144,8 @@ type Call struct {
 	AppID string `json:"app_id" db:"app_id"`
 
 	// Trigger this call belongs to.
-	TriggerID string `json:"trigger_id" db:"trigger_id"`
+	// this is optional
+	TriggerID string `json:"trigger_id,omitempty" db:"trigger_id"`
 
 	// Fn this call belongs to.
 	FnID string `json:"fn_id" db:"fn_id"`

@@ -83,17 +83,17 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 
 	// since async doesn't come in through the normal request path,
 	// we've gotta add tags here for stats to come out properly.
-	appKey, err := tag.NewKey("fn_appname")
+	appKey, err := tag.NewKey("fn_appid")
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	pathKey, err := tag.NewKey("fn_path")
+	pathKey, err := tag.NewKey("fn_fnid")
 	if err != nil {
 		logrus.Fatal(err)
 	}
 	ctx, err = tag.New(ctx,
 		tag.Insert(appKey, model.AppID),
-		tag.Insert(pathKey, model.Path),
+		tag.Insert(pathKey, model.FnID),
 	)
 	if err != nil {
 		logrus.Fatal(err)
@@ -114,7 +114,7 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	// are at least once semantics, which is really preferable to at most
 	// once, so let's do it for now
 
-	err = a.Submit(ctx, call)
+	_, err = a.Submit(ctx, call)
 	if err != nil {
 		// NOTE: these could be errors / timeouts from the call that we're
 		// logging here (i.e. not our fault), but it's likely better to log

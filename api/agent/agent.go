@@ -15,6 +15,8 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
+	"github.com/fnproject/fn/api/event/httpevent"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
@@ -80,7 +82,7 @@ type Agent interface {
 	// will be returned if there is an issue executing the call or the error
 	// may be from the call's execution itself (if, say, the container dies,
 	// or the call times out).
-	Submit(ctx context.Context, call Call) error
+	Submit(ctx context.Context, call Call) (*event.Event, error)
 
 	// Close will wait for any outstanding calls to complete and then exit.
 	// Closing the agent will invoke Close on the underlying DataAccess.
@@ -240,9 +242,9 @@ func (a *agent) Close() error {
 	return err
 }
 
-func (a *agent) Submit(ctx context.Context, callI Call) error {
+func (a *agent) Submit(ctx context.Context, callI Call) (*event.Event, error) {
 	if !a.shutWg.AddSession(1) {
-		return models.ErrCallTimeoutServerBusy
+		return nil, models.ErrCallTimeoutServerBusy
 	}
 
 	call := callI.(*call)
@@ -250,10 +252,9 @@ func (a *agent) Submit(ctx context.Context, callI Call) error {
 	defer span.End()
 
 	// XXX(reed): surface fnid,trigid, rid of route
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"id": call.ID, "app_id": call.AppID, "route": call.Path})
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"id": call.ID, "app_id": call.AppID, "source": call.InputEvent.Source, "fn": call.FnID, "trigger": call.TriggerID})
 
-	err := a.submit(ctx, call)
-	return err
+	return a.submit(ctx, call)
 }
 
 func (a *agent) startStateTrackers(ctx context.Context, call *call) {
@@ -276,7 +277,7 @@ func (a *agent) endStateTrackers(ctx context.Context, call *call) {
 	}
 }
 
-func (a *agent) submit(ctx context.Context, call *call) error {
+func (a *agent) submit(ctx context.Context, call *call) (*event.Event, error) {
 	statsEnqueue(ctx)
 
 	a.startStateTrackers(ctx, call)
@@ -284,12 +285,12 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 
 	slot, err := a.getSlot(ctx, call)
 	if err != nil {
-		return a.handleCallEnd(ctx, call, slot, err, false)
+		return nil, a.handleCallEnd(ctx, call, slot, nil, err, false)
 	}
 
 	err = call.Start(ctx)
 	if err != nil {
-		return a.handleCallEnd(ctx, call, slot, err, false)
+		return nil, a.handleCallEnd(ctx, call, slot, nil, err, false)
 	}
 
 	statsDequeueAndStart(ctx)
@@ -299,8 +300,13 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	defer cancel()
 
 	// Pass this error (nil or otherwise) to end directly, to store status, etc.
-	err = slot.exec(ctx, call)
-	return a.handleCallEnd(ctx, call, slot, err, true)
+	evt, err := slot.exec(ctx, call)
+	err = a.handleCallEnd(ctx, call, slot, evt, err, true)
+	if err != nil {
+		return nil, err
+	}
+	return evt, err
+
 }
 
 func (a *agent) scheduleCallEnd(fn func()) {
@@ -322,7 +328,7 @@ func (a *agent) finalizeCallEnd(ctx context.Context, err error, isRetriable, isS
 	return transformTimeout(err, isRetriable)
 }
 
-func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isCommitted bool) error {
+func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, event *event.Event, err error, isCommitted bool) error {
 
 	// For hot-containers, slot close is a simple channel close... No need
 	// to handle it async. Execute it here ASAP
@@ -340,7 +346,7 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 				slot.Close(ctx) // (no timeout)
 			}
 			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
-			call.End(ctx, err)
+			call.End(ctx, event, err)
 			cancel()
 		})
 		return a.finalizeCallEnd(ctx, err, false, true)
@@ -626,13 +632,33 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 	mem := call.Memory + uint64(call.TmpFsSize)
 
+	inputEvent := call.Model().InputEvent
+
+	var httpReqMeta httpevent.HTTPReqExt
+
+	if inputEvent.HasExtension(httpevent.ExtIoFnProjectHTTPReq) {
+		err := inputEvent.ReadExtension(httpevent.ExtIoFnProjectHTTPReq, &httpReqMeta)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		httpReqMeta.Method = "GET"
+		// TODO think of a better URL for this
+		httpReqMeta.RequestURL = "http://fnproject.io/non_http"
+	}
+
+	body, err := inputEvent.BodyAsRawString()
+	if err != nil {
+		return nil, err
+	}
+
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, mem, uint64(call.CPUs), isAsync, isNB):
 		if tok.Error() != nil {
 			return nil, tok.Error()
 		}
 
-		go a.prepCold(ctx, call, tok, ch)
+		go a.prepCold(ctx, call, strings.NewReader(body), &httpReqMeta, tok, ch)
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -655,13 +681,16 @@ type coldSlot struct {
 	cookie   drivers.Cookie
 	tok      ResourceToken
 	fatalErr error
+	output   *bytes.Buffer
 }
+
+var _ Slot = &coldSlot{}
 
 func (s *coldSlot) Error() error {
 	return s.fatalErr
 }
 
-func (s *coldSlot) exec(ctx context.Context, call *call) error {
+func (s *coldSlot) exec(ctx context.Context, call *call) (*event.Event, error) {
 	ctx, span := trace.StartSpan(ctx, "agent_cold_exec")
 	defer span.End()
 
@@ -670,17 +699,18 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 
 	waiter, err := s.cookie.Run(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	res := waiter.Wait(ctx)
 	if res.Error() != nil {
 		// check for call error (oom/exit) and beam it up
-		return res.Error()
+		return nil, res.Error()
 	}
 
 	// nil or timed out
-	return ctx.Err()
+	// TODO INVOKE how to get this out here
+	return nil, ctx.Err()
 }
 
 func (s *coldSlot) Close(ctx context.Context) error {
@@ -703,6 +733,8 @@ type hotSlot struct {
 	containerSpan trace.SpanContext
 }
 
+var _ Slot = &hotSlot{}
+
 func (s *hotSlot) Close(ctx context.Context) error {
 	close(s.done)
 	return nil
@@ -718,7 +750,7 @@ func (s *hotSlot) trySetError(err error) {
 	}
 }
 
-func (s *hotSlot) exec(ctx context.Context, call *call) error {
+func (s *hotSlot) exec(ctx context.Context, call *call) (*event.Event, error) {
 	ctx, span := trace.StartSpan(ctx, "agent_hot_exec")
 	defer span.End()
 
@@ -752,7 +784,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	defer bufPool.Put(buf1)
 	defer bufPool.Put(buf2)
 
-	sw := newSyslogWriter(call.ID, call.Path, call.AppID, syslog.LOG_ERR, s.container.syslogConns, buf1)
+	sw := newSyslogWriter(call.ID, call.FnID, call.AppID, syslog.LOG_ERR, s.container.syslogConns, buf1)
 	var syslog io.WriteCloser = &nopCloser{sw}
 	syslog = newLineWriterWithBuffer(buf2, syslog)
 	defer syslog.Close()                            // close syslogger from here, but NOT the call log stderr OR conns
@@ -762,53 +794,56 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	swapBack := s.container.swap(stdinRead, stdoutWrite, stderr, &call.Stats)
 	defer swapBack() // NOTE: it's important this runs before the pipes are closed.
 
-	errApp := make(chan error, 1)
+	type callResult struct {
+		responseEvent *event.Event
+		err           error
+	}
+	errApp := make(chan callResult, 1)
 	go func() {
-		ci := protocol.NewCallInfo(ctx, call.IsCloudEvent, call.Call)
-		errApp <- proto.Dispatch(ctx, ci, call.w)
+		evt, err := proto.Dispatch(ctx, call.InputEvent)
+		errApp <- callResult{evt, err}
 	}()
 
 	select {
 	case err := <-s.errC: // error from container
 		s.trySetError(err)
-		return err
-	case err := <-errApp: // from dispatch
-		if err != nil {
-			if models.IsAPIError(err) {
-				s.trySetError(err)
-			} else if err == protocol.ErrExcessData {
-				s.trySetError(err)
-				// suppress excess data error, but do shutdown the container
-				return nil
-			}
+		return nil, err
+	case cr := <-errApp: // from dispatch
+		if cr.err != nil {
+			// all errors are fatal
+			s.trySetError(cr.err)
+			return nil, cr.err
+		} else {
+			return cr.responseEvent, nil
 		}
-		return err
 	case <-ctx.Done(): // call timeout
 		s.trySetError(ctx.Err())
-		return ctx.Err()
+		return nil, ctx.Err()
 	}
 }
 
-func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
+func (a *agent) prepCold(ctx context.Context, call *call, body io.Reader, httpMeta *httpevent.HTTPReqExt, tok ResourceToken, ch chan Slot) {
 	ctx, span := trace.StartSpan(ctx, "agent_prep_cold")
 	defer span.End()
 
 	call.containerState.UpdateState(ctx, ContainerStateStart, call.slots)
-
 	deadline := time.Now().Add(time.Duration(call.Timeout) * time.Second)
 
 	// add Fn-specific information to the config to shove everything into env vars for cold
 	call.Config["FN_DEADLINE"] = common.DateTime(deadline).String()
-	call.Config["FN_METHOD"] = call.Model().Method
-	call.Config["FN_REQUEST_URL"] = call.Model().URL
+	call.Config["FN_METHOD"] = httpMeta.Method
+	call.Config["FN_REQUEST_URL"] = httpMeta.RequestURL
 	call.Config["FN_CALL_ID"] = call.Model().ID
 
 	// User headers are prefixed with FN_HEADER and shoved in the env vars too
-	for k, v := range call.Headers {
+	for k, v := range httpMeta.Headers {
 		k = "FN_HEADER_" + k
 		call.Config[k] = strings.Join(v, ", ")
 	}
 
+	writeBuffer := &bytes.Buffer{}
+	writer := common.NewClampWriter(&bytes.Buffer{}, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
+	// TODO
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -817,8 +852,8 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		cpus:    uint64(call.CPUs),
 		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.RequestBody(),
-		stdout:  common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
+		stdin:   body,
+		stdout:  writer,
 		stderr:  call.stderr,
 		stats:   &call.Stats,
 	}
@@ -832,7 +867,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 
 	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
 
-	slot := &coldSlot{cookie, tok, err}
+	slot := &coldSlot{cookie, tok, err, writeBuffer}
 	select {
 	case ch <- slot:
 	case <-ctx.Done():
@@ -854,7 +889,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	container, closer := newHotContainer(ctx, call, &a.cfg)
 	defer closer()
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.CreateCookie(ctx, container)
@@ -1057,7 +1092,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 	syslogConns, err := syslogConns(ctx, call.SyslogURL)
 	if err != nil {
 		// TODO we could write this to between stderr but between stderr doesn't go to user either. kill me.
-		common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}).Error("error dialing syslog urls")
+		common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}).Error("error dialing syslog urls")
 	}
 
 	// for use if no freezer (or we ever make up our minds)
@@ -1086,15 +1121,15 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		bufs = []*bytes.Buffer{buf1, buf2, buf3, buf4}
 
 		// stdout = LOG_INFO, stderr = LOG_ERR -- ONLY for the between writers, normal stdout is a response
-		so := newSyslogWriter(call.ID, call.Path, call.AppID, syslog.LOG_INFO, syslogConns, buf1)
-		se := newSyslogWriter(call.ID, call.Path, call.AppID, syslog.LOG_ERR, syslogConns, buf2)
+		so := newSyslogWriter(call.ID, call.FnID, call.AppID, syslog.LOG_INFO, syslogConns, buf1)
+		se := newSyslogWriter(call.ID, call.FnID, call.AppID, syslog.LOG_ERR, syslogConns, buf2)
 
 		// use multiWriteCloser since it ignores errors (io.MultiWriter does not)
 		soc := multiWriteCloser{&nopCloser{so}, &nopCloser{&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
 		}}}
 		sec := multiWriteCloser{&nopCloser{se}, &nopCloser{&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
 		}}}
 
 		stdout.Swap(newLineWriterWithBuffer(buf4, soc))

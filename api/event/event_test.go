@@ -79,3 +79,43 @@ func TestCEDeserMatchesOriginal(t *testing.T) {
 	}
 
 }
+
+func TestBodyAsString(t *testing.T) {
+
+	var jsonEvt Event
+
+	tcs := []struct {
+		input        string
+		expectedBody string
+	}{
+		{
+			input: testJSONEvent,
+			expectedBody: `{
+          "int": 3,
+          "array" : [true,false,1.0],
+          "sub" : { "a":"b"}
+     }`,
+		},
+		{
+			input:        testStringEvent,
+			expectedBody: `<much wow="xml"/>`,
+		},
+	}
+
+	for _, tc := range tcs {
+		err := json.Unmarshal([]byte(tc.input), &jsonEvt)
+		if err != nil {
+			t.Fatalf("Failed to read event %s", err)
+		}
+
+		str, err := jsonEvt.BodyAsRawString()
+		if err != nil {
+			t.Fatalf("Failed to read JSON body %s", err)
+		}
+
+		if str != tc.expectedBody {
+			t.Errorf("invalid Json body; expected '%s', got '%s'", tc.expectedBody, str)
+		}
+	}
+
+}

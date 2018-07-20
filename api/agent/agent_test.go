@@ -117,7 +117,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	call, err := a.GetCall(req.Context(),
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(app, route, req),
+		FromRouteEvent(app, route, req),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -279,7 +279,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 		"DOUBLE_VAR":  "BIZ, BAZ",
 	}
 	headers := map[string][]string{
-		// FromRequest would insert these from original HTTP request
+		// FromRouteEvent would insert these from original HTTP request
 		"Content-Type":   {contentType},
 		"Content-Length": {contentLength},
 	}
@@ -520,7 +520,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 	// grab a buffer so we can read what gets written to this guy
 	var out bytes.Buffer
-	callI, err := a.GetCall(ctx, FromRequest(app, route, req), WithWriter(&out))
+	callI, err := a.GetCall(ctx, FromRouteEvent(app, route, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -613,7 +613,7 @@ func TestTmpFsRW(t *testing.T) {
 	ctx := req.Context()
 
 	var out bytes.Buffer
-	callI, err := a.GetCall(ctx, FromRequest(app, route, req), WithWriter(&out))
+	callI, err := a.GetCall(ctx, FromRouteEvent(app, route, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -714,7 +714,7 @@ func TestTmpFsSize(t *testing.T) {
 	ctx := req.Context()
 
 	var out bytes.Buffer
-	callI, err := a.GetCall(ctx, FromRequest(app, route, req), WithWriter(&out))
+	callI, err := a.GetCall(ctx, FromRouteEvent(app, route, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -804,7 +804,7 @@ func testCall() *models.Call {
 		"DOUBLE_VAR":  "BIZ, BAZ",
 	}
 	headers := map[string][]string{
-		// FromRequest would insert these from original HTTP request
+		// FromRouteEvent would insert these from original HTTP request
 		"Content-Type":   []string{contentType},
 		"Content-Length": []string{contentLength},
 	}
@@ -879,7 +879,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(ctx, FromRequest(app, route, req), WithWriter(&outOne))
+	callI, err := a.GetCall(ctx, FromRouteEvent(app, route, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -904,7 +904,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(ctx, FromRequest(app, route, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(ctx, FromRouteEvent(app, route, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -985,7 +985,7 @@ func TestNBIOResourceTracker(t *testing.T) {
 			}
 
 			var outOne bytes.Buffer
-			callI, err := a.GetCall(req.Context(), FromRequest(app, route, req), WithWriter(&outOne))
+			callI, err := a.GetCall(req.Context(), FromRouteEvent(app, route, req), WithWriter(&outOne))
 			if err != nil {
 				t.Fatal(err)
 			}

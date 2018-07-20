@@ -1,14 +1,17 @@
-package event
+package httpevent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/id"
 	"mime"
 	"net/http"
+	"strconv"
 	"time"
 	"unicode/utf8"
 )
@@ -106,9 +109,9 @@ func convertHTTPBodyToJsonBody(contentType string, body []byte, maxBodySize uint
 
 }
 
-// FromHTTPTriggerRequest creates an FN HTTP Request cloud event from an HTTP req
+// FromHTTPRequest creates an FN HTTP Request cloud event from an HTTP req
 // This will buffer the whole request into RAM
-func FromHTTPTriggerRequest(r *http.Request, maxBodySize uint64) (*Event, error) {
+func FromHTTPRequest(r *http.Request, maxBodySize uint64) (*event.Event, error) {
 
 	// TODO - this is a bit heap-happy
 	buf := bytes.Buffer{}
@@ -135,7 +138,7 @@ func FromHTTPTriggerRequest(r *http.Request, maxBodySize uint64) (*Event, error)
 		RequestURL: rUrl,
 	}
 
-	evt := &Event{
+	evt := &event.Event{
 		CloudEventsVersion: DefaultCloudEventVersion,
 		EventType:          EventTypeHTTPReq,
 		Data:               rawData,
@@ -154,13 +157,13 @@ func FromHTTPTriggerRequest(r *http.Request, maxBodySize uint64) (*Event, error)
 	return evt, nil
 }
 
-func CreateHttpRespEvent(sourceID string, body json.RawMessage, contentType string, status int, headers map[string][]string) (*Event, error) {
+func CreateHttpRespEvent(sourceID string, body json.RawMessage, contentType string, status int, headers map[string][]string) (*event.Event, error) {
 	respExt := HTTPRespExt{
 		Status:  status,
 		Headers: headers,
 	}
 
-	evt := &Event{
+	evt := &event.Event{
 		CloudEventsVersion: DefaultCloudEventVersion,
 		EventType:          EventTypeHTTPResp,
 		Data:               body,
@@ -179,8 +182,55 @@ func CreateHttpRespEvent(sourceID string, body json.RawMessage, contentType stri
 
 }
 
+// TODO test
+// WriteHTTPResponse emits an event as a raw HTTP response , outputting the body of the response if any in the HTTP body and honoruing any HTTP extensions in the event
+func WriteHTTPResponse(ctx context.Context, event *event.Event, resp http.ResponseWriter) error {
+
+	var respMeta HTTPRespExt
+
+	if event.HasExtension(ExtIoFnProjectHTTPResp) {
+		err := event.ReadExtension(ExtIoFnProjectHTTPResp, &respMeta)
+		if err != nil {
+			return err
+		}
+	} else {
+		respMeta = HTTPRespExt{
+			Status: 200,
+		}
+	}
+
+	for k, vs := range respMeta.Headers {
+		for _, v := range vs {
+			resp.Header().Add(k, v)
+		}
+	}
+
+	if event.ContentType != "" {
+		resp.Header().Set("Content-type", event.ContentType)
+	}
+	var body []byte
+	if event.Data != nil {
+		bodyString, err := event.BodyAsRawString()
+		if err != nil {
+			return err
+		}
+		body = []byte(bodyString)
+		resp.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	}
+
+	resp.WriteHeader(respMeta.Status)
+
+	if body != nil {
+		_, err := resp.Write(body)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 //FromHTTPResponse Creates an Fn http response event from a given HTTP response - this can be used to (e.g. parse the response of an HTTP container and turn it into a cloud event
-func FromHTTPResponse(sourceID string, maxBodySize uint64, r *http.Response) (*Event, error) {
+func FromHTTPResponse(ctx context.Context, sourceID string, maxBodySize uint64, r *http.Response) (*event.Event, error) {
 
 	buf := bytes.Buffer{}
 	_, err := buf.ReadFrom(r.Body)

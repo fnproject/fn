@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"github.com/fnproject/fn/api/event"
 	"hash"
 	"reflect"
 	"sort"
@@ -19,7 +20,7 @@ import (
 //
 
 type Slot interface {
-	exec(ctx context.Context, call *call) error
+	exec(ctx context.Context, call *call) (*event.Event, error)
 	Close(ctx context.Context) error
 	Error() error
 }
@@ -287,7 +288,7 @@ func getSlotQueueKey(call *call) string {
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.SyslogURL))
 	hash.Write(unsafeBytes("\x00"))
-	hash.Write(unsafeBytes(call.Path))
+	hash.Write(unsafeBytes(call.FnID))
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.Image))
 	hash.Write(unsafeBytes("\x00"))

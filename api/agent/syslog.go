@@ -107,7 +107,7 @@ type syslogWriter struct {
 const severityMask = 0x07
 const facilityMask = 0xf8
 
-func newSyslogWriter(call, function, app string, severity syslog.Priority, wc io.Writer, buf *bytes.Buffer) *syslogWriter {
+func newSyslogWriter(callID, fnID, appID string, severity syslog.Priority, wc io.Writer, buf *bytes.Buffer) *syslogWriter {
 	// Facility = LOG_USER
 	pr := (syslog.LOG_USER & facilityMask) | (severity & severityMask)
 
@@ -121,7 +121,7 @@ func newSyslogWriter(call, function, app string, severity syslog.Priority, wc io
 	// TODO we could use json for structured data and do that whole thing. up to whoever.
 	return &syslogWriter{
 		pres:   []byte(fmt.Sprintf(`<%d>2`, pr)),
-		post:   []byte(fmt.Sprintf(`fn - - - - call_id=%s func_name=%s app_id=%s `, call, function, app)),
+		post:   []byte(fmt.Sprintf(`fn - - - - call_id=%s fn_id=%s app_id=%s `, callID, fnID, appID)),
 		b:      buf,
 		Writer: wc,
 		clock:  time.Now,

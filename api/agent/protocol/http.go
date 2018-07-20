@@ -11,6 +11,7 @@ import (
 
 	"bytes"
 	"github.com/fnproject/fn/api/event"
+	"github.com/fnproject/fn/api/event/httpevent"
 	"github.com/fnproject/fn/api/models"
 	"github.com/pkg/errors"
 )
@@ -33,11 +34,11 @@ func (h *httpProtocol) Dispatch(ctx context.Context, evt *event.Event) (*event.E
 	var method, requestURL string
 	var headers http.Header
 
-	if evt.HasExtension(event.ExtIoFnProjectHTTPReq) {
-		var httpState event.HTTPReqExt
-		err := evt.ReadExtension(event.ExtIoFnProjectHTTPReq, &httpState)
+	if evt.HasExtension(httpevent.ExtIoFnProjectHTTPReq) {
+		var httpState httpevent.HTTPReqExt
+		err := evt.ReadExtension(httpevent.ExtIoFnProjectHTTPReq, &httpState)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Invalid %s extension data, %s", event.ExtIoFnProjectHTTPReq, err.Error()))
+			return nil, errors.New(fmt.Sprintf("Invalid %s extension data, %s", httpevent.ExtIoFnProjectHTTPReq, err.Error()))
 		}
 
 		method = httpState.Method
@@ -102,7 +103,7 @@ func (h *httpProtocol) Dispatch(ctx context.Context, evt *event.Event) (*event.E
 	// http request into the response body (not what we want).
 
 	// TODO: INVOKETODO : max resp size config, source ID
-	respEvent, err := event.FromHTTPResponse("http://fnproject.io", 1024*1024, resp)
+	respEvent, err := httpevent.FromHTTPResponse(ctx, "http://fnproject.io", 1024*1024, resp)
 
 	if err != nil {
 		return nil, models.NewAPIError(http.StatusBadGateway,

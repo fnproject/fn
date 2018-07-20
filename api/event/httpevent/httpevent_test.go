@@ -1,4 +1,4 @@
-package event
+package httpevent
 
 import (
 	"bytes"
@@ -67,7 +67,7 @@ func TestRawHTTPReq(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			ce, err := FromHTTPTriggerRequest(tc.req, 4096)
+			ce, err := FromHTTPRequest(tc.req, 4096)
 			if err != nil {
 				t.Fatal("Failed to produce event", err)
 			}
@@ -105,7 +105,7 @@ func TestUnsupportedReq(t *testing.T) {
 	tcs := []struct {
 		name  string
 		req   *http.Request
-		error models.APIError
+		error models.Error
 	}{
 		{name: "put with invalid JSON ",
 			req:   withHeaders(httptest.NewRequest("PUT", "/r/test?foo=bar", strings.NewReader("{")), "Content-Type", "application/json"),
@@ -123,7 +123,7 @@ func TestUnsupportedReq(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := FromHTTPTriggerRequest(tc.req, 4096)
+			_, err := FromHTTPRequest(tc.req, 4096)
 
 			if err != tc.error {
 				t.Fatalf("expecting error %s , but got %s ", tc.error, err)

@@ -9,6 +9,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/fnext"
@@ -144,9 +145,9 @@ func (a *lbAgent) Close() error {
 }
 
 // implements Agent
-func (a *lbAgent) Submit(ctx context.Context, callI Call) error {
+func (a *lbAgent) Submit(ctx context.Context, callI Call) (*event.Event, error) {
 	if !a.shutWg.AddSession(1) {
-		return models.ErrCallTimeoutServerBusy
+		return nil, models.ErrCallTimeoutServerBusy
 	}
 
 	call := callI.(*call)
@@ -157,12 +158,12 @@ func (a *lbAgent) Submit(ctx context.Context, callI Call) error {
 
 	// first check any excess case of call.End() stacking.
 	if atomic.LoadInt64(&a.callEndCount) >= int64(a.cfg.MaxCallEndStacking) {
-		a.handleCallEnd(ctx, call, context.DeadlineExceeded, false)
+		a.handleCallEnd(ctx, call, nil, context.DeadlineExceeded, false)
 	}
 
 	err := call.Start(ctx)
 	if err != nil {
-		return a.handleCallEnd(ctx, call, err, false)
+		return nil, a.handleCallEnd(ctx, call, nil, err, false)
 	}
 
 	statsDequeueAndStart(ctx)
@@ -171,12 +172,16 @@ func (a *lbAgent) Submit(ctx context.Context, callI Call) error {
 	// need some consideration here. Similar to runner/agent
 	// we consider isCommitted true if call.Start() succeeds.
 	// isStarted=true means we will call Call.End().
-	err = a.placer.PlaceCall(a.rp, ctx, call)
+	returnEvt, err := a.placer.PlaceCall(a.rp, ctx, call)
 	if err != nil {
 		common.Logger(ctx).WithError(err).Error("Failed to place call")
 	}
 
-	return a.handleCallEnd(ctx, call, err, true)
+	err = a.handleCallEnd(ctx, call, returnEvt, err, true)
+	if err != nil {
+		return nil, err
+	}
+	return returnEvt, nil
 }
 
 // implements Agent
@@ -194,12 +199,12 @@ func (a *lbAgent) scheduleCallEnd(fn func()) {
 	}()
 }
 
-func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isStarted bool) error {
+func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, event *event.Event, err error, isStarted bool) error {
 	if isStarted {
 		a.scheduleCallEnd(func() {
 			ctx = common.BackgroundContext(ctx)
 			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
-			call.End(ctx, err)
+			call.End(ctx, event, err)
 			cancel()
 		})
 

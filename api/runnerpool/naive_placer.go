@@ -7,6 +7,7 @@ import (
 
 	"github.com/fnproject/fn/api/models"
 
+	"github.com/fnproject/fn/api/event"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,7 +24,7 @@ func NewNaivePlacer(cfg *PlacerConfig) Placer {
 	}
 }
 
-func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
+func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) (*event.Event, error) {
 
 	state := NewPlacerTracker(ctx, &sp.cfg)
 	defer state.HandleDone()
@@ -31,8 +32,10 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 	for {
 		runners, err := rp.Runners(call)
 		if err != nil {
-			state.HandleFindRunnersFailure(err)
-			return err
+			log.WithError(err).Error("Failed to find runners for call")
+			stats.Record(ctx, errorPoolCountMeasure.M(0))
+			tracker.finalizeAttempts(false)
+			return nil, err
 		}
 
 		for j := 0; j < len(runners) && !state.IsDone(); j++ {
@@ -40,9 +43,24 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 			i := atomic.AddUint64(&sp.rrIndex, uint64(1))
 			r := runners[int(i)%len(runners)]
 
-			placed, err := state.TryRunner(r, call)
+			tracker.recordAttempt()
+			tryCtx, tryCancel := context.WithCancel(ctx)
+			outevt, placed, err := r.TryExec(tryCtx, call)
+			tryCancel()
+
+			// Only log unusual (except for too-busy) errors
+			if err != nil && err != models.ErrCallTimeoutServerBusy {
+				log.WithError(err).Errorf("Failed during call placement, placed=%v", placed)
+			}
+
 			if placed {
-				return err
+				if err != nil {
+					stats.Record(ctx, placedErrorCountMeasure.M(0))
+					tracker.finalizeAttempts(true)
+					return nil, err
+				}
+				stats.Record(ctx, placedOKCountMeasure.M(0))
+				return outevt, err
 			}
 		}
 
@@ -51,5 +69,8 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 		}
 	}
 
-	return models.ErrCallTimeoutServerBusy
+	// Cancel Exit Path / Client cancelled/timedout
+	stats.Record(ctx, cancelCountMeasure.M(0))
+	tracker.finalizeAttempts(false)
+	return nil, models.ErrCallTimeoutServerBusy
 }

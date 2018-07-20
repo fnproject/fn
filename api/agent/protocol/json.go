@@ -12,6 +12,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"github.com/fnproject/fn/api/event"
+	"github.com/fnproject/fn/api/event/httpevent"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -71,9 +72,9 @@ func (h *JSONProtocol) writeJSONToContainer(ci *event.Event) error {
 	var method, requestURL string
 	var headers http.Header
 
-	if ci.HasExtension(event.ExtIoFnProjectHTTPReq) {
-		var ext event.HTTPReqExt
-		err = ci.ReadExtension(event.ExtIoFnProjectHTTPReq, &ext)
+	if ci.HasExtension(httpevent.ExtIoFnProjectHTTPReq) {
+		var ext httpevent.HTTPReqExt
+		err = ci.ReadExtension(httpevent.ExtIoFnProjectHTTPReq, &ext)
 		if err != nil {
 			fmt.Errorf("invalid HTTP metadata on incoming event: %s", err)
 		}
@@ -142,7 +143,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Ev
 		}
 	}
 
-	evt, err := event.CreateHttpRespEvent("http://fnproject.io", jout.Body, jout.ContentType, status, headers)
+	evt, err := httpevent.CreateHttpRespEvent("http://fnproject.io", jout.Body, jout.ContentType, status, headers)
 	if err != nil {
 		return nil, err
 	}

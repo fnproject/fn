@@ -2,8 +2,8 @@ package runnerpool
 
 import (
 	"context"
+	"github.com/fnproject/fn/api/event"
 	"io"
-	"net/http"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -12,7 +12,7 @@ import (
 // Placer implements a placement strategy for calls that are load-balanced
 // across runners in a pool
 type Placer interface {
-	PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error
+	PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) (*event.Event, error)
 }
 
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
@@ -50,7 +50,10 @@ type RunnerStatus struct {
 
 // Runner is the interface to invoke the execution of a function call on a specific runner
 type Runner interface {
-	TryExec(ctx context.Context, call RunnerCall) (bool, error)
+	// TryExec tries to place a call on a runner returning the outbound event from the runner if available,
+	// response : is the outbound event, this will be set if error is nil
+	// committed indicates if the call was committed on the runner (i.e. it may have executed) when this is false the call can  be retried without side effects
+	TryExec(ctx context.Context, call RunnerCall) (response *event.Event, committed bool, error error)
 	Status(ctx context.Context) (*RunnerStatus, error)
 	Close(ctx context.Context) error
 	Address() string
@@ -58,11 +61,10 @@ type Runner interface {
 
 // RunnerCall provides access to the necessary details of request in order for it to be
 // processed by a RunnerPool
+// TODO is this needed any more or does agent.Call suffice
 type RunnerCall interface {
 	SlotHashId() string
 	Extensions() map[string]string
-	RequestBody() io.ReadCloser
-	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser
 	Model() *models.Call
 }
