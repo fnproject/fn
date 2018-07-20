@@ -509,8 +509,10 @@ const (
 
 // statusTracker maintains cache data/state/locks for Status Call invocations.
 type statusTracker struct {
-	inflight  int32
-	imageName string
+	inflight         int32
+	requestsReceived uint64
+	requestsHandled  uint64
+	imageName        string
 
 	// lock protects expiry/cache/wait fields below. RunnerStatus ptr itself
 	// stored every time status image is executed. Cache fetches use a shallow
@@ -624,7 +626,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	log := common.Logger(ctx)
 	// Keep lightweight tabs on what this runner is doing: for draindown tests
 	atomic.AddInt32(&pr.status.inflight, 1)
-	defer atomic.AddInt32(&pr.status.inflight, -1)
+	atomic.AddUint64(&pr.status.requestsReceived, 1)
 
 	pv, ok := peer.FromContext(ctx)
 	log.Debug("Starting engagement")
@@ -638,37 +640,42 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	state := NewCallHandle(engagement)
 
 	tryMsg := state.getTryMsg()
-	if tryMsg == nil {
-		return state.waitError()
-	}
+	if tryMsg != nil {
+		errTry := pr.handleTryCall(tryMsg, state)
+		if errTry == nil {
+			dataFeed := state.spawnPipeToFn()
 
-	errTry := pr.handleTryCall(tryMsg, state)
-	if errTry != nil {
-		return state.waitError()
-	}
+		DataLoop:
+			for {
+				dataMsg := state.getDataMsg()
+				if dataMsg == nil {
+					break
+				}
 
-	dataFeed := state.spawnPipeToFn()
-
-DataLoop:
-	for {
-		dataMsg := state.getDataMsg()
-		if dataMsg == nil {
-			break
-		}
-
-		select {
-		case dataFeed <- dataMsg:
-			if dataMsg.Eof {
-				break DataLoop
+				select {
+				case dataFeed <- dataMsg:
+					if dataMsg.Eof {
+						break DataLoop
+					}
+				case <-state.doneQueue:
+					break DataLoop
+				case <-state.ctx.Done():
+					break DataLoop
+				}
 			}
-		case <-state.doneQueue:
-			break DataLoop
-		case <-state.ctx.Done():
-			break DataLoop
 		}
 	}
 
-	return state.waitError()
+	err := state.waitError()
+
+	// if we didn't respond with TooBusy, then this means the request
+	// was processed.
+	if err != models.ErrCallTimeoutServerBusy {
+		atomic.AddUint64(&pr.status.requestsHandled, 1)
+	}
+
+	atomic.AddInt32(&pr.status.inflight, -1)
+	return err
 }
 
 // Runs a status call using status image with baked in parameters.
@@ -820,11 +827,15 @@ func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatu
 
 		cacheObj.Cached = true
 		cacheObj.Active = atomic.LoadInt32(&pr.status.inflight)
+		cacheObj.RequestsReceived = atomic.LoadUint64(&pr.status.requestsReceived)
+		cacheObj.RequestsHandled = atomic.LoadUint64(&pr.status.requestsHandled)
 		return &cacheObj, nil
 	}
 
 	cachePtr := pr.runStatusCall(ctx)
 	cachePtr.Active = atomic.LoadInt32(&pr.status.inflight)
+	cachePtr.RequestsReceived = atomic.LoadUint64(&pr.status.requestsReceived)
+	cachePtr.RequestsHandled = atomic.LoadUint64(&pr.status.requestsHandled)
 	now = time.Now()
 
 	// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
@@ -847,7 +858,9 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 	// Status using image name is disabled. We return inflight request count only
 	if pr.status.imageName == "" {
 		return &runner.RunnerStatus{
-			Active: atomic.LoadInt32(&pr.status.inflight),
+			Active:           atomic.LoadInt32(&pr.status.inflight),
+			RequestsReceived: atomic.LoadUint64(&pr.status.requestsReceived),
+			RequestsHandled:  atomic.LoadUint64(&pr.status.requestsHandled),
 		}, nil
 	}
 	return pr.handleStatusCall(ctx)

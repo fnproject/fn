@@ -35,6 +35,8 @@ type MTLSRunnerFactory func(addr, certCommonName string, pki *PKIData) (Runner, 
 // RunnerStatus is general information on Runner health as returned by Runner::Status() call
 type RunnerStatus struct {
 	ActiveRequestCount int32           // Number of active running requests on Runner
+	RequestsReceived   uint64          // Number of requests received by Runner
+	RequestsHandled    uint64          // Number of requests handled without NACK by Runner
 	StatusFailed       bool            // True if Status execution failed
 	Cached             bool            // True if Status was provided from cache
 	StatusId           string          // Call ID for Status
