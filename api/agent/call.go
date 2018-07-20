@@ -372,6 +372,8 @@ func (c *call) Start(ctx context.Context) error {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}
 
+	c.InputEvent.SetDeadline(common.DateTime(time.Now().Add(time.Duration(c.Timeout) * time.Second)))
+
 	return nil
 }
 

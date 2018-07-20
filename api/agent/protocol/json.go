@@ -99,7 +99,12 @@ func (h *JSONProtocol) writeJSONToContainer(ci *event.Event) error {
 		},
 	}
 
-	return json.NewEncoder(h.in).Encode(in)
+	err = json.NewEncoder(h.in).Encode(in)
+	if err != nil {
+		return err
+	}
+	return nil
+
 }
 
 func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Event, error) {
@@ -133,9 +138,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Ev
 	// - headers
 	if jout.Protocol != nil {
 		status = jout.Protocol.StatusCode
-		p := jout.Protocol
-
-		for k, v := range p.Headers {
+		for k, v := range jout.Protocol.Headers {
 			for _, vv := range v {
 				// largely do this to normalise header names
 				headers.Add(k, vv)
