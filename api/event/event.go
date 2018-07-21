@@ -6,21 +6,38 @@ import (
 	"github.com/fnproject/fn/api/common"
 )
 
+//
+//type BodyType int
+//
+//// TODO Handle body conversion/derivation
+//const (
+//	BodyTypeNone   = BodyType(iota)
+//	BodyTypeJSON   = BodyType(iota)
+//	BodyTypeString = BodyType(iota)
+//	BodyTypeBinary = BodyType(iota)
+//)
+
 // TODO :  Ideally this would be able to pass an arbitrary byte stream in its body (i.e. not be subject to JSON limitations)   but it's not now
 // Currently this only accepts valid JSON bodies, or non-json content that is valid UTF-8
 // TODO: Would really prefer this to be an interface with stronger correctness by guarantee
 
 // Event is the official JSON representation of a Event: https://github.com/cloudevents/spec/blob/master/serialization.md
 type Event struct {
-	CloudEventsVersion string          `json:"DefaultCloudEventVersion"`
-	EventID            string          `json:"eventID"`
-	Source             string          `json:"source"`
-	EventType          string          `json:"eventType"`
-	EventTypeVersion   string          `json:"eventTypeVersion,omitempty"`
-	EventTime          common.DateTime `json:"eventTime,omitempty"`
-	SchemaURL          string          `json:"schemaURL,omitempty"`
-	ContentType        string          `json:"contentType,omitempty"`
-	// Extensions are stored in the serialized form and en/re-coded on demand these are assumed to be ummutable at the value level
+	// EventType - typically a dotted reverse domain -based ID (e.g. io.fnproject.ErrorEvent)
+	EventType string `json:"eventType"`
+	// CloutEventsVersion - version of cloud events spec
+	CloudEventsVersion string `json:"cloudEventsVersion"`
+	// Source of event - a URI associated with the producer of the event
+	Source string `json:"source"`
+	// EventID - a unique identifier of the event with respect io its producer
+	EventID string `json:"eventID"`
+	// EventTime - the time the event occurred at its producer
+	EventTime common.DateTime `json:"eventTime,omitempty"`
+	// SchemaURL - schema of the data element of this event
+	SchemaURL string `json:"schemaURL,omitempty"`
+	// ContentType of the data element on this request
+	ContentType string `json:"contentType,omitempty"`
+	// Extensions are stored in the serialized form and en/re-coded on demand these are assumed to be immutable at the value level
 	Extensions map[string]json.RawMessage `json:"extensions,omitempty"`
 	// Data encapsulates the body of the request
 	// TODO : we're tied to the JSON encoding here - ideally this is independent of the underlying encoding used (and (e.g.) supports binary!)
@@ -73,6 +90,7 @@ func (ce *Event) ReadExtension(ext string, val interface{}) error {
 // BodyAsRawString returns the body of the event as a raw string - this is only really used to marshal default functions
 // If Data is a  string this returns the raw, unescaped Data string, otherwise it returns the native JSON document
 func (ce *Event) BodyAsRawString() (string, error) {
+	// TODO make data body a concrete type
 	// uuuuuggglly
 	if ce.Data[0] == '"' {
 		var res string

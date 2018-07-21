@@ -8,12 +8,12 @@ import (
 
 const testStringEvent = `
 {
-    "DefaultCloudEventVersion" : "0.1",
+    "cloudEventsVersion" : "0.1",
     "eventType" : "com.example.someevent",
-    "eventTypeVersion" : "1.0",
     "source" : "/mycontext",
     "eventID" : "A234-1234-1234",
     "eventTime" : "2018-04-05T17:31:00.000Z",
+    "schemaURL" : "http://my-schema.com/schema",
     "extensions" : {
       "comExampleExtension" : "value",
       "objExtesionExt" : {
@@ -27,12 +27,12 @@ const testStringEvent = `
 `
 const testJSONEvent = `
 {
-    "DefaultCloudEventVersion" : "0.1",
+    "cloudEventsVersion" : "0.1",
     "eventType" : "com.example.someevent",
-    "eventTypeVersion" : "1.0",
     "source" : "/mycontext",
     "eventID" : "A234-1234-1234",
     "eventTime" : "2018-04-05T17:31:00.000Z",
+    "schemaURL" : "http://my-schema.com/schema",
     "extensions" : {
       "comExampleExtension" : "value"
     },

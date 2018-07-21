@@ -1,4 +1,4 @@
-# Fn Project Common Events Specification  and CloudEvent protocol extensions: 
+# Fn Project Common Events Specification and CloudEvent protocol extensions: 
 
 *Experimental*  
 
@@ -14,8 +14,12 @@ Fn supports several common event types and cloud event exxtensions that are used
 
 * Raw HTTP interactions encapsulated in events 
 * Internal errors 
+* Message Extensions 
 
-This doc describes tue specifications for those events: 
+This doc describes tue specifications for those events
+
+# Relationship with Cloud Events FDK Format
+In addition to supporting receiving and replying with cloud events developers can also code specificaly 
 
 
 # A note on response events
@@ -178,7 +182,10 @@ e.g. Event returned by returned by container:
     "extensions" : {
         "ioFnProjectHttpResp" : {
             "status" : 204,
-            "Content-type": "text/plain" // ignored 
+            "headers":{
+                "My-Header" : ["foo"], 
+                "Content-type": ["application/json"]
+             }// ignored 
         
         }
     }

@@ -4,22 +4,24 @@ This document describes the different objects we store and the relationships bet
 
 ## Applications
 
-At the root of everything are applications. In `fn`, an application is essentially a grouping of functions
-with path mappings (routes) to each function. For instance, consider the following URLs for the app called `myapp`:
+At the root of everything are applications. In `fn`, an application is essentially a grouping of functions. 
 
-```
-http://myapp.com/hello
-http://myapp.com/users
-```
 
-This is an app with 2 routes:
+Applications can share common configuration including environment variables that are propagated to underlying functions. 
 
-1. A mapping of the path `/hello` to a function called `hello`
-1. A mapping of the path `/users` to a function called `users`
+## Functions 
 
-## Routes
+Functions are the unit of work in Fn - each function  is defined by a function image (uplaoded docker image) and some configuration properties that determine how that image will be executed to handle incoming events, including container properties such as the required RAM, the container format and application properties that are passed to the function as environment variables. 
 
-An app consists of 1 or more routes. A route stores the mapping between URL paths and functions (ie: container images).
+
+Functions can be invoked directly via the invoke API or can be attached to triggers to be invoked in association with other events. 
+
+## Triggers 
+
+Triggers are a binding between a function and some external event source - currently Fn supports binding functions to  HTTP web services. In future we plan to support other event sources such as timers (i.e. cron), queues and other third party systems. 
+
+
+For HTTP triggers when the trigger is defined,   users can invoke that function via the HTTP gateway as a standard web services. 
 
 ## Calls
 

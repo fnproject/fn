@@ -644,7 +644,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	} else {
 		httpReqMeta.Method = "GET"
 		// TODO think of a better URL for this
-		httpReqMeta.RequestURL = "http://fnproject.io/non_http"
+		httpReqMeta.RequestURL = "http://fnproject.io/_/non_http"
 	}
 
 	body, err := inputEvent.BodyAsRawString()

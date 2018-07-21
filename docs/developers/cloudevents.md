@@ -1,4 +1,4 @@
-# CloudEvents - EXPERIMENTAL
+# CloudEvents FDK support  - EXPERIMENTAL
 
 Fn supports CloudEvents throughout the system, meaning on ingestion and/or as a function I/O format.
 

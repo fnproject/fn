@@ -142,7 +142,6 @@ func FromHTTPRequest(r *http.Request, maxBodySize uint64) (*event.Event, error) 
 		CloudEventsVersion: DefaultCloudEventVersion,
 		EventType:          EventTypeHTTPReq,
 		Data:               rawData,
-		EventTypeVersion:   EventTypeHTTPRespVersion,
 		EventTime:          common.DateTime(time.Now()),
 		Source:             rUrl,
 		ContentType:        contentType,
@@ -169,7 +168,6 @@ func CreateHttpRespEvent(sourceID string, body json.RawMessage, contentType stri
 		Data:               body,
 		ContentType:        contentType,
 		EventTime:          common.DateTime(time.Now()),
-		EventTypeVersion:   EventTypeHTTPReqVersion,
 		EventID:            id.New().String(),
 		Source:             sourceID,
 	}
