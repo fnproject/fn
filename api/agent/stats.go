@@ -65,6 +65,10 @@ func statsLBAgentRunnerExecLatency(ctx context.Context, dur time.Duration) {
 	stats.Record(ctx, runnerExecLatencyMeasure.M(int64(dur/time.Millisecond)))
 }
 
+func statsNoRetriesPerCall(ctx context.Context){
+	stats.Record(ctx, perInstanceRetryMeasure.M(1))
+}
+
 const (
 	// TODO we should probably prefix these with calls_ ?
 	queuedMetricName     = "queued"

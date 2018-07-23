@@ -294,6 +294,7 @@ func recordFinishStats(ctx context.Context, msg *pb.CallFinished) {
 	if !creatTs.IsZero() && !startTs.IsZero() && !complTs.IsZero() && !startTs.Before(creatTs) && !complTs.Before(startTs) {
 		statsLBAgentRunnerSchedLatency(ctx, startTs.Sub(creatTs))
 		statsLBAgentRunnerExecLatency(ctx, complTs.Sub(startTs))
+		statsNoRetriesPerCall(ctx)
 	}
 }
 
