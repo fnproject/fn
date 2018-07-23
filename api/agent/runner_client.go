@@ -20,7 +20,6 @@ import (
 	"github.com/fnproject/fn/grpcutil"
 
 	pb_empty "github.com/golang/protobuf/ptypes/empty"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -61,14 +60,17 @@ func (r *gRPCRunner) Close(context.Context) error {
 }
 
 func runnerConnection(address, runnerCertCN string, pki *pool.PKIData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
+
 	ctx := context.Background()
+	logger := common.Logger(ctx).WithField("runner_addr", address)
+	ctx = common.WithLogger(ctx, logger)
 
 	var creds credentials.TransportCredentials
 	if pki != nil {
 		var err error
 		creds, err = grpcutil.CreateCredentials(pki.Cert, pki.Key, pki.Ca, runnerCertCN)
 		if err != nil {
-			logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
+			logger.WithError(err).Error("Unable to create credentials to connect to runner node")
 			return nil, nil, err
 		}
 	}
@@ -76,11 +78,11 @@ func runnerConnection(address, runnerCertCN string, pki *pool.PKIData) (*grpc.Cl
 	// we want to set a very short timeout to fail-fast if something goes wrong
 	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, 100*time.Millisecond, grpc.DefaultBackoffConfig)
 	if err != nil {
-		logrus.WithError(err).Error("Unable to connect to runner node")
+		logger.WithError(err).Error("Unable to connect to runner node")
 	}
 
 	protocolClient := pb.NewRunnerProtocolClient(conn)
-	logrus.WithField("runner_addr", address).Info("Connected to runner")
+	logger.Info("Connected to runner")
 
 	return conn, protocolClient, nil
 }
