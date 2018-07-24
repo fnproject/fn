@@ -39,7 +39,7 @@ func registryFromEnv() (map[string]driverAuthConfig, error) {
 
 		drvAuths[key] = driverAuthConfig{
 			auth:       v,
-			subdomains: getSubdomains(u.Hostname()),
+			subdomains: getSubdomains(u.Host),
 		}
 	}
 

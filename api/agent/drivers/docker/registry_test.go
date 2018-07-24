@@ -33,6 +33,12 @@ func TestRegistrySubDomains(t *testing.T) {
 		t.Fatalf("subdomain results failed expected[%+v] != results[%+v]", exp, res)
 	}
 
+	exp = []string{"top.google.com:443", "google.com:443"}
+	res = getSubdomains("top.google.com:443")
+	if !verify(exp, res) {
+		t.Fatalf("subdomain results failed expected[%+v] != results[%+v]", exp, res)
+	}
+
 	exp = []string{"top.top.google.com", "top.google.com", "google.com"}
 	res = getSubdomains("top.top.google.com")
 	if !verify(exp, res) {
