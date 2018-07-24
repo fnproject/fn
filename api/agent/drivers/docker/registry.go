@@ -14,12 +14,9 @@ var (
 )
 
 func registryFromEnv() (map[string]driverAuthConfig, error) {
-	drvAuths := make(map[string]driverAuthConfig)
-
 	var auths *docker.AuthConfigurations
 	var err error
-	if reg := os.Getenv("DOCKER_AUTH"); reg != "" {
-		// TODO docker does not use this itself, we should get rid of env docker config (nor is this documented..)
+	if reg := os.Getenv("FN_DOCKER_AUTH"); reg != "" {
 		auths, err = docker.NewAuthConfigurations(strings.NewReader(reg))
 	} else {
 		auths, err = docker.NewAuthConfigurationsFromDockerCfg()
@@ -27,8 +24,14 @@ func registryFromEnv() (map[string]driverAuthConfig, error) {
 
 	if err != nil {
 		logrus.WithError(err).Info("no docker auths from config files found (this is fine)")
-		return drvAuths, nil
+		return map[string]driverAuthConfig{}, nil
 	}
+
+	return preprocessAuths(auths)
+}
+
+func preprocessAuths(auths *docker.AuthConfigurations) (map[string]driverAuthConfig, error) {
+	drvAuths := make(map[string]driverAuthConfig)
 
 	for key, v := range auths.Configs {
 
@@ -42,7 +45,6 @@ func registryFromEnv() (map[string]driverAuthConfig, error) {
 			subdomains: getSubdomains(u.Host),
 		}
 	}
-
 	return drvAuths, nil
 }
 
