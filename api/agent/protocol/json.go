@@ -11,10 +11,22 @@ import (
 
 	"go.opencensus.io/trace"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/event/httpevent"
-	"github.com/fnproject/fn/api/models"
+	"io/ioutil"
 )
+
+const FakeSourceURL = "http://fnproject.io/s/non-http-inputs"
+
+// JSONProtocol converts stdin/stdout streams from HTTP into JSON format.
+type JSONProtocol struct {
+	source          string
+	maxResponseSize uint64
+	// These are the container input streams, not the input from the request or the output for the response
+	in  io.Writer
+	out io.Reader
+}
 
 // CallRequestHTTP for the protocol that was used by the end user to call this function. We only have HTTP right now.
 type CallRequestHTTP struct {
@@ -46,44 +58,40 @@ type jsonOut struct {
 	Protocol    *CallResponseHTTP `json:"protocol,omitempty"`
 }
 
-// JSONProtocol converts stdin/stdout streams from HTTP into JSON format.
-type JSONProtocol struct {
-	// These are the container input streams, not the input from the request or the output for the response
-	in  io.Writer
-	out io.Reader
-}
-
 func (p *JSONProtocol) IsStreamable() bool {
 	return true
 }
 
-func (h *JSONProtocol) writeJSONToContainer(ci *event.Event) error {
+func (h *JSONProtocol) writeJSONToContainer(ci *event.Event) (string, error) {
 
 	callID, err := ci.GetCallID()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	deadline, err := ci.GetDeadline()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var method, requestURL string
 	var headers http.Header
-
+	var ext *httpevent.HTTPReqExt
 	if ci.HasExtension(httpevent.ExtIoFnProjectHTTPReq) {
-		var ext httpevent.HTTPReqExt
 		err = ci.ReadExtension(httpevent.ExtIoFnProjectHTTPReq, &ext)
 		if err != nil {
-			fmt.Errorf("invalid HTTP metadata on incoming event: %s", err)
+			fmt.Errorf("invalid HTTP metadata on incoming inputs: %s", err)
 		}
 		method = ext.Method
 		requestURL = ext.RequestURL
 		headers = ext.Headers
 	} else {
 		method = "GET"
-		requestURL = "http://example.com"
+		requestURL = FakeSourceURL
+	}
+
+	if headers == nil {
+		headers = make(map[string][]string)
 	}
 
 	in := jsonIn{
@@ -101,9 +109,9 @@ func (h *JSONProtocol) writeJSONToContainer(ci *event.Event) error {
 
 	err = json.NewEncoder(h.in).Encode(in)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return callID, nil
 
 }
 
@@ -112,7 +120,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Ev
 	defer span.End()
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_write_request")
-	err := h.writeJSONToContainer(ci)
+	callID, err := h.writeJSONToContainer(ci)
 	span.End()
 	if err != nil {
 		return nil, err
@@ -120,11 +128,21 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Ev
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_read_response")
 	var jout jsonOut
-	decoder := json.NewDecoder(h.out)
+
+	clampReader := common.NewClampReadCloser(ioutil.NopCloser(h.out), h.maxResponseSize, ErrContainerResponseTooLarge)
+
+	errCatcher := common.NewErrorCatchingReader(clampReader)
+
+	decoder := json.NewDecoder(errCatcher)
 	err = decoder.Decode(&jout)
 	span.End()
 	if err != nil {
-		return nil, models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
+		lastIOError := errCatcher.LastError()
+
+		if lastIOError != nil && lastIOError != io.EOF {
+			return nil, errCatcher.LastError()
+		}
+		return nil, ErrInvalidContentFromContainer
 	}
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_write_response")
@@ -146,10 +164,18 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Ev
 		}
 	}
 
-	evt, err := httpevent.CreateHttpRespEvent("http://fnproject.io", jout.Body, jout.ContentType, status, headers)
+	var contentType = jout.ContentType
+	if jout.Body != nil && contentType == "" {
+		// By definition body is a valid JSON doc here - we'll just carry it thusly
+		contentType = "application/json"
+	}
+
+	evt, err := httpevent.CreateHTTPRespEvent(h.source, jout.Body, contentType, status, headers)
 	if err != nil {
 		return nil, err
 	}
+	evt.SetCallID(callID)
+
 	return evt, checkExcessData(decoder)
 }
 

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
-	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/event"
@@ -558,9 +557,9 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 		if tok != nil {
 			tok.Close()
 		}
-	// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
-	// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
-	// idle container.
+		// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
+		// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
+		// idle container.
 	case <-time.After(a.cfg.HotPoll):
 		a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs))
 	case <-ctx.Done(): // timeout
@@ -647,7 +646,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 		httpReqMeta.RequestURL = "http://fnproject.io/_/non_http"
 	}
 
-	body, err := inputEvent.BodyAsRawString()
+	body, err := inputEvent.BodyAsRawValue()
 	if err != nil {
 		return nil, err
 	}
@@ -658,7 +657,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 			return nil, tok.Error()
 		}
 
-		go a.prepCold(ctx, call, strings.NewReader(body), &httpReqMeta, tok, ch)
+		go a.prepCold(ctx, call, bytes.NewReader(body), &httpReqMeta, tok, ch)
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -708,9 +707,20 @@ func (s *coldSlot) exec(ctx context.Context, call *call) (*event.Event, error) {
 		return nil, res.Error()
 	}
 
-	// nil or timed out
-	// TODO INVOKE how to get this out here
-	return nil, ctx.Err()
+	// call success
+	jsonBody, contentType, err := httpevent.ConvertHTTPBodyToJsonBody("", s.output.Bytes(), MaxBodySize)
+
+	if err != nil {
+		return nil, err
+	}
+
+	s.output = nil
+
+	outEvt, err := httpevent.CreateHTTPRespEvent("http://fnproject.io", jsonBody, contentType, 200, nil)
+	if err != nil {
+		return nil, err
+	}
+	return outEvt, nil
 }
 
 func (s *coldSlot) Close(ctx context.Context) error {
@@ -842,7 +852,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, body io.Reader, httpMe
 	}
 
 	writeBuffer := &bytes.Buffer{}
-	writer := common.NewClampWriter(&bytes.Buffer{}, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
+	//writer := common.NewClampWriter(&bytes.Buffer{}, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
 	// TODO
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
@@ -853,7 +863,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, body io.Reader, httpMe
 		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   body,
-		stdout:  writer,
+		stdout:  writeBuffer,
 		stderr:  call.stderr,
 		stats:   &call.Stats,
 	}

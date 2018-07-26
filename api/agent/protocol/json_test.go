@@ -4,213 +4,213 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
+	"github.com/fnproject/fn/api/event/httpevent"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"net/url"
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/models"
 )
 
-type RequestData struct {
-	A string `json:"a"`
+func TestJSONProtocolWrite(t *testing.T) {
+
+	var Deadline = common.DateTime(time.Unix(1532443904, 0))
+	//var DeadlineStr = "2018-07-24T14:51:44+00:00.000Z"
+	var CallID = "CallID"
+	var EvtID = "eventID"
+	baseEvent := func(e *event.Event) *event.Event {
+		e.SetDeadline(Deadline)
+		e.SetCallID(CallID)
+		e.EventID = EvtID
+		e.EventTime = common.DateTime(time.Unix(1532443900, 0))
+		e.CloudEventsVersion = "0.0"
+		e.Source = "http://some-source"
+		return e
+	}
+
+	tcs := []struct {
+		name         string
+		input        *event.Event
+		expectedJson string
+	}{{
+		"string-non-http",
+		baseEvent(&event.Event{Data: event.MustStringBody("hello world"), ContentType: "text/plain"}),
+		`{"body":"hello world","content_type":"text/plain","deadline":"2018-07-24T15:51:44.000+01:00","call_id" :"CallID" ,"protocol":{"type":"http","method":"GET","request_url":"http://fnproject.io/s/non-http-inputs","headers":{}}}`,
+	}, {
+		"http",
+		baseEvent(&event.Event{Source: "http://some-source",
+			Data:        event.MustStringBody("hello world"),
+			ContentType: "text/plain",
+			Extensions: map[string]event.ExtensionMessage{
+				httpevent.ExtIoFnProjectHTTPReq: event.MustJSONExtMessage(&httpevent.HTTPReqExt{
+					Method:     "PUT",
+					RequestURL: "http://my_url/foo",
+					Headers: map[string][]string{
+						"X-MyHeader": {"myval1", "myval2"},
+					},
+				})}}),
+		`{"call_id":"CallID","deadline":"2018-07-24T15:51:44.000+01:00","body":"hello world","content_type":"text/plain","protocol":{"type":"http","method":"PUT","request_url":"http://my_url/foo","headers":{"X-MyHeader":["myval1","myval2"]}}}`,
+	}, {
+		"empty-body",
+		baseEvent(&event.Event{}),
+		`{"call_id":"CallID","deadline":"2018-07-24T15:51:44.000+01:00","body":null,"content_type":"","protocol":{"type":"http","method":"GET","request_url":"http://fnproject.io/s/non-http-inputs","headers":{}}}`,
+	}, {
+		"json-body",
+		baseEvent(&event.Event{ContentType: "application/json", Data: event.MustJSONBody(`{"some_body":[1,2,3]}`)}),
+		`{"body":{"some_body":[1,2,3]},"content_type":"application/json","deadline":"2018-07-24T15:51:44.000+01:00","call_id" :"CallID" ,"protocol":{"type":"http","method":"GET","request_url":"http://fnproject.io/s/non-http-inputs","headers":{}}}`,
+	}}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			wbuf := &bytes.Buffer{}
+			reader := strings.NewReader(`{"body": "ok"}`)
+			proto := JSONProtocol{"/mysource", 1024, wbuf, reader}
+
+			_, err := proto.Dispatch(context.Background(), tc.input)
+			if err != nil {
+				t.Fatalf("Invalid dispatch %s", err)
+			}
+
+			if !jsonEqual(t, tc.expectedJson, string(wbuf.Bytes())) {
+				t.Errorf("expected body to be \n `%s`, was \n`%s", tc.expectedJson, string(wbuf.Bytes()))
+			}
+		})
+	}
 }
 
-func setupRequest(data interface{}) (*callInfoImpl, context.CancelFunc) {
-	req := &http.Request{
-		Method: http.MethodPost,
-		URL: &url.URL{
-			Scheme:   "http",
-			Host:     "localhost:8080",
-			Path:     "/v1/apps",
-			RawQuery: "something=something&etc=etc",
+func TestJSONProtocolRead(t *testing.T) {
+	dateTime := common.DateTime(time.Unix(1532443900, 0))
+	var EvtID = "eventID"
+	baseInEvent := func(e *event.Event) *event.Event {
+		e.EventID = EvtID
+		e.EventTime = dateTime
+		e.CloudEventsVersion = "0.1"
+		e.Source = "/mysource"
+		e.SetCallID("CallID")
+		e.SetDeadline(dateTime)
+		return e
+	}
+
+	baseOutEvent := func(e *event.Event) *event.Event {
+		e.EventID = EvtID
+		e.EventTime = dateTime
+		e.CloudEventsVersion = "0.1"
+		e.Source = "/mysource"
+		e.EventType = httpevent.EventTypeHTTPResp
+		e.SetCallID("CallID")
+		return e
+	}
+
+	tcs := []struct {
+		name          string
+		responseJson  string
+		expectedEvent *event.Event
+	}{{
+		"emptyResponse",
+		"{}",
+		baseOutEvent(&event.Event{Extensions: map[string]event.ExtensionMessage{httpevent.ExtIoFnProjectHTTPResp: event.MustJSONExtMessage(&httpevent.HTTPRespExt{Status: 200})}}),
+	}, {
+		"body no content type json value",
+		`{"body": "hello world\n from fn"}`,
+		baseOutEvent(&event.Event{Data: event.MustStringBody("hello world\n from fn"), ContentType: "application/json", Extensions: map[string]event.ExtensionMessage{httpevent.ExtIoFnProjectHTTPResp: event.MustJSONExtMessage(&httpevent.HTTPRespExt{Status: 200})}}),
+	}, {
+		"body with content type string body",
+		`{"body": "hello world\n from fn","content_type":"text/plain"}`,
+		baseOutEvent(&event.Event{Data: event.MustStringBody("hello world\n from fn"), ContentType: "text/plain", Extensions: map[string]event.ExtensionMessage{httpevent.ExtIoFnProjectHTTPResp: event.MustJSONExtMessage(&httpevent.HTTPRespExt{Status: 200})}}),
+	}, {
+		"body with content type json  body ",
+		`{"body": "hello world\n from fn","content_type":"application/json"}`,
+		baseOutEvent(&event.Event{Data: event.MustJSONBody("\"hello world\\n from fn\""), ContentType: "application/json", Extensions: map[string]event.ExtensionMessage{httpevent.ExtIoFnProjectHTTPResp: event.MustJSONExtMessage(&httpevent.HTTPRespExt{Status: 200})}}),
+	}}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := strings.NewReader(tc.responseJson)
+			proto := JSONProtocol{"/mysource", 1024, ioutil.Discard, reader}
+
+			outEvent, err := proto.Dispatch(context.Background(), baseInEvent(&event.Event{}))
+
+			if err != nil {
+				t.Fatalf("Invalid dispatch %s", err)
+			}
+			if outEvent.EventID == "" {
+				t.Fatal("Expected inputs ID got nil ")
+			}
+			outEvent.EventID = EvtID
+
+			if outEvent.EventTime == common.NewDateTime() {
+				t.Fatalf("No inputs time specified")
+			}
+			outEvent.EventTime = dateTime
+
+			ceJson, err := json.Marshal(outEvent)
+
+			if err != nil {
+				t.Fatal("invalid inputs, can't marshal raw", err)
+			}
+
+			expectedJSON, err := json.Marshal(tc.expectedEvent)
+			if err != nil {
+				t.Fatal("Invalid expected, can't marshal", err)
+			}
+			if !jsonEqual(t, string(expectedJSON), string(ceJson)) {
+				t.Errorf("expected inputs to be \n`%s`, was \n`%s", string(expectedJSON), string(ceJson))
+			}
+		})
+	}
+}
+
+func TestInvalidContentFromContainer(t *testing.T) {
+	dateTime := common.DateTime(time.Unix(1532443900, 0))
+	var EvtID = "eventID"
+	inEvent := &event.Event{
+		EventID:            EvtID,
+		EventTime:          dateTime,
+		CloudEventsVersion: "0.1",
+		Source:             "/mysource",
+	}
+	inEvent.SetCallID("CallID")
+	inEvent.SetDeadline(dateTime)
+
+	longString := strings.Repeat("a", 1025)
+	tcs := []struct {
+		name   string
+		reader io.Reader
+		err    error
+	}{
+		{"excess json ",
+			strings.NewReader("{} {}"),
+			ErrExcessData,
 		},
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header: http.Header{
-			"Host":         []string{"localhost:8080"},
-			"User-Agent":   []string{"curl/7.51.0"},
-			"Content-Type": []string{"application/json"},
+		{
+			"excess whitespace ok ",
+			strings.NewReader("{}  "),
+			nil,
 		},
-		Host: "localhost:8080",
-	}
-	var buf bytes.Buffer
-	if data != nil {
-		_ = json.NewEncoder(&buf).Encode(data)
-	}
-	req.Body = ioutil.NopCloser(&buf)
 
-	call := &models.Call{
-		Type:    "sync",
-		Method:  req.Method,
-		Headers: req.Header,
-		Payload: buf.String(),
-		URL:     req.URL.String(),
+		{
+			"partial content",
+			strings.NewReader("{  "),
+			ErrInvalidContentFromContainer,
+		},
+
+		{
+			"Too much input",
+			strings.NewReader(`{"body":"` + longString + `"}`),
+			ErrContainerResponseTooLarge,
+		},
 	}
 
-	ctx, cancel := context.WithTimeout(req.Context(), 1*time.Second)
-	deadline, _ := ctx.Deadline()
-	ci := &callInfoImpl{call: call, deadline: common.DateTime(deadline)}
-	return ci, cancel
-}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			proto := JSONProtocol{"/mysource", 1024, ioutil.Discard, tc.reader}
+			_, err := proto.Dispatch(context.Background(), inEvent)
+			if err != tc.err {
+				t.Fatalf("Expected error '%s' got '%s' ", tc.err, err)
+			}
+		})
+	}
 
-func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
-	ci, cancel := setupRequest(nil)
-	defer cancel()
-	r, w := io.Pipe()
-	proto := JSONProtocol{w, r}
-	go func() {
-		err := proto.writeJSONToContainer(ci)
-		if err != nil {
-			t.Error(err.Error())
-		}
-		w.Close()
-	}()
-	incomingReq := &jsonIn{}
-	bb := new(bytes.Buffer)
-
-	_, err := bb.ReadFrom(r)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	err = json.Unmarshal(bb.Bytes(), incomingReq)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	if incomingReq.CallID != ci.CallID() {
-		t.Errorf("Request CallID assertion mismatch: expected: %s, got %s",
-			ci.CallID(), incomingReq.CallID)
-	}
-	if incomingReq.ContentType != ci.ContentType() {
-		t.Errorf("Request ContentType assertion mismatch: expected: %s, got %s",
-			ci.ContentType(), incomingReq.ContentType)
-	}
-	if incomingReq.Deadline != ci.Deadline().String() {
-		t.Errorf("Request Deadline assertion mismatch: expected: %s, got %s",
-			ci.Deadline(), incomingReq.Deadline)
-	}
-}
-
-func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
-	rDataBefore := RequestData{A: "a"}
-	ci, cancel := setupRequest(rDataBefore)
-	defer cancel()
-	r, w := io.Pipe()
-	proto := JSONProtocol{w, r}
-	go func() {
-		err := proto.writeJSONToContainer(ci)
-		if err != nil {
-			t.Error(err.Error())
-		}
-		w.Close()
-	}()
-	incomingReq := &jsonIn{}
-	bb := new(bytes.Buffer)
-
-	_, err := bb.ReadFrom(r)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	err = json.Unmarshal(bb.Bytes(), incomingReq)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	rDataAfter := new(RequestData)
-	err = json.Unmarshal([]byte(incomingReq.Body), &rDataAfter)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	if rDataBefore.A != rDataAfter.A {
-		t.Errorf("Request data assertion mismatch: expected: %s, got %s",
-			rDataBefore.A, rDataAfter.A)
-	}
-	if incomingReq.Protocol.Type != ci.ProtocolType() {
-		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
-			ci.ProtocolType(), incomingReq.Protocol.Type)
-	}
-	if incomingReq.Protocol.Method != ci.Method() {
-		t.Errorf("Call protocol method assertion mismatch: expected: %s, got %s",
-			ci.Method(), incomingReq.Protocol.Method)
-	}
-	if incomingReq.Protocol.RequestURL != ci.RequestURL() {
-		t.Errorf("Call protocol request URL assertion mismatch: expected: %s, got %s",
-			ci.RequestURL(), incomingReq.Protocol.RequestURL)
-	}
-}
-
-func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
-	ci, cancel := setupRequest(nil)
-	defer cancel()
-	r, w := io.Pipe()
-	proto := JSONProtocol{w, r}
-	go func() {
-		err := proto.writeJSONToContainer(ci)
-		if err != nil {
-			t.Error(err.Error())
-		}
-		w.Close()
-	}()
-	incomingReq := &jsonIn{}
-	bb := new(bytes.Buffer)
-
-	_, err := bb.ReadFrom(r)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	err = json.Unmarshal(bb.Bytes(), incomingReq)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	if incomingReq.Body != "" {
-		t.Errorf("Request body assertion mismatch: expected: %s, got %s",
-			"<empty-string>", incomingReq.Body)
-	}
-	if !models.Headers(ci.call.Headers).Equals(models.Headers(incomingReq.Protocol.Headers)) {
-		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
-			ci.call.Headers, incomingReq.Protocol.Headers)
-	}
-	if incomingReq.Protocol.Type != ci.ProtocolType() {
-		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
-			ci.ProtocolType(), incomingReq.Protocol.Type)
-	}
-	if incomingReq.Protocol.Method != ci.Method() {
-		t.Errorf("Call protocol method assertion mismatch: expected: %s, got %s",
-			ci.Method(), incomingReq.Protocol.Method)
-	}
-	if incomingReq.Protocol.RequestURL != ci.RequestURL() {
-		t.Errorf("Call protocol request URL assertion mismatch: expected: %s, got %s",
-			ci.RequestURL(), incomingReq.Protocol.RequestURL)
-	}
-}
-
-func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
-	ci, cancel := setupRequest(nil)
-	defer cancel()
-	r, w := io.Pipe()
-	proto := JSONProtocol{w, r}
-	go func() {
-		err := proto.writeJSONToContainer(ci)
-		if err != nil {
-			t.Error(err.Error())
-		}
-		w.Close()
-	}()
-	incomingReq := &jsonIn{}
-	bb := new(bytes.Buffer)
-
-	_, err := bb.ReadFrom(r)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	err = json.Unmarshal(bb.Bytes(), incomingReq)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	if incomingReq.Protocol.RequestURL != ci.call.URL {
-		t.Errorf("Request URL does not match protocol URL: expected: %s, got %s",
-			ci.call.URL, incomingReq.Protocol.RequestURL)
-	}
 }

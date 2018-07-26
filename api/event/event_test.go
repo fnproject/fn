@@ -108,7 +108,7 @@ func TestBodyAsString(t *testing.T) {
 			t.Fatalf("Failed to read event %s", err)
 		}
 
-		str, err := jsonEvt.BodyAsRawString()
+		str, err := jsonEvt.BodyAsRawValue()
 		if err != nil {
 			t.Fatalf("Failed to read JSON body %s", err)
 		}

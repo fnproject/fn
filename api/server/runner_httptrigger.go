@@ -107,6 +107,8 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 		return err
 	}
 	err = httpevent.WriteHTTPResponse(ctx, respEvent, c.Writer)
-	log.WithError(err).Error("Failed to write HTTP response event ")
+	if err != nil {
+		log.WithError(err).Error("Failed to write HTTP response event ")
+	}
 	return nil
 }

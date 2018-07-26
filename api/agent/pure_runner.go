@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"reflect"
+	"sync"
 )
 
 /*
@@ -53,6 +54,42 @@ import (
 
 */
 
+const (
+	// Here we give 5 seconds of timeout inside the container. We hardcode these numbers here to
+	// ensure we control idle timeout & timeout as well as how long should cache be valid.
+	// A cache duration of idleTimeout + 500 msecs allows us to reuse the cache, for about 1.5 secs,
+	// and during this time, since we allow no queries to go through, the hot container times out.
+	//
+	// For now, status tests a single case: a new hot container is spawned when cache is expired
+	// and when a query is allowed to run.
+	// TODO: we might want to mix this up and perhaps allow that hot container to handle
+	// more than one query to test both 'new hot container' and 'old hot container' cases.
+	StatusCallTimeout       = int32(5)
+	StatusCallIdleTimeout   = int32(1)
+	StatusCallCacheDuration = time.Duration(500)*time.Millisecond + time.Duration(StatusCallIdleTimeout)*time.Second
+
+	// Total context timeout (scheduler+execution.) We need to allocate plenty of time here.
+	// 60 seconds should be enough to provoke disk I/O errors, docker timeouts. etc.
+	StatusCtxTimeout = time.Duration(60 * time.Second)
+)
+
+// statusTracker maintains cache data/state/locks for Status Call invocations.
+type statusTracker struct {
+	inflight         int32
+	requestsReceived uint64
+	requestsHandled  uint64
+	imageName        string
+
+	// lock protects expiry/cache/wait fields below. RunnerStatus ptr itself
+	// stored every time status image is executed. Cache fetches use a shallow
+	// copy of RunnerStatus to ensure consistency. Shallow copy is sufficient
+	// since we set/save contents of RunnerStatus once.
+	lock   sync.Mutex
+	expiry time.Time
+	cache  *runner.RunnerStatus
+	wait   chan struct{}
+}
+
 //// pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
 //// and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
@@ -60,6 +97,7 @@ type pureRunner struct {
 	creds      credentials.TransportCredentials
 	a          Agent
 	inflight   int32
+	status     statusTracker
 }
 
 // implements Agent
@@ -281,6 +319,179 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	}
 	//
 	return engagement.Send(createSubmitResponse(&c, nil))
+}
+
+// Runs a status call using status image with baked in parameters.
+func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
+
+	// IMPORTANT: We have to use our own context with a set timeout in order
+	// to ignore client timeouts. Original 'ctx' here carries client side deadlines.
+	// Since these deadlines can vary, in order to make sure Status runs predictably we
+	// use a hardcoded preset timeout 'ctxTimeout' instead.
+	// TODO: It would be good to copy original ctx key/value pairs into our new
+	// context for tracking, etc. But go-lang context today does not seem to allow this.
+
+	execCtx, execCtxCancel := context.WithTimeout(common.BackgroundContext(ctx), StatusCtxTimeout)
+	defer execCtxCancel()
+
+	result := &runner.RunnerStatus{}
+	log := common.Logger(ctx)
+	start := time.Now()
+
+	evt := &event.Event{
+		ContentType:        "application/json",
+		Data:               json.RawMessage([]byte(`{"hello":"world"}`)),
+		Source:             "urn:agent-tester",
+		EventTime:          common.DateTime(time.Now()),
+		EventID:            id.New().String(),
+		EventType:          "io.fnproject.testEvent",
+		CloudEventsVersion: "0.1",
+	}
+	// construct call
+	var c models.Call
+
+	// Most of these arguments are baked in. We might want to make this
+	// more configurable.
+	c.InputEvent = evt
+	c.ID = id.New().String()
+	c.Path = "/"
+	c.Image = pr.status.imageName
+	c.Type = "sync"
+	c.Format = "json"
+	c.TmpFsSize = 0
+	c.Memory = 0
+	c.CPUs = models.MilliCPUs(0)
+	c.CreatedAt = common.DateTime(start)
+	c.Config = make(models.Config)
+	c.Config["FN_FORMAT"] = c.Format
+	c.Timeout = StatusCallTimeout
+	c.IdleTimeout = StatusCallIdleTimeout
+
+	// TODO: reliably shutdown this container after executing one request.
+
+	log.Debugf("Running status call with id=%v image=%v", c.ID, c.Image)
+
+	agentCall, err := pr.a.GetCall(execCtx, FromModel(&c))
+
+	var respEvt *event.Event
+	if err == nil {
+		respEvt, err = pr.a.Submit(execCtx, agentCall)
+	}
+
+	var body []byte
+	if err != nil {
+		result.ErrorCode = int32(models.GetAPIErrorCode(err))
+		result.ErrorStr = err.Error()
+		result.Failed = true
+	} else {
+		if respEvt.IsFDKError() {
+			result.ErrorCode = 500
+			result.Failed = true
+		}
+		body, _ = respEvt.BodyAsRawValue()
+	}
+
+	// These timestamps are related. To avoid confusion
+	// and for robustness, nested if stmts below.
+	if !time.Time(c.CreatedAt).IsZero() {
+		result.CreatedAt = c.CreatedAt.String()
+
+		if !time.Time(c.StartedAt).IsZero() {
+			result.StartedAt = c.StartedAt.String()
+
+			if !time.Time(c.CompletedAt).IsZero() {
+				result.CompletedAt = c.CompletedAt.String()
+			} else {
+				// IMPORTANT: We punch this in ourselves.
+				// This is because call.End() is executed asynchronously.
+				result.CompletedAt = common.DateTime(time.Now()).String()
+			}
+		}
+	}
+
+	// Clamp the log output to 256 bytes if output is too large for logging.
+	dLen := len(body)
+	if dLen > 256 {
+		dLen = 256
+	}
+	log.Debugf("Status call with id=%v result=%+v body[0:%v]=%v", c.ID, result, dLen, body[:dLen])
+
+	result.Details = string(body)
+	result.Id = c.ID
+	return result
+}
+
+// Handles a status call concurrency and caching.
+func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatus, error) {
+	var myChan chan struct{}
+
+	isWaiter := false
+	isCached := false
+	now := time.Now()
+
+	pr.status.lock.Lock()
+
+	if now.Before(pr.status.expiry) {
+		// cache is still valid.
+		isCached = true
+	} else if pr.status.wait != nil {
+		// A wait channel is already installed, we must wait
+		isWaiter = true
+		myChan = pr.status.wait
+	} else {
+		// Wait channel is not present, we install a new one.
+		myChan = make(chan struct{})
+		pr.status.wait = myChan
+	}
+
+	pr.status.lock.Unlock()
+
+	// We either need to wait and/or serve the request from cache
+	if isWaiter || isCached {
+		if isWaiter {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-myChan:
+			}
+		}
+
+		var cacheObj runner.RunnerStatus
+
+		// A shallow copy is sufficient here, as we do not modify nested data in
+		// RunnerStatus in any way.
+		pr.status.lock.Lock()
+
+		cacheObj = *pr.status.cache
+
+		pr.status.lock.Unlock()
+
+		cacheObj.Cached = true
+		cacheObj.Active = atomic.LoadInt32(&pr.status.inflight)
+		cacheObj.RequestsReceived = atomic.LoadUint64(&pr.status.requestsReceived)
+		cacheObj.RequestsHandled = atomic.LoadUint64(&pr.status.requestsHandled)
+		return &cacheObj, nil
+	}
+
+	cachePtr := pr.runStatusCall(ctx)
+	cachePtr.Active = atomic.LoadInt32(&pr.status.inflight)
+	cachePtr.RequestsReceived = atomic.LoadUint64(&pr.status.requestsReceived)
+	cachePtr.RequestsHandled = atomic.LoadUint64(&pr.status.requestsHandled)
+	now = time.Now()
+
+	// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
+	// copy of 'cache'
+	pr.status.lock.Lock()
+
+	pr.status.cache = cachePtr
+	pr.status.expiry = now.Add(StatusCallCacheDuration)
+	pr.status.wait = nil
+
+	pr.status.lock.Unlock()
+
+	// signal waiters
+	close(myChan)
+	return cachePtr, nil
 }
 
 // implements RunnerProtocolServer

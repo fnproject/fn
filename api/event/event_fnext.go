@@ -8,6 +8,8 @@ import (
 const (
 	ExtIoFnProjectDeadline = "ioFnProjectDeadline"
 	ExtIoFnProjectCallID   = "ioFnProjectCallID"
+
+	EventTypeIoFnError = "io.fnproject.fnError"
 )
 
 // SetDeadline is a helper that sets the fn deadline extension on the event
@@ -46,4 +48,9 @@ func (ce *Event) GetCallID() (string, error) {
 
 	}
 	return callID, nil
+}
+
+// IsFDKError returns true if the event is an FDK error
+func (ce *Event) IsFDKError() bool {
+	return ce.EventType == EventTypeIoFnError
 }

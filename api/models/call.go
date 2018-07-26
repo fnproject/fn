@@ -140,7 +140,8 @@ type Call struct {
 	// status is equal to "error".
 	Error string `json:"error,omitempty" db:"error"`
 
-	// App this call belongs to.
+	// App this call belongs to
+	// Optional - may be empty
 	AppID string `json:"app_id" db:"app_id"`
 
 	// Trigger this call belongs to.
@@ -148,6 +149,7 @@ type Call struct {
 	TriggerID string `json:"trigger_id,omitempty" db:"trigger_id"`
 
 	// Fn this call belongs to.
+	// Optional may be empty
 	FnID string `json:"fn_id" db:"fn_id"`
 }
 

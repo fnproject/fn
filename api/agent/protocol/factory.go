@@ -11,7 +11,10 @@ import (
 
 var errInvalidProtocol = errors.New("Invalid Protocol")
 
-var ErrExcessData = errors.New("Excess data in stream")
+var ErrExcessData = errors.New("excess data in stream from container")
+var ErrIOErrorWritingToContainer = errors.New("io error writing to container")
+var ErrInvalidContentFromContainer = errors.New("invalid response from container")
+var ErrContainerResponseTooLarge = errors.New("container response was too large")
 
 type errorProto struct {
 	error
@@ -28,7 +31,7 @@ func (e errorProto) Dispatch(ctx context.Context, ci *event.Event) (*event.Event
 type ContainerIO interface {
 	IsStreamable() bool
 
-	// Dispatch dispatches an event to a container and handles/parses the response
+	// Dispatch dispatches an inputs to a container and handles/parses the response
 	// an error response indicates that the container has reached an invalid state and should be discarded
 	Dispatch(ctx context.Context, evt *event.Event) (*event.Event, error)
 }
@@ -38,11 +41,13 @@ type Protocol string
 
 // hot function protocols
 const (
-	Default     Protocol = models.FormatDefault
-	HTTP        Protocol = models.FormatHTTP
-	JSON        Protocol = models.FormatJSON
-	CloudEventP Protocol = models.FormatCloudEvent
-	Empty       Protocol = ""
+	Default                    Protocol = models.FormatDefault
+	HTTP                       Protocol = models.FormatHTTP
+	JSON                       Protocol = models.FormatJSON
+	CloudEventP                Protocol = models.FormatCloudEvent
+	Empty                      Protocol = ""
+	DefaultResponseEventSource          = "/fnproject"
+	DefaultMaxResponseBodySize          = uint64(1024 * 1024)
 )
 
 func (p *Protocol) UnmarshalJSON(b []byte) error {
@@ -76,13 +81,13 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 	switch p {
 	case HTTP:
-		return &httpProtocol{in, out}
+		return &httpProtocol{DefaultResponseEventSource, DefaultMaxResponseBodySize, in, out}
 	case JSON:
-		return &JSONProtocol{in, out}
+		return &JSONProtocol{DefaultResponseEventSource, DefaultMaxResponseBodySize, in, out}
 	case CloudEventP:
-		return &cloudEventProtocol{in, out}
+		return &cloudEventProtocol{DefaultResponseEventSource, DefaultMaxResponseBodySize, in, out}
 	case Default, Empty:
-		return &DefaultProtocol{}
+		return &DefaultProtocol{DefaultResponseEventSource, DefaultMaxResponseBodySize}
 	}
 	return &errorProto{errInvalidProtocol}
 }

@@ -39,8 +39,6 @@ func TestCallGet(t *testing.T) {
 		IdleTimeout: 30,
 		Memory:      256,
 		CreatedAt:   common.DateTime(time.Now()),
-		URL:         "http://localhost:8080/r/myapp/thisisatest",
-		Method:      "GET",
 	}
 
 	rnr, cancel := testRunner(t)
@@ -109,8 +107,6 @@ func TestCallList(t *testing.T) {
 		IdleTimeout: 30,
 		Memory:      256,
 		CreatedAt:   common.DateTime(time.Now()),
-		URL:         "http://localhost:8080/r/myapp/thisisatest",
-		Method:      "GET",
 	}
 	c2 := *call
 	c3 := *call
@@ -121,13 +117,13 @@ func TestCallList(t *testing.T) {
 	c3.ID = id.New().String()
 	c3.Path = "/test3"
 
-	rnr, cancel := testRunner(t)
-	defer cancel()
+	//rnr, cancel := testRunner(t)
+	//defer cancel()
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 	)
 	fnl := logs.NewMock([]*models.Call{call, &c2, &c3})
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, fnl, nil, ServerTypeAPI)
 
 	// add / sub 1 second b/c unix time will lop off millis and mess up our comparisons
 	rangeTest := fmt.Sprintf("from_time=%d&to_time=%d",
@@ -136,6 +132,7 @@ func TestCallList(t *testing.T) {
 	)
 
 	for i, test := range []struct {
+		name          string
 		path          string
 		body          string
 		expectedCode  int
@@ -143,49 +140,52 @@ func TestCallList(t *testing.T) {
 		expectedLen   int
 		nextCursor    string
 	}{
-		{"/v1/apps//calls", "", http.StatusBadRequest, models.ErrAppsMissingName, 0, ""},
-		{"/v1/apps/nodawg/calls", "", http.StatusNotFound, models.ErrAppsNotFound, 0, ""},
-		{"/v1/apps/myapp/calls", "", http.StatusOK, nil, 3, ""},
-		{"/v1/apps/myapp/calls?per_page=1", "", http.StatusOK, nil, 1, c3.ID},
-		{"/v1/apps/myapp/calls?per_page=1&cursor=" + c3.ID, "", http.StatusOK, nil, 1, c2.ID},
-		{"/v1/apps/myapp/calls?per_page=1&cursor=" + c2.ID, "", http.StatusOK, nil, 1, call.ID},
-		{"/v1/apps/myapp/calls?per_page=100&cursor=" + c2.ID, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
-		{"/v1/apps/myapp/calls?per_page=1&cursor=" + call.ID, "", http.StatusOK, nil, 0, ""}, // cursor could point to empty page
-		{"/v1/apps/myapp/calls?" + rangeTest, "", http.StatusOK, nil, 1, ""},
-		{"/v1/apps/myapp/calls?from_time=xyz", "", http.StatusBadRequest, models.ErrInvalidFromTime, 0, ""},
-		{"/v1/apps/myapp/calls?to_time=xyz", "", http.StatusBadRequest, models.ErrInvalidToTime, 0, ""},
+		{"bad request", "/v1/apps//calls", "", http.StatusBadRequest, models.ErrAppsMissingName, 0, ""},
+		{"nonexistant app", "/v1/apps/nodawg/calls", "", http.StatusNotFound, models.ErrAppsNotFound, 0, ""},
+		{"get all for app", "/v1/apps/myapp/calls", "", http.StatusOK, nil, 3, ""},
+		{"one per page", "/v1/apps/myapp/calls?per_page=1", "", http.StatusOK, nil, 1, c3.ID},
+		{"last call", "/v1/apps/myapp/calls?per_page=1&cursor=" + c3.ID, "", http.StatusOK, nil, 1, c2.ID},
+		{"second call", "/v1/apps/myapp/calls?per_page=1&cursor=" + c2.ID, "", http.StatusOK, nil, 1, call.ID},
+		{"last with big page", "/v1/apps/myapp/calls?per_page=100&cursor=" + c2.ID, "", http.StatusOK, nil, 1, ""},   // cursor is empty if per_page > len(results)
+		{"empty cursor is  end", "/v1/apps/myapp/calls?per_page=1&cursor=" + call.ID, "", http.StatusOK, nil, 0, ""}, // cursor could point to empty page
+		{"create range", "/v1/apps/myapp/calls?" + rangeTest, "", http.StatusOK, nil, 1, ""},
+		{"bad from time", "/v1/apps/myapp/calls?from_time=xyz", "", http.StatusBadRequest, models.ErrInvalidFromTime, 0, ""},
+		{"bad bad to time", "/v1/apps/myapp/calls?to_time=xyz", "", http.StatusBadRequest, models.ErrInvalidToTime, 0, ""},
 
 		// TODO path isn't url safe w/ '/', so this is weird. hack in for tests
-		{"/v1/apps/myapp/calls?path=test2", "", http.StatusOK, nil, 1, ""},
+		{"by path", "/v1/apps/myapp/calls?path=test2", "", http.StatusOK, nil, 1, ""},
 	} {
-		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
-		if rec.Code != test.expectedCode {
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
-		if test.expectedError != nil {
-			resp := getV1ErrorResponse(t, rec)
+			if rec.Code != test.expectedCode {
+				t.Errorf("Test %d: Expected status code to be %d but was %d",
+					i, test.expectedCode, rec.Code)
+			}
 
-			if resp.Error == nil || !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Errorf("Test %d: Expected error message to have `%s`, got: `%s`",
-					i, test.expectedError.Error(), resp.Error)
-			}
-		} else {
-			// normal path
+			if test.expectedError != nil {
+				resp := getV1ErrorResponse(t, rec)
 
-			var resp callsResponse
-			err := json.NewDecoder(rec.Body).Decode(&resp)
-			if err != nil {
-				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
+				if resp.Error == nil || !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+					t.Errorf("Test %d: Expected error message to have `%s`, got: `%s`",
+						i, test.expectedError.Error(), resp.Error)
+				}
+			} else {
+				// normal path
+
+				var resp callsResponse
+				err := json.NewDecoder(rec.Body).Decode(&resp)
+				if err != nil {
+					t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
+				}
+				if len(resp.Calls) != test.expectedLen {
+					t.Fatalf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Calls))
+				}
+				if resp.NextCursor != test.nextCursor {
+					t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)
+				}
 			}
-			if len(resp.Calls) != test.expectedLen {
-				t.Fatalf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Calls))
-			}
-			if resp.NextCursor != test.nextCursor {
-				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)
-			}
-		}
+		})
 	}
 }

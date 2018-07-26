@@ -21,8 +21,10 @@ import (
 // containers stdout. It also mandates valid HTTP headers back and forth, thus
 // returning errors in case of parsing problems.
 type httpProtocol struct {
-	in  io.Writer
-	out io.Reader
+	source          string
+	maxResponseSize uint64
+	in              io.Writer
+	out             io.Reader
 }
 
 func (p *httpProtocol) IsStreamable() bool { return true }
@@ -32,7 +34,7 @@ func (h *httpProtocol) Dispatch(ctx context.Context, evt *event.Event) (*event.E
 	defer span.End()
 
 	var method, requestURL string
-	var headers http.Header
+	headers := make(http.Header)
 
 	if evt.HasExtension(httpevent.ExtIoFnProjectHTTPReq) {
 		var httpState httpevent.HTTPReqExt
@@ -42,7 +44,6 @@ func (h *httpProtocol) Dispatch(ctx context.Context, evt *event.Event) (*event.E
 		}
 
 		method = httpState.Method
-		headers = make(http.Header)
 		for k, vs := range httpState.Headers {
 			for _, v := range vs {
 				headers.Add(k, v)
@@ -50,21 +51,32 @@ func (h *httpProtocol) Dispatch(ctx context.Context, evt *event.Event) (*event.E
 		}
 		requestURL = httpState.RequestURL
 	} else {
-		method = http.MethodGet
-		requestURL = "http://fnproject.io/non-http-input"
+		method = http.MethodPost
+		requestURL = FakeSourceURL
 	}
 
-	req, err := http.NewRequest(method, requestURL, bytes.NewReader(evt.Data))
+	evtData, err := evt.BodyAsRawValue()
+	if err != nil {
+		return nil, err
+	}
+	// We use post on the outer  here for consistency over body semanitcs
+	req, err := http.NewRequest(http.MethodPost, requestURL, bytes.NewReader(evtData))
 	if err != nil {
 		return nil, err
 	}
 
 	req = req.WithContext(ctx)
-	req.Header = http.Header(headers)
+	req.Header = headers
 
 	req.RequestURI = requestURL // force set to this, for req.Write to use (TODO? still?)
 
-	// TODO these should be "must never happens" really - consider wrapping input event again
+	// All headers here are intentionally overriding other headers
+
+	if evt.Data != nil {
+		req.Header.Set("Content-Type", evt.ContentType)
+	}
+
+	// TODO these should be "must never happens" really - consider wrapping input inputs again
 	deadline, err := evt.GetDeadline()
 	if err != nil {
 		return nil, fmt.Errorf("invalid %s extension data, %s", event.ExtIoFnProjectDeadline, err)
@@ -102,12 +114,14 @@ func (h *httpProtocol) Dispatch(ctx context.Context, evt *event.Event) (*event.E
 	// and status code, and only copy the body. resp.Write would copy a full
 	// http request into the response body (not what we want).
 
-	// TODO: INVOKETODO : max resp size config, source ID
-	respEvent, err := httpevent.FromHTTPResponse(ctx, "http://fnproject.io", 1024*1024, resp)
+	respEvent, err := httpevent.FromHTTPResponse(ctx, h.source, h.maxResponseSize, resp)
 
 	if err != nil {
 		return nil, models.NewAPIError(http.StatusBadGateway,
 			fmt.Errorf("failed to read http response from container %s", err))
 	}
+	respEvent.SetCallID(callID)
+	respEvent.EventID = callID
+
 	return respEvent, nil
 }

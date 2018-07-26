@@ -1,12 +1,10 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"time"
 
 	"go.opencensus.io/trace"
@@ -51,11 +49,11 @@ type CallOpt func(ctx context.Context, c *call) error
 func FromRouteAndEvent(app *models.App, route *models.Route, inputevent *event.Event) CallOpt {
 	return func(ctx context.Context, c *call) error {
 
-		if route.Format == "" {
-			route.Format = models.FormatDefault
-		}
+		format := route.Format
 
-		id := id.New().String()
+		if format == "" {
+			format = models.FormatDefault
+		}
 
 		// this ensures that there is an image, path, timeouts, memory, etc are valid.
 		// NOTE: this means assign any changes above into route's fields
@@ -69,17 +67,20 @@ func FromRouteAndEvent(app *models.App, route *models.Route, inputevent *event.E
 			syslogURL = *app.SyslogURL
 		}
 
-		err = inputevent.SetExtension(event.ExtIoFnProjectCallID, id)
+		callID := id.New().String()
+
+		err = inputevent.SetExtension(event.ExtIoFnProjectCallID, callID)
 		if err != nil {
 			return err
 		}
+
 		c.Call = &models.Call{
-			ID:         id,
+			ID:         callID,
 			InputEvent: inputevent,
 			Image:      route.Image,
 			// Delay: 0,
 			Type:        route.Type,
-			Format:      route.Format,
+			Format:      format,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
@@ -100,7 +101,7 @@ func FromRouteAndEvent(app *models.App, route *models.Route, inputevent *event.E
 	}
 }
 
-//
+//FromEvent Creates a call from an application, function and event
 func FromEvent(app *models.App, fn *models.Fn, inputevent *event.Event) CallOpt {
 	return func(ctx context.Context, c *call) error {
 		var syslogURL string
@@ -193,23 +194,19 @@ func buildEventConfig(app *models.App, fn *models.Fn, source string) models.Conf
 	return conf
 }
 
-func reqURL(req *http.Request) string {
-	if req.URL.Scheme == "" {
-		if req.TLS == nil {
-			req.URL.Scheme = "http"
-		} else {
-			req.URL.Scheme = "https"
-		}
-	}
-	if req.URL.Host == "" {
-		req.URL.Host = req.Host
-	}
-	return req.URL.String()
-}
-
 // FromModel creates a call object from an existing stored call model object, reading the body from the stored call payload
 func FromModel(mCall *models.Call) CallOpt {
 	return func(ctx context.Context, c *call) error {
+
+		if mCall.InputEvent == nil {
+			return errors.New("invalid call: no input event")
+		}
+
+		if mCall.ID == "" {
+			return errors.New("invalid call: no call ID")
+		}
+		// TODO any other minimum validation constraints here?
+
 		c.Call = mCall
 
 		return nil
@@ -266,36 +263,6 @@ func (a *agent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 	c.stderr = setupLogger(ctx, a.cfg.MaxLogSize, c.Call)
 
 	return &c, nil
-}
-
-// setCallPayload sets the payload on a call, respecting the context
-func readBufferedInput(ctx context.Context, input io.Reader, c *call) ([]byte, error) {
-	// WARNING: we need to handle IO in a separate go-routine below
-	// to be able to detect a ctx timeout. When we timeout, we
-	// let gin/http-server to unblock the go-routine below.
-	type resultOrError struct {
-		result []byte
-		err    error
-	}
-
-	res := make(chan resultOrError, 1)
-	go func() {
-		buf := &bytes.Buffer{}
-		_, err := buf.ReadFrom(input)
-		if err != nil && err != io.EOF {
-			res <- resultOrError{err: err}
-			return
-		}
-
-		res <- resultOrError{result: buf.Bytes(), err: nil}
-	}()
-
-	select {
-	case r := <-res:
-		return r.result, r.err
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
 }
 
 type call struct {

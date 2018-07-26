@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/fnproject/fn/api/event"
 	pool "github.com/fnproject/fn/api/runnerpool"
 )
 
@@ -20,8 +21,8 @@ type mockStaticRunner struct {
 	address string
 }
 
-func (r *mockStaticRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
-	return true, nil
+func (r *mockStaticRunner) TryExec(ctx context.Context, call pool.RunnerCall) (*event.Event, bool, error) {
+	return testEvent(), true, nil
 }
 
 func (r *mockStaticRunner) Status(ctx context.Context) (*pool.RunnerStatus, error) {

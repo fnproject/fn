@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 )
@@ -23,6 +24,8 @@ type mockRunner struct {
 	procCalls int32 // Processed calls
 	addr      string
 }
+
+var _ pool.Runner = &mockRunner{}
 
 type mockRunnerPool struct {
 	runners   []pool.Runner
@@ -93,10 +96,10 @@ func (r *mockRunner) Status(ctx context.Context) (*pool.RunnerStatus, error) {
 	return nil, nil
 }
 
-func (r *mockRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
+func (r *mockRunner) TryExec(ctx context.Context, call pool.RunnerCall) (*event.Event, bool, error) {
 	err := r.checkAndIncrCalls()
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 	defer r.decrCalls()
 
@@ -106,7 +109,9 @@ func (r *mockRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	time.Sleep(r.sleep)
 
 	r.procCalls++
-	return true, nil
+	evt := testEvent()
+
+	return evt, true, nil
 }
 
 func (r *mockRunner) Close(context.Context) error {
@@ -164,7 +169,7 @@ func TestOneRunner(t *testing.T) {
 	call := &mockRunnerCall{}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
 	defer cancel()
-	err := placer.PlaceCall(rp, ctx, call)
+	_, err := placer.PlaceCall(rp, ctx, call)
 	if err != nil {
 		t.Fatalf("Failed to place call on runner %v", err)
 	}
@@ -177,7 +182,7 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 	call := &mockRunnerCall{}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
 	defer cancel()
-	err := placer.PlaceCall(rp, ctx, call)
+	_, err := placer.PlaceCall(rp, ctx, call)
 	if err == nil {
 		t.Fatal("Call should have timed out")
 	}
@@ -198,7 +203,7 @@ func TestRRRunner(t *testing.T) {
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Millisecond))
 			defer cancel()
 			call := &mockRunnerCall{}
-			err := placer.PlaceCall(rp, ctx, call)
+			_, err := placer.PlaceCall(rp, ctx, call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
 			}
@@ -233,7 +238,7 @@ func TestEnforceLbTimeout(t *testing.T) {
 			defer cancel()
 
 			call := &mockRunnerCall{}
-			err := placer.PlaceCall(rp, ctx, call)
+			_, err := placer.PlaceCall(rp, ctx, call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
 			}
