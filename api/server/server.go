@@ -586,12 +586,13 @@ func WithAgentFromEnv() Option {
 			}
 
 			// Select the placement algorithm
+			placerCfg := pool.NewPlacerConfig()
 			var placer pool.Placer
 			switch getEnv(EnvLBPlacementAlg, "") {
 			case "ch":
-				placer = pool.NewCHPlacer()
+				placer = pool.NewCHPlacer(&placerCfg)
 			default:
-				placer = pool.NewNaivePlacer()
+				placer = pool.NewNaivePlacer(&placerCfg)
 			}
 
 			keys := []string{"fn_appname", "fn_path"}

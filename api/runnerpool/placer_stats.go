@@ -16,6 +16,7 @@ var (
 	errorPoolCountMeasure    = stats.Int64("lb_placer_rp_error_count", "LB Placer RunnerPool RunnerList Error Count", "")
 	emptyPoolCountMeasure    = stats.Int64("lb_placer_rp_empty_count", "LB Placer RunnerPool RunnerList Empty Count", "")
 	cancelCountMeasure       = stats.Int64("lb_placer_client_cancelled_count", "LB Placer Client Cancel Count", "")
+	placerTimeoutMeasure     = stats.Int64("lb_placer_timeout_count", "LB Placer Timeout Count", "")
 	placedErrorCountMeasure  = stats.Int64("lb_placer_placed_error_count", "LB Placer Placed Call Count With Errors", "")
 	placedOKCountMeasure     = stats.Int64("lb_placer_placed_ok_count", "LB Placer Placed Call Count Without Errors", "")
 	retryTooBusyCountMeasure = stats.Int64("lb_placer_retry_busy_count", "LB Placer Retry Count - Too Busy", "")
@@ -91,6 +92,7 @@ func RegisterPlacerViews(tagKeys []string) {
 		createView(errorPoolCountMeasure, view.Count(), tagKeys),
 		createView(emptyPoolCountMeasure, view.Count(), tagKeys),
 		createView(cancelCountMeasure, view.Count(), tagKeys),
+		createView(placerTimeoutMeasure, view.Count(), tagKeys),
 		createView(placedErrorCountMeasure, view.Count(), tagKeys),
 		createView(placedOKCountMeasure, view.Count(), tagKeys),
 		createView(retryTooBusyCountMeasure, view.Count(), tagKeys),

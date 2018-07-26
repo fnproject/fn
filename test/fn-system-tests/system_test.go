@@ -217,7 +217,8 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	placer := pool.NewNaivePlacer()
+	placerCfg := pool.NewPlacerConfig()
+	placer := pool.NewNaivePlacer(&placerCfg)
 
 	keys := []string{"fn_appname", "fn_path"}
 	pool.RegisterPlacerViews(keys)
