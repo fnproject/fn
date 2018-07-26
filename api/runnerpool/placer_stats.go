@@ -88,7 +88,7 @@ func createView(measure stats.Measure, agg *view.Aggregation, tagKeys []string) 
 
 func RegisterPlacerViews(tagKeys []string) {
 	err := view.Register(
-		createView(attemptCountMeasure, view.Distribution(0, 1, 2, 4, 8, 32, 64, 256), tagKeys),
+		createView(attemptCountMeasure, view.Distribution(0, 2, 3, 4, 8, 16, 32, 64, 128, 256), tagKeys),
 		createView(errorPoolCountMeasure, view.Count(), tagKeys),
 		createView(emptyPoolCountMeasure, view.Count(), tagKeys),
 		createView(cancelCountMeasure, view.Count(), tagKeys),
