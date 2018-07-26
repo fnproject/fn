@@ -16,6 +16,6 @@ type PlacerConfig struct {
 func NewPlacerConfig() PlacerConfig {
 	return PlacerConfig{
 		RetryAllDelay: 10 * time.Millisecond,
-		PlacerTimeout: 30 * time.Second,
+		PlacerTimeout: 360 * time.Second,
 	}
 }
