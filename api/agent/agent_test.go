@@ -406,41 +406,6 @@ func (l testListener) BeforeCall(context.Context, *models.Call) error {
 	return nil
 }
 
-func TestReqTooLarge(t *testing.T) {
-	app := &models.App{ID: "app_id", Name: "myapp"}
-
-	cm := &models.Call{
-		AppID:       app.ID,
-		Config:      map[string]string{},
-		Path:        "/",
-		Image:       "fnproject/fn-test-utils",
-		Type:        "sync",
-		Format:      "json",
-		Timeout:     10,
-		IdleTimeout: 20,
-		Memory:      64,
-		CPUs:        models.MilliCPUs(200),
-		Payload:     `{"sleepTime": 0, "isDebug": true, "isCrash": true}`,
-		URL:         "http://127.0.0.1:8080/r/" + app.Name + "/",
-		Method:      "GET",
-	}
-
-	cfg, err := NewConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cfg.MaxRequestSize = 5
-	ls := logs.NewMock()
-
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
-	defer checkClose(t, a)
-
-	_, err = a.GetCall(FromModel(cm))
-	if err != models.ErrRequestContentTooBig {
-		t.Fatal(err)
-	}
-}
 func TestSubmitError(t *testing.T) {
 	app := &models.App{Name: "myapp"}
 
