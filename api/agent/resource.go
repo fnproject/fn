@@ -76,7 +76,7 @@ type resourceTracker struct {
 	cpuAsyncHWMark uint64
 }
 
-func NewResourceTracker(cfg *AgentConfig) ResourceTracker {
+func NewResourceTracker(cfg *Config) ResourceTracker {
 
 	obj := &resourceTracker{
 		cond: sync.NewCond(new(sync.Mutex)),
@@ -339,7 +339,7 @@ func clampUint64(val, min, max uint64) uint64 {
 	return val
 }
 
-func (a *resourceTracker) initializeCPU(cfg *AgentConfig) {
+func (a *resourceTracker) initializeCPU(cfg *Config) {
 
 	var maxSyncCPU, maxAsyncCPU, cpuAsyncHWMark uint64
 
@@ -410,7 +410,7 @@ func (a *resourceTracker) initializeCPU(cfg *AgentConfig) {
 	a.cpuAsyncTotal = maxAsyncCPU
 }
 
-func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
+func (a *resourceTracker) initializeMemory(cfg *Config) {
 
 	var maxSyncMemory, maxAsyncMemory, ramAsyncHWMark uint64
 
@@ -482,7 +482,7 @@ func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
 }
 
 // headroom estimation in order not to consume entire RAM if possible
-func getMemoryHeadRoom(usableMemory uint64, cfg *AgentConfig) (uint64, error) {
+func getMemoryHeadRoom(usableMemory uint64, cfg *Config) (uint64, error) {
 
 	// get %10 of the RAM
 	headRoom := uint64(usableMemory / 10)
