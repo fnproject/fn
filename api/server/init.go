@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"io/ioutil"
+	"strings"
 	"runtime"
 	"strconv"
 	"syscall"
@@ -21,6 +23,11 @@ func init() {
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
+	} else if value, ok := os.LookupEnv(key + "_FILE"); ok {
+		dat, err := ioutil.ReadFile(value)
+		if err == nil {
+			return string(dat)
+		}
 	}
 	return fallback
 }
@@ -34,6 +41,16 @@ func getEnvInt(key string, fallback int) int {
 			panic(err) // not sure how to handle this
 		}
 		return i
+	} else if value, ok := os.LookupEnv(key + "_FILE"); ok {
+		dat, err := ioutil.ReadFile(value)
+		if err == nil {
+			var err error
+			var i int
+			if i, err = strconv.Atoi(strings.TrimSpace(string(dat))); err != nil {
+				panic(err) // not sure how to handle this
+			}
+			return i
+		}
 	}
 	return fallback
 }
