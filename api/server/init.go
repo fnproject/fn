@@ -2,12 +2,12 @@ package server
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"os/signal"
-	"io/ioutil"
-	"strings"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/fnproject/fn/api/common"
