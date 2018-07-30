@@ -18,7 +18,7 @@ import (
 )
 
 type lbAgent struct {
-	cfg           AgentConfig
+	cfg           Config
 	cda           CallHandler
 	callListeners []fnext.CallListener
 	rp            pool.RunnerPool
@@ -30,7 +30,7 @@ type lbAgent struct {
 
 type LBAgentOption func(*lbAgent) error
 
-func WithLBAgentConfig(cfg *AgentConfig) LBAgentOption {
+func WithLBAgentConfig(cfg *Config) LBAgentOption {
 	return func(a *lbAgent) error {
 		a.cfg = *cfg
 		return nil
@@ -52,8 +52,8 @@ func WithLBCallOverrider(fn CallOverrider) LBAgentOption {
 // across a group of runner nodes.
 func NewLBAgent(da CallHandler, rp pool.RunnerPool, p pool.Placer, options ...LBAgentOption) (Agent, error) {
 
-	// Yes, LBAgent and Agent both use an AgentConfig.
-	cfg, err := NewAgentConfig()
+	// Yes, LBAgent and Agent both use an Config.
+	cfg, err := NewConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in lb-agent config cfg=%+v", cfg)
 	}

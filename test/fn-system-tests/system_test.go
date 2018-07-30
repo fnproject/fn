@@ -255,7 +255,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
 
 	// This is our Agent config, which we will use for both inner agent and docker.
-	cfg, err := agent.NewAgentConfig()
+	cfg, err := agent.NewConfig()
 	if err != nil {
 		return nil, err
 	}

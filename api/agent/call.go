@@ -379,7 +379,7 @@ func setupCtx(c *call) {
 	c.req = c.req.WithContext(ctx)
 }
 
-func setMaxBodyLimit(cfg *AgentConfig, c *call) error {
+func setMaxBodyLimit(cfg *Config, c *call) error {
 	if cfg.MaxRequestSize > 0 && c.req.ContentLength > 0 && uint64(c.req.ContentLength) > cfg.MaxRequestSize {
 		return models.ErrRequestContentTooBig
 	}

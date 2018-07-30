@@ -425,7 +425,7 @@ func TestReqTooLarge(t *testing.T) {
 		Method:      "GET",
 	}
 
-	cfg, err := NewAgentConfig()
+	cfg, err := NewConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -730,7 +730,7 @@ func TestTmpFsSize(t *testing.T) {
 		TmpFsSize:   1,
 	}
 
-	cfg, err := NewAgentConfig()
+	cfg, err := NewConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1141,7 +1141,7 @@ func TestNBIOResourceTracker(t *testing.T) {
 		Memory:      call.Memory,
 	}
 
-	cfg, err := NewAgentConfig()
+	cfg, err := NewConfig()
 	if err != nil {
 		t.Fatalf("bad config %+v", cfg)
 	}

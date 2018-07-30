@@ -8,7 +8,8 @@ import (
 	"time"
 )
 
-type AgentConfig struct {
+// Config specifies various settings for an agent
+type Config struct {
 	MinDockerVersion        string        `json:"min_docker_version"`
 	DockerNetworks          string        `json:"docker_networks"`
 	DockerLoadFile          string        `json:"docker_load_file"`
@@ -36,40 +37,69 @@ type AgentConfig struct {
 }
 
 const (
-	EnvDockerNetworks          = "FN_DOCKER_NETWORKS"
-	EnvDockerLoadFile          = "FN_DOCKER_LOAD_FILE"
-	EnvFreezeIdle              = "FN_FREEZE_IDLE_MSECS"
-	EnvEjectIdle               = "FN_EJECT_IDLE_MSECS"
-	EnvHotPoll                 = "FN_HOT_POLL_MSECS"
-	EnvHotLauncherTimeout      = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
-	EnvAsyncChewPoll           = "FN_ASYNC_CHEW_POLL_MSECS"
-	EnvCallEndTimeout          = "FN_CALL_END_TIMEOUT_MSECS"
-	EnvMaxCallEndStacking      = "FN_MAX_CALL_END_STACKING"
-	EnvMaxResponseSize         = "FN_MAX_RESPONSE_SIZE"
-	EnvMaxRequestSize          = "FN_MAX_REQUEST_SIZE"
-	EnvMaxLogSize              = "FN_MAX_LOG_SIZE_BYTES"
-	EnvMaxTotalCPU             = "FN_MAX_TOTAL_CPU_MCPUS"
-	EnvMaxTotalMemory          = "FN_MAX_TOTAL_MEMORY_BYTES"
-	EnvMaxFsSize               = "FN_MAX_FS_SIZE_MB"
-	EnvPreForkPoolSize         = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
-	EnvPreForkImage            = "FN_EXPERIMENTAL_PREFORK_IMAGE"
-	EnvPreForkCmd              = "FN_EXPERIMENTAL_PREFORK_CMD"
-	EnvPreForkUseOnce          = "FN_EXPERIMENTAL_PREFORK_USE_ONCE"
-	EnvPreForkNetworks         = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
+	// EnvDockerNetworks is a comma separated list of networks to attach to each container started
+	EnvDockerNetworks = "FN_DOCKER_NETWORKS"
+	// EnvDockerLoadFile is a file location for a file that contains a tarball of a docker image to load on startup
+	EnvDockerLoadFile = "FN_DOCKER_LOAD_FILE"
+	// EnvFreezeIdle is the delay between a container being last used and being frozen
+	EnvFreezeIdle = "FN_FREEZE_IDLE_MSECS"
+	// EnvEjectIdle is the delay before allowing an idle container to be evictable if another container
+	// requests the space for itself
+	EnvEjectIdle = "FN_EJECT_IDLE_MSECS"
+	// EnvHotPoll is the interval to ping for a slot manager thread to check if a container should be
+	// launched for a given function
+	EnvHotPoll = "FN_HOT_POLL_MSECS"
+	// EnvHotLauncherTimeout is the timeout for a hot container to become available for use
+	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
+	// EnvAsyncChewPoll is the interval to poll the queue that contains async function invocations
+	EnvAsyncChewPoll = "FN_ASYNC_CHEW_POLL_MSECS"
+	// EnvCallEndTimeout is the timeout after a call is completed to store information about that invocation
+	EnvCallEndTimeout = "FN_CALL_END_TIMEOUT_MSECS"
+	// EnvMaxCallEndStacking is the maximum number of concurrent calls in call.End storing info
+	EnvMaxCallEndStacking = "FN_MAX_CALL_END_STACKING"
+	// EnvMaxResponseSize is the maximum number of bytes that a function may return from an invocation
+	EnvMaxResponseSize = "FN_MAX_RESPONSE_SIZE"
+	// EnvMaxRequestSize is the maximum request size that may be passed to an agent TODO kill me from here
+	EnvMaxRequestSize = "FN_MAX_REQUEST_SIZE"
+	// EnvMaxLogSize is the maximum size that a function's log may reach
+	EnvMaxLogSize = "FN_MAX_LOG_SIZE_BYTES"
+	// EnvMaxTotalCPU is the maximum CPU that will be reserved across all containers
+	EnvMaxTotalCPU = "FN_MAX_TOTAL_CPU_MCPUS"
+	// EnvMaxTotalMemory is the maximum memory that will be reserved across all containers
+	EnvMaxTotalMemory = "FN_MAX_TOTAL_MEMORY_BYTES"
+	// EnvMaxFsSize is the maximum filesystem size that a function may use
+	EnvMaxFsSize = "FN_MAX_FS_SIZE_MB"
+	// EnvPreForkPoolSize is the number of containers pooled to steal network from, this may reduce latency
+	EnvPreForkPoolSize = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
+	// EnvPreForkImage is the image to use for the pre-fork pool
+	EnvPreForkImage = "FN_EXPERIMENTAL_PREFORK_IMAGE"
+	// EnvPreForkCmd is the command to run for images in the pre-fork pool, it should run for a long time
+	EnvPreForkCmd = "FN_EXPERIMENTAL_PREFORK_CMD"
+	// EnvPreForkUseOnce limits the number of times a pre-fork pool container may be used to one, they are otherwise recycled
+	EnvPreForkUseOnce = "FN_EXPERIMENTAL_PREFORK_USE_ONCE"
+	// EnvPreForkNetworks is the equivalent of EnvDockerNetworks but for pre-fork pool containers
+	EnvPreForkNetworks = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
+	// EnvEnableNBResourceTracker makes every request to the resource tracker non-blocking, meaning the resources are either
+	// available or it will return an error immediately
 	EnvEnableNBResourceTracker = "FN_ENABLE_NB_RESOURCE_TRACKER"
-	EnvMaxTmpFsInodes          = "FN_MAX_TMPFS_INODES"
-	EnvDisableReadOnlyRootFs   = "FN_DISABLE_READONLY_ROOTFS"
+	// EnvMaxTmpFsInodes is the maximum number of inodes for /tmp in a container
+	EnvMaxTmpFsInodes = "FN_MAX_TMPFS_INODES"
+	// EnvDisableReadOnlyRootFs makes the root fs for a container have rw permissions, by default it is read only
+	EnvDisableReadOnlyRootFs = "FN_DISABLE_READONLY_ROOTFS"
 
-	MaxDisabledMsecs = time.Duration(math.MaxInt64)
+	// MaxMsDisabled is used to determine whether mr freeze is lying in wait. TODO remove this manuever
+	MaxMsDisabled = time.Duration(math.MaxInt64)
 
 	// defaults
 
+	// DefaultHotPoll is the default value for EnvHotPoll
 	DefaultHotPoll = 200 * time.Millisecond
 )
 
-func NewAgentConfig() (*AgentConfig, error) {
+// NewConfig returns a config set from env vars, plus defaults
+func NewConfig() (*Config, error) {
 
-	cfg := &AgentConfig{
+	cfg := &Config{
 		MinDockerVersion:   "17.10.0-ce",
 		MaxLogSize:         1 * 1024 * 1024,
 		MaxCallEndStacking: 8192,
@@ -160,8 +190,8 @@ func setEnvMsecs(err error, name string, dst *time.Duration, defaultVal time.Dur
 			return fmt.Errorf("error invalid %s=%s err=%s", name, dur, err)
 		}
 		// disable if negative or set to msecs specified.
-		if durInt < 0 || time.Duration(durInt) >= MaxDisabledMsecs/time.Millisecond {
-			*dst = MaxDisabledMsecs
+		if durInt < 0 || time.Duration(durInt) >= MaxMsDisabled/time.Millisecond {
+			*dst = MaxMsDisabled
 		} else {
 			*dst = time.Duration(durInt) * time.Millisecond
 		}
