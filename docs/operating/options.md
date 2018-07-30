@@ -19,6 +19,14 @@ docker run.  For example:
 docker run -e VAR_NAME=VALUE ...
 ```
 
+Additionally you may desire to load the environment variables from files, for example if you are using Docker Secrets, in that case you may append
+`_FILE` to the end of any variable name and specify the file location.  The variable will be filled with the file's contents.  For example:
+
+```sh
+docker run -e VAR_NAME_FILE=/path/to/secret ...
+```
+
+
 | Env Variables | Description | Default values |
 | --------------|-------------|----------------|
 | `FN_DB_URL` | The database URL to use in URL format. See [Databases](databases/README.md) for more information. | sqlite3:///app/data/fn.db |
