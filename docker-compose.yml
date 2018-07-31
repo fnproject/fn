@@ -1,7 +1,11 @@
-version: '3'
+version: '3.5'
+
+# network static name required for FN_DOCKER_NETWORKS
 networks:
   fn-network:
     name: fn-network
+    driver: bridge
+
 services:
   logstore:
     hostname: logstore
