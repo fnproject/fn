@@ -354,11 +354,6 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, models.ErrCallTimeoutServerBusy
 	}
 
-	err := setMaxBodyLimit(&a.cfg, &c)
-	if err != nil {
-		return nil, err
-	}
-
 	setupCtx(&c)
 
 	c.handler = a.da
@@ -377,16 +372,6 @@ func setupCtx(c *call) {
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
 		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
 	c.req = c.req.WithContext(ctx)
-}
-
-func setMaxBodyLimit(cfg *Config, c *call) error {
-	if cfg.MaxRequestSize > 0 && c.req.ContentLength > 0 && uint64(c.req.ContentLength) > cfg.MaxRequestSize {
-		return models.ErrRequestContentTooBig
-	}
-	if c.req.Body != nil {
-		c.req.Body = common.NewClampReadCloser(c.req.Body, cfg.MaxRequestSize, models.ErrRequestContentTooBig)
-	}
-	return nil
 }
 
 type call struct {

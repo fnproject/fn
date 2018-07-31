@@ -122,6 +122,9 @@ const (
 	// EnvLBPlacementAlg is the algorithm to place fn calls to fn runners in lb.[0w
 	EnvLBPlacementAlg = "FN_PLACER"
 
+	// EnvMaxRequestSize sets the limit in bytes for any API request's length.
+	EnvMaxRequestSize = "FN_MAX_REQUEST_SIZE"
+
 	// DefaultLogLevel is info
 	DefaultLogLevel = "info"
 
@@ -249,6 +252,7 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	opts = append(opts, WithNodeCert(getEnv(EnvCert, "")))
 	opts = append(opts, WithNodeCertKey(getEnv(EnvCertKey, "")))
 	opts = append(opts, WithNodeCertAuthority(getEnv(EnvCertAuth, "")))
+	opts = append(opts, LimitRequestBody(int64(getEnvInt(EnvMaxRequestSize, 0))))
 
 	publicLBURL := getEnv(EnvPublicLoadBalancerURL, "")
 	if publicLBURL != "" {

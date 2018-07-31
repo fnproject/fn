@@ -21,7 +21,6 @@ type Config struct {
 	CallEndTimeout          time.Duration `json:"call_end_timeout"`
 	MaxCallEndStacking      uint64        `json:"max_call_end_stacking"`
 	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
-	MaxRequestSize          uint64        `json:"max_request_size_bytes"`
 	MaxLogSize              uint64        `json:"max_log_size_bytes"`
 	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
 	MaxTotalMemory          uint64        `json:"max_total_memory_bytes"`
@@ -59,8 +58,6 @@ const (
 	EnvMaxCallEndStacking = "FN_MAX_CALL_END_STACKING"
 	// EnvMaxResponseSize is the maximum number of bytes that a function may return from an invocation
 	EnvMaxResponseSize = "FN_MAX_RESPONSE_SIZE"
-	// EnvMaxRequestSize is the maximum request size that may be passed to an agent TODO kill me from here
-	EnvMaxRequestSize = "FN_MAX_REQUEST_SIZE"
 	// EnvMaxLogSize is the maximum size that a function's log may reach
 	EnvMaxLogSize = "FN_MAX_LOG_SIZE_BYTES"
 	// EnvMaxTotalCPU is the maximum CPU that will be reserved across all containers
@@ -116,7 +113,6 @@ func NewConfig() (*Config, error) {
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
 	err = setEnvMsecs(err, EnvCallEndTimeout, &cfg.CallEndTimeout, time.Duration(10)*time.Minute)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
-	err = setEnvUint(err, EnvMaxRequestSize, &cfg.MaxRequestSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)

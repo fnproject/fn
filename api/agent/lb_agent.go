@@ -119,11 +119,6 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 		c.extensions = ext
 	}
 
-	err := setMaxBodyLimit(&a.cfg, &c)
-	if err != nil {
-		return nil, err
-	}
-
 	setupCtx(&c)
 
 	c.isLB = true
