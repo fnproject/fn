@@ -90,6 +90,7 @@ type Call struct {
 
 	// Payload for the call. This is only used by async calls, to store their input.
 	// TODO should we copy it into here too for debugging sync?
+	// TODO this is hairy, we should remove this in lieu of event struct
 	Payload string `json:"payload,omitempty" db:"-"`
 
 	// Full request url that spawned this invocation.

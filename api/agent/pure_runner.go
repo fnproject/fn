@@ -533,12 +533,12 @@ type pureRunner struct {
 }
 
 // implements Agent
-func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
-	return pr.a.GetCall(opts...)
+func (pr *pureRunner) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
+	return pr.a.GetCall(ctx, opts...)
 }
 
 // implements Agent
-func (pr *pureRunner) Submit(Call) error {
+func (pr *pureRunner) Submit(context.Context, Call) error {
 	return errors.New("Submit cannot be called directly in a Pure Runner.")
 }
 
@@ -559,15 +559,15 @@ func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
 }
 
-func (pr *pureRunner) spawnSubmit(state *callHandle) {
+func (pr *pureRunner) spawnSubmit(ctx context.Context, state *callHandle) {
 	go func() {
-		err := pr.a.Submit(state.c)
+		err := pr.a.Submit(ctx, state.c)
 		state.enqueueCallResponse(err)
 	}()
 }
 
 // handleTryCall based on the TryCall message, tries to place the call on NBIO Agent
-func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error {
+func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, state *callHandle) error {
 
 	start := time.Now()
 
@@ -593,26 +593,32 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	c.StartedAt = common.DateTime(time.Time{})
 	c.CompletedAt = common.DateTime(time.Time{})
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
+	ctx = state.ctx
+
+	log := common.Logger(ctx)
+	log.Debug("handleTryCall: GetCall before")
+	agentCall, err := pr.a.GetCall(ctx, FromModelAndInput(&c, state.pipeToFnR),
 		WithWriter(state),
-		WithContext(state.ctx),
 		WithExtensions(tc.GetExtensions()),
 	)
+	log.Debug("handleTryCall: GetCall after")
 	if err != nil {
 		state.enqueueCallResponse(err)
 		return err
 	}
 
-	state.c = agent_call.(*call)
+	state.c = agentCall.(*call)
 	if tc.SlotHashId != "" {
-		hashId, err := hex.DecodeString(tc.SlotHashId)
+		hashID, err := hex.DecodeString(tc.SlotHashId)
 		if err != nil {
 			state.enqueueCallResponse(err)
 			return err
 		}
-		state.c.slotHashId = string(hashId[:])
+		state.c.slotHashId = string(hashID[:])
 	}
-	pr.spawnSubmit(state)
+	log.Debug("handleTryCall: spawnSubmit before")
+	pr.spawnSubmit(ctx, state)
+	log.Debug("handleTryCall: spawnSubmit after")
 
 	return nil
 }
@@ -640,32 +646,16 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 
 	tryMsg := state.getTryMsg()
 	if tryMsg != nil {
-		errTry := pr.handleTryCall(tryMsg, state)
+		log.Debug("handleTryCall starting")
+		errTry := pr.handleTryCall(ctx, tryMsg, state)
+		log.Debug("handleTryCall done", errTry)
 		if errTry == nil {
-			dataFeed := state.spawnPipeToFn()
-
-		DataLoop:
-			for {
-				dataMsg := state.getDataMsg()
-				if dataMsg == nil {
-					break
-				}
-
-				select {
-				case dataFeed <- dataMsg:
-					if dataMsg.Eof {
-						break DataLoop
-					}
-				case <-state.doneQueue:
-					break DataLoop
-				case <-state.ctx.Done():
-					break DataLoop
-				}
-			}
+			readData(state)
 		}
 	}
 
 	err := state.waitError()
+	log.Debug("waitError", err)
 
 	// if we didn't respond with TooBusy, then this means the request
 	// was processed.
@@ -677,6 +667,30 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	return err
 }
 
+func readData(state *callHandle) {
+	dataFeed := state.spawnPipeToFn()
+
+	var i int
+	for {
+		i++
+		dataMsg := state.getDataMsg()
+		if dataMsg == nil {
+			return
+		}
+
+		select {
+		case dataFeed <- dataMsg:
+			if dataMsg.Eof {
+				return
+			}
+		case <-state.doneQueue:
+			return
+		case <-state.ctx.Done():
+			return
+		}
+	}
+}
+
 // Runs a status call using status image with baked in parameters.
 func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 
@@ -684,10 +698,9 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	// to ignore client timeouts. Original 'ctx' here carries client side deadlines.
 	// Since these deadlines can vary, in order to make sure Status runs predictably we
 	// use a hardcoded preset timeout 'ctxTimeout' instead.
-	// TODO: It would be good to copy original ctx key/value pairs into our new
-	// context for tracking, etc. But go-lang context today does not seem to allow this.
-	execCtx, execCtxCancel := context.WithTimeout(context.Background(), StatusCtxTimeout)
-	defer execCtxCancel()
+	ctx = common.BackgroundContext(ctx)
+	ctx, cancel := context.WithTimeout(context.Background(), StatusCtxTimeout)
+	defer cancel()
 
 	result := &runner.RunnerStatus{}
 	log := common.Logger(ctx)
@@ -722,15 +735,15 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	recorder := httptest.NewRecorder()
 	player := ioutil.NopCloser(strings.NewReader(c.Payload))
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, player),
+	agentCall, err := pr.a.GetCall(ctx,
+		FromModelAndInput(&c, player),
 		WithWriter(recorder),
-		WithContext(execCtx),
 	)
 
 	if err == nil {
 		var mcall *call
-		mcall = agent_call.(*call)
-		err = pr.a.Submit(mcall)
+		mcall = agentCall.(*call)
+		err = pr.a.Submit(ctx, mcall)
 	}
 
 	resp := recorder.Result()

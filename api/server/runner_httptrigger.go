@@ -47,7 +47,6 @@ func (s *Server) handleTriggerHTTPFunctionCall2(c *gin.Context) error {
 	routePath := p
 
 	trigger, err := s.lbReadAccess.GetTriggerBySource(ctx, appID, "http", routePath)
-
 	if err != nil {
 		return err
 	}
@@ -80,7 +79,9 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
 
-	call, err := s.agent.GetCall(
+	ctx := c.Request.Context()
+
+	call, err := s.agent.GetCall(ctx,
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
 		agent.FromHTTPTriggerRequest(app, fn, trigger, c.Request),
 	)
@@ -89,13 +90,11 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 	}
 	model := call.Model()
 	{ // scope this, to disallow ctx use outside of this scope. add id for handleV1ErrorResponse logger
-		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
-		c.Request = c.Request.WithContext(ctx)
+		ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"id": model.ID})
 	}
 
 	// TODO TRIGGERWIP  not clear this makes sense here - but it works  so...
 	if model.Type == "async" {
-
 		// TODO we should push this into GetCall somehow (CallOpt maybe) or maybe agent.Queue(Call) ?
 		if c.Request.ContentLength > 0 {
 			buf.Grow(int(c.Request.ContentLength))
@@ -115,7 +114,7 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 		return nil
 	}
 
-	err = s.agent.Submit(call)
+	err = s.agent.Submit(ctx, call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little

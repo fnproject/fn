@@ -78,7 +78,9 @@ func (s *Server) ServeRoute(c *gin.Context, app *models.App, route *models.Route
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
 
-	call, err := s.agent.GetCall(
+	ctx := c.Request.Context()
+
+	call, err := s.agent.GetCall(ctx,
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
 		agent.FromRequest(app, route, c.Request),
 	)
@@ -87,8 +89,7 @@ func (s *Server) ServeRoute(c *gin.Context, app *models.App, route *models.Route
 	}
 	model := call.Model()
 	{ // scope this, to disallow ctx use outside of this scope. add id for handleV1ErrorResponse logger
-		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
-		c.Request = c.Request.WithContext(ctx)
+		ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"id": model.ID})
 	}
 
 	if model.Type == "async" {
@@ -111,7 +112,7 @@ func (s *Server) ServeRoute(c *gin.Context, app *models.App, route *models.Route
 		return nil
 	}
 
-	err = s.agent.Submit(call)
+	err = s.agent.Submit(ctx, call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little

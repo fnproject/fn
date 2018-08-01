@@ -1,11 +1,8 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
-	"io/ioutil"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -94,18 +91,18 @@ func (a *lbAgent) fireAfterCall(ctx context.Context, call *models.Call) error {
 }
 
 // implements Agent
-func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
+func (a *lbAgent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 	var c call
 
 	for _, o := range opts {
-		err := o(&c)
+		err := o(ctx, &c)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// TODO typed errors to test
-	if c.req == nil || c.Call == nil {
+	if c.Call == nil {
 		return nil, errors.New("no model or request provided for call")
 	}
 
@@ -118,8 +115,6 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 		}
 		c.extensions = ext
 	}
-
-	setupCtx(&c)
 
 	c.isLB = true
 	c.handler = a.cda
@@ -147,13 +142,13 @@ func (a *lbAgent) Close() error {
 }
 
 // implements Agent
-func (a *lbAgent) Submit(callI Call) error {
+func (a *lbAgent) Submit(ctx context.Context, callI Call) error {
 	if !a.shutWg.AddSession(1) {
 		return models.ErrCallTimeoutServerBusy
 	}
 
 	call := callI.(*call)
-	ctx, span := trace.StartSpan(call.req.Context(), "agent_submit")
+	ctx, span := trace.StartSpan(ctx, "agent_submit")
 	defer span.End()
 
 	statsEnqueue(ctx)
@@ -170,70 +165,16 @@ func (a *lbAgent) Submit(callI Call) error {
 
 	statsDequeueAndStart(ctx)
 
-	// pre-read and buffer request body if already not done based
-	// on GetBody presence.
-	buf, err := a.setRequestBody(ctx, call)
-	if buf != nil {
-		defer bufPool.Put(buf)
-	}
-
-	if err != nil {
-		common.Logger(call.req.Context()).WithError(err).Error("Failed to process call body")
-		return a.handleCallEnd(ctx, call, err, true)
-	}
-
 	// WARNING: isStarted (handleCallEnd) semantics
 	// need some consideration here. Similar to runner/agent
 	// we consider isCommitted true if call.Start() succeeds.
 	// isStarted=true means we will call Call.End().
 	err = a.placer.PlaceCall(a.rp, ctx, call)
 	if err != nil {
-		common.Logger(call.req.Context()).WithError(err).Error("Failed to place call")
+		common.Logger(ctx).WithError(err).Error("Failed to place call")
 	}
 
 	return a.handleCallEnd(ctx, call, err, true)
-}
-
-// setRequestGetBody sets GetBody function on the given http.Request if it is missing.  GetBody allows
-// reading from the request body without mutating the state of the request.
-func (a *lbAgent) setRequestBody(ctx context.Context, call *call) (*bytes.Buffer, error) {
-
-	r := call.req
-	if r.Body == nil || r.GetBody != nil {
-		return nil, nil
-	}
-
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-
-	// WARNING: we need to handle IO in a separate go-routine below
-	// to be able to detect a ctx timeout. When we timeout, we
-	// let gin/http-server to unblock the go-routine below.
-	errApp := make(chan error, 1)
-	go func() {
-
-		_, err := buf.ReadFrom(r.Body)
-		if err != nil && err != io.EOF {
-			errApp <- err
-			return
-		}
-
-		r.Body = ioutil.NopCloser(bytes.NewReader(buf.Bytes()))
-
-		// GetBody does not mutate the state of the request body
-		r.GetBody = func() (io.ReadCloser, error) {
-			return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
-		}
-
-		close(errApp)
-	}()
-
-	select {
-	case err := <-errApp:
-		return buf, err
-	case <-ctx.Done():
-		return buf, ctx.Err()
-	}
 }
 
 // implements Agent

@@ -205,7 +205,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 
 			echo, err := getEchoContent(output.Bytes())
 			if err != nil || echo != "HelloWorld" {
-				results <- fmt.Errorf("Assertion error.\n\tActual: %v", output.String())
+				results <- fmt.Errorf("Assertion error.\n\tExpected: '%v' Actual: %v", "HelloWorld", output.String())
 				return
 			}
 			if resp.StatusCode != http.StatusOK {
