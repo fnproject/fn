@@ -193,6 +193,7 @@ type Server struct {
 	lbEnqueue              agent.EnqueueDataAccess
 	lbReadAccess           agent.ReadDataAccess
 	noHTTTPTriggerEndpoint bool
+	noHybridAPI            bool
 	cert                   string
 	certKey                string
 	certAuthority          string
@@ -770,6 +771,14 @@ func WithoutHTTPTriggerEndpoints() Option {
 	}
 }
 
+// WithoutHybridAPI unconditionally disables the Hybrid API on a server
+func WithoutHybridAPI() Option {
+	return func(ctx context.Context, s *Server) error {
+		s.noHybridAPI = true
+		return nil
+	}
+}
+
 // WithJaeger maps EnvJaegerURL
 func WithJaeger(jaegerURL string) Option {
 	return func(ctx context.Context, s *Server) error {
@@ -1126,7 +1135,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v2.DELETE("/triggers/:triggerID", s.handleTriggerDelete)
 		}
 
-		{ // Hybrid API - this should only be enabled on API servers
+		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers
 			runner := cleanv2.Group("/runner")
 			runner.PUT("/async", s.handleRunnerEnqueue)
 			runner.GET("/async", s.handleRunnerDequeue)
@@ -1141,7 +1150,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			// Deprecate, remove with routes
 			runnerAppAPI.GET("/routes/*route", s.handleRunnerGetRoute)
 			runnerAppAPI.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
-
 		}
 	}
 
