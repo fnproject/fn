@@ -53,16 +53,16 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
 	c.Status(200) // this doesn't write the header yet
 
-	return s.serve(c, app, route)
+	return s.ServeRoute(c, app, route)
 }
 
 var (
 	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
-// TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
-// TODO make async store an *http.Request? would be sexy until we have different api format...
-func (s *Server) serve(c *gin.Context, app *models.App, route *models.Route) error {
+// ServeRoute serves an HTTP route for a given app
+// This is exported to allow extensions to plugin their own route handling
+func (s *Server) ServeRoute(c *gin.Context, app *models.App, route *models.Route) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	writer := syncResponseWriter{
