@@ -2,7 +2,7 @@ package agent
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/binary"
 	"hash"
 	"reflect"
@@ -271,13 +271,12 @@ func (a *slotQueueMgr) deleteSlotQueue(slots *slotQueue) bool {
 	return isDeleted
 }
 
-// TODO this should be at least SHA-256 or more
-var shapool = &sync.Pool{New: func() interface{} { return sha1.New() }}
+var shapool = &sync.Pool{New: func() interface{} { return sha256.New() }}
 
 // TODO do better; once we have app+route versions this function
 // can be simply app+route names & version
 func getSlotQueueKey(call *call) string {
-	// return a sha1 hash of a (hopefully) unique string of all the config
+	// return a sha256 hash of a (hopefully) unique string of all the config
 	// values, to make map lookups quicker [than the giant unique string]
 
 	hash := shapool.Get().(hash.Hash)
@@ -349,7 +348,7 @@ func getSlotQueueKey(call *call) string {
 		hash.Write(unsafeBytes("\x00"))
 	}
 
-	var buf [sha1.Size]byte
+	var buf [sha256.Size]byte
 	hash.Sum(buf[:0])
 	return string(buf[:])
 }
