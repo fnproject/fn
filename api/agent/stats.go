@@ -5,10 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
+
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 )
 
 // TODO add some suga:
@@ -82,29 +83,29 @@ const (
 )
 
 var (
-	queuedMeasure = makeMeasure(queuedMetricName, "calls currently queued against agent", "")
+	queuedMeasure = common.MakeMeasure(queuedMetricName, "calls currently queued against agent", "")
 	// TODO this is a dupe of sum {complete,failed} ?
-	callsMeasure           = makeMeasure(callsMetricName, "calls created in agent", "")
-	runningMeasure         = makeMeasure(runningMetricName, "calls currently running in agent", "")
-	completedMeasure       = makeMeasure(completedMetricName, "calls completed in agent", "")
-	failedMeasure          = makeMeasure(failedMetricName, "calls failed in agent", "")
-	timedoutMeasure        = makeMeasure(timedoutMetricName, "calls timed out in agent", "")
-	errorsMeasure          = makeMeasure(errorsMetricName, "calls errored in agent", "")
-	serverBusyMeasure      = makeMeasure(serverBusyMetricName, "calls where server was too busy in agent", "")
+	callsMeasure           = common.MakeMeasure(callsMetricName, "calls created in agent", "")
+	runningMeasure         = common.MakeMeasure(runningMetricName, "calls currently running in agent", "")
+	completedMeasure       = common.MakeMeasure(completedMetricName, "calls completed in agent", "")
+	failedMeasure          = common.MakeMeasure(failedMetricName, "calls failed in agent", "")
+	timedoutMeasure        = common.MakeMeasure(timedoutMetricName, "calls timed out in agent", "")
+	errorsMeasure          = common.MakeMeasure(errorsMetricName, "calls errored in agent", "")
+	serverBusyMeasure      = common.MakeMeasure(serverBusyMetricName, "calls where server was too busy in agent", "")
 	dockerMeasures         = initDockerMeasures()
 	containerGaugeMeasures = initContainerGaugeMeasures()
 	containerTimeMeasures  = initContainerTimeMeasures()
 
 	// Reported By LB: How long does a runner scheduler wait for a committed call? eg. wait/launch/pull containers
-	runnerSchedLatencyMeasure = makeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
+	runnerSchedLatencyMeasure = common.MakeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
 	// Reported By LB: Function execution time inside a container.
-	runnerExecLatencyMeasure = makeMeasure(runnerExecLatencyMetricName, "Runner Container Execution Latency Reported By LBAgent", "msecs")
+	runnerExecLatencyMeasure = common.MakeMeasure(runnerExecLatencyMetricName, "Runner Container Execution Latency Reported By LBAgent", "msecs")
 )
 
-func RegisterLBAgentViews(tagKeys []string) {
+func RegisterLBAgentViews(tagKeys []string, latencyDist []float64) {
 	err := view.Register(
-		createView(runnerSchedLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
-		createView(runnerExecLatencyMeasure, view.Distribution(1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000), tagKeys),
+		common.CreateView(runnerSchedLatencyMeasure, view.Distribution(latencyDist...), tagKeys),
+		common.CreateView(runnerExecLatencyMeasure, view.Distribution(latencyDist...), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
@@ -112,16 +113,16 @@ func RegisterLBAgentViews(tagKeys []string) {
 }
 
 // RegisterAgentViews creates and registers all agent views
-func RegisterAgentViews(tagKeys []string) {
+func RegisterAgentViews(tagKeys []string, latencyDist []float64) {
 	err := view.Register(
-		createView(queuedMeasure, view.Sum(), tagKeys),
-		createView(callsMeasure, view.Sum(), tagKeys),
-		createView(runningMeasure, view.Sum(), tagKeys),
-		createView(completedMeasure, view.Sum(), tagKeys),
-		createView(failedMeasure, view.Sum(), tagKeys),
-		createView(timedoutMeasure, view.Sum(), tagKeys),
-		createView(errorsMeasure, view.Sum(), tagKeys),
-		createView(serverBusyMeasure, view.Sum(), tagKeys),
+		common.CreateView(queuedMeasure, view.Sum(), tagKeys),
+		common.CreateView(callsMeasure, view.Sum(), tagKeys),
+		common.CreateView(runningMeasure, view.Sum(), tagKeys),
+		common.CreateView(completedMeasure, view.Sum(), tagKeys),
+		common.CreateView(failedMeasure, view.Sum(), tagKeys),
+		common.CreateView(timedoutMeasure, view.Sum(), tagKeys),
+		common.CreateView(errorsMeasure, view.Sum(), tagKeys),
+		common.CreateView(serverBusyMeasure, view.Sum(), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
@@ -129,9 +130,33 @@ func RegisterAgentViews(tagKeys []string) {
 }
 
 // RegisterDockerViews creates a and registers Docker views with provided tag keys
-func RegisterDockerViews(tagKeys []string) {
+func RegisterDockerViews(tagKeys []string, latencyDist []float64) {
+
 	for _, m := range dockerMeasures {
-		v := createView(m, view.Distribution(), tagKeys)
+
+		var dist *view.Aggregation
+
+		// Remember these are sampled by docker in short intervals (approx 1 sec)
+
+		// Bytes for net/disk/mem
+		if m.Name() == "docker_stats_net_rx" || m.Name() == "docker_stats_net_tx" {
+			// net IO: 8k to 32MB
+			dist = view.Distribution(0, 8192, 65536, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432)
+		} else if m.Name() == "docker_stats_disk_read" || m.Name() == "docker_stats_disk_write" {
+			// disk IO: 8k to 32MB
+			dist = view.Distribution(0, 8192, 65536, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432)
+		} else if m.Name() == "docker_stats_mem_limit" || m.Name() == "docker_stats_mem_usage" {
+			// memory: 128K to 32MB
+			dist = view.Distribution(0, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432)
+		} else if m.Name() == "docker_stats_cpu_user" || m.Name() == "docker_stats_cpu_total" || m.Name() == "docker_stats_cpu_kernel" {
+			// percentages
+			dist = view.Distribution(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+		} else {
+			// Not used yet.
+			dist = view.Distribution(latencyDist...)
+		}
+
+		v := common.CreateView(m, dist, tagKeys)
 		if err := view.Register(v); err != nil {
 			logrus.WithError(err).Fatal("cannot register view")
 		}
@@ -139,13 +164,13 @@ func RegisterDockerViews(tagKeys []string) {
 }
 
 // RegisterContainerViews creates and register containers views with provided tag keys
-func RegisterContainerViews(tagKeys []string) {
+func RegisterContainerViews(tagKeys []string, latencyDist []float64) {
 	// Create views for container measures
 	for i, key := range containerGaugeKeys {
 		if key == "" {
 			continue
 		}
-		v := createView(containerGaugeMeasures[i], view.Count(), tagKeys)
+		v := common.CreateView(containerGaugeMeasures[i], view.Sum(), tagKeys)
 		if err := view.Register(v); err != nil {
 			logrus.WithError(err).Fatal("cannot register view")
 		}
@@ -155,7 +180,7 @@ func RegisterContainerViews(tagKeys []string) {
 		if key == "" {
 			continue
 		}
-		v := createView(containerTimeMeasures[i], view.Distribution(), tagKeys)
+		v := common.CreateView(containerTimeMeasures[i], view.Distribution(latencyDist...), tagKeys)
 		if err := view.Register(v); err != nil {
 			logrus.WithError(err).Fatal("cannot register view")
 		}
@@ -172,7 +197,7 @@ func initDockerMeasures() map[string]*stats.Int64Measure {
 		if strings.Contains(key, "cpu") {
 			units = "cpu"
 		}
-		measures[key] = makeMeasure("docker_stats_"+key, "docker container stats for "+key, units)
+		measures[key] = common.MakeMeasure("docker_stats_"+key, "docker container stats for "+key, units)
 	}
 	return measures
 }
@@ -183,48 +208,19 @@ func initContainerGaugeMeasures() []*stats.Int64Measure {
 		if key == "" { // leave nil intentionally, let it panic
 			continue
 		}
-		gaugeMeasures[i] = makeMeasure(key, "containers in state "+key, "")
+		gaugeMeasures[i] = common.MakeMeasure(key, "containers in state "+key, "")
 	}
 	return gaugeMeasures
 }
 
 func initContainerTimeMeasures() []*stats.Int64Measure {
-	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
-	// or we have to white list them in the view for them to show up? test...
-
 	timeMeasures := make([]*stats.Int64Measure, len(containerTimeKeys))
 	for i, key := range containerTimeKeys {
 		if key == "" {
 			continue
 		}
-		timeMeasures[i] = makeMeasure(key, "time spent in container state "+key, "ms")
+		timeMeasures[i] = common.MakeMeasure(key, "time spent in container state "+key, "ms")
 	}
 
 	return timeMeasures
-}
-
-func createView(measure stats.Measure, agg *view.Aggregation, tagKeys []string) *view.View {
-	return &view.View{
-		Name:        measure.Name(),
-		Description: measure.Description(),
-		Measure:     measure,
-		TagKeys:     makeKeys(tagKeys),
-		Aggregation: agg,
-	}
-}
-
-func makeMeasure(name string, desc string, unit string) *stats.Int64Measure {
-	return stats.Int64(name, desc, unit)
-}
-
-func makeKeys(names []string) []tag.Key {
-	tagKeys := make([]tag.Key, len(names))
-	for i, name := range names {
-		key, err := tag.NewKey(name)
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		tagKeys[i] = key
-	}
-	return tagKeys
 }

@@ -27,13 +27,20 @@ func main() {
 func registerViews() {
 	// Register views in agent package
 	keys := []string{"fn_appname", "fn_path"}
-	agent.RegisterAgentViews(keys)
-	agent.RegisterDockerViews(keys)
-	agent.RegisterContainerViews(keys)
+	dist := []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+
+	agent.RegisterAgentViews(keys, dist)
+	agent.RegisterDockerViews(keys, dist)
+	agent.RegisterContainerViews(keys, dist)
 
 	// Register docker client views
-	docker.RegisterViews(keys)
+	docker.RegisterViews(keys, dist)
 
 	// Register s3 log views
-	s3.RegisterViews(keys)
+	s3.RegisterViews(keys, dist)
+
+	apiKeys := []string{"path", "method", "status"}
+	apiDist := []float64{0, 1, 2, 3, 4, 5, 6, 8, 10, 13, 16, 20, 25, 30, 40, 50, 65, 80, 100, 130, 160, 200, 250, 300, 400, 500, 650, 800, 1000, 2000, 5000, 10000, 20000, 50000, 100000}
+
+	server.RegisterAPIViews(apiKeys, apiDist)
 }
