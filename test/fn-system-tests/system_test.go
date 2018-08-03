@@ -221,8 +221,9 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	placer := pool.NewNaivePlacer(&placerCfg)
 
 	keys := []string{"fn_appname", "fn_path"}
-	pool.RegisterPlacerViews(keys)
-	agent.RegisterLBAgentViews(keys)
+	dist := []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+	pool.RegisterPlacerViews(keys, dist)
+	agent.RegisterLBAgentViews(keys, dist)
 
 	// Create an LB Agent with a Call Overrider to intercept calls in GetCall(). Overrider in this example
 	// scrubs CPU/TmpFsSize and adds FN_CHEESE key/value into extensions.

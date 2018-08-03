@@ -600,10 +600,6 @@ func WithAgentFromEnv() Option {
 				placer = pool.NewNaivePlacer(&placerCfg)
 			}
 
-			keys := []string{"fn_appname", "fn_path"}
-			pool.RegisterPlacerViews(keys)
-			agent.RegisterLBAgentViews(keys)
-
 			s.lbReadAccess = agent.NewCachedDataAccess(cl)
 			s.agent, err = agent.NewLBAgent(cl, runnerPool, placer)
 			if err != nil {
@@ -758,7 +754,7 @@ func WithPrometheus() Option {
 		}
 		s.promExporter = exporter
 		view.RegisterExporter(exporter)
-		registerViews()
+
 		return nil
 	}
 }

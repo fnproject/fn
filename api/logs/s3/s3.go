@@ -26,7 +26,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -431,41 +430,19 @@ const (
 )
 
 var (
-	uploadSizeMeasure   = stats.Int64(uploadSizeMetricName, "uploaded log size", "byte")
-	downloadSizeMeasure = stats.Int64(downloadSizeMetricName, "downloaded log size", "byte")
+	uploadSizeMeasure   = common.MakeMeasure(uploadSizeMetricName, "uploaded log size", "byte")
+	downloadSizeMeasure = common.MakeMeasure(downloadSizeMetricName, "downloaded log size", "byte")
 )
 
 // RegisterViews registers views for s3 measures
-func RegisterViews(tagKeys []string) {
+func RegisterViews(tagKeys []string, dist []float64) {
 	err := view.Register(
-		createView(uploadSizeMeasure, view.Distribution(), tagKeys),
-		createView(downloadSizeMeasure, view.Distribution(), tagKeys),
+		common.CreateView(uploadSizeMeasure, view.Distribution(dist...), tagKeys),
+		common.CreateView(downloadSizeMeasure, view.Distribution(dist...), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot create view")
 	}
-}
-
-func createView(measure stats.Measure, agg *view.Aggregation, tagKeys []string) *view.View {
-	return &view.View{
-		Name:        measure.Name(),
-		Description: measure.Description(),
-		Measure:     measure,
-		TagKeys:     makeKeys(tagKeys),
-		Aggregation: agg,
-	}
-}
-
-func makeKeys(names []string) []tag.Key {
-	tagKeys := make([]tag.Key, len(names))
-	for i, name := range names {
-		key, err := tag.NewKey(name)
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		tagKeys[i] = key
-	}
-	return tagKeys
 }
 
 func init() {
