@@ -142,7 +142,7 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 
 	timeKey := containerTimeKeys[oldState]
 	if timeKey != "" {
-		stats.Record(ctx, containerTimeMeasures[oldState].M(int64(now.Sub(before).Round(time.Millisecond))))
+		stats.Record(ctx, containerTimeMeasures[oldState].M(int64(now.Sub(before)/time.Millisecond)))
 	}
 
 	// update new state stats
