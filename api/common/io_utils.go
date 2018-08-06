@@ -40,6 +40,35 @@ type clampReadCloser struct {
 	overflowErr error
 }
 
+// ErrorCatchingReader exposes IO errors from wrapped readers - this captures the last UI error on a read and stores it
+// This is useful for unmasking JSON IO errors on unbounded input
+type ErrorCatchingReader interface {
+	io.Reader
+	LastError() error
+}
+
+type catchingReader struct {
+	rdr io.ReadCloser
+	err error
+}
+
+func NewErrorCatchingReader(rdr io.ReadCloser) ErrorCatchingReader {
+	return &catchingReader{
+		rdr: rdr,
+	}
+}
+func (cr *catchingReader) LastError() error {
+	return cr.err
+}
+
+func (cr *catchingReader) Close() error {
+	return cr.rdr.Close()
+}
+func (cr *catchingReader) Read(p []byte) (n int, err error) {
+	n, err = cr.rdr.Read(p)
+	cr.err = err
+	return
+}
 func NewClampReadCloser(buf io.ReadCloser, max uint64, overflowErr error) io.ReadCloser {
 	if max != 0 {
 		return &clampReadCloser{r: buf, remaining: int64(max), overflowErr: overflowErr}

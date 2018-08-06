@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/fnproject/fn/api/models"
@@ -15,6 +16,7 @@ func (s *Server) handleV1AppCreate(c *gin.Context) {
 
 	err := c.BindJSON(&wapp)
 	if err != nil {
+		fmt.Println("YODAWG", err)
 		if models.IsAPIError(err) {
 			handleV1ErrorResponse(c, err)
 		} else {

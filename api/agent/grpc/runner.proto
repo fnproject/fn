@@ -32,6 +32,7 @@ message HttpRespMeta {
 // as DataFrames.
 message CallResultStart {
     oneof meta {
+        // Deprecated
         HttpRespMeta http = 100;
     }
 }

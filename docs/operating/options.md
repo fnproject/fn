@@ -41,6 +41,7 @@ docker run -e VAR_NAME_FILE=/path/to/secret ...
 | `FN_FREEZE_IDLE_MSECS` | Set this option to specify the amount of time to wait in milliseconds before pausing/freezing an idle hot container. Set to 0 to freeze idle containers without any delay. Set to negative integer to disable freeze/pause of idle hot containers. | 50 |
 | `FN_EJECT_IDLE_MSECS` | Set this option to specify the amount of time in milliseconds for an idle hot container to become eligible for eviction if the system is starved for CPU and Memory resources. Set to negative integer to disable this feature. | 1000 |
 | `FN_MAX_RESPONSE_SIZE` | Set this option to specify the http body or json response size in bytes from the containers. | 0 (off) |
+| `FN_MAX_REQUEST_SIZE` | Set this option to limit the max request size for any http request to the api. | 0 (off) |
 | `DOCKER_HOST` | Docker remote API URL. | /var/run/docker.sock |
 | `DOCKER_API_VERSION` | Docker remote API version. | 1.24 |
 | `DOCKER_TLS_VERIFY` | Set this option to enable/disable Docker remote API over TLS/SSL. | 0 |

@@ -77,6 +77,7 @@ func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mode
 			break
 		}
 
+		// TODO Invoke : filter by function ID and trigger ID
 		if (filter.AppID == "" || c.AppID == filter.AppID) &&
 			(filter.Path == "" || filter.Path == c.Path) &&
 			(time.Time(filter.FromTime).IsZero() || time.Time(filter.FromTime).Before(time.Time(c.CreatedAt))) &&

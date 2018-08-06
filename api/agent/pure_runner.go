@@ -9,18 +9,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
@@ -28,11 +24,11 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
+	"reflect"
+	"sync"
 )
 
 /*
@@ -57,436 +53,6 @@ import (
 	8) Runner finalizes gRPC session with RunnerMsg_Finished to LB.
 
 */
-
-var (
-	ErrorExpectedTry  = errors.New("Protocol failure: expected ClientMsg_Try")
-	ErrorExpectedData = errors.New("Protocol failure: expected ClientMsg_Data")
-)
-
-// callHandle represents the state of the call as handled by the pure runner, and additionally it implements the
-// interface of http.ResponseWriter so that it can be used for streaming the output back.
-type callHandle struct {
-	engagement runner.RunnerProtocol_EngageServer
-	ctx        context.Context
-	c          *call // the agent's version of call
-
-	// For implementing http.ResponseWriter:
-	headers http.Header
-	status  int
-
-	headerOnce        sync.Once
-	shutOnce          sync.Once
-	pipeToFnCloseOnce sync.Once
-
-	outQueue  chan *runner.RunnerMsg
-	doneQueue chan struct{}
-	errQueue  chan error
-	inQueue   chan *runner.ClientMsg
-
-	// Pipe to push data to the agent Function container
-	pipeToFnW *io.PipeWriter
-	pipeToFnR *io.PipeReader
-}
-
-func NewCallHandle(engagement runner.RunnerProtocol_EngageServer) *callHandle {
-
-	// set up a pipe to push data to agent Function container
-	pipeR, pipeW := io.Pipe()
-
-	state := &callHandle{
-		engagement: engagement,
-		ctx:        engagement.Context(),
-		headers:    make(http.Header),
-		status:     200,
-		outQueue:   make(chan *runner.RunnerMsg),
-		doneQueue:  make(chan struct{}),
-		errQueue:   make(chan error, 1), // always allow one error (buffered)
-		inQueue:    make(chan *runner.ClientMsg),
-		pipeToFnW:  pipeW,
-		pipeToFnR:  pipeR,
-	}
-
-	// spawn one receiver and one sender go-routine.
-	// See: https://grpc.io/docs/reference/go/generated-code.html, which reads:
-	//   "Thread-safety: note that client-side RPC invocations and server-side RPC handlers
-	//   are thread-safe and are meant to be run on concurrent goroutines. But also note that
-	//   for individual streams, incoming and outgoing data is bi-directional but serial;
-	//   so e.g. individual streams do not support concurrent reads or concurrent writes
-	//   (but reads are safely concurrent with writes)."
-	state.spawnReceiver()
-	state.spawnSender()
-	return state
-}
-
-// closePipeToFn closes the pipe that feeds data to the function in agent.
-func (ch *callHandle) closePipeToFn() {
-	ch.pipeToFnCloseOnce.Do(func() {
-		ch.pipeToFnW.Close()
-	})
-}
-
-// finalize initiates a graceful shutdown of the session. This is
-// currently achieved by a sentinel nil enqueue to gRPC sender.
-func (ch *callHandle) finalize() error {
-	// final sentinel nil msg for graceful shutdown
-	err := ch.enqueueMsg(nil)
-	if err != nil {
-		ch.shutdown(err)
-	}
-	return err
-}
-
-// shutdown initiates a shutdown and terminates the gRPC session with
-// a given error.
-func (ch *callHandle) shutdown(err error) {
-
-	ch.closePipeToFn()
-
-	ch.shutOnce.Do(func() {
-		common.Logger(ch.ctx).WithError(err).Debugf("Shutting down call handle")
-
-		// try to queue an error message if it's not already queued.
-		if err != nil {
-			select {
-			case ch.errQueue <- err:
-			default:
-			}
-		}
-
-		close(ch.doneQueue)
-	})
-}
-
-// waitError waits until the session is completed and results
-// any queued error if there is any.
-func (ch *callHandle) waitError() error {
-	select {
-	case <-ch.ctx.Done():
-	case <-ch.doneQueue:
-	}
-
-	var err error
-	// get queued error if there's any
-	select {
-	case err = <-ch.errQueue:
-	default:
-		err = ch.ctx.Err()
-	}
-
-	if err != nil {
-		logrus.WithError(err).Debugf("Wait Error")
-	}
-	return err
-}
-
-// enqueueMsg attempts to queue a message to the gRPC sender
-func (ch *callHandle) enqueueMsg(msg *runner.RunnerMsg) error {
-	select {
-	case ch.outQueue <- msg:
-		return nil
-	case <-ch.ctx.Done():
-	case <-ch.doneQueue:
-	}
-	return io.EOF
-}
-
-// enqueueMsgStricy enqueues a message to the gRPC sender and if
-// that fails then initiates an error case shutdown.
-func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
-	err := ch.enqueueMsg(msg)
-	if err != nil {
-		ch.shutdown(err)
-	}
-	return err
-}
-
-// enqueueCallResponse enqueues a Submit() response to the LB
-// and initiates a graceful shutdown of the session.
-func (ch *callHandle) enqueueCallResponse(err error) {
-
-	var createdAt string
-	var startedAt string
-	var completedAt string
-	var details string
-	var errCode int
-	var errStr string
-
-	log := common.Logger(ch.ctx)
-
-	if err != nil {
-		errCode = models.GetAPIErrorCode(err)
-		errStr = err.Error()
-	}
-
-	if ch.c != nil {
-		mcall := ch.c.Model()
-
-		// These timestamps are related. To avoid confusion
-		// and for robustness, nested if stmts below.
-		if !time.Time(mcall.CreatedAt).IsZero() {
-			createdAt = mcall.CreatedAt.String()
-
-			if !time.Time(mcall.StartedAt).IsZero() {
-				startedAt = mcall.StartedAt.String()
-
-				if !time.Time(mcall.CompletedAt).IsZero() {
-					completedAt = mcall.CompletedAt.String()
-				} else {
-					// IMPORTANT: We punch this in ourselves.
-					// This is because call.End() is executed asynchronously.
-					completedAt = common.DateTime(time.Now()).String()
-				}
-			}
-		}
-
-		details = mcall.ID
-
-	}
-	log.Debugf("Sending Call Finish details=%v", details)
-
-	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
-		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success:     err == nil,
-			Details:     details,
-			ErrorCode:   int32(errCode),
-			ErrorStr:    errStr,
-			CreatedAt:   createdAt,
-			StartedAt:   startedAt,
-			CompletedAt: completedAt,
-		}}})
-
-	if errTmp != nil {
-		log.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
-		return
-	}
-
-	errTmp = ch.finalize()
-	if errTmp != nil {
-		log.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
-	}
-}
-
-// spawnPipeToFn pumps data to Function via callHandle io.PipeWriter (pipeToFnW)
-// which is fed using input channel.
-func (ch *callHandle) spawnPipeToFn() chan *runner.DataFrame {
-
-	input := make(chan *runner.DataFrame)
-	go func() {
-		defer ch.closePipeToFn()
-		for {
-			select {
-			case <-ch.doneQueue:
-				return
-			case <-ch.ctx.Done():
-				return
-			case data := <-input:
-				if data == nil {
-					return
-				}
-
-				if len(data.Data) > 0 {
-					_, err := io.CopyN(ch.pipeToFnW, bytes.NewReader(data.Data), int64(len(data.Data)))
-					if err != nil {
-						ch.shutdown(err)
-						return
-					}
-				}
-				if data.Eof {
-					return
-				}
-			}
-		}
-	}()
-
-	return input
-}
-
-// spawnReceiver starts a gRPC receiver, which
-// feeds received LB messages into inQueue
-func (ch *callHandle) spawnReceiver() {
-
-	go func() {
-		defer close(ch.inQueue)
-		for {
-			msg, err := ch.engagement.Recv()
-			if err != nil {
-				// engagement is close/cancelled from client.
-				if err == io.EOF {
-					return
-				}
-				ch.shutdown(err)
-				return
-			}
-
-			select {
-			case ch.inQueue <- msg:
-			case <-ch.doneQueue:
-				return
-			case <-ch.ctx.Done():
-				return
-			}
-		}
-	}()
-}
-
-// spawnSender starts a gRPC sender, which
-// pumps messages from outQueue to the LB.
-func (ch *callHandle) spawnSender() {
-	go func() {
-		for {
-			select {
-			case msg := <-ch.outQueue:
-				if msg == nil {
-					ch.shutdown(nil)
-					return
-				}
-				err := ch.engagement.Send(msg)
-				if err != nil {
-					ch.shutdown(err)
-					return
-				}
-			case <-ch.doneQueue:
-				return
-			case <-ch.ctx.Done():
-				return
-			}
-		}
-	}()
-}
-
-// Header implements http.ResponseWriter, which
-// is used by Agent to push headers to pure runner
-func (ch *callHandle) Header() http.Header {
-	return ch.headers
-}
-
-// WriteHeader implements http.ResponseWriter, which
-// is used by Agent to push http status to pure runner
-func (ch *callHandle) WriteHeader(status int) {
-	ch.status = status
-}
-
-// prepHeaders is a utility function to compile http headers
-// into a flat array.
-func (ch *callHandle) prepHeaders() []*runner.HttpHeader {
-	var headers []*runner.HttpHeader
-	for h, vals := range ch.headers {
-		for _, v := range vals {
-			headers = append(headers, &runner.HttpHeader{
-				Key:   h,
-				Value: v,
-			})
-		}
-	}
-	return headers
-}
-
-// Write implements http.ResponseWriter, which
-// is used by Agent to push http data to pure runner. The
-// received data is pushed to LB via gRPC sender queue.
-// Write also sends http headers/state to the LB.
-func (ch *callHandle) Write(data []byte) (int, error) {
-	var err error
-	ch.headerOnce.Do(func() {
-		// WARNING: we do fetch Status and Headers without
-		// a lock below. This is a problem in agent in general, and needs
-		// to be fixed in all accessing go-routines such as protocol/http.go,
-		// protocol/json.go, agent.go, etc. In practice however, one go routine
-		// accesses them (which also compiles and writes headers), but this
-		// is fragile and needs to be fortified.
-		err = ch.enqueueMsg(&runner.RunnerMsg{
-			Body: &runner.RunnerMsg_ResultStart{
-				ResultStart: &runner.CallResultStart{
-					Meta: &runner.CallResultStart_Http{
-						Http: &runner.HttpRespMeta{
-							Headers:    ch.prepHeaders(),
-							StatusCode: int32(ch.status),
-						},
-					},
-				},
-			},
-		})
-	})
-
-	if err != nil {
-		return 0, err
-	}
-
-	total := 0
-	// split up data into gRPC chunks
-	for {
-		chunkSize := len(data)
-		if chunkSize > MaxDataChunk {
-			chunkSize = MaxDataChunk
-		}
-		if chunkSize == 0 {
-			break
-		}
-
-		// we cannot retain 'data'
-		cpData := make([]byte, chunkSize)
-		copy(cpData, data[0:chunkSize])
-		data = data[chunkSize:]
-
-		err = ch.enqueueMsg(&runner.RunnerMsg{
-			Body: &runner.RunnerMsg_Data{
-				Data: &runner.DataFrame{
-					Data: cpData,
-					Eof:  false,
-				},
-			},
-		})
-
-		if err != nil {
-			return total, err
-		}
-		total += chunkSize
-	}
-
-	return total, nil
-}
-
-// getTryMsg fetches/waits for a TryCall message from
-// the LB using inQueue (gRPC receiver)
-func (ch *callHandle) getTryMsg() *runner.TryCall {
-	var msg *runner.TryCall
-
-	select {
-	case <-ch.doneQueue:
-	case <-ch.ctx.Done():
-		// if ctx timed out while waiting, then this is a 503 (retriable)
-		err := status.Errorf(codes.Code(models.ErrCallTimeoutServerBusy.Code()), models.ErrCallTimeoutServerBusy.Error())
-		ch.shutdown(err)
-		return nil
-	case item := <-ch.inQueue:
-		if item != nil {
-			msg = item.GetTry()
-		}
-	}
-	if msg == nil {
-		ch.shutdown(ErrorExpectedTry)
-	}
-	return msg
-}
-
-// getDataMsg fetches/waits for a DataFrame message from
-// the LB using inQueue (gRPC receiver)
-func (ch *callHandle) getDataMsg() *runner.DataFrame {
-	var msg *runner.DataFrame
-
-	select {
-	case <-ch.doneQueue:
-	case <-ch.ctx.Done():
-	case item := <-ch.inQueue:
-		if item != nil {
-			msg = item.GetData()
-		}
-	}
-	if msg == nil {
-		ch.shutdown(ErrorExpectedData)
-	}
-	return msg
-}
 
 const (
 	// Here we give 5 seconds of timeout inside the container. We hardcode these numbers here to
@@ -524,23 +90,24 @@ type statusTracker struct {
 	wait   chan struct{}
 }
 
-// pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
-// and provides the gRPC server that implements the LB <-> Runner protocol.
+//// pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
+//// and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
 	gRPCServer *grpc.Server
 	creds      credentials.TransportCredentials
 	a          Agent
+	inflight   int32
 	status     statusTracker
 }
 
 // implements Agent
-func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
-	return pr.a.GetCall(opts...)
+func (pr *pureRunner) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
+	return pr.a.GetCall(ctx, opts...)
 }
 
 // implements Agent
-func (pr *pureRunner) Submit(Call) error {
-	return errors.New("Submit cannot be called directly in a Pure Runner.")
+func (pr *pureRunner) Submit(context.Context, Call) (*event.Event, error) {
+	return nil, errors.New("Submit cannot be called directly in a Pure Runner.")
 }
 
 // implements Agent
@@ -560,62 +127,67 @@ func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
 }
 
-func (pr *pureRunner) spawnSubmit(state *callHandle) {
-	go func() {
-		err := pr.a.Submit(state.c)
-		state.enqueueCallResponse(err)
-	}()
-}
+var (
+	ErrInvaldInitMessage = errors.New("unexpected opening message type  wanted TryCall ")
+	ErrInvaldDataMessage = errors.New("unexpected Data message type  wanted TryCall ")
+	ErrBodySizeToLarge   = errors.New("body size exceeds maximum")
+	ErrInvalidPayload    = errors.New("payload was not parsable as JSON")
+)
 
-// handleTryCall based on the TryCall message, tries to place the call on NBIO Agent
-func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error {
+// TODO configize
+const (
+	MaxBodySize = uint64(1024 * 1024)
+)
 
-	start := time.Now()
+func createSubmitResponse(mcall *models.Call, err error) *runner.RunnerMsg {
 
-	var c models.Call
-	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
+	var createdAt string
+	var startedAt string
+	var completedAt string
+	var details string
+	var errCode int
+	var errStr string
+
 	if err != nil {
-		state.enqueueCallResponse(err)
-		return err
+		errCode = models.GetAPIErrorCode(err)
+		errStr = err.Error()
 	}
 
-	// Status image is reserved for internal Status checks.
-	// We need to make sure normal functions calls cannot call it.
-	if pr.status.imageName != "" && c.Image == pr.status.imageName {
-		err = models.ErrRoutesInvalidImage
-		state.enqueueCallResponse(err)
-		return err
-	}
+	if mcall != nil {
 
-	// IMPORTANT: We clear/initialize these dates as start/created/completed dates from
-	// unmarshalled Model from LB-agent represent unrelated time-line events.
-	// From this point, CreatedAt/StartedAt/CompletedAt are based on our local clock.
-	c.CreatedAt = common.DateTime(start)
-	c.StartedAt = common.DateTime(time.Time{})
-	c.CompletedAt = common.DateTime(time.Time{})
+		// These timestamps are related. To avoid confusion
+		// and for robustness, nested if stmts below.
+		if !time.Time(mcall.CreatedAt).IsZero() {
+			createdAt = mcall.CreatedAt.String()
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
-		WithWriter(state),
-		WithContext(state.ctx),
-		WithExtensions(tc.GetExtensions()),
-	)
-	if err != nil {
-		state.enqueueCallResponse(err)
-		return err
-	}
+			if !time.Time(mcall.StartedAt).IsZero() {
+				startedAt = mcall.StartedAt.String()
 
-	state.c = agent_call.(*call)
-	if tc.SlotHashId != "" {
-		hashId, err := hex.DecodeString(tc.SlotHashId)
-		if err != nil {
-			state.enqueueCallResponse(err)
-			return err
+				if !time.Time(mcall.CompletedAt).IsZero() {
+					completedAt = mcall.CompletedAt.String()
+				} else {
+					// IMPORTANT: We punch this in ourselves.
+					// This is because call.End() is executed asynchronously.
+					completedAt = common.DateTime(time.Now()).String()
+				}
+			}
 		}
-		state.c.slotHashId = string(hashId[:])
-	}
-	pr.spawnSubmit(state)
 
-	return nil
+		details = mcall.ID
+
+	}
+
+	return &runner.RunnerMsg{
+		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
+			Success:     err == nil,
+			Details:     details,
+			ErrorCode:   int32(errCode),
+			ErrorStr:    errStr,
+			CreatedAt:   createdAt,
+			StartedAt:   startedAt,
+			CompletedAt: completedAt,
+		}}}
+
 }
 
 // implements RunnerProtocolServer
@@ -637,45 +209,116 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	if ok {
 		log.Debug("MD is ", md)
 	}
-	state := NewCallHandle(engagement)
 
-	tryMsg := state.getTryMsg()
-	if tryMsg != nil {
-		errTry := pr.handleTryCall(tryMsg, state)
-		if errTry == nil {
-			dataFeed := state.spawnPipeToFn()
+	msg, err := engagement.Recv()
+	if err != nil {
+		return fmt.Errorf("error receiving trycall: %s", err)
+	}
 
-		DataLoop:
-			for {
-				dataMsg := state.getDataMsg()
-				if dataMsg == nil {
-					break
-				}
+	tcm, ok := msg.GetBody().(*runner.ClientMsg_Try)
+	if !ok {
+		log.Error("expecting a tryCall message to open dialog, got a %s", reflect.TypeOf(msg.GetBody()))
+		return ErrInvaldInitMessage
+	}
+	tryMsg := tcm.Try
 
-				select {
-				case dataFeed <- dataMsg:
-					if dataMsg.Eof {
-						break DataLoop
-					}
-				case <-state.doneQueue:
-					break DataLoop
-				case <-state.ctx.Done():
-					break DataLoop
-				}
-			}
+	var c models.Call
+	err = json.Unmarshal([]byte(tryMsg.ModelsCallJson), &c)
+
+	if err != nil {
+		return fmt.Errorf("invalid JSON call body %s", err)
+	}
+
+	// IMPORTANT: We clear/initialize these dates as start/created/completed dates from
+	// unmarshalled Model from LB-agent represent unrelated time-line events.
+	// From this point, CreatedAt/StartedAt/CompletedAt are based on our local clock.
+	start := time.Now()
+	c.CreatedAt = common.DateTime(start)
+	c.StartedAt = common.DateTime(time.Time{})
+	c.CompletedAt = common.DateTime(time.Time{})
+
+	// TODO buffer pool here
+	bodyBuf := &bytes.Buffer{}
+	bodyWriter := common.NewClampWriter(bodyBuf, MaxBodySize, ErrBodySizeToLarge)
+
+	for {
+		msg, err := engagement.Recv()
+		if err != nil {
+			return err
+		}
+
+		dfms, ok := msg.Body.(*runner.ClientMsg_Data)
+		if !ok {
+			log.Errorf("Got unexpected message from client %s", reflect.TypeOf(msg.Body))
+			return ErrInvaldDataMessage
+		}
+		_, err = bodyWriter.Write(dfms.Data.Data)
+		if err != nil {
+			return err
+		}
+
+		if dfms.Data.Eof {
+			break
 		}
 	}
 
-	err := state.waitError()
+	var inputEvt event.Event
+	err = json.NewDecoder(bytes.NewReader(bodyBuf.Bytes())).Decode(&inputEvt)
 
-	// if we didn't respond with TooBusy, then this means the request
-	// was processed.
-	if err != models.ErrCallTimeoutServerBusy {
-		atomic.AddUint64(&pr.status.requestsHandled, 1)
+	if err != nil {
+		log.WithError(err).Error("Invalid JSON payload ")
+		return ErrInvalidPayload
 	}
 
-	atomic.AddInt32(&pr.status.inflight, -1)
-	return err
+	c.InputEvent = &inputEvt
+
+	agentCall, err := pr.a.GetCall(ctx, FromModel(&c), WithExtensions(tryMsg.Extensions))
+	if err != nil {
+		return err
+	}
+
+	// TODO - this seems odd/wrong - canonical call ID should be part of the call model
+	if tryMsg.SlotHashId != "" {
+		hashID, err := hex.DecodeString(tryMsg.SlotHashId)
+		if err != nil {
+			return err
+		}
+		agentCall.(*call).slotHashId = string(hashID[:])
+	}
+
+	resp, err := pr.a.Submit(ctx, agentCall)
+
+	if err != nil {
+		return engagement.Send(createSubmitResponse(&c, err))
+	}
+
+	respBuf := &bytes.Buffer{}
+	err = json.NewEncoder(respBuf).Encode(resp)
+	if err != nil {
+		return err
+	}
+
+	respBytes := respBuf.Bytes()
+	// Now messages are fully buffered there isn't much reason to buffer any more
+	for offset := 0; offset < len(respBytes); offset += MaxDataChunk {
+		top := offset + MaxDataChunk
+		eof := false
+		if top >= len(respBytes) {
+			eof = true
+			top = len(respBytes)
+		}
+		err = engagement.Send(&runner.RunnerMsg{
+			Body: &runner.RunnerMsg_Data{
+				Data: &runner.DataFrame{
+					Data: respBytes[offset:top],
+					Eof:  eof,
+				},
+			},
+		})
+
+	}
+	//
+	return engagement.Send(createSubmitResponse(&c, nil))
 }
 
 // Runs a status call using status image with baked in parameters.
@@ -687,18 +330,29 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	// use a hardcoded preset timeout 'ctxTimeout' instead.
 	// TODO: It would be good to copy original ctx key/value pairs into our new
 	// context for tracking, etc. But go-lang context today does not seem to allow this.
-	execCtx, execCtxCancel := context.WithTimeout(context.Background(), StatusCtxTimeout)
+
+	execCtx, execCtxCancel := context.WithTimeout(common.BackgroundContext(ctx), StatusCtxTimeout)
 	defer execCtxCancel()
 
 	result := &runner.RunnerStatus{}
 	log := common.Logger(ctx)
 	start := time.Now()
 
+	evt := &event.Event{
+		ContentType:        "application/json",
+		Data:               json.RawMessage([]byte(`{"hello":"world"}`)),
+		Source:             "urn:agent-tester",
+		EventTime:          common.DateTime(time.Now()),
+		EventID:            id.New().String(),
+		EventType:          "io.fnproject.testEvent",
+		CloudEventsVersion: "0.1",
+	}
 	// construct call
 	var c models.Call
 
 	// Most of these arguments are baked in. We might want to make this
 	// more configurable.
+	c.InputEvent = evt
 	c.ID = id.New().String()
 	c.Path = "/"
 	c.Image = pr.status.imageName
@@ -707,12 +361,9 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	c.TmpFsSize = 0
 	c.Memory = 0
 	c.CPUs = models.MilliCPUs(0)
-	c.URL = "/"
-	c.Method = "GET"
 	c.CreatedAt = common.DateTime(start)
 	c.Config = make(models.Config)
 	c.Config["FN_FORMAT"] = c.Format
-	c.Payload = "{}"
 	c.Timeout = StatusCallTimeout
 	c.IdleTimeout = StatusCallIdleTimeout
 
@@ -720,29 +371,24 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 
 	log.Debugf("Running status call with id=%v image=%v", c.ID, c.Image)
 
-	recorder := httptest.NewRecorder()
-	player := ioutil.NopCloser(strings.NewReader(c.Payload))
+	agentCall, err := pr.a.GetCall(execCtx, FromModel(&c))
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, player),
-		WithWriter(recorder),
-		WithContext(execCtx),
-	)
-
+	var respEvt *event.Event
 	if err == nil {
-		var mcall *call
-		mcall = agent_call.(*call)
-		err = pr.a.Submit(mcall)
+		respEvt, err = pr.a.Submit(execCtx, agentCall)
 	}
 
-	resp := recorder.Result()
-
+	var body []byte
 	if err != nil {
 		result.ErrorCode = int32(models.GetAPIErrorCode(err))
 		result.ErrorStr = err.Error()
 		result.Failed = true
-	} else if resp.StatusCode >= http.StatusBadRequest {
-		result.ErrorCode = int32(resp.StatusCode)
-		result.Failed = true
+	} else {
+		if respEvt.IsFDKError() {
+			result.ErrorCode = 500
+			result.Failed = true
+		}
+		body, _ = respEvt.BodyAsRawValue()
 	}
 
 	// These timestamps are related. To avoid confusion
@@ -763,17 +409,12 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 		}
 	}
 
-	// Status images should not output excessive data since we echo the
-	// data back to caller.
-	body, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-
 	// Clamp the log output to 256 bytes if output is too large for logging.
 	dLen := len(body)
 	if dLen > 256 {
 		dLen = 256
 	}
-	log.Debugf("Status call with id=%v result=%+v body[0:%v]=%v", c.ID, result, dLen, string(body[:dLen]))
+	log.Debugf("Status call with id=%v result=%+v body[0:%v]=%v", c.ID, result, dLen, body[:dLen])
 
 	result.Details = string(body)
 	result.Id = c.ID
@@ -946,7 +587,7 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		logrus.WithError(err).Fatalf("Could not listen on %s", addr)
+		logrus.WithError(err).Fatalf("could not listen on %s", addr)
 	}
 
 	logrus.Info("Pure Runner listening on ", addr)
@@ -963,24 +604,24 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 
 func createCreds(cert string, key string, ca string) (credentials.TransportCredentials, error) {
 	if cert == "" || key == "" || ca == "" {
-		return nil, errors.New("Failed to create credentials, cert/key/ca not provided")
+		return nil, errors.New("failed to create credentials, cert/key/ca not provided")
 	}
 
 	// Load the certificates from disk
 	certificate, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
-		return nil, fmt.Errorf("Could not load server key pair: %s", err)
+		return nil, fmt.Errorf("could not load server key pair: %s", err)
 	}
 
 	// Create a certificate pool from the certificate authority
 	certPool := x509.NewCertPool()
 	authority, err := ioutil.ReadFile(ca)
 	if err != nil {
-		return nil, fmt.Errorf("Could not read ca certificate: %s", err)
+		return nil, fmt.Errorf("could not read ca certificate: %s", err)
 	}
 
 	if ok := certPool.AppendCertsFromPEM(authority); !ok {
-		return nil, errors.New("Failed to append client certs")
+		return nil, errors.New("failed to append client certs")
 	}
 
 	return credentials.NewTLS(&tls.Config{

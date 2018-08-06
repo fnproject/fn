@@ -1,0 +1,100 @@
+swagger: '2.0'
+info:
+  title: Fn Invoke API
+  description: The open source serverless platform.
+  version: "2.0.0"
+# the domain of the service
+host: "127.0.0.1:8080"
+# array of all schemes that your API supports
+schemes:
+  - https
+  - http
+# will be prefixed to all paths
+basePath: /v2
+
+
+consumes:
+  - application/cloudevents+json
+produces:
+  - application/json
+  - application/cloudevents+json
+
+paths:
+  /invoke/{fnID}/cloudevent:
+    post:
+       operationId: "InvokeCloudEvent"
+       summary: "Invoke a function with a cloud event"
+       description: "invoke a function using a cloud event contract"
+       parameters:
+          - name: body
+            in: body
+            description: "Application data to insert."
+            required: true
+            schema:
+              $ref: '#/definitions/Event'
+       responses:
+         200:
+            description: "Invocation successful - response corresponds to the event returned by the function."
+            schema:
+              $ref: '#/definitions/Event'
+         400:
+           description: "Invalid request or "
+           schema:
+             $ref: '#/definitions/Error'
+         500:
+            description: "Internal server error - function invocation may have started."
+            schema:
+              $ref: '#/definitions/Error'
+         503:
+            description: "The function was not executed retry later"
+            schema:
+              $ref: '#/definitions/Error'
+
+
+
+
+definitions:
+  Event:
+    type: object
+    required:
+      - "eventType"
+      - "cloudEventsVersion"
+      - "source"
+      - "eventID"
+    properties:
+      cloudEventsVersion:
+        type: string
+        description: "Cloud event specification version."
+      eventType:
+        type: string
+        description: "Event type for this event."
+      source:
+        type: string
+        description: "Source of this request "
+      eventID:
+        type: string
+        description: "Unique event ID with respect to the source"
+      eventTime:
+        type: string
+        format: date-time
+        description: "Time when the event is considered to have occured was created"
+      extensions:
+        type: object
+        description: "Cloud event extensions - these are a map of applicationSpecific annotations on events "
+      contentType:
+        type: string
+        description: "Content type of the body - optional  if no data element is specified, otherwise mandatory"
+      data:
+        description: "Event data encoded following cloud event encoding guidelines"
+
+
+  Error:
+    type: object
+    properties:
+      message:
+        type: string
+        readOnly: true
+      fields:
+        type: string
+        readOnly: true
+

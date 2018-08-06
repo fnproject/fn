@@ -7,17 +7,26 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 	"unicode"
 
 	"go.opencensus.io/trace"
 
-	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
+	"github.com/fnproject/fn/api/event/httpevent"
+	"io/ioutil"
 )
 
-var (
-	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
-)
+const FakeSourceURL = "http://fnproject.io/s/non-http-inputs"
+
+// JSONProtocol converts stdin/stdout streams from HTTP into JSON format.
+type JSONProtocol struct {
+	source          string
+	maxResponseSize uint64
+	// These are the container input streams, not the input from the request or the output for the response
+	in  io.Writer
+	out io.Reader
+}
 
 // CallRequestHTTP for the protocol that was used by the end user to call this function. We only have HTTP right now.
 type CallRequestHTTP struct {
@@ -37,132 +46,154 @@ type CallResponseHTTP struct {
 type jsonIn struct {
 	CallID      string          `json:"call_id"`
 	Deadline    string          `json:"deadline"`
-	Body        string          `json:"body"`
+	Body        json.RawMessage `json:"body"`
 	ContentType string          `json:"content_type"`
 	Protocol    CallRequestHTTP `json:"protocol"`
 }
 
 // jsonOut the expected response from the function container
 type jsonOut struct {
-	Body        string            `json:"body"`
+	Body        json.RawMessage   `json:"body"`
 	ContentType string            `json:"content_type"`
 	Protocol    *CallResponseHTTP `json:"protocol,omitempty"`
-}
-
-// JSONProtocol converts stdin/stdout streams from HTTP into JSON format.
-type JSONProtocol struct {
-	// These are the container input streams, not the input from the request or the output for the response
-	in  io.Writer
-	out io.Reader
 }
 
 func (p *JSONProtocol) IsStreamable() bool {
 	return true
 }
 
-func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufPool.Put(buf)
+func (h *JSONProtocol) writeJSONToContainer(ci *event.Event) (string, error) {
 
-	_, err := io.Copy(buf, ci.Input())
+	callID, err := ci.GetCallID()
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	body := buf.String()
+	deadline, err := ci.GetDeadline()
+	if err != nil {
+		return "", err
+	}
+
+	var method, requestURL string
+	var headers http.Header
+	var ext *httpevent.HTTPReqExt
+	if ci.HasExtension(httpevent.ExtIoFnProjectHTTPReq) {
+		err = ci.ReadExtension(httpevent.ExtIoFnProjectHTTPReq, &ext)
+		if err != nil {
+			fmt.Errorf("invalid HTTP metadata on incoming inputs: %s", err)
+		}
+		method = ext.Method
+		requestURL = ext.RequestURL
+		headers = ext.Headers
+	} else {
+		method = "GET"
+		requestURL = FakeSourceURL
+	}
+
+	if headers == nil {
+		headers = make(map[string][]string)
+	}
 
 	in := jsonIn{
-		Body:        body,
-		ContentType: ci.ContentType(),
-		CallID:      ci.CallID(),
-		Deadline:    ci.Deadline().String(),
+		Body:        ci.Data,
+		ContentType: ci.ContentType,
+		CallID:      callID,
+		Deadline:    deadline.String(),
 		Protocol: CallRequestHTTP{
-			Type:       ci.ProtocolType(),
-			Method:     ci.Method(),
-			RequestURL: ci.RequestURL(),
-			Headers:    ci.Headers(),
+			Type:       "http",
+			Method:     method,
+			RequestURL: requestURL,
+			Headers:    headers,
 		},
 	}
 
-	return json.NewEncoder(h.in).Encode(in)
+	err = json.NewEncoder(h.in).Encode(in)
+	if err != nil {
+		return "", err
+	}
+	return callID, nil
+
 }
 
-func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+func (h *JSONProtocol) Dispatch(ctx context.Context, ci *event.Event) (*event.Event, error) {
 	ctx, span := trace.StartSpan(ctx, "dispatch_json")
 	defer span.End()
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_write_request")
-	err := h.writeJSONToContainer(ci)
+	callID, err := h.writeJSONToContainer(ci)
 	span.End()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_read_response")
 	var jout jsonOut
-	decoder := json.NewDecoder(h.out)
+
+	clampReader := common.NewClampReadCloser(ioutil.NopCloser(h.out), h.maxResponseSize, ErrContainerResponseTooLarge)
+
+	errCatcher := common.NewErrorCatchingReader(clampReader)
+
+	decoder := json.NewDecoder(errCatcher)
 	err = decoder.Decode(&jout)
 	span.End()
 	if err != nil {
-		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
+		lastIOError := errCatcher.LastError()
+
+		if lastIOError != nil && lastIOError != io.EOF {
+			return nil, errCatcher.LastError()
+		}
+		return nil, ErrInvalidContentFromContainer
 	}
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_write_response")
 	defer span.End()
 
-	rw, ok := w.(http.ResponseWriter)
-	if !ok {
-		// logs can just copy the full thing in there, headers and all.
-		err := json.NewEncoder(w).Encode(jout)
-		return isExcessData(err, decoder)
-	}
-
+	var headers http.Header
+	status := 200
 	// this has to be done for pulling out:
 	// - status code
 	// - body
 	// - headers
 	if jout.Protocol != nil {
-		p := jout.Protocol
-		for k, v := range p.Headers {
+		status = jout.Protocol.StatusCode
+		for k, v := range jout.Protocol.Headers {
 			for _, vv := range v {
-				rw.Header().Add(k, vv) // on top of any specified on the route
+				// largely do this to normalise header names
+				headers.Add(k, vv)
 			}
 		}
 	}
-	// after other header setting, top level content_type takes precedence and is
-	// absolute (if set). it is expected that if users want to set multiple
-	// values they put it in the string, e.g. `"content-type:"application/json; charset=utf-8"`
-	// TODO this value should not exist since it's redundant in proto headers?
-	if jout.ContentType != "" {
-		rw.Header().Set("Content-Type", jout.ContentType)
+
+	var contentType = jout.ContentType
+	if jout.Body != nil && contentType == "" {
+		// By definition body is a valid JSON doc here - we'll just carry it thusly
+		contentType = "application/json"
 	}
 
-	// we must set all headers before writing the status, see http.ResponseWriter contract
-	if p := jout.Protocol; p != nil && p.StatusCode != 0 {
-		rw.WriteHeader(p.StatusCode)
+	evt, err := httpevent.CreateHTTPRespEvent(h.source, jout.Body, contentType, status, headers)
+	if err != nil {
+		return nil, err
 	}
+	evt.SetCallID(callID)
 
-	_, err = io.WriteString(rw, jout.Body)
-	return isExcessData(err, decoder)
+	return evt, checkExcessData(decoder)
 }
 
-func isExcessData(err error, decoder *json.Decoder) error {
-	if err == nil {
-		// Now check for excess output, if this is the case, we can be certain that the next request will fail.
-		reader, ok := decoder.Buffered().(*bytes.Reader)
-		if ok && reader.Len() > 0 {
-			// Let's check if extra data is whitespace, which is valid/ignored in json
-			for {
-				r, _, err := reader.ReadRune()
-				if err == io.EOF {
-					break
-				}
-				if !unicode.IsSpace(r) {
-					return ErrExcessData
-				}
+func checkExcessData(decoder *json.Decoder) error {
+	// Now check for excess output, if this is the case, we can be certain that the next request will fail.
+	reader, ok := decoder.Buffered().(*bytes.Reader)
+	if ok && reader.Len() > 0 {
+		// Let's check if extra data is whitespace, which is valid/ignored in json
+		for {
+			r, _, err := reader.ReadRune()
+			if err == io.EOF {
+				break
+			}
+			if !unicode.IsSpace(r) {
+				return ErrExcessData
 			}
 		}
 	}
-	return err
+
+	return nil
 }

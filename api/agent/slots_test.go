@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 )
@@ -18,8 +19,10 @@ type testSlot struct {
 	isClosed bool
 }
 
-func (a *testSlot) exec(ctx context.Context, call *call) error {
-	return nil
+var _ Slot = &testSlot{}
+
+func (a *testSlot) exec(ctx context.Context, call *call) (*event.Event, error) {
+	return testEvent(), nil
 }
 
 func (a *testSlot) Close(ctx context.Context) error {
@@ -274,9 +277,9 @@ func BenchmarkSlotKey(b *testing.B) {
 	const idleTimeout = 20
 	const memory = 256
 	CPUs := models.MilliCPUs(1000)
-	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + appName + path
-	payload := "payload"
+	//method := "GET"
+	//url := "http://127.0.0.1:8080/r/" + appName + path
+	//payload := "payload"
 	typ := "sync"
 	format := "default"
 	cfg := models.Config{
@@ -301,9 +304,9 @@ func BenchmarkSlotKey(b *testing.B) {
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
 		CPUs:        CPUs,
-		Payload:     payload,
-		URL:         url,
-		Method:      method,
+		//Payload:     payload,
+		//URL:         url,
+		//Method:      method,
 	}
 
 	call := &call{Call: cm}

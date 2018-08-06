@@ -4,22 +4,26 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net/http"
 
-	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/models"
 )
 
 var errInvalidProtocol = errors.New("Invalid Protocol")
 
-var ErrExcessData = errors.New("Excess data in stream")
+var ErrExcessData = errors.New("excess data in stream from container")
+var ErrIOErrorWritingToContainer = errors.New("io error writing to container")
+var ErrInvalidContentFromContainer = errors.New("invalid response from container")
+var ErrContainerResponseTooLarge = errors.New("container response was too large")
 
 type errorProto struct {
 	error
 }
 
-func (e errorProto) IsStreamable() bool                                           { return false }
-func (e errorProto) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error { return e }
+func (e errorProto) IsStreamable() bool { return false }
+func (e errorProto) Dispatch(ctx context.Context, ci *event.Event) (*event.Event, error) {
+	return nil, e
+}
 
 // ContainerIO defines the interface used to talk to a hot function.
 // Internally, a protocol must know when to alternate between stdin and stdout.
@@ -27,95 +31,9 @@ func (e errorProto) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) erro
 type ContainerIO interface {
 	IsStreamable() bool
 
-	// Dispatch will handle sending stdin and stdout to a container. Implementers
-	// of Dispatch may format the input and output differently. Dispatch must respect
-	// the req.Context() timeout / cancellation.
-	Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error
-}
-
-// CallInfo is passed into dispatch with only the required data the protocols require
-type CallInfo interface {
-	IsCloudEvent() bool
-	CallID() string
-	ContentType() string
-	Input() io.Reader
-	Deadline() common.DateTime
-	CallType() string
-
-	// ProtocolType let's function/fdk's know what type original request is. Only 'http' for now.
-	// This could be abstracted into separate Protocol objects for each type and all the following information could go in there.
-	// This is a bit confusing because we also have the protocol's for getting information in and out of the function containers.
-	ProtocolType() string
-	Request() *http.Request
-	Method() string
-	RequestURL() string
-	Headers() map[string][]string
-}
-
-type callInfoImpl struct {
-	call         *models.Call
-	req          *http.Request
-	isCloudEvent bool
-}
-
-func (ci callInfoImpl) IsCloudEvent() bool {
-	return ci.isCloudEvent
-}
-
-func (ci callInfoImpl) CallID() string {
-	return ci.call.ID
-}
-
-func (ci callInfoImpl) ContentType() string {
-	return ci.req.Header.Get("Content-Type")
-}
-
-// Input returns the call's input/body
-func (ci callInfoImpl) Input() io.Reader {
-	return ci.req.Body
-}
-
-func (ci callInfoImpl) Deadline() common.DateTime {
-	deadline, ok := ci.req.Context().Deadline()
-	if !ok {
-		// In theory deadline must have been set here
-		panic("No context deadline is set in protocol, should never happen")
-	}
-	return common.DateTime(deadline)
-}
-
-// CallType returns whether the function call was "sync" or "async".
-func (ci callInfoImpl) CallType() string {
-	return ci.call.Type
-}
-
-// ProtocolType at the moment can only be "http". Once we have Kafka or other
-// possible origins for calls this will track what the origin was.
-func (ci callInfoImpl) ProtocolType() string {
-	return "http"
-}
-
-// Request basically just for the http format, since that's the only that makes sense to have the full request as is
-func (ci callInfoImpl) Request() *http.Request {
-	return ci.req
-}
-func (ci callInfoImpl) Method() string {
-	return ci.call.Method
-}
-func (ci callInfoImpl) RequestURL() string {
-	return ci.call.URL
-}
-func (ci callInfoImpl) Headers() map[string][]string {
-	return ci.req.Header
-}
-
-func NewCallInfo(isCloudEvent bool, call *models.Call, req *http.Request) CallInfo {
-	ci := &callInfoImpl{
-		isCloudEvent: isCloudEvent,
-		call:         call,
-		req:          req,
-	}
-	return ci
+	// Dispatch dispatches an inputs to a container and handles/parses the response
+	// an error response indicates that the container has reached an invalid state and should be discarded
+	Dispatch(ctx context.Context, evt *event.Event) (*event.Event, error)
 }
 
 // Protocol defines all protocols that operates a ContainerIO.
@@ -123,11 +41,13 @@ type Protocol string
 
 // hot function protocols
 const (
-	Default     Protocol = models.FormatDefault
-	HTTP        Protocol = models.FormatHTTP
-	JSON        Protocol = models.FormatJSON
-	CloudEventP Protocol = models.FormatCloudEvent
-	Empty       Protocol = ""
+	Default                    Protocol = models.FormatDefault
+	HTTP                       Protocol = models.FormatHTTP
+	JSON                       Protocol = models.FormatJSON
+	CloudEventP                Protocol = models.FormatCloudEvent
+	Empty                      Protocol = ""
+	DefaultResponseEventSource          = "/fnproject"
+	DefaultMaxResponseBodySize          = uint64(1024 * 1024)
 )
 
 func (p *Protocol) UnmarshalJSON(b []byte) error {
@@ -161,13 +81,13 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 	switch p {
 	case HTTP:
-		return &HTTPProtocol{in, out}
+		return &httpProtocol{DefaultResponseEventSource, DefaultMaxResponseBodySize, in, out}
 	case JSON:
-		return &JSONProtocol{in, out}
+		return &JSONProtocol{DefaultResponseEventSource, DefaultMaxResponseBodySize, in, out}
 	case CloudEventP:
-		return &CloudEventProtocol{in, out}
+		return &cloudEventProtocol{DefaultResponseEventSource, DefaultMaxResponseBodySize, in, out}
 	case Default, Empty:
-		return &DefaultProtocol{}
+		return &DefaultProtocol{DefaultResponseEventSource, DefaultMaxResponseBodySize}
 	}
 	return &errorProto{errInvalidProtocol}
 }

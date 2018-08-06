@@ -2,16 +2,15 @@ package server
 
 import (
 	"bytes"
-	"io"
 	"net/http"
 	"path"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event/httpevent"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -65,44 +64,28 @@ var (
 func (s *Server) ServeRoute(c *gin.Context, app *models.App, route *models.Route) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	writer := syncResponseWriter{
-		Buffer:  buf,
-		headers: c.Writer.Header(), // copy ref
+	defer bufPool.Put(buf)
+	ctx := c.Request.Context()
+	log := common.Logger(ctx)
+	evt, err := httpevent.FromHTTPRequest(c.Request, 1024*1024)
+
+	if err != nil {
+		return err
 	}
-	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
 
-	// GetCall can mod headers, assign an id, look up the route/app (cached),
-	// strip params, etc.
-	// this should happen ASAP to turn app name to app ID
-
-	// GetCall can mod headers, assign an id, look up the route/app (cached),
-	// strip params, etc.
-
-	call, err := s.agent.GetCall(
-		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(app, route, c.Request),
+	call, err := s.agent.GetCall(ctx,
+		agent.FromRouteAndEvent(app, route, evt),
 	)
 	if err != nil {
 		return err
 	}
 	model := call.Model()
 	{ // scope this, to disallow ctx use outside of this scope. add id for handleV1ErrorResponse logger
-		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
-		c.Request = c.Request.WithContext(ctx)
+		ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"id": model.ID})
 	}
 
 	if model.Type == "async" {
-		// TODO we should push this into GetCall somehow (CallOpt maybe) or maybe agent.Queue(Call) ?
-		if c.Request.ContentLength > 0 {
-			buf.Grow(int(c.Request.ContentLength))
-		}
-		_, err := buf.ReadFrom(c.Request.Body)
-		if err != nil {
-			return models.ErrInvalidPayload
-		}
-		model.Payload = buf.String()
-
-		err = s.lbEnqueue.Enqueue(c.Request.Context(), model)
+		err = s.lbEnqueue.Enqueue(ctx, model)
 		if err != nil {
 			return err
 		}
@@ -111,7 +94,7 @@ func (s *Server) ServeRoute(c *gin.Context, app *models.App, route *models.Route
 		return nil
 	}
 
-	err = s.agent.Submit(call)
+	outEvt, err := s.agent.Submit(ctx, call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little
@@ -123,26 +106,10 @@ func (s *Server) ServeRoute(c *gin.Context, app *models.App, route *models.Route
 		return err
 	}
 
-	// if they don't set a content-type - detect it
-	if writer.Header().Get("Content-Type") == "" {
-		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
-		var contentType string
-		jsonPrefix := [1]byte{'{'} // stack allocated
-		if bytes.HasPrefix(buf.Bytes(), jsonPrefix[:]) {
-			// try to detect json, since DetectContentType isn't a hipster.
-			contentType = "application/json; charset=utf-8"
-		} else {
-			contentType = http.DetectContentType(buf.Bytes())
-		}
-		writer.Header().Set("Content-Type", contentType)
+	err = httpevent.WriteHTTPResponse(ctx, outEvt, c.Writer)
+	if err != nil {
+		log.WithError(err).Error("Failed to write HTTP response")
 	}
-
-	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
-
-	if writer.status > 0 {
-		c.Writer.WriteHeader(writer.status)
-	}
-	io.Copy(c.Writer, &writer)
 
 	return nil
 }

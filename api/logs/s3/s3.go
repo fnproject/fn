@@ -4,7 +4,6 @@ package s3
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -213,7 +212,7 @@ func (s *store) InsertCall(ctx context.Context, call *models.Call) error {
 	// see this entry when listing only when specifying a route path. (NOTE: this
 	// behavior will go away if we stop listing by route -> triggers)
 
-	objectName = callMarkerKey(call.AppID, call.Path, call.ID)
+	objectName = callMarkerKey(call.AppID, call.FnID, call.ID)
 	params = &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(objectName),
@@ -274,13 +273,12 @@ func flipCursor(oid string) string {
 	return id.EncodeDescending(oid)
 }
 
-func callMarkerKey(app, path, id string) string {
+func callMarkerKey(appID, fnID, id string) string {
 	id = flipCursor(id)
 	// s3 urls use / and are url, we need to encode this since paths have / in them
-	// NOTE: s3 urls are max of 1024 chars. path is the only non-fixed sized object in here
+	// NOTE: s3 urls are max of 1024 chars. fnID is the only non-fixed sized object in here
 	// but it is fixed to 256 chars in sql (by chance, mostly). further validation may be needed if weirdness ensues.
-	path = base64.RawURLEncoding.EncodeToString([]byte(path))
-	return callMarkerPrefix + app + "/" + path + "/" + id
+	return callMarkerPrefix + appID + "/" + fnID + "/" + id
 }
 
 func callKey(app, id string) string {
