@@ -130,27 +130,21 @@ func RegisterAgentViews(tagKeys []string, latencyDist []float64) {
 }
 
 // RegisterDockerViews creates a and registers Docker views with provided tag keys
-func RegisterDockerViews(tagKeys []string, latencyDist []float64) {
+func RegisterDockerViews(tagKeys []string, latencyDist, ioNetDist, ioDiskDist, memoryDist, cpuDist []float64) {
 
 	for _, m := range dockerMeasures {
 
 		var dist *view.Aggregation
 
 		// Remember these are sampled by docker in short intervals (approx 1 sec)
-
-		// Bytes for net/disk/mem
 		if m.Name() == "docker_stats_net_rx" || m.Name() == "docker_stats_net_tx" {
-			// net IO: 8k to 32MB
-			dist = view.Distribution(0, 8192, 65536, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432)
+			dist = view.Distribution(ioNetDist...)
 		} else if m.Name() == "docker_stats_disk_read" || m.Name() == "docker_stats_disk_write" {
-			// disk IO: 8k to 32MB
-			dist = view.Distribution(0, 8192, 65536, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432)
+			dist = view.Distribution(ioDiskDist...)
 		} else if m.Name() == "docker_stats_mem_limit" || m.Name() == "docker_stats_mem_usage" {
-			// memory: 128K to 32MB
-			dist = view.Distribution(0, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432)
+			dist = view.Distribution(memoryDist...)
 		} else if m.Name() == "docker_stats_cpu_user" || m.Name() == "docker_stats_cpu_total" || m.Name() == "docker_stats_cpu_kernel" {
-			// percentages
-			dist = view.Distribution(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+			dist = view.Distribution(cpuDist...)
 		} else {
 			// Not used yet.
 			dist = view.Distribution(latencyDist...)

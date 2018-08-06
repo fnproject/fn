@@ -25,22 +25,31 @@ func main() {
 }
 
 func registerViews() {
-	// Register views in agent package
 	keys := []string{"fn_appname", "fn_path"}
-	dist := []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+	apiKeys := []string{"path", "method", "status"}
 
-	agent.RegisterAgentViews(keys, dist)
-	agent.RegisterDockerViews(keys, dist)
-	agent.RegisterContainerViews(keys, dist)
+	latencyDist := []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+
+	// IO buckets in Mbits (Using same buckets for network + disk)
+	mb := float64(131072)
+	ioDist := []float64{0, mb, 4 * mb, 8 * mb, 16 * mb, 32 * mb, 64 * mb, 128 * mb, 256 * mb, 512 * mb, 1024 * mb}
+
+	// Memory buckets in MB
+	mB := float64(1048576)
+	memoryDist := []float64{0, 128 * mB, 256 * mB, 512 * mB, 1024 * mB, 2 * 1024 * mB, 4 * 1024 * mB, 8 * 1024 * mB}
+
+	// 10% granularity buckets
+	cpuDist := []float64{0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
+
+	agent.RegisterAgentViews(keys, latencyDist)
+	agent.RegisterDockerViews(keys, latencyDist, ioDist, ioDist, memoryDist, cpuDist)
+	agent.RegisterContainerViews(keys, latencyDist)
 
 	// Register docker client views
-	docker.RegisterViews(keys, dist)
+	docker.RegisterViews(keys, latencyDist)
 
 	// Register s3 log views
-	s3.RegisterViews(keys, dist)
+	s3.RegisterViews(keys, latencyDist)
 
-	apiKeys := []string{"path", "method", "status"}
-	apiDist := []float64{0, 1, 2, 3, 4, 5, 6, 8, 10, 13, 16, 20, 25, 30, 40, 50, 65, 80, 100, 130, 160, 200, 250, 300, 400, 500, 650, 800, 1000, 2000, 5000, 10000, 20000, 50000, 100000}
-
-	server.RegisterAPIViews(apiKeys, apiDist)
+	server.RegisterAPIViews(apiKeys, latencyDist)
 }
