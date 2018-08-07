@@ -126,7 +126,7 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			SyslogURL:   syslogURL,
 		}
 
-		return setCallPayload(ctx, req.Body, c)
+		return c.setCallPayload(ctx, req.Body, req.GetBody)
 	}
 }
 
@@ -194,7 +194,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			SyslogURL:   syslogURL,
 		}
 
-		return setCallPayload(ctx, req.Body, c)
+		return c.setCallPayload(ctx, req.Body, req.GetBody)
 	}
 }
 
@@ -331,8 +331,8 @@ func reqURL(req *http.Request) string {
 func FromModel(mCall *models.Call) CallOpt {
 	return func(ctx context.Context, c *call) error {
 		c.Call = mCall
-		c.originalBody = strings.NewReader(c.Payload)
-		return nil
+		f := func() (io.ReadCloser, error) { return ioutil.NopCloser(strings.NewReader(c.Payload)), nil }
+		return c.setCallPayload(ctx, strings.NewReader(c.Payload), f)
 	}
 }
 
@@ -340,7 +340,7 @@ func FromModel(mCall *models.Call) CallOpt {
 func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 	return func(ctx context.Context, c *call) error {
 		c.Call = mCall
-		return setCallPayload(ctx, in, c)
+		return c.setCallPayload(ctx, in, nil)
 	}
 }
 
@@ -411,20 +411,60 @@ func (a *agent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 	return &c, nil
 }
 
-// XXX(reed): clean this up
-func setCallPayload(ctx context.Context, input io.Reader, c *call) error {
-	c.originalBody = input
+// setCallPayload sets the GetBody method on the call, if one doesn't exist
+func (c *call) setCallPayload(ctx context.Context, input io.Reader, getBody func() (io.ReadCloser, error)) error {
+	if getBody != nil {
+		c.getBody = getBody
+		return nil
+	}
+
+	// if it has a string method, shortcut that (say, a bytes buffer...)
+	// TODO we could check Bytes() as well but this whole thing should die anyway, hedging...
+	if stringer, ok := input.(interface{ String() string }); ok {
+		c.getBody = func() (io.ReadCloser, error) {
+			return ioutil.NopCloser(strings.NewReader(stringer.String())), nil
+		}
+		return nil
+	}
+
+	// only allow one read of the buffer ever. everybody else must wait. this is
+	// entirely fucked up and can deadlock all succeeding threads for this body,
+	// but go ahead and try just reading the reader into a buffer and see if life
+	// is still worth living. TODO this leaves a situation where if the first reader
+	// doesn't finish then nobody else gets the body ever. NO SOUP FOR YOU
+	done := make(chan struct{}, 1)
+	done <- struct{}{} // prime it
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	// TODO we could save the string and hand the buffer back. measure/but also kill this first
+	// TODO we should make this the RequestBody method on call instead of a closure, but also kill this
+
+	c.getBody = func() (io.ReadCloser, error) {
+		// NOTE: this may block, until the first reader manages to copy into buf entirely, which may never happen GG
+		_, ok := <-done
+		if !ok {
+			return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
+		}
+
+		_, err := buf.ReadFrom(input)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+
+		close(done)
+		return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	}
+
 	return nil
 }
 
 type call struct {
 	// models.Call is embedded for read access to its fields (XXX needn't be embedded)
 	*models.Call
-	// callers should NEVER use this field, use RequestBody() which provides a caching mechanism for re-reads
-	// TODO make *call go away and the interface more loose, to aid this
-	originalBody io.Reader
-	// cachedBody is used to cache the originalBody, if read, for potential re-use in retries
-	cachedBody *bytes.Buffer
+	// getBody returns the body. RequestBody method will call this, it must be set
+	// TODO this should go away with the event stuff
+	getBody func() (io.ReadCloser, error)
 
 	// IsCloudEvent flag whether this was ingested as a cloud event. This may become the default or only way.
 	IsCloudEvent bool `json:"is_cloud_event"`
@@ -463,32 +503,9 @@ func (c *call) Extensions() map[string]string {
 }
 
 func (c *call) RequestBody() io.ReadCloser {
-	// goal: we want to leave the write position of the cached body at the end,
-	// so that any request that manages to read bytes from the end of the original
-	// body gets tee'd onto the end of the cached body. meaning we always need to return
-	// a tee reader that tees all bytes read from the original body to the cached body,
-	// but reads only a copy of the cached body so that we don't have to move the read/write pointer,
-	// meaning we never call Read() on cachedBody
-	// TODO this could be optimized in the e.g payload case it's a strings reader, could check the type
-	// of the originalBody and futz with it if we really wanted, not v important
-	// TODO additionally, we only need to do this for lb_agent (we could use isLB bit, but maybe
-	// it would be better to leave this wart to encourage making the agent.Call interface a proper
-	// boundary and getting rid of that bit instead, so here!)
-
-	// TODO(reed): it's doubtful we need lock safety for this (but hey, here's a comment...)
-	if c.cachedBody == nil {
-		// XXX(reed): we could recycle these from End() which covers many of them
-		buf := bufPool.Get().(*bytes.Buffer)
-		buf.Reset()
-		c.cachedBody = buf
-	}
-
-	reader := io.TeeReader(c.originalBody, c.cachedBody)
-	// read anything in our cache first, then read the rest of the original body
-	// (which will get added to our cached body for the next time around)
-	reader = io.MultiReader(bytes.NewReader(c.cachedBody.Bytes()), reader)
-
-	return ioutil.NopCloser(reader)
+	body, _ := c.getBody()
+	// TODO we should bubble the error up, really, this should die...
+	return body
 }
 
 func (c *call) ResponseWriter() http.ResponseWriter {
