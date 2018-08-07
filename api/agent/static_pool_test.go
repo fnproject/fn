@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"testing"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func setupStaticPool(runners []string) pool.RunnerPool {
-	return NewStaticRunnerPool(runners, nil, "", mockRunnerFactory)
+	return NewStaticRunnerPool(runners, nil, mockRunnerFactory)
 }
 
 var (
@@ -36,7 +37,7 @@ func (r *mockStaticRunner) Address() string {
 	return r.address
 }
 
-func mockRunnerFactory(addr, cn string, pki *pool.PKIData) (pool.Runner, error) {
+func mockRunnerFactory(addr string, tlsConf *tls.Config) (pool.Runner, error) {
 	return &mockStaticRunner{address: addr}, nil
 }
 

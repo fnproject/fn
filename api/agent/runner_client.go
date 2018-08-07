@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -39,8 +40,8 @@ type gRPCRunner struct {
 	client  pb.RunnerProtocolClient
 }
 
-func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool.Runner, error) {
-	conn, client, err := runnerConnection(addr, runnerCertCN, pki)
+func SecureGRPCRunnerFactory(addr string, tlsConf *tls.Config) (pool.Runner, error) {
+	conn, client, err := runnerConnection(addr, tlsConf)
 	if err != nil {
 		return nil, err
 	}
@@ -59,20 +60,15 @@ func (r *gRPCRunner) Close(context.Context) error {
 	return r.conn.Close()
 }
 
-func runnerConnection(address, runnerCertCN string, pki *pool.PKIData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
+func runnerConnection(address string, tlsConf *tls.Config) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
 
 	ctx := context.Background()
 	logger := common.Logger(ctx).WithField("runner_addr", address)
 	ctx = common.WithLogger(ctx, logger)
 
 	var creds credentials.TransportCredentials
-	if pki != nil {
-		var err error
-		creds, err = grpcutil.CreateCredentials(pki.Cert, pki.Key, pki.Ca, runnerCertCN)
-		if err != nil {
-			logger.WithError(err).Error("Unable to create credentials to connect to runner node")
-			return nil, nil, err
-		}
+	if tlsConf != nil {
+		creds = credentials.NewTLS(tlsConf)
 	}
 
 	// we want to set a very short timeout to fail-fast if something goes wrong

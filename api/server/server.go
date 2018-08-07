@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -104,15 +105,6 @@ const (
 	// EnvJaegerURL is the url of a jaeger node to send traces to.
 	EnvJaegerURL = "FN_JAEGER_URL"
 
-	// EnvCert is the certificate used to communicate with other fn nodes.
-	EnvCert = "FN_NODE_CERT"
-
-	// EnvCertKey is the key for the specified cert.
-	EnvCertKey = "FN_NODE_CERT_KEY"
-
-	// EnvCertAuth is the CA for the cert provided.
-	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
-
 	// EnvRIDHeader is the header name of the incoming request which holds the request ID
 	EnvRIDHeader = "FN_RID_HEADER"
 
@@ -158,6 +150,15 @@ const (
 	ServerTypePureRunner
 )
 
+const (
+	// TLS Configuration for the GRPC service
+	TLSGRPCServer = "TLSgRPCServer"
+	// TLS Configuration for the admin service
+	TLSAdminServer = "TLSAdminServer"
+	// TLS Configuration for the web service
+	TLSWebServer = "TLSWebServer"
+)
+
 func (s NodeType) String() string {
 	switch s {
 	case ServerTypeFull:
@@ -189,14 +190,12 @@ type Server struct {
 	mq              models.MessageQueue
 	logstore        models.LogStore
 	nodeType        NodeType
+	tlsConfigs      map[string]*tls.Config
 	// Agent enqueue  and read stores
 	lbEnqueue              agent.EnqueueDataAccess
 	lbReadAccess           agent.ReadDataAccess
 	noHTTTPTriggerEndpoint bool
 	noHybridAPI            bool
-	cert                   string
-	certKey                string
-	certAuthority          string
 	appListeners           *appListeners
 	routeListeners         *routeListeners
 	fnListeners            *fnListeners
@@ -250,9 +249,7 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	opts = append(opts, WithLogURL(getEnv(EnvLogDBURL, "")))
 	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
-	opts = append(opts, WithNodeCert(getEnv(EnvCert, "")))
-	opts = append(opts, WithNodeCertKey(getEnv(EnvCertKey, "")))
-	opts = append(opts, WithNodeCertAuthority(getEnv(EnvCertAuth, "")))
+
 	opts = append(opts, LimitRequestBody(int64(getEnvInt(EnvMaxRequestSize, 0))))
 
 	publicLBURL := getEnv(EnvPublicLoadBalancerURL, "")
@@ -386,56 +383,10 @@ func WithType(t NodeType) Option {
 	}
 }
 
-// WithNodeCert maps EnvNodeCert
-func WithNodeCert(cert string) Option {
+// WithTLS configures a service with a provided TLS configuration
+func WithTLS(service string, tlsCfg *tls.Config) Option {
 	return func(ctx context.Context, s *Server) error {
-		if cert != "" {
-			abscert, err := filepath.Abs(cert)
-			if err != nil {
-				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert file", cert)
-			}
-			_, err = os.Stat(abscert)
-			if err != nil {
-				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert file", abscert)
-			}
-			s.cert = abscert
-		}
-		return nil
-	}
-}
-
-// WithNodeCertKey maps EnvNodeCertKey
-func WithNodeCertKey(key string) Option {
-	return func(ctx context.Context, s *Server) error {
-		if key != "" {
-			abskey, err := filepath.Abs(key)
-			if err != nil {
-				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert key file", key)
-			}
-			_, err = os.Stat(abskey)
-			if err != nil {
-				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert key file", abskey)
-			}
-			s.certKey = abskey
-		}
-		return nil
-	}
-}
-
-// WithNodeCertAuthority maps EnvNodeCertAuthority
-func WithNodeCertAuthority(ca string) Option {
-	return func(ctx context.Context, s *Server) error {
-		if ca != "" {
-			absca, err := filepath.Abs(ca)
-			if err != nil {
-				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert authority file", ca)
-			}
-			_, err = os.Stat(absca)
-			if err != nil {
-				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert authority file", absca)
-			}
-			s.certAuthority = absca
-		}
+		s.tlsConfigs[service] = tlsCfg
 		return nil
 	}
 }
@@ -561,7 +512,7 @@ func WithAgentFromEnv() Option {
 			}
 			grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
 			cancelCtx, cancel := context.WithCancel(ctx)
-			prAgent, err := agent.DefaultPureRunner(cancel, grpcAddr, ds, s.cert, s.certKey, s.certAuthority)
+			prAgent, err := agent.DefaultPureRunner(cancel, grpcAddr, ds, s.tlsConfigs[TLSGRPCServer])
 			if err != nil {
 				return err
 			}
@@ -653,6 +604,7 @@ func New(ctx context.Context, opts ...Option) *Server {
 		adminListenPort: DefaultPort,
 		grpcListenPort:  DefaultGRPCPort,
 		lbEnqueue:       agent.NewUnsupportedAsyncEnqueueAccess(),
+		tlsConfigs:      make(map[string]*tls.Config),
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
 
@@ -983,14 +935,20 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	installChildReaper()
 
 	server := http.Server{
-		Addr:    listen,
-		Handler: &ochttp.Handler{Handler: s.Router},
+		Addr:      listen,
+		Handler:   &ochttp.Handler{Handler: s.Router},
+		TLSConfig: s.tlsConfigs[TLSWebServer],
 
 		// TODO we should set read/write timeouts
 	}
 
 	go func() {
-		err := server.ListenAndServe()
+		var err error
+		if server.TLSConfig != nil {
+			err = server.ListenAndServeTLS("", "")
+		} else {
+			err = server.ListenAndServe()
+		}
 		if err != nil && err != http.ErrServerClosed {
 			logrus.WithError(err).Error("server error")
 			cancel()
@@ -1003,12 +961,18 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		adminListen := fmt.Sprintf(":%d", s.adminListenPort)
 		logrus.WithField("type", s.nodeType).Infof("Fn Admin serving on `%v`", adminListen)
 		adminServer := http.Server{
-			Addr:    adminListen,
-			Handler: &ochttp.Handler{Handler: s.AdminRouter},
+			Addr:      adminListen,
+			Handler:   &ochttp.Handler{Handler: s.AdminRouter},
+			TLSConfig: s.tlsConfigs[TLSAdminServer],
 		}
 
 		go func() {
-			err := adminServer.ListenAndServe()
+			var err error
+			if adminServer.TLSConfig != nil {
+				err = adminServer.ListenAndServeTLS("", "")
+			} else {
+				err = adminServer.ListenAndServe()
+			}
 			if err != nil && err != http.ErrServerClosed {
 				logrus.WithError(err).Error("server error")
 				cancel()
