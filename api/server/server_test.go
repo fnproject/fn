@@ -3,13 +3,17 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/fnproject/fn/api/agent"
@@ -25,8 +29,8 @@ import (
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
-func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType NodeType) *Server {
-	return New(context.Background(),
+func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType NodeType, opts ...Option) *Server {
+	return New(context.Background(), append(opts,
 		WithLogLevel(getEnv(EnvLogLevel, DefaultLogLevel)),
 		WithDatastore(ds),
 		WithMQ(mq),
@@ -34,7 +38,7 @@ func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogSto
 		WithAgent(rnr),
 		WithType(nodeType),
 		WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()),
-	)
+	)...)
 }
 
 func createRequest(t *testing.T, method, path string, body io.Reader) *http.Request {
@@ -131,7 +135,13 @@ func TestFullStack(t *testing.T) {
 	rnr, rnrcancel := testRunner(t, ds)
 	defer rnrcancel()
 
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeFull, LimitRequestBody(32256))
+
+	var bigbufa [32257]byte
+	rand.Read(bigbufa[:])
+	bigbuf := base64.StdEncoding.EncodeToString(bigbufa[:]) // this will be > bigbufa, but json compatible
+	toobigerr := errors.New("Content-Length too large for this server")
+	gatewayerr := errors.New("container exit code")
 
 	for _, test := range []struct {
 		name              string
@@ -140,24 +150,30 @@ func TestFullStack(t *testing.T) {
 		body              string
 		expectedCode      int
 		expectedCacheSize int // TODO kill me
+		expectedError     error
 	}{
-		{"create my app", "POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusOK, 0},
-		{"list apps", "GET", "/v1/apps", ``, http.StatusOK, 0},
-		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK, 0},
+		{"create my app", "POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusOK, 0, nil},
+		{"list apps", "GET", "/v1/apps", ``, http.StatusOK, 0, nil},
+		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK, 0, nil},
 		// NOTE: cache is lazy, loads when a request comes in for the route, not when added
-		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusOK, 0},
-		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/fn-test-utils", "type": "sync"  } }`, http.StatusOK, 0},
-		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 0},
-		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
-		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0},
-		{"execute myroute", "POST", "/r/myapp/myroute", `{ "echoContent": "Teste" }`, http.StatusOK, 1},
-		{"execute myroute2", "POST", "/r/myapp/myroute2", `{"sleepTime": 0, "isDebug": true, "isCrash": true}`, http.StatusBadGateway, 2},
-		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
-		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1},
-		{"delete myroute2", "DELETE", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
-		{"delete app (success)", "DELETE", "/v1/apps/myapp", ``, http.StatusOK, 0},
-		{"get deleted app", "GET", "/v1/apps/myapp", ``, http.StatusNotFound, 0},
-		{"get deleteds route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusNotFound, 0},
+		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusOK, 0, nil},
+		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/fn-test-utils", "type": "sync"  } }`, http.StatusOK, 0, nil},
+		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 0, nil},
+		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0, nil},
+		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0, nil},
+		{"execute myroute", "POST", "/r/myapp/myroute", `{ "echoContent": "Teste" }`, http.StatusOK, 1, nil},
+
+		// fails
+		{"execute myroute2", "POST", "/r/myapp/myroute2", `{"sleepTime": 0, "isDebug": true, "isCrash": true}`, http.StatusBadGateway, 2, gatewayerr},
+		{"request body too large", "POST", "/r/myapp/myroute", bigbuf, http.StatusRequestEntityTooLarge, 0, toobigerr},
+
+		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2, nil},
+		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1, nil},
+		{"delete myroute2", "DELETE", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0, nil},
+		{"delete app (success)", "DELETE", "/v1/apps/myapp", ``, http.StatusOK, 0, nil},
+
+		{"get deleted app", "GET", "/v1/apps/myapp", ``, http.StatusNotFound, 0, models.ErrAppsNotFound},
+		{"get deleteds route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusNotFound, 0, models.ErrAppsNotFound},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
@@ -168,8 +184,18 @@ func TestFullStack(t *testing.T) {
 				t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
 					test.name, test.expectedCode, rec.Code)
 			}
-		})
 
+			if rec.Code > 300 && test.expectedError == nil {
+				t.Log(buf.String())
+				t.Error("got error when not expected error", rec.Body.String())
+			} else if test.expectedError != nil {
+				if !strings.Contains(rec.Body.String(), test.expectedError.Error()) {
+					t.Log(buf.String())
+					t.Errorf("Test %s: Expected error message to have `%s`, but got `%s`",
+						test.name, test.expectedError.Error(), rec.Body.String())
+				}
+			}
+		})
 	}
 }
 

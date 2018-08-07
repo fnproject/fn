@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -27,13 +28,12 @@ type mockRunner struct {
 type mockRunnerPool struct {
 	runners   []pool.Runner
 	generator pool.MTLSRunnerFactory
-	pki       *pool.PKIData
 }
 
 func newMockRunnerPool(rf pool.MTLSRunnerFactory, runnerAddrs []string) *mockRunnerPool {
 	var runners []pool.Runner
 	for _, addr := range runnerAddrs {
-		r, err := rf(addr, "", nil)
+		r, err := rf(addr, nil)
 		if err != nil {
 			continue
 		}
@@ -43,7 +43,6 @@ func newMockRunnerPool(rf pool.MTLSRunnerFactory, runnerAddrs []string) *mockRun
 	return &mockRunnerPool{
 		runners:   runners,
 		generator: rf,
-		pki:       &pool.PKIData{},
 	}
 }
 
@@ -56,7 +55,7 @@ func (rp *mockRunnerPool) Shutdown(context.Context) error {
 }
 
 func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) pool.MTLSRunnerFactory {
-	return func(addr, cn string, pki *pool.PKIData) (pool.Runner, error) {
+	return func(addr string, tlsConf *tls.Config) (pool.Runner, error) {
 		return &mockRunner{
 			sleep:    sleep,
 			maxCalls: maxCalls,
@@ -66,7 +65,7 @@ func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) pool.MTLSRunnerFa
 }
 
 func FaultyRunnerFactory() pool.MTLSRunnerFactory {
-	return func(addr, cn string, pki *pool.PKIData) (pool.Runner, error) {
+	return func(addr string, tlsConf *tls.Config) (pool.Runner, error) {
 		return &mockRunner{
 			addr: addr,
 		}, errors.New("Creation of new runner failed")
@@ -158,7 +157,8 @@ func setupMockRunnerPool(expectedRunners []string, execSleep time.Duration, maxC
 }
 
 func TestOneRunner(t *testing.T) {
-	placer := pool.NewNaivePlacer()
+	cfg := pool.NewPlacerConfig()
+	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
 	call := &mockRunnerCall{}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
@@ -170,7 +170,8 @@ func TestOneRunner(t *testing.T) {
 }
 
 func TestEnforceTimeoutFromContext(t *testing.T) {
-	placer := pool.NewNaivePlacer()
+	cfg := pool.NewPlacerConfig()
+	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
 	call := &mockRunnerCall{}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
@@ -182,7 +183,8 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 }
 
 func TestRRRunner(t *testing.T) {
-	placer := pool.NewNaivePlacer()
+	cfg := pool.NewPlacerConfig()
+	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 2)
 
 	parallelCalls := 2
@@ -215,7 +217,8 @@ func TestRRRunner(t *testing.T) {
 }
 
 func TestEnforceLbTimeout(t *testing.T) {
-	placer := pool.NewNaivePlacer()
+	cfg := pool.NewPlacerConfig()
+	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 1)
 
 	parallelCalls := 5

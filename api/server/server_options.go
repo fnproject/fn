@@ -51,7 +51,9 @@ func EnableShutdownEndpoint(ctx context.Context, halt context.CancelFunc) Option
 // LimitRequestBody wraps every http request to limit its size to the specified max bytes.
 func LimitRequestBody(max int64) Option {
 	return func(ctx context.Context, s *Server) error {
-		s.Router.Use(limitRequestBody(max))
+		if max > 0 {
+			s.Router.Use(limitRequestBody(max))
+		}
 		return nil
 	}
 }

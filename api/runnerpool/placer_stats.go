@@ -5,22 +5,24 @@ import (
 	"math"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
+
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 )
 
 var (
-	attemptCountMeasure      = stats.Int64("lb_placer_attempt_count", "LB Placer Number of Runners Attempted Count", "")
-	errorPoolCountMeasure    = stats.Int64("lb_placer_rp_error_count", "LB Placer RunnerPool RunnerList Error Count", "")
-	emptyPoolCountMeasure    = stats.Int64("lb_placer_rp_empty_count", "LB Placer RunnerPool RunnerList Empty Count", "")
-	cancelCountMeasure       = stats.Int64("lb_placer_client_cancelled_count", "LB Placer Client Cancel Count", "")
-	placedErrorCountMeasure  = stats.Int64("lb_placer_placed_error_count", "LB Placer Placed Call Count With Errors", "")
-	placedOKCountMeasure     = stats.Int64("lb_placer_placed_ok_count", "LB Placer Placed Call Count Without Errors", "")
-	retryTooBusyCountMeasure = stats.Int64("lb_placer_retry_busy_count", "LB Placer Retry Count - Too Busy", "")
-	retryErrorCountMeasure   = stats.Int64("lb_placer_retry_error_count", "LB Placer Retry Count - Errors", "")
-	placerLatencyMeasure     = stats.Int64("lb_placer_latency", "LB Placer Latency", "msecs")
+	attemptCountMeasure      = common.MakeMeasure("lb_placer_attempt_count", "LB Placer Number of Runners Attempted Count", "")
+	errorPoolCountMeasure    = common.MakeMeasure("lb_placer_rp_error_count", "LB Placer RunnerPool RunnerList Error Count", "")
+	emptyPoolCountMeasure    = common.MakeMeasure("lb_placer_rp_empty_count", "LB Placer RunnerPool RunnerList Empty Count", "")
+	cancelCountMeasure       = common.MakeMeasure("lb_placer_client_cancelled_count", "LB Placer Client Cancel Count", "")
+	placerTimeoutMeasure     = common.MakeMeasure("lb_placer_timeout_count", "LB Placer Timeout Count", "")
+	placedErrorCountMeasure  = common.MakeMeasure("lb_placer_placed_error_count", "LB Placer Placed Call Count With Errors", "")
+	placedOKCountMeasure     = common.MakeMeasure("lb_placer_placed_ok_count", "LB Placer Placed Call Count Without Errors", "")
+	retryTooBusyCountMeasure = common.MakeMeasure("lb_placer_retry_busy_count", "LB Placer Retry Count - Too Busy", "")
+	retryErrorCountMeasure   = common.MakeMeasure("lb_placer_retry_error_count", "LB Placer Retry Count - Errors", "")
+	placerLatencyMeasure     = common.MakeMeasure("lb_placer_latency", "LB Placer Latency", "msecs")
 )
 
 // Helper struct for tracking LB Placer latency and attempt counts
@@ -63,39 +65,18 @@ func (data *attemptTracker) recordAttempt() {
 	}
 }
 
-func makeKeys(names []string) []tag.Key {
-	var tagKeys []tag.Key
-	for _, name := range names {
-		key, err := tag.NewKey(name)
-		if err != nil {
-			logrus.WithError(err).Fatal("cannot create tag key for %v", name)
-		}
-		tagKeys = append(tagKeys, key)
-	}
-	return tagKeys
-}
-
-func createView(measure stats.Measure, agg *view.Aggregation, tagKeys []string) *view.View {
-	return &view.View{
-		Name:        measure.Name(),
-		Description: measure.Description(),
-		TagKeys:     makeKeys(tagKeys),
-		Measure:     measure,
-		Aggregation: agg,
-	}
-}
-
-func RegisterPlacerViews(tagKeys []string) {
+func RegisterPlacerViews(tagKeys []string, latencyDist []float64) {
 	err := view.Register(
-		createView(attemptCountMeasure, view.Distribution(0, 1, 2, 4, 8, 32, 64, 256), tagKeys),
-		createView(errorPoolCountMeasure, view.Count(), tagKeys),
-		createView(emptyPoolCountMeasure, view.Count(), tagKeys),
-		createView(cancelCountMeasure, view.Count(), tagKeys),
-		createView(placedErrorCountMeasure, view.Count(), tagKeys),
-		createView(placedOKCountMeasure, view.Count(), tagKeys),
-		createView(retryTooBusyCountMeasure, view.Count(), tagKeys),
-		createView(retryErrorCountMeasure, view.Count(), tagKeys),
-		createView(placerLatencyMeasure, view.Distribution(1, 10, 25, 50, 200, 1000, 1500, 2000, 2500, 3000, 10000, 60000), tagKeys),
+		common.CreateView(attemptCountMeasure, view.Distribution(0, 2, 3, 4, 8, 16, 32, 64, 128, 256), tagKeys),
+		common.CreateView(errorPoolCountMeasure, view.Count(), tagKeys),
+		common.CreateView(emptyPoolCountMeasure, view.Count(), tagKeys),
+		common.CreateView(cancelCountMeasure, view.Count(), tagKeys),
+		common.CreateView(placerTimeoutMeasure, view.Count(), tagKeys),
+		common.CreateView(placedErrorCountMeasure, view.Count(), tagKeys),
+		common.CreateView(placedOKCountMeasure, view.Count(), tagKeys),
+		common.CreateView(retryTooBusyCountMeasure, view.Count(), tagKeys),
+		common.CreateView(retryErrorCountMeasure, view.Count(), tagKeys),
+		common.CreateView(placerLatencyMeasure, view.Distribution(latencyDist...), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot create view")

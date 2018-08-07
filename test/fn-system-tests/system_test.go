@@ -217,11 +217,13 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	placer := pool.NewNaivePlacer()
+	placerCfg := pool.NewPlacerConfig()
+	placer := pool.NewNaivePlacer(&placerCfg)
 
 	keys := []string{"fn_appname", "fn_path"}
-	pool.RegisterPlacerViews(keys)
-	agent.RegisterLBAgentViews(keys)
+	dist := []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+	pool.RegisterPlacerViews(keys, dist)
+	agent.RegisterLBAgentViews(keys, dist)
 
 	// Create an LB Agent with a Call Overrider to intercept calls in GetCall(). Overrider in this example
 	// scrubs CPU/TmpFsSize and adds FN_CHEESE key/value into extensions.
@@ -254,7 +256,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
 
 	// This is our Agent config, which we will use for both inner agent and docker.
-	cfg, err := agent.NewAgentConfig()
+	cfg, err := agent.NewConfig()
 	if err != nil {
 		return nil, err
 	}

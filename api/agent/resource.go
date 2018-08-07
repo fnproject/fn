@@ -48,9 +48,6 @@ type ResourceTracker interface {
 	// machine. It must be called before GetResourceToken or GetResourceToken may hang.
 	// Memory is expected to be provided in MB units.
 	IsResourcePossible(memory, cpuQuota uint64, isAsync bool) bool
-
-	// returns number of waiters waiting for a resource token blocked on condition variable
-	GetResourceTokenWaiterCount() uint64
 }
 
 type resourceTracker struct {
@@ -77,11 +74,9 @@ type resourceTracker struct {
 	cpuAsyncUsed uint64
 	// cpu in use for async area in which agent stops dequeuing async jobs
 	cpuAsyncHWMark uint64
-	// number of waiters waiting for a token blocked on the condition variable
-	tokenWaiterCount uint64
 }
 
-func NewResourceTracker(cfg *AgentConfig) ResourceTracker {
+func NewResourceTracker(cfg *Config) ResourceTracker {
 
 	obj := &resourceTracker{
 		cond: sync.NewCond(new(sync.Mutex)),
@@ -140,17 +135,6 @@ func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota uint64, isA
 	} else {
 		return memory <= a.ramSyncTotal+a.ramAsyncTotal && cpuQuota <= a.cpuSyncTotal+a.cpuAsyncTotal
 	}
-}
-
-// returns number of waiters waiting for a resource token blocked on condition variable
-func (a *resourceTracker) GetResourceTokenWaiterCount() uint64 {
-	var waiters uint64
-
-	a.cond.L.Lock()
-	waiters = a.tokenWaiterCount
-	a.cond.L.Unlock()
-
-	return waiters
 }
 
 func (a *resourceTracker) allocResourcesLocked(memory, cpuQuota uint64, isAsync bool) ResourceToken {
@@ -271,9 +255,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 		isWaiting = true
 		for !a.isResourceAvailableLocked(memory, cpuQuota, isAsync) && ctx.Err() == nil {
-			a.tokenWaiterCount++
 			c.Wait()
-			a.tokenWaiterCount--
 		}
 		isWaiting = false
 
@@ -357,7 +339,7 @@ func clampUint64(val, min, max uint64) uint64 {
 	return val
 }
 
-func (a *resourceTracker) initializeCPU(cfg *AgentConfig) {
+func (a *resourceTracker) initializeCPU(cfg *Config) {
 
 	var maxSyncCPU, maxAsyncCPU, cpuAsyncHWMark uint64
 
@@ -428,7 +410,7 @@ func (a *resourceTracker) initializeCPU(cfg *AgentConfig) {
 	a.cpuAsyncTotal = maxAsyncCPU
 }
 
-func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
+func (a *resourceTracker) initializeMemory(cfg *Config) {
 
 	var maxSyncMemory, maxAsyncMemory, ramAsyncHWMark uint64
 
@@ -500,7 +482,7 @@ func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
 }
 
 // headroom estimation in order not to consume entire RAM if possible
-func getMemoryHeadRoom(usableMemory uint64, cfg *AgentConfig) (uint64, error) {
+func getMemoryHeadRoom(usableMemory uint64, cfg *Config) (uint64, error) {
 
 	// get %10 of the RAM
 	headRoom := uint64(usableMemory / 10)

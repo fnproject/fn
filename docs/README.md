@@ -7,7 +7,7 @@ If you are a developer using Fn through the API, this section is for you.
 ### Getting Started
 
 * [Quickstart](https://github.com/fnproject/fn#quickstart)
-* [Function file (func.yaml)](developers/function-file.md)
+* [Function file (func.yaml)](developers/func-file.md)
 * [FDKs](developers/fdks.md)
 * [Config Vars for Functions](developers/configs.md)
 * [Hot functions](developers/hot-functions.md)

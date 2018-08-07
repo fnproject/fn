@@ -2,6 +2,7 @@ package runnerpool
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net/http"
 
@@ -22,20 +23,16 @@ type RunnerPool interface {
 	Shutdown(ctx context.Context) error
 }
 
-// PKIData encapsulates TLS certificate data
-type PKIData struct {
-	Ca   string
-	Key  string
-	Cert string
-}
-
 // MTLSRunnerFactory represents a factory method for constructing runners using mTLS
-type MTLSRunnerFactory func(addr, certCommonName string, pki *PKIData) (Runner, error)
+type MTLSRunnerFactory func(addr string, tlsConf *tls.Config) (Runner, error)
 
 // RunnerStatus is general information on Runner health as returned by Runner::Status() call
 type RunnerStatus struct {
 	ActiveRequestCount int32           // Number of active running requests on Runner
+	RequestsReceived   uint64          // Number of requests received by Runner
+	RequestsHandled    uint64          // Number of requests handled without NACK by Runner
 	StatusFailed       bool            // True if Status execution failed
+	Cached             bool            // True if Status was provided from cache
 	StatusId           string          // Call ID for Status
 	Details            string          // General/Debug Log information
 	ErrorCode          int32           // If StatusFailed, then error code is set

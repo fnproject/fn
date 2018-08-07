@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -501,12 +500,18 @@ const (
 	StatusCallTimeout       = int32(5)
 	StatusCallIdleTimeout   = int32(1)
 	StatusCallCacheDuration = time.Duration(500)*time.Millisecond + time.Duration(StatusCallIdleTimeout)*time.Second
+
+	// Total context timeout (scheduler+execution.) We need to allocate plenty of time here.
+	// 60 seconds should be enough to provoke disk I/O errors, docker timeouts. etc.
+	StatusCtxTimeout = time.Duration(60 * time.Second)
 )
 
 // statusTracker maintains cache data/state/locks for Status Call invocations.
 type statusTracker struct {
-	inflight  int32
-	imageName string
+	inflight         int32
+	requestsReceived uint64
+	requestsHandled  uint64
+	imageName        string
 
 	// lock protects expiry/cache/wait fields below. RunnerStatus ptr itself
 	// stored every time status image is executed. Cache fetches use a shallow
@@ -620,7 +625,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	log := common.Logger(ctx)
 	// Keep lightweight tabs on what this runner is doing: for draindown tests
 	atomic.AddInt32(&pr.status.inflight, 1)
-	defer atomic.AddInt32(&pr.status.inflight, -1)
+	atomic.AddUint64(&pr.status.requestsReceived, 1)
 
 	pv, ok := peer.FromContext(ctx)
 	log.Debug("Starting engagement")
@@ -634,41 +639,55 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	state := NewCallHandle(engagement)
 
 	tryMsg := state.getTryMsg()
-	if tryMsg == nil {
-		return state.waitError()
-	}
+	if tryMsg != nil {
+		errTry := pr.handleTryCall(tryMsg, state)
+		if errTry == nil {
+			dataFeed := state.spawnPipeToFn()
 
-	errTry := pr.handleTryCall(tryMsg, state)
-	if errTry != nil {
-		return state.waitError()
-	}
+		DataLoop:
+			for {
+				dataMsg := state.getDataMsg()
+				if dataMsg == nil {
+					break
+				}
 
-	dataFeed := state.spawnPipeToFn()
-
-DataLoop:
-	for {
-		dataMsg := state.getDataMsg()
-		if dataMsg == nil {
-			break
-		}
-
-		select {
-		case dataFeed <- dataMsg:
-			if dataMsg.Eof {
-				break DataLoop
+				select {
+				case dataFeed <- dataMsg:
+					if dataMsg.Eof {
+						break DataLoop
+					}
+				case <-state.doneQueue:
+					break DataLoop
+				case <-state.ctx.Done():
+					break DataLoop
+				}
 			}
-		case <-state.doneQueue:
-			break DataLoop
-		case <-state.ctx.Done():
-			break DataLoop
 		}
 	}
 
-	return state.waitError()
+	err := state.waitError()
+
+	// if we didn't respond with TooBusy, then this means the request
+	// was processed.
+	if err != models.ErrCallTimeoutServerBusy {
+		atomic.AddUint64(&pr.status.requestsHandled, 1)
+	}
+
+	atomic.AddInt32(&pr.status.inflight, -1)
+	return err
 }
 
 // Runs a status call using status image with baked in parameters.
-func (pr *pureRunner) runStatusCall(ctx context.Context, timeout, idleTimeout int32) *runner.RunnerStatus {
+func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
+
+	// IMPORTANT: We have to use our own context with a set timeout in order
+	// to ignore client timeouts. Original 'ctx' here carries client side deadlines.
+	// Since these deadlines can vary, in order to make sure Status runs predictably we
+	// use a hardcoded preset timeout 'ctxTimeout' instead.
+	// TODO: It would be good to copy original ctx key/value pairs into our new
+	// context for tracking, etc. But go-lang context today does not seem to allow this.
+	execCtx, execCtxCancel := context.WithTimeout(context.Background(), StatusCtxTimeout)
+	defer execCtxCancel()
 
 	result := &runner.RunnerStatus{}
 	log := common.Logger(ctx)
@@ -693,19 +712,19 @@ func (pr *pureRunner) runStatusCall(ctx context.Context, timeout, idleTimeout in
 	c.Config = make(models.Config)
 	c.Config["FN_FORMAT"] = c.Format
 	c.Payload = "{}"
-	c.Timeout = timeout
-	c.IdleTimeout = idleTimeout
+	c.Timeout = StatusCallTimeout
+	c.IdleTimeout = StatusCallIdleTimeout
 
 	// TODO: reliably shutdown this container after executing one request.
 
-	log.Debugf("Running status call with id=%v timeout=%v image=%v", c.ID, c.Timeout, c.Image)
+	log.Debugf("Running status call with id=%v image=%v", c.ID, c.Image)
 
 	recorder := httptest.NewRecorder()
 	player := ioutil.NopCloser(strings.NewReader(c.Payload))
 
 	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, player),
 		WithWriter(recorder),
-		WithContext(ctx),
+		WithContext(execCtx),
 	)
 
 	if err == nil {
@@ -805,12 +824,17 @@ func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatu
 
 		pr.status.lock.Unlock()
 
+		cacheObj.Cached = true
 		cacheObj.Active = atomic.LoadInt32(&pr.status.inflight)
+		cacheObj.RequestsReceived = atomic.LoadUint64(&pr.status.requestsReceived)
+		cacheObj.RequestsHandled = atomic.LoadUint64(&pr.status.requestsHandled)
 		return &cacheObj, nil
 	}
 
-	cachePtr := pr.runStatusCall(ctx, StatusCallTimeout, StatusCallIdleTimeout)
+	cachePtr := pr.runStatusCall(ctx)
 	cachePtr.Active = atomic.LoadInt32(&pr.status.inflight)
+	cachePtr.RequestsReceived = atomic.LoadUint64(&pr.status.requestsReceived)
+	cachePtr.RequestsHandled = atomic.LoadUint64(&pr.status.requestsHandled)
 	now = time.Now()
 
 	// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
@@ -833,32 +857,30 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 	// Status using image name is disabled. We return inflight request count only
 	if pr.status.imageName == "" {
 		return &runner.RunnerStatus{
-			Active: atomic.LoadInt32(&pr.status.inflight),
+			Active:           atomic.LoadInt32(&pr.status.inflight),
+			RequestsReceived: atomic.LoadUint64(&pr.status.requestsReceived),
+			RequestsHandled:  atomic.LoadUint64(&pr.status.requestsHandled),
 		}, nil
 	}
 	return pr.handleStatusCall(ctx)
 }
 
-func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, cert string, key string, ca string) (Agent, error) {
+func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, tlsCfg *tls.Config) (Agent, error) {
 
 	agent := New(da)
 
 	// WARNING: SSL creds are optional.
-	if cert == "" || key == "" || ca == "" {
+	if tlsCfg == nil {
 		return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent))
 	}
-	return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent), PureRunnerWithSSL(cert, key, ca))
+	return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent), PureRunnerWithSSL(tlsCfg))
 }
 
 type PureRunnerOption func(*pureRunner) error
 
-func PureRunnerWithSSL(cert string, key string, ca string) PureRunnerOption {
+func PureRunnerWithSSL(tlsCfg *tls.Config) PureRunnerOption {
 	return func(pr *pureRunner) error {
-		c, err := createCreds(cert, key, ca)
-		if err != nil {
-			return fmt.Errorf("Failed to create pure runner credentials: %s", err)
-		}
-		pr.creds = c
+		pr.creds = credentials.NewTLS(tlsCfg)
 		return nil
 	}
 }
@@ -932,35 +954,6 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 	}()
 
 	return pr, nil
-}
-
-func createCreds(cert string, key string, ca string) (credentials.TransportCredentials, error) {
-	if cert == "" || key == "" || ca == "" {
-		return nil, errors.New("Failed to create credentials, cert/key/ca not provided")
-	}
-
-	// Load the certificates from disk
-	certificate, err := tls.LoadX509KeyPair(cert, key)
-	if err != nil {
-		return nil, fmt.Errorf("Could not load server key pair: %s", err)
-	}
-
-	// Create a certificate pool from the certificate authority
-	certPool := x509.NewCertPool()
-	authority, err := ioutil.ReadFile(ca)
-	if err != nil {
-		return nil, fmt.Errorf("Could not read ca certificate: %s", err)
-	}
-
-	if ok := certPool.AppendCertsFromPEM(authority); !ok {
-		return nil, errors.New("Failed to append client certs")
-	}
-
-	return credentials.NewTLS(&tls.Config{
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		Certificates: []tls.Certificate{certificate},
-		ClientCAs:    certPool,
-	}), nil
 }
 
 var _ runner.RunnerProtocolServer = &pureRunner{}

@@ -79,6 +79,19 @@ func traceWrap(c *gin.Context) {
 }
 
 func apiMetricsWrap(s *Server) {
+	pathKey, err := tag.NewKey("path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	methodKey, err := tag.NewKey("method")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	statusKey, err := tag.NewKey("status")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
 	measure := func(engine *gin.Engine) func(*gin.Context) {
 		var routes gin.RoutesInfo
 		return func(c *gin.Context) {
@@ -102,7 +115,7 @@ func apiMetricsWrap(s *Server) {
 			if err != nil {
 				logrus.Fatal(err)
 			}
-			stats.Record(ctx, apiRequestCount.M(1))
+			stats.Record(ctx, apiRequestCountMeasure.M(1))
 			c.Next()
 
 			status := strconv.Itoa(c.Writer.Status())
@@ -112,7 +125,7 @@ func apiMetricsWrap(s *Server) {
 			if err != nil {
 				logrus.Fatal(err)
 			}
-			stats.Record(ctx, apiLatency.M(float64(time.Since(start))/float64(time.Millisecond)))
+			stats.Record(ctx, apiLatencyMeasure.M(int64(time.Since(start)/time.Millisecond)))
 		}
 	}
 

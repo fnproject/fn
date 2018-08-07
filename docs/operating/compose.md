@@ -11,4 +11,4 @@ With [Docker Compose file](../../docker-compose.yml) it's easy to bootstrap the 
  - Grafana
  - Prometheus
 
-Given compose file was developed specifically for Fn platform development/testing purpose, it's not a production-ready script. In order to get production deployment please review [Kubernetes deployment instruction](./kubernetes/README.md).
+Given compose file was developed specifically for Fn platform development/testing purpose, it's not a production-ready script. In order to get production deployment please review [Kubernetes Helm Chart for Fn](https://github.com/fnproject/fn-helm/).

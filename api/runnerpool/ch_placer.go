@@ -5,24 +5,21 @@ package runnerpool
 
 import (
 	"context"
-	"time"
 
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 
 	"github.com/dchest/siphash"
 	"github.com/sirupsen/logrus"
-	"go.opencensus.io/stats"
 )
 
 type chPlacer struct {
-	rrInterval time.Duration
+	cfg PlacerConfig
 }
 
-func NewCHPlacer() Placer {
-	logrus.Info("Creating new CH runnerpool placer")
+func NewCHPlacer(cfg *PlacerConfig) Placer {
+	logrus.Infof("Creating new CH runnerpool placer with config=%+v", cfg)
 	return &chPlacer{
-		rrInterval: 10 * time.Millisecond,
+		cfg: *cfg,
 	}
 }
 
@@ -31,76 +28,38 @@ func NewCHPlacer() Placer {
 // the LB_WAIT to drive placement decisions: runners only accept work if they have the capacity for it.
 func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
 
-	tracker := newAttemptTracker(ctx)
-	log := common.Logger(ctx)
+	state := NewPlacerTracker(ctx, &p.cfg)
+	defer state.HandleDone()
 
 	// The key is just the path in this case
 	key := call.Model().Path
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
 
-OutTries:
 	for {
 		runners, err := rp.Runners(call)
 		if err != nil {
-			log.WithError(err).Error("Failed to find runners for call")
-			stats.Record(ctx, errorPoolCountMeasure.M(0))
-			tracker.finalizeAttempts(false)
+			state.HandleFindRunnersFailure(err)
 			return err
 		}
 
 		i := int(jumpConsistentHash(sum64, int32(len(runners))))
-		for j := 0; j < len(runners); j++ {
-			if ctx.Err() != nil {
-				break OutTries
-			}
+		for j := 0; j < len(runners) && !state.IsDone(); j++ {
 
 			r := runners[i]
 
-			tracker.recordAttempt()
-			tryCtx, tryCancel := context.WithCancel(ctx)
-			placed, err := r.TryExec(tryCtx, call)
-			tryCancel()
-
-			// Only log unusual (except for too-busy) errors
-			if err != nil && err != models.ErrCallTimeoutServerBusy {
-				log.WithError(err).Errorf("Failed during call placement, placed=%v", placed)
-			}
-
+			placed, err := state.TryRunner(r, call)
 			if placed {
-				if err != nil {
-					stats.Record(ctx, placedErrorCountMeasure.M(0))
-				} else {
-					stats.Record(ctx, placedOKCountMeasure.M(0))
-				}
-				tracker.finalizeAttempts(true)
 				return err
 			}
 
 			i = (i + 1) % len(runners)
-
-			// Too Busy is super common case, we track it separately
-			if err == models.ErrCallTimeoutServerBusy {
-				stats.Record(ctx, retryTooBusyCountMeasure.M(0))
-			} else {
-				stats.Record(ctx, retryErrorCountMeasure.M(0))
-			}
 		}
 
-		if len(runners) == 0 {
-			stats.Record(ctx, emptyPoolCountMeasure.M(0))
-		}
-
-		// backoff
-		select {
-		case <-ctx.Done():
-			break OutTries
-		case <-time.After(p.rrInterval):
+		if !state.RetryAllBackoff(len(runners)) {
+			break
 		}
 	}
 
-	// Cancel Exit Path / Client cancelled/timedout
-	stats.Record(ctx, cancelCountMeasure.M(0))
-	tracker.finalizeAttempts(false)
 	return models.ErrCallTimeoutServerBusy
 }
 

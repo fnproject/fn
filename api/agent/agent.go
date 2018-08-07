@@ -90,13 +90,14 @@ type Agent interface {
 }
 
 type agent struct {
-	cfg           AgentConfig
+	cfg           Config
 	da            CallHandler
 	callListeners []fnext.CallListener
 
 	driver drivers.Driver
 
 	slotMgr *slotQueueMgr
+	evictor Evictor
 	// track usage
 	resources ResourceTracker
 
@@ -111,13 +112,13 @@ type agent struct {
 	onStartup []func()
 }
 
-// AgentOption configures an agent at startup
-type AgentOption func(*agent) error
+// Option configures an agent at startup
+type Option func(*agent) error
 
 // New creates an Agent that executes functions locally as Docker containers.
-func New(da CallHandler, options ...AgentOption) Agent {
+func New(da CallHandler, options ...Option) Agent {
 
-	cfg, err := NewAgentConfig()
+	cfg, err := NewConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
 	}
@@ -129,6 +130,7 @@ func New(da CallHandler, options ...AgentOption) Agent {
 	a.shutWg = common.NewWaitGroup()
 	a.da = da
 	a.slotMgr = NewSlotQueueMgr()
+	a.evictor = NewEvictor()
 
 	// Allow overriding config
 	for _, option := range options {
@@ -162,7 +164,7 @@ func (a *agent) addStartup(sup func()) {
 }
 
 // WithAsync Enables Async  operations on the agent
-func WithAsync(dqda DequeueDataAccess) AgentOption {
+func WithAsync(dqda DequeueDataAccess) Option {
 	return func(a *agent) error {
 		if !a.shutWg.AddSession(1) {
 			logrus.Fatalf("cannot start agent, unable to add session")
@@ -173,7 +175,9 @@ func WithAsync(dqda DequeueDataAccess) AgentOption {
 		return nil
 	}
 }
-func WithConfig(cfg *AgentConfig) AgentOption {
+
+// WithConfig sets the agent config to the provided config
+func WithConfig(cfg *Config) Option {
 	return func(a *agent) error {
 		a.cfg = *cfg
 		return nil
@@ -181,7 +185,7 @@ func WithConfig(cfg *AgentConfig) AgentOption {
 }
 
 // WithDockerDriver Provides a customer driver to agent
-func WithDockerDriver(drv drivers.Driver) AgentOption {
+func WithDockerDriver(drv drivers.Driver) Option {
 	return func(a *agent) error {
 		if a.driver != nil {
 			return errors.New("cannot add driver to agent, driver already exists")
@@ -193,7 +197,7 @@ func WithDockerDriver(drv drivers.Driver) AgentOption {
 }
 
 // WithCallOverrider registers register a CallOverrider to modify a Call and extensions on call construction
-func WithCallOverrider(fn CallOverrider) AgentOption {
+func WithCallOverrider(fn CallOverrider) Option {
 	return func(a *agent) error {
 		if a.callOverrider != nil {
 			return errors.New("lb-agent call overriders already exists")
@@ -204,7 +208,7 @@ func WithCallOverrider(fn CallOverrider) AgentOption {
 }
 
 // NewDockerDriver creates a default docker driver from agent config
-func NewDockerDriver(cfg *AgentConfig) (drivers.Driver, error) {
+func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 	return drivers.New("docker", drivers.Config{
 		DockerNetworks:       cfg.DockerNetworks,
 		DockerLoadFile:       cfg.DockerLoadFile,
@@ -421,7 +425,12 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
 		var isNew bool
-		call.slots, isNew = a.slotMgr.getSlotQueue(call)
+
+		if call.slotHashId == "" {
+			call.slotHashId = getSlotQueueKey(call)
+		}
+
+		call.slots, isNew = a.slotMgr.getSlotQueue(call.slotHashId)
 		call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
 		if isNew {
 			go a.hotLauncher(ctx, call)
@@ -501,7 +510,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	state := NewContainerState()
 	state.UpdateState(ctx, ContainerStateWait, call.slots)
 
-	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
+	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Debug("Hot function launcher attempting to start a container")
 
 	mem := call.Memory + uint64(call.TmpFsSize)
 
@@ -525,18 +534,27 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, mem, uint64(call.CPUs), isAsync, isNB):
 		if tok != nil && tok.Error() != nil {
-			tryNotify(notifyChan, tok.Error())
+			// before returning error response, as a last resort, try evicting idle containers.
+			if tok.Error() != CapacityFull || !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) {
+				tryNotify(notifyChan, tok.Error())
+			}
 		} else if a.shutWg.AddSession(1) {
 			go func() {
 				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
 				a.runHot(ctx, call, tok, state)
 				a.shutWg.DoneSession()
 			}()
+			// early return (do not allow container state to switch to ContainerStateDone)
 			return
 		}
 		if tok != nil {
 			tok.Close()
 		}
+	// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
+	// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
+	// idle container.
+	case <-time.After(a.cfg.HotPoll):
+		a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs))
 	case <-ctx.Done(): // timeout
 	case <-a.shutWg.Closer(): // server shutdown
 	}
@@ -913,14 +931,15 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	var err error
 	isFrozen := false
+	isEvictable := false
 
 	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
-	ejectTicker := time.NewTicker(a.cfg.EjectIdle)
+	ejectTimer := time.NewTimer(a.cfg.EjectIdle)
 
 	defer freezeTimer.Stop()
 	defer idleTimer.Stop()
-	defer ejectTicker.Stop()
+	defer ejectTimer.Stop()
 
 	// log if any error is encountered
 	defer func() {
@@ -937,6 +956,8 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		}
 		isFrozen = true
 	}
+
+	evictor := a.evictor.GetEvictor(call.ID, call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
 	state.UpdateState(ctx, ContainerStateIdle, call.slots)
 	s := call.slots.queueSlot(slot)
@@ -956,17 +977,19 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 				isFrozen = true
 			}
 			continue
-		case <-ejectTicker.C:
-			// if someone is waiting for resource in our slot queue, we must not terminate,
-			// otherwise, see if other slot queues have resource waiters that are blocked.
-			stats := call.slots.getStats()
-			if stats.containerStates[ContainerStateWait] > 0 ||
-				a.resources.GetResourceTokenWaiterCount() <= 0 {
-				continue
-			}
+		case <-evictor.C:
 			logger.Debug("attempting hot function eject")
+		case <-ejectTimer.C:
+			// we've been idle too long, now we are ejectable
+			a.evictor.RegisterEvictor(evictor)
+			isEvictable = true
+			continue
 		}
 		break
+	}
+
+	if isEvictable {
+		a.evictor.UnregisterEvictor(evictor)
 	}
 
 	// if we can acquire token, that means we are here due to
@@ -1017,10 +1040,10 @@ type container struct {
 }
 
 //newHotContainer creates a container that can be used for multiple sequential events
-func newHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*container, func()) {
+func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, func()) {
 	// if freezer is enabled, be consistent with freezer behavior and
 	// block stdout and stderr between calls.
-	isBlockIdleIO := MaxDisabledMsecs != cfg.FreezeIdle
+	isBlockIdleIO := MaxMsDisabled != cfg.FreezeIdle
 
 	id := id.New().String()
 

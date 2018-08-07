@@ -72,6 +72,9 @@ message RunnerStatus {
     string createdAt = 8; // call latency details: initialization time
     string startedAt = 9; // call latency details: start time in container
     string completedAt = 10; // call latency details: end time
+    bool cached = 11; // true if status response was provided from cache
+    uint64 requestsReceived = 12; // number of requests received by runner
+    uint64 requestsHandled = 13; // number of requests processed by runner without NACK
 }
 
 service RunnerProtocol {
