@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/sirupsen/logrus"
@@ -10,20 +11,20 @@ import (
 // manages a single set of runners ignoring lb groups
 type staticRunnerPool struct {
 	generator pool.MTLSRunnerFactory
-	pki       *pool.PKIData // can be nil when running in insecure mode
+	tlsConf   *tls.Config // can be nil when running in insecure mode
 	runnerCN  string
 	runners   []pool.Runner
 }
 
 func DefaultStaticRunnerPool(runnerAddresses []string) pool.RunnerPool {
-	return NewStaticRunnerPool(runnerAddresses, nil, "", SecureGRPCRunnerFactory)
+	return NewStaticRunnerPool(runnerAddresses, nil, SecureGRPCRunnerFactory)
 }
 
-func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN string, runnerFactory pool.MTLSRunnerFactory) pool.RunnerPool {
+func NewStaticRunnerPool(runnerAddresses []string, tlsConf *tls.Config, runnerFactory pool.MTLSRunnerFactory) pool.RunnerPool {
 	logrus.WithField("runners", runnerAddresses).Info("Starting static runner pool")
 	var runners []pool.Runner
 	for _, addr := range runnerAddresses {
-		r, err := runnerFactory(addr, runnerCN, pki)
+		r, err := runnerFactory(addr, tlsConf)
 		if err != nil {
 			logrus.WithError(err).WithField("runner_addr", addr).Warn("Invalid runner")
 			continue
@@ -33,8 +34,7 @@ func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN s
 	}
 	return &staticRunnerPool{
 		runners:   runners,
-		pki:       pki,
-		runnerCN:  runnerCN,
+		tlsConf:   tlsConf,
 		generator: runnerFactory,
 	}
 }

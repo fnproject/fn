@@ -2,11 +2,6 @@ package grpcutil
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
-	"fmt"
-	"io/ioutil"
 	"net"
 	"time"
 
@@ -55,35 +50,6 @@ func dial(ctx context.Context, address string, creds credentials.TransportCreden
 	)
 	return grpc.DialContext(ctx, address, opts...)
 
-}
-
-// CreateCredentials creates a new set of TLS credentials
-// certificateCommonName must match the CN of the signed certificate
-// for the TLS handshake to work
-func CreateCredentials(certPath, keyPath, caCertPath, certCommonName string) (credentials.TransportCredentials, error) {
-	// Load the client certificates from disk
-	certificate, err := tls.LoadX509KeyPair(certPath, keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not load client key pair: %s", err)
-	}
-
-	// Create a certificate pool from the certificate authority
-	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(caCertPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not read ca certificate: %s", err)
-	}
-
-	// Append the certificates from the CA
-	if ok := certPool.AppendCertsFromPEM(ca); !ok {
-		return nil, errors.New("failed to append ca certs")
-	}
-
-	return credentials.NewTLS(&tls.Config{
-		ServerName:   certCommonName,
-		Certificates: []tls.Certificate{certificate},
-		RootCAs:      certPool,
-	}), nil
 }
 
 // RIDStreamServerInterceptor is a gRPC stream interceptor which gets the request ID out of the context and put a logger with request ID logged into the common logger in the context

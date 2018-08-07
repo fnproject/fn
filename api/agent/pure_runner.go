@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -866,26 +865,22 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 	return pr.handleStatusCall(ctx)
 }
 
-func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, cert string, key string, ca string) (Agent, error) {
+func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, tlsCfg *tls.Config) (Agent, error) {
 
 	agent := New(da)
 
 	// WARNING: SSL creds are optional.
-	if cert == "" || key == "" || ca == "" {
+	if tlsCfg == nil {
 		return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent))
 	}
-	return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent), PureRunnerWithSSL(cert, key, ca))
+	return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent), PureRunnerWithSSL(tlsCfg))
 }
 
 type PureRunnerOption func(*pureRunner) error
 
-func PureRunnerWithSSL(cert string, key string, ca string) PureRunnerOption {
+func PureRunnerWithSSL(tlsCfg *tls.Config) PureRunnerOption {
 	return func(pr *pureRunner) error {
-		c, err := createCreds(cert, key, ca)
-		if err != nil {
-			return fmt.Errorf("Failed to create pure runner credentials: %s", err)
-		}
-		pr.creds = c
+		pr.creds = credentials.NewTLS(tlsCfg)
 		return nil
 	}
 }
@@ -959,35 +954,6 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 	}()
 
 	return pr, nil
-}
-
-func createCreds(cert string, key string, ca string) (credentials.TransportCredentials, error) {
-	if cert == "" || key == "" || ca == "" {
-		return nil, errors.New("Failed to create credentials, cert/key/ca not provided")
-	}
-
-	// Load the certificates from disk
-	certificate, err := tls.LoadX509KeyPair(cert, key)
-	if err != nil {
-		return nil, fmt.Errorf("Could not load server key pair: %s", err)
-	}
-
-	// Create a certificate pool from the certificate authority
-	certPool := x509.NewCertPool()
-	authority, err := ioutil.ReadFile(ca)
-	if err != nil {
-		return nil, fmt.Errorf("Could not read ca certificate: %s", err)
-	}
-
-	if ok := certPool.AppendCertsFromPEM(authority); !ok {
-		return nil, errors.New("Failed to append client certs")
-	}
-
-	return credentials.NewTLS(&tls.Config{
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		Certificates: []tls.Certificate{certificate},
-		ClientCAs:    certPool,
-	}), nil
 }
 
 var _ runner.RunnerProtocolServer = &pureRunner{}
