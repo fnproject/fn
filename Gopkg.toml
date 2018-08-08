@@ -77,7 +77,3 @@ ignored = ["github.com/fnproject/fn/cli",
 [[override]]
   name = "github.com/docker/docker"
   revision = "29fc64b590badcb1c3f5beff7563ffd31eb58974"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/fnproject/cloudevent"

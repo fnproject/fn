@@ -122,12 +122,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/fnproject/cloudevent"
-  packages = ["."]
-  revision = "5e7074d498f237431f13df4fe3e7044bdbd01769"
-
-[[projects]]
-  branch = "master"
   name = "github.com/fnproject/fdk-go"
   packages = [
     ".",
@@ -500,6 +494,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d4322258cc7bbb6428b5d45a9854c28eb331c9f6584ba4df1f93d3b9942d8a93"
+  inputs-digest = "643d4a3862aeaa6f1115edc26fa3f1f3a6822bb17c01d60fcbdf9ce98bf183ac"
   solver-name = "gps-cdcl"
   solver-version = 1
