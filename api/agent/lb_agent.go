@@ -117,7 +117,7 @@ func (a *lbAgent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 		c.extensions = ext
 	}
 
-	setupCtx(&c)
+	//	setupCtx(&c)
 
 	c.isLB = true
 	c.handler = a.cda

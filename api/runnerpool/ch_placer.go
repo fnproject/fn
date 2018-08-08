@@ -33,15 +33,13 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 	defer state.HandleDone()
 
 	// The key is just the path in this case
-	key := call.Model().InputEvent.Source
+	key := call.Model().Path
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
 
 	for {
 		runners, err := rp.Runners(call)
 		if err != nil {
-			log.WithError(err).Error("Failed to find runners for call")
-			stats.Record(ctx, errorPoolCountMeasure.M(0))
-			tracker.finalizeAttempts(false)
+			state.HandleFindRunnersFailure(err)
 			return nil, err
 		}
 
@@ -50,26 +48,9 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 
 			r := runners[i]
 
-			tracker.recordAttempt()
-			tryCtx, tryCancel := context.WithCancel(ctx)
-			respEvt, placed, err := r.TryExec(tryCtx, call)
-			tryCancel()
-
-			// Only log unusual (except for too-busy) errors
-			if err != nil && err != models.ErrCallTimeoutServerBusy {
-				log.WithError(err).Errorf("Failed during call placement, placed=%v", placed)
-			}
-
+			evt, placed, err := state.TryRunner(r, call)
 			if placed {
-				if err != nil {
-					stats.Record(ctx, placedErrorCountMeasure.M(0))
-					tracker.finalizeAttempts(true)
-					return nil, err
-				}
-
-				stats.Record(ctx, placedOKCountMeasure.M(0))
-				tracker.finalizeAttempts(true)
-				return respEvt, nil
+				return evt, err
 			}
 
 			i = (i + 1) % len(runners)
@@ -80,9 +61,6 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 		}
 	}
 
-	// Cancel Exit Path / Client cancelled/timedout
-	stats.Record(ctx, cancelCountMeasure.M(0))
-	tracker.finalizeAttempts(false)
 	return nil, models.ErrCallTimeoutServerBusy
 }
 

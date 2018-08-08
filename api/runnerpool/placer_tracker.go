@@ -7,6 +7,7 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 
+	"github.com/fnproject/fn/api/event"
 	"go.opencensus.io/stats"
 )
 
@@ -43,13 +44,13 @@ func (tr *placerTracker) HandleFindRunnersFailure(err error) {
 
 // TryRunner is a convenience function to TryExec a call on a runner and
 // analyze the results.
-func (tr *placerTracker) TryRunner(r Runner, call RunnerCall) (bool, error) {
+func (tr *placerTracker) TryRunner(r Runner, call RunnerCall) (*event.Event, bool, error) {
 	tr.tracker.recordAttempt()
 
 	// WARNING: Do not use placerCtx here to let requestCtx take its time
 	// during container execution.
 	ctx, cancel := context.WithCancel(tr.requestCtx)
-	isPlaced, err := r.TryExec(ctx, call)
+	evt, isPlaced, err := r.TryExec(ctx, call)
 	cancel()
 
 	if !isPlaced {
@@ -79,7 +80,7 @@ func (tr *placerTracker) TryRunner(r Runner, call RunnerCall) (bool, error) {
 		tr.isPlaced = true
 	}
 
-	return isPlaced, err
+	return evt, isPlaced, err
 }
 
 // HandleDone is cleanup function to cancel pending contexts and to

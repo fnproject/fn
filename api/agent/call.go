@@ -14,7 +14,6 @@ import (
 	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
-	"github.com/sirupsen/logrus"
 )
 
 type Call interface {
@@ -256,7 +255,7 @@ func (a *agent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 		return nil, models.ErrCallTimeoutServerBusy
 	}
 
-	setupCtx(&c)
+	//	setupCtx(&c)
 
 	c.handler = a.da
 	c.ct = a

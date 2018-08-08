@@ -32,9 +32,7 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 	for {
 		runners, err := rp.Runners(call)
 		if err != nil {
-			log.WithError(err).Error("Failed to find runners for call")
-			stats.Record(ctx, errorPoolCountMeasure.M(0))
-			tracker.finalizeAttempts(false)
+			state.HandleFindRunnersFailure(err)
 			return nil, err
 		}
 
@@ -43,24 +41,9 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 			i := atomic.AddUint64(&sp.rrIndex, uint64(1))
 			r := runners[int(i)%len(runners)]
 
-			tracker.recordAttempt()
-			tryCtx, tryCancel := context.WithCancel(ctx)
-			outevt, placed, err := r.TryExec(tryCtx, call)
-			tryCancel()
-
-			// Only log unusual (except for too-busy) errors
-			if err != nil && err != models.ErrCallTimeoutServerBusy {
-				log.WithError(err).Errorf("Failed during call placement, placed=%v", placed)
-			}
-
+			evt, placed, err := state.TryRunner(r, call)
 			if placed {
-				if err != nil {
-					stats.Record(ctx, placedErrorCountMeasure.M(0))
-					tracker.finalizeAttempts(true)
-					return nil, err
-				}
-				stats.Record(ctx, placedOKCountMeasure.M(0))
-				return outevt, err
+				return evt, err
 			}
 		}
 
@@ -69,8 +52,5 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 		}
 	}
 
-	// Cancel Exit Path / Client cancelled/timedout
-	stats.Record(ctx, cancelCountMeasure.M(0))
-	tracker.finalizeAttempts(false)
 	return nil, models.ErrCallTimeoutServerBusy
 }
