@@ -14,6 +14,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
@@ -151,6 +152,64 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 				fn.Format = models.FormatCloudEvent
 			}
 		}
+
+		if fn.Format == "" {
+			fn.Format = models.FormatDefault
+		}
+
+		id := id.New().String()
+
+		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
+		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
+		if rw, ok := c.w.(http.ResponseWriter); ok {
+			rw.Header().Add("FN_CALL_ID", id)
+		}
+
+		var syslogURL string
+		if app.SyslogURL != nil {
+			syslogURL = *app.SyslogURL
+		}
+
+		c.Call = &models.Call{
+			ID:    id,
+			Path:  trigger.Source,
+			Image: fn.Image,
+			// Delay: 0,
+			Type:   "sync",
+			Format: fn.Format,
+			// Payload: TODO,
+			Priority:    new(int32), // TODO this is crucial, apparently
+			Timeout:     fn.Timeout,
+			IdleTimeout: fn.IdleTimeout,
+			TmpFsSize:   0, // TODO clean up this
+			Memory:      fn.Memory,
+			CPUs:        0, // TODO clean up this
+			Config:      buildTriggerConfig(app, fn, trigger),
+			// TODO - this wasn't really the intention here (that annotations would naturally cascade
+			// but seems to be necessary for some runner behaviour
+			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
+			Headers:     req.Header,
+			CreatedAt:   common.DateTime(time.Now()),
+			URL:         reqURL(req),
+			Method:      req.Method,
+			AppID:       app.ID,
+			FnID:        fn.ID,
+			TriggerID:   trigger.ID,
+			SyslogURL:   syslogURL,
+		}
+
+		c.req = req
+		return nil
+	}
+}
+
+// Sets up a call from an Fn Invoke request
+func FromFnInvokeRequest(ctx context.Context, app *models.App, fn *models.Fn, event event.Event) CallOpt {
+	return func(c *call) error {
+		log := common.Logger(ctx)
+
+		c.IsCloudEvent = true
+		fn.Format = models.FormatCloudEvent
 
 		if fn.Format == "" {
 			fn.Format = models.FormatDefault
