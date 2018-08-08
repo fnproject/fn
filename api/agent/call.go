@@ -12,7 +12,6 @@ import (
 
 	"go.opencensus.io/trace"
 
-	"github.com/fnproject/cloudevent"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -203,9 +202,15 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 	}
 }
 
-// Sets up a call from an Fn Invoke request
-func FromFnInvokeRequest(ctx context.Context, app *models.App, fn *models.Fn, event *cloudevent.CloudEvent) CallOpt {
+// FromFnInvokeRequest accepts only a cloud event content-type http request
+func FromFnInvokeRequest(ctx context.Context, app *models.App, fn *models.Fn, req *http.Request) CallOpt {
 	return func(c *call) error {
+		contentType := req.Header.Get("Content-Type")
+		t, _, err := mime.ParseMediaType(contentType)
+		if err != nil || t != ceMimeType {
+			return models.ErrOnlyCloudEventFnsSupported
+		}
+
 		c.IsCloudEvent = true
 		fn.Format = models.FormatCloudEvent
 
@@ -257,8 +262,7 @@ func FromFnInvokeRequest(ctx context.Context, app *models.App, fn *models.Fn, ev
 			SyslogURL:   syslogURL,
 		}
 
-		// TODO(reed): we have to construct this unless we get some changes in...
-		// c.req = req
+		c.req = req
 		return nil
 	}
 }
@@ -298,7 +302,9 @@ func buildTriggerConfig(app *models.App, fn *models.Fn, trigger *models.Trigger)
 
 	conf["FN_FORMAT"] = fn.Format
 	conf["FN_APP_NAME"] = app.Name
-	conf["FN_PATH"] = trigger.Source
+	if trigger != nil {
+		conf["FN_PATH"] = trigger.Source
+	}
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", fn.Memory)
 	conf["FN_TYPE"] = "sync"

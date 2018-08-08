@@ -5,7 +5,6 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/fnproject/cloudevent"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/common"
@@ -44,25 +43,10 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 		return err
 	}
 
-	var event cloudevent.CloudEvent
-	err = event.FromRequest(c.Request)
-	if err != nil {
-		// XXX(reed): we should make these API errors most likely instead of 5xx
-		handleErrorResponse(c, err)
-		return err
-	}
-
-	// TODO if we validate we have to strictly enforce certain fields we don't
-	// really need in order to run a function (cloudEventVersion we do, but we
-	// need to probably be lax and assume 0.1 if none provided, id doesn't
-	// matter as for example, to run a function, we have call id)
-
-	s.ServeFnInvoke(c, &event, fn, app)
-
-	return nil
+	return s.ServeFnInvoke(c, fn, app)
 }
 
-func (s *Server) ServeFnInvoke(c *gin.Context, event *cloudevent.CloudEvent, fn *models.Fn, app *models.App) error {
+func (s *Server) ServeFnInvoke(c *gin.Context, fn *models.Fn, app *models.App) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	writer := syncResponseWriter{
@@ -73,8 +57,11 @@ func (s *Server) ServeFnInvoke(c *gin.Context, event *cloudevent.CloudEvent, fn 
 
 	call, err := s.agent.GetCall(
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromFnInvokeRequest(c.Request.Context(), app, fn, event),
+		agent.FromFnInvokeRequest(c.Request.Context(), app, fn, c.Request),
 	)
+	if err != nil {
+		return err
+	}
 
 	// note that underneath, since we enforced the function format to be 'cloudevent'
 	// then the container will produce a cloudevent (via the cloudevent protocol Dispatch method)

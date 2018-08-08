@@ -17,7 +17,7 @@ var (
 	// TEMPORARY WHILE INVOKE GETS IMPLEMENTED COMPLETED
 	ErrOnlyCloudEventFnsSupported = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Only Cloud Event Functions are currently supported")}
+		error: errors.New("Only CloudEvent functions are currently supported, ensure function format is set to 'cloudevent'")}
 
 	ErrInvalidJSON = err{
 		code:  http.StatusBadRequest,
