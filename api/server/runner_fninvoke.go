@@ -84,6 +84,7 @@ func (s *Server) ServeFnInvoke(c *gin.Context, fn *models.Fn, app *models.App) e
 	// content type here really.
 	// TODO we kinda need submit to return the event so we can do ^ b/c LAYERS
 
+	writer.Header().Set("Content-Type", "application/cloudevents+json")
 	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
 	if writer.status > 0 {
 		c.Writer.WriteHeader(writer.status)
