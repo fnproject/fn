@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/event"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
@@ -34,10 +33,6 @@ func TestBadRequests(t *testing.T) {
 		expectedError error
 	}{
 		{"/invoke/notfn", "", "", http.StatusNotFound, models.ErrFnsNotFound},
-		{"/invoke/fn_id2", "", "", http.StatusUnsupportedMediaType, models.ErrUnsupportedMediaType},
-		{"/invoke/fn_id", fnInvokeContentType, "", http.StatusBadRequest, models.ErrOnlyCloudEventFnsSupported},
-		{"/invoke/fn_id2", fnInvokeContentType, "", http.StatusBadRequest, models.ErrInvalidJSON},
-		{"/invoke/fn_id2", fnInvokeContentType, "{\"string\": 1}", http.StatusBadRequest, event.ErrEventInvalidEventType},
 	} {
 		request := createRequest(t, "POST", test.path, strings.NewReader(test.body))
 		request.Header = map[string][]string{"Content-Type": []string{test.contentType}}
