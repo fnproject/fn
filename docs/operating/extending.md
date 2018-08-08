@@ -49,3 +49,5 @@ INFO[2018-08-08T13:46:13+03:00] Fn serving on `:8080`                         ty
 YO! This is an annoying message that will happen every time a function is called.
 YO! And this is an annoying message that will happen AFTER every time a function is called.
 ```
+
+Full source code of this particular extensions you may find [here](https://github.com/fnproject/fn-ext-example).
