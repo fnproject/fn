@@ -107,21 +107,21 @@ type syslogWriter struct {
 const severityMask = 0x07
 const facilityMask = 0xf8
 
-func newSyslogWriter(call, function, appID, appName string, severity syslog.Priority, wc io.Writer, buf *bytes.Buffer) *syslogWriter {
+func newSyslogWriter(call, function, appName string, severity syslog.Priority, wc io.Writer, buf *bytes.Buffer) *syslogWriter {
 	// Facility = LOG_USER
 	pr := (syslog.LOG_USER & facilityMask) | (severity & severityMask)
 
 	// <priority>VERSION ISOTIMESTAMP HOSTNAME APPLICATION PID      MESSAGEID STRUCTURED-DATA MSG
 	//
 	// and for us:
-	// <22>2             ISOTIMESTAMP fn       appID       funcName callID    -               MSG
+	// <22>2             ISOTIMESTAMP fn       appName       funcName callID    -               MSG
 	// ex:
 	//<11>2 2018-02-31T07:42:21Z Fn - - - -  call_id=123 func_name=rdallman/yodawg app_id=123 loggo hereo
 
 	// TODO we could use json for structured data and do that whole thing. up to whoever.
 	return &syslogWriter{
 		pres:   []byte(fmt.Sprintf(`<%d>2`, pr)),
-		post:   []byte(fmt.Sprintf(`fn - - - - call_id=%s func_name=%s app_id=%s app_name=%s `, call, function, appID, appName)),
+		post:   []byte(fmt.Sprintf(`fn - - - - call_id=%s func_name=%s app_name=%s `, call, function, appName)),
 		b:      buf,
 		Writer: wc,
 		clock:  time.Now,

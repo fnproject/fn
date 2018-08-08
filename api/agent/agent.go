@@ -750,7 +750,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	defer bufPool.Put(buf1)
 	defer bufPool.Put(buf2)
 
-	sw := newSyslogWriter(call.ID, call.Path, call.AppID, call.AppName, syslog.LOG_ERR, s.container.syslogConns, buf1)
+	sw := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_ERR, s.container.syslogConns, buf1)
 	var syslog io.WriteCloser = &nopCloser{sw}
 	syslog = newLineWriterWithBuffer(buf2, syslog)
 	defer syslog.Close()                            // close syslogger from here, but NOT the call log stderr OR conns
@@ -1084,8 +1084,8 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		bufs = []*bytes.Buffer{buf1, buf2, buf3, buf4}
 
 		// stdout = LOG_INFO, stderr = LOG_ERR -- ONLY for the between writers, normal stdout is a response
-		so := newSyslogWriter(call.ID, call.Path, call.AppID, call.AppName, syslog.LOG_INFO, syslogConns, buf1)
-		se := newSyslogWriter(call.ID, call.Path, call.AppID, call.AppName, syslog.LOG_ERR, syslogConns, buf2)
+		so := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_INFO, syslogConns, buf1)
+		se := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_ERR, syslogConns, buf2)
 
 		// use multiWriteCloser since it ignores errors (io.MultiWriter does not)
 		soc := multiWriteCloser{&nopCloser{so}, &nopCloser{&logWriter{
