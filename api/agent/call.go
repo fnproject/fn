@@ -202,6 +202,75 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 	}
 }
 
+// Sets up a call from an http trigger request
+func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
+	return func(c *call) error {
+		ctx := req.Context()
+
+		log := common.Logger(ctx)
+		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
+		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
+		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
+		contentType := req.Header.Get("Content-Type")
+		t, _, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			// won't fail here, but log
+			log.Debugf("Could not parse Content-Type header: %v", err)
+		} else {
+			if t == ceMimeType {
+				c.IsCloudEvent = true
+				fn.Format = models.FormatCloudEvent
+			}
+		}
+
+		if fn.Format == "" {
+			fn.Format = models.FormatDefault
+		}
+
+		id := id.New().String()
+
+		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
+		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
+		if rw, ok := c.w.(http.ResponseWriter); ok {
+			rw.Header().Add("FN_CALL_ID", id)
+		}
+
+		var syslogURL string
+		if app.SyslogURL != nil {
+			syslogURL = *app.SyslogURL
+		}
+
+		c.Call = &models.Call{
+			ID:    id,
+			Image: fn.Image,
+			// Delay: 0,
+			Type:   "sync",
+			Format: fn.Format,
+			// Payload: TODO,
+			Priority:    new(int32), // TODO this is crucial, apparently
+			Timeout:     fn.Timeout,
+			IdleTimeout: fn.IdleTimeout,
+			TmpFsSize:   0, // TODO clean up this
+			Memory:      fn.Memory,
+			CPUs:        0, // TODO clean up this
+			Config:      buildTriggerConfig(app, fn, nil),
+			// TODO - this wasn't really the intention here (that annotations would naturally cascade
+			// but seems to be necessary for some runner behaviour
+			Annotations: app.Annotations.MergeChange(fn.Annotations),
+			Headers:     req.Header,
+			CreatedAt:   common.DateTime(time.Now()),
+			URL:         reqURL(req),
+			Method:      req.Method,
+			AppID:       app.ID,
+			FnID:        fn.ID,
+			SyslogURL:   syslogURL,
+		}
+
+		c.req = req
+		return nil
+	}
+}
+
 func buildConfig(app *models.App, route *models.Route) models.Config {
 	conf := make(models.Config, 8+len(app.Config)+len(route.Config))
 	for k, v := range app.Config {
@@ -237,7 +306,9 @@ func buildTriggerConfig(app *models.App, fn *models.Fn, trigger *models.Trigger)
 
 	conf["FN_FORMAT"] = fn.Format
 	conf["FN_APP_NAME"] = app.Name
-	conf["FN_PATH"] = trigger.Source
+	if trigger != nil {
+		conf["FN_PATH"] = trigger.Source
+	}
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", fn.Memory)
 	conf["FN_TYPE"] = "sync"
