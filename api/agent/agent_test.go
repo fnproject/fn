@@ -222,6 +222,7 @@ func TestCallConfigurationModel(t *testing.T) {
 
 	cm := &models.Call{
 		AppID:       app.ID,
+		AppName:     app.Name,
 		Config:      cfg,
 		Path:        path,
 		Image:       image,
@@ -292,6 +293,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 
 	cm := &models.Call{
 		AppID:       app.ID,
+		AppName:     app.Name,
 		Config:      config,
 		Headers:     headers,
 		Path:        path,
@@ -434,6 +436,7 @@ func TestSubmitError(t *testing.T) {
 
 	cm := &models.Call{
 		AppID:       app.ID,
+		AppName:     app.Name,
 		Config:      config,
 		Path:        path,
 		Image:       image,
@@ -563,6 +566,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	call := &models.Call{
 		AppID:       id.New().String(),
+		AppName:     "appName",
 		Path:        "/yoyo",
 		Image:       "fnproject/fn-test-utils",
 		Type:        "sync",
@@ -812,6 +816,7 @@ func testCall() *models.Call {
 
 	return &models.Call{
 		AppID:       app.ID,
+		AppName:     app.Name,
 		Config:      config,
 		Headers:     headers,
 		Path:        path,

@@ -150,6 +150,9 @@ type Call struct {
 	// App this call belongs to.
 	AppID string `json:"app_id" db:"app_id"`
 
+	// Name of the app.
+	AppName string `json:"app_name" db:"app_name"`
+
 	// Trigger this call belongs to.
 	TriggerID string `json:"trigger_id" db:"trigger_id"`
 

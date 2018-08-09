@@ -123,6 +123,7 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			URL:         reqURL(req),
 			Method:      req.Method,
 			AppID:       app.ID,
+			AppName:     app.Name,
 			SyslogURL:   syslogURL,
 		}
 
@@ -192,6 +193,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			URL:         reqURL(req),
 			Method:      req.Method,
 			AppID:       app.ID,
+			AppName:     app.Name,
 			FnID:        fn.ID,
 			TriggerID:   trigger.ID,
 			SyslogURL:   syslogURL,
