@@ -14,6 +14,11 @@ const (
 )
 
 var (
+	// TEMPORARY WHILE INVOKE GETS IMPLEMENTED COMPLETED
+	ErrOnlyCloudEventFnsSupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Only CloudEvent functions are currently supported, ensure function format is set to 'cloudevent'")}
+
 	ErrInvalidJSON = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid JSON"),
@@ -26,6 +31,10 @@ var (
 		code:  http.StatusServiceUnavailable,
 		error: errors.New("Timed out - server too busy"),
 	}
+
+	ErrUnsupportedMediaType = err{
+		code:  http.StatusUnsupportedMediaType,
+		error: errors.New("Content Type not supported")}
 
 	ErrMissingID = err{
 		code:  http.StatusBadRequest,
