@@ -15,10 +15,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 	"strconv"
 	"time"
+)
+
+var (
+	pathKey   = common.MakeKey("path")
+	methodKey = common.MakeKey("method")
+	statusKey = common.MakeKey("status")
+
+	apiRequestCountMeasure  = common.MakeMeasure("api/request_count", "Count of API requests started", stats.UnitDimensionless)
+	apiResponseCountMeasure = common.MakeMeasure("api/response_count", "API response count", stats.UnitDimensionless)
+	apiLatencyMeasure       = common.MakeMeasure("api/latency", "Latency distribution of API requests", stats.UnitMilliseconds)
 )
 
 func optionalCorsWrap(r *gin.Engine) {
@@ -78,19 +89,31 @@ func traceWrap(c *gin.Context) {
 	c.Next()
 }
 
+func RegisterAPIViews(tagKeys []string, dist []float64) {
+
+	// default tags for request and response
+	reqTags := []tag.Key{pathKey, methodKey}
+	respTags := []tag.Key{pathKey, methodKey, statusKey}
+
+	// add extra tags if not already in default tags for req/resp
+	for _, key := range tagKeys {
+		if key != "path" && key != "method" && key != "status" {
+			reqTags = append(reqTags, common.MakeKey(key))
+			respTags = append(respTags, common.MakeKey(key))
+		}
+	}
+
+	err := view.Register(
+		common.CreateViewWithTags(apiRequestCountMeasure, view.Count(), reqTags),
+		common.CreateViewWithTags(apiResponseCountMeasure, view.Count(), respTags),
+		common.CreateViewWithTags(apiLatencyMeasure, view.Distribution(dist...), respTags),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot register view")
+	}
+}
+
 func apiMetricsWrap(s *Server) {
-	pathKey, err := tag.NewKey("path")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	methodKey, err := tag.NewKey("method")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	statusKey, err := tag.NewKey("status")
-	if err != nil {
-		logrus.Fatal(err)
-	}
 
 	measure := func(engine *gin.Engine) func(*gin.Context) {
 		var routes gin.RoutesInfo
