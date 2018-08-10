@@ -115,7 +115,7 @@ func apiMetricsWrap(s *Server) {
 			if err != nil {
 				logrus.Fatal(err)
 			}
-			stats.Record(ctx, apiRequestCountMeasure.M(1))
+			stats.Record(ctx, apiRequestCountMeasure.M(0))
 			c.Next()
 
 			status := strconv.Itoa(c.Writer.Status())
@@ -125,6 +125,7 @@ func apiMetricsWrap(s *Server) {
 			if err != nil {
 				logrus.Fatal(err)
 			}
+			stats.Record(ctx, apiResponseCountMeasure.M(0))
 			stats.Record(ctx, apiLatencyMeasure.M(int64(time.Since(start)/time.Millisecond)))
 		}
 	}
