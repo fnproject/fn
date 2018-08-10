@@ -196,6 +196,7 @@ type Server struct {
 	lbReadAccess           agent.ReadDataAccess
 	noHTTTPTriggerEndpoint bool
 	noHybridAPI            bool
+	noFnInvokeEndpoint     bool
 	appListeners           *appListeners
 	routeListeners         *routeListeners
 	fnListeners            *fnListeners
@@ -719,6 +720,14 @@ func WithoutHTTPTriggerEndpoints() Option {
 	}
 }
 
+// WithoutFnInvokeEndpoints optionally disables the fn direct invoke endpoints from a LB -supporting server, allowing extensions to replace them with their own versions
+func WithoutFnInvokeEndpoints() Option {
+	return func(ctx context.Context, s *Server) error {
+		s.noFnInvokeEndpoint = true
+		return nil
+	}
+}
+
 // WithoutHybridAPI unconditionally disables the Hybrid API on a server
 func WithoutHybridAPI() Option {
 	return func(ctx context.Context, s *Server) error {
@@ -1125,7 +1134,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			lbRouteGroup.Use(s.checkAppPresenceByNameAtLB())
 			lbRouteGroup.Any("/:appName", s.handleV1FunctionCall)
 			lbRouteGroup.Any("/:appName/*route", s.handleV1FunctionCall)
+		}
 
+		if !s.noFnInvokeEndpoint {
+			lbFnInvokeGroup := engine.Group("/invoke")
+			lbFnInvokeGroup.POST("/:fnID", s.handleFnInvokeCall)
 		}
 
 	}

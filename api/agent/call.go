@@ -12,6 +12,7 @@ import (
 
 	"go.opencensus.io/trace"
 
+	"github.com/fnproject/cloudevent"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -200,6 +201,66 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 		}
 
 		c.req = req
+		return nil
+	}
+}
+
+// Sets up a call from an Fn Invoke request
+func FromFnInvokeRequest(ctx context.Context, app *models.App, fn *models.Fn, event *cloudevent.CloudEvent) CallOpt {
+	return func(c *call) error {
+		c.IsCloudEvent = true
+		fn.Format = models.FormatCloudEvent
+
+		if fn.Format == "" {
+			fn.Format = models.FormatDefault
+		}
+
+		id := id.New().String()
+
+		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
+		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
+		if rw, ok := c.w.(http.ResponseWriter); ok {
+			rw.Header().Add("FN_CALL_ID", id)
+		}
+
+		var syslogURL string
+		if app.SyslogURL != nil {
+			syslogURL = *app.SyslogURL
+		}
+
+		// TODO we should be extracting the function/app/trigger from the event itself in certain cases, or
+		// perhaps we have FromEvent(ctx, event) in addition to this guy that does that.
+
+		// TODO we need to slightly redo the hashing hot functions logic, we can re-use containers
+		// between triggers/invoke if we get rid of the env stuff, but still need something similar
+		// for e.g. memory/timeout/image/etc. changes. we may not need a few of the fields below anymore either
+
+		c.Call = &models.Call{
+			ID:    id,
+			Image: fn.Image,
+			// Delay: 0,
+			Type:   "sync",
+			Format: fn.Format,
+			// Payload: TODO,
+			Priority:    new(int32), // TODO this is crucial, apparently
+			Timeout:     fn.Timeout,
+			IdleTimeout: fn.IdleTimeout,
+			TmpFsSize:   0, // TODO clean up this
+			Memory:      fn.Memory,
+			CPUs:        0, // TODO clean up this
+			// TODO we don't need the config to go into env anymore either..
+			Config: buildTriggerConfig(app, fn, nil),
+			// TODO - this wasn't really the intention here (that annotations would naturally cascade
+			// but seems to be necessary for some runner behaviour
+			Annotations: app.Annotations.MergeChange(fn.Annotations),
+			CreatedAt:   common.DateTime(time.Now()),
+			AppID:       app.ID,
+			FnID:        fn.ID,
+			SyslogURL:   syslogURL,
+		}
+
+		// TODO(reed): we have to construct this unless we get some changes in...
+		// c.req = req
 		return nil
 	}
 }
