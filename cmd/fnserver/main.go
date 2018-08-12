@@ -26,7 +26,6 @@ func main() {
 
 func registerViews() {
 	keys := []string{"fn_appname", "fn_path"}
-	apiKeys := []string{"path", "method", "status"}
 
 	latencyDist := []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
 
@@ -51,5 +50,5 @@ func registerViews() {
 	// Register s3 log views
 	s3.RegisterViews(keys, latencyDist)
 
-	server.RegisterAPIViews(apiKeys, latencyDist)
+	server.RegisterAPIViews([]string{}, latencyDist)
 }
