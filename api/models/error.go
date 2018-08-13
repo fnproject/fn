@@ -27,6 +27,10 @@ var (
 		error: errors.New("Timed out - server too busy"),
 	}
 
+	ErrUnsupportedMediaType = err{
+		code:  http.StatusUnsupportedMediaType,
+		error: errors.New("Content Type not supported")}
+
 	ErrMissingID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing ID")}
