@@ -53,7 +53,8 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 	}
 	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
 
-	call, err := s.agent.GetCall(
+	ctx := c.Request.Context()
+	call, err := s.agent.GetCall(ctx,
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
 		agent.FromHTTPFnRequest(app, fn, c.Request),
 	)
@@ -67,7 +68,7 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 		c.Request = c.Request.WithContext(ctx)
 	}
 
-	err = s.agent.Submit(call)
+	err = s.agent.Submit(ctx, call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little

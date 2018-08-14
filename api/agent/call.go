@@ -200,9 +200,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 
 // Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
-	return func(c *call) error {
-		ctx := req.Context()
-
+	return func(ctx context.Context, c *call) error {
 		log := common.Logger(ctx)
 		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
 		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
@@ -262,8 +260,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			SyslogURL:   syslogURL,
 		}
 
-		c.req = req
-		return nil
+		return c.setCallPayload(ctx, req.Body, req.GetBody)
 	}
 }
 
@@ -427,6 +424,12 @@ func (c *call) setCallPayload(ctx context.Context, input io.Reader, getBody func
 		return nil
 	}
 
+	c.getBody = newGetBody(input)
+	return nil
+}
+
+// TODO we could make this a struct instead (GC?), tomato/tomato
+func newGetBody(input io.Reader) func() (io.ReadCloser, error) {
 	// only allow one read of the buffer ever. everybody else must wait. this is
 	// entirely fucked up and can deadlock all succeeding threads for this body,
 	// but go ahead and try just reading the reader into a buffer and see if life
@@ -435,28 +438,37 @@ func (c *call) setCallPayload(ctx context.Context, input io.Reader, getBody func
 	done := make(chan struct{}, 1)
 	done <- struct{}{} // prime it
 
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	// TODO we could save the string and hand the buffer back. measure/but also kill this first
-	// TODO we should make this the RequestBody method on call instead of a closure, but also kill this
+	// save string (immutable) into this, so that we can free the buffer
+	strBody := new(string)
+	var readErr error
 
-	c.getBody = func() (io.ReadCloser, error) {
+	return func() (io.ReadCloser, error) {
 		// NOTE: this may block, until the first reader manages to copy into buf entirely, which may never happen GG
 		_, ok := <-done
 		if !ok {
-			return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
+			if readErr != nil {
+				return nil, readErr
+			}
+			return ioutil.NopCloser(strings.NewReader(*strBody)), nil
 		}
 
+		// the below only runs once [per call]
+
+		defer close(done) // do this after strBody/readErr are set
+
+		buf := bufPool.Get().(*bytes.Buffer)
+		buf.Reset()
 		_, err := buf.ReadFrom(input)
+		defer bufPool.Put(buf)
+
 		if err != nil && err != io.EOF {
+			readErr = err
 			return nil, err
 		}
 
-		close(done)
-		return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
+		*strBody = buf.String()
+		return ioutil.NopCloser(strings.NewReader(*strBody)), nil
 	}
-
-	return nil
 }
 
 type call struct {

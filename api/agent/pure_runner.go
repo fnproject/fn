@@ -670,9 +670,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 func readData(state *callHandle) {
 	dataFeed := state.spawnPipeToFn()
 
-	var i int
 	for {
-		i++
 		dataMsg := state.getDataMsg()
 		if dataMsg == nil {
 			return
