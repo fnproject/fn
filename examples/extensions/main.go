@@ -8,6 +8,10 @@ import (
 
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/server"
+
+	// defaultexts adds support for any configurable mq/db driver + docker driver. it's possible to import only
+	// what a user needs but for getting started just use this!
+	_ "github.com/fnproject/fn/api/server/defaultexts"
 )
 
 func main() {
