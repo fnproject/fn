@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"fmt"
+
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
@@ -30,10 +31,8 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 	}
 
 	// Annotate the outbound triggers
-
 	// this is fairly cludgy bit hard to do in datastore middleware confidently
 	appCache := make(map[string]*models.App)
-	newTriggers := make([]*models.Trigger, len(triggers.Items))
 
 	for idx, t := range triggers.Items {
 		app, ok := appCache[t.AppID]
@@ -52,9 +51,8 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 			handleErrorResponse(c, err)
 			return
 		}
-		newTriggers[idx] = newT
+		triggers.Items[idx] = newT
 	}
 
-	triggers.Items = newTriggers
 	c.JSON(http.StatusOK, triggers)
 }

@@ -72,6 +72,9 @@ var (
 	}
 )
 
+// FnInvokeEndpointAnnotation is the annotation that exposes the fn invoke endpoint For want of a better place to put this it's here
+const FnInvokeEndpointAnnotation = "fnproject.io/fn/invokeEndpoint"
+
 // Fn contains information about a function configuration.
 type Fn struct {
 	// ID is the generated resource id.

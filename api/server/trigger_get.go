@@ -2,9 +2,10 @@ package server
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/fnproject/fn/api"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 func (s *Server) handleTriggerGet(c *gin.Context) {
@@ -20,6 +21,7 @@ func (s *Server) handleTriggerGet(c *gin.Context) {
 
 	if err != nil {
 		handleErrorResponse(c, fmt.Errorf("unexpected error - trigger app not available: %s", err))
+		return
 	}
 
 	trigger, err = s.triggerAnnotator.AnnotateTrigger(c, app, trigger)
