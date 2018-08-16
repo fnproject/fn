@@ -1,0 +1,41 @@
+swagger: '2.0'
+info:
+  title: fn
+  description: The open source serverless platform.
+  version: "2.0.0"
+# the domain of the service
+host: "127.0.0.1:8080"
+# array of all schemes that your API supports
+schemes:
+  - https
+  - http
+# will be prefixed to all paths
+basePath: /v2
+
+paths:
+ /invoke/{fnID}:
+   post:
+     operationId: "InvokeFn"
+     summary: "Directly invoke a function"
+     parameters:
+       -name body
+        in: body
+        description: "Function invocation data"
+     responses:
+       200:
+         description: "Function successfully invoked."
+       default:
+          description: "An unexpected error occurred."
+          schema:
+            $ref: '#/definitions/Error'
+
+definitions:
+  Error:
+    type: object
+    properties:
+      message:
+        type: string
+        readOnly: true
+      fields:
+        type: string
+        readOnly: true

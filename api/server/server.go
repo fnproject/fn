@@ -205,6 +205,7 @@ type Server struct {
 	apiMiddlewares         []fnext.Middleware
 	promExporter           *prometheus.Exporter
 	triggerAnnotator       TriggerAnnotator
+	fnAnnotator            FnAnnotator
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -257,8 +258,10 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	if publicLBURL != "" {
 		logrus.Infof("using LB Base URL: '%s'", publicLBURL)
 		opts = append(opts, WithTriggerAnnotator(NewStaticURLTriggerAnnotator(publicLBURL)))
+		opts = append(opts, WithFnAnnotator(NewStaticURLFnAnnotator(publicLBURL)))
 	} else {
 		opts = append(opts, WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()))
+		opts = append(opts, WithFnAnnotator(NewRequestBasedFnAnnotator()))
 	}
 
 	// Agent handling depends on node type and several other options so it must be the last processed option.
@@ -576,6 +579,14 @@ func WithExtraCtx(extraCtx context.Context) Option {
 func WithTriggerAnnotator(provider TriggerAnnotator) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.triggerAnnotator = provider
+		return nil
+	}
+}
+
+//WithFnAnnotator adds a fnEndpoint provider to the server
+func WithFnAnnotator(provider FnAnnotator) Option {
+	return func(ctx context.Context, s *Server) error {
+		s.fnAnnotator = provider
 		return nil
 	}
 }

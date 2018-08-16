@@ -358,3 +358,53 @@ func TestFnGet(t *testing.T) {
 		}
 	}
 }
+
+func TestFnInvokeEndpointAnnotations(t *testing.T) {
+	a := &models.App{ID: "app_id", Name: "myapp"}
+	fn := &models.Fn{ID: "fnid", AppID: a.ID, Name: "fnname"}
+
+	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn})
+
+	srv := testServer(commonDS, &mqs.Mock{}, logs.NewMock(), nil, ServerTypeAPI)
+
+	_, rec := routerRequest(t, srv.Router, "GET", "/v2/fns/fnid", bytes.NewBuffer([]byte("")))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected code %d != 200", rec.Code)
+	}
+	var fnGet models.Fn
+	err := json.NewDecoder(rec.Body).Decode(&fnGet)
+	if err != nil {
+		t.Fatalf("Invalid json from server %s", err)
+	}
+
+	const fnEndpoint = "fnproject.io/fn/invokeEndpoint"
+	v, err := fnGet.Annotations.GetString(fnEndpoint)
+	if err != nil {
+		t.Fatalf("failed to get fn %s", err)
+	}
+	if v != "http://127.0.0.1:8080/invoke/fnid" {
+		t.Errorf("unexpected fn val %s", v)
+	}
+
+	_, rec = routerRequest(t, srv.Router, "GET", fmt.Sprintf("/v2/fns?app_id=%s", a.ID), nil)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected code %d != 200", rec.Code)
+	}
+
+	var resp models.FnList
+	err = json.NewDecoder(rec.Body).Decode(&resp)
+	if err != nil {
+		t.Fatalf("Invalid json from server %s : %s", err, string(rec.Body.Bytes()))
+	}
+
+	if len(resp.Items) != 1 {
+		t.Fatalf("Unexpected fn list result, %v", resp)
+	}
+
+	v, err = resp.Items[0].Annotations.GetString(fnEndpoint)
+	if v != "http://127.0.0.1:8080/invoke/fnid" {
+		t.Errorf("unexpected fn val %s", v)
+	}
+}

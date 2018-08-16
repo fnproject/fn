@@ -186,6 +186,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.WithLogstoreFromDatastore())
 	opts = append(opts, server.WithTriggerAnnotator(server.NewStaticURLTriggerAnnotator("http://localhost:8081")))
+	opts = append(opts, server.WithFnAnnotator(server.NewStaticURLFnAnnotator("http://localhost:8081")))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
 	return server.New(ctx, opts...), nil
 }
