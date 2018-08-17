@@ -4,19 +4,15 @@ package docker
 
 import (
 	"context"
-	"crypto/tls"
-	"net"
-	"net/http"
 	"os"
 	"strings"
 	"time"
-
-	"go.opencensus.io/stats/view"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 )
 
@@ -58,49 +54,15 @@ func newClient() dockerClient {
 		logrus.WithError(err).Fatal("couldn't create docker client")
 	}
 
-	t := &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 1 * time.Minute,
-		}).Dial,
-		TLSClientConfig: &tls.Config{
-			ClientSessionCache: tls.NewLRUClientSessionCache(8192),
-		},
-		TLSHandshakeTimeout:   10 * time.Second,
-		MaxIdleConnsPerHost:   512,
-		Proxy:                 http.ProxyFromEnvironment,
-		MaxIdleConns:          512,
-		IdleConnTimeout:       90 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-
-	client.HTTPClient = &http.Client{Transport: t}
-
 	if err := client.Ping(); err != nil {
 		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
 	}
 
-	client.SetTimeout(120 * time.Second)
-
-	// get 2 clients, one with a small timeout, one with no timeout to use contexts
-
-	clientNoTimeout, err := docker.NewClientFromEnv()
-	if err != nil {
-		logrus.WithError(err).Fatal("couldn't create other docker client")
-	}
-
-	clientNoTimeout.HTTPClient = &http.Client{Transport: t}
-
-	if err := clientNoTimeout.Ping(); err != nil {
-		logrus.WithError(err).Fatal("couldn't connect to other docker daemon")
-	}
-
-	return &dockerWrap{client, clientNoTimeout}
+	return &dockerWrap{client}
 }
 
 type dockerWrap struct {
-	docker          *docker.Client
-	dockerNoTimeout *docker.Client
+	docker *docker.Client
 }
 
 var (
@@ -237,7 +199,7 @@ func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (c
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "WaitContainer")
 	err = d.retry(ctx, logger, func() error {
-		code, err = d.dockerNoTimeout.WaitContainerWithContext(id, ctx)
+		code, err = d.docker.WaitContainerWithContext(id, ctx)
 		return err
 	})
 	return code, filterNoSuchContainer(ctx, err)
@@ -249,7 +211,7 @@ func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.Hos
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "StartContainer")
 	err = d.retry(ctx, logger, func() error {
-		err = d.dockerNoTimeout.StartContainerWithContext(id, hostConfig, ctx)
+		err = d.docker.StartContainerWithContext(id, hostConfig, ctx)
 		if _, ok := err.(*docker.NoSuchContainer); ok {
 			// for some reason create will sometimes return successfully then say no such container here. wtf. so just retry like normal
 			return temp(err)
@@ -265,7 +227,7 @@ func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *doc
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "CreateContainer")
 	err = d.retry(ctx, logger, func() error {
-		c, err = d.dockerNoTimeout.CreateContainer(opts)
+		c, err = d.docker.CreateContainer(opts)
 		return err
 	})
 	return c, err
@@ -277,7 +239,7 @@ func (d *dockerWrap) KillContainer(opts docker.KillContainerOptions) (err error)
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "KillContainer")
 	err = d.retry(ctx, logger, func() error {
-		err = d.dockerNoTimeout.KillContainer(opts)
+		err = d.docker.KillContainer(opts)
 		return err
 	})
 	return err
@@ -289,7 +251,7 @@ func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthCon
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "PullImage")
 	err = d.retry(ctx, logger, func() error {
-		err = d.dockerNoTimeout.PullImage(opts, auth)
+		err = d.docker.PullImage(opts, auth)
 		return err
 	})
 	return err
