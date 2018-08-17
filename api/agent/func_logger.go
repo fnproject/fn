@@ -25,7 +25,7 @@ var (
 // multiWriteCloser ignores errors. Close will flush the line writers
 // appropriately.  The returned io.ReadWriteCloser is not safe for use after
 // calling Close.
-func setupLogger(ctx context.Context, maxSize uint64, c *models.Call) io.ReadWriteCloser {
+func setupLogger(ctx context.Context, maxSize uint64, debug bool, c *models.Call) io.ReadWriteCloser {
 	lbuf := bufPool.Get().(*bytes.Buffer)
 	dbuf := logPool.Get().(*bytes.Buffer)
 
@@ -41,14 +41,20 @@ func setupLogger(ctx context.Context, maxSize uint64, c *models.Call) io.ReadWri
 	// we don't need to log per line to db, but we do need to limit it
 	limitw := &nopCloser{newLimitWriter(int(maxSize), dbuf)}
 
-	// accumulate all line writers, wrap in same line writer (to re-use buffer)
-	stderrLogger := common.Logger(ctx).WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "path": c.Path, "image": c.Image, "call_id": c.ID})
-	loggo := &nopCloser{&logWriter{stderrLogger}}
+	// order matters, in that closer should be last and limit should be next to last
+	mw := make(multiWriteCloser, 0, 3)
 
-	// we don't need to limit the log writer(s), but we do need it to dispense lines
-	linew := newLineWriterWithBuffer(lbuf, loggo)
+	if debug {
+		// accumulate all line writers, wrap in same line writer (to re-use buffer)
+		stderrLogger := common.Logger(ctx).WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "path": c.Path, "image": c.Image, "call_id": c.ID})
+		loggo := &nopCloser{&logWriter{stderrLogger}}
 
-	mw := multiWriteCloser{linew, limitw, &fCloser{close}}
+		// we don't need to limit the log writer(s), but we do need it to dispense lines
+		linew := newLineWriterWithBuffer(lbuf, loggo)
+		mw = append(mw, linew)
+	}
+
+	mw = append(mw, limitw, &fCloser{close})
 	return &rwc{mw, dbuf}
 }
 

@@ -342,7 +342,7 @@ func TestLoggerIsStringerAndWorks(t *testing.T) {
 	// TODO test limit writer, logrus writer, etc etc
 
 	var call models.Call
-	logger := setupLogger(context.Background(), 1*1024*1024, &call)
+	logger := setupLogger(context.Background(), 1*1024*1024, true, &call)
 
 	if _, ok := logger.(fmt.Stringer); !ok {
 		// NOTE: if you are reading, maybe what you've done is ok, but be aware we were relying on this for optimization...
@@ -366,7 +366,7 @@ func TestLoggerIsStringerAndWorks(t *testing.T) {
 func TestLoggerTooBig(t *testing.T) {
 
 	var call models.Call
-	logger := setupLogger(context.Background(), 10, &call)
+	logger := setupLogger(context.Background(), 10, true, &call)
 
 	str := fmt.Sprintf("0 line\n1 l\n-----max log size 10 bytes exceeded, truncating log-----\n")
 
