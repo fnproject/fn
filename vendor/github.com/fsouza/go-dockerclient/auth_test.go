@@ -43,7 +43,7 @@ func TestAuthConfigurationsFromFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	authString := base64.StdEncoding.EncodeToString([]byte("user:pass"))
-	content := fmt.Sprintf("{\"auths\":{\"foo\": {\"auth\": \"%s\"}}}", authString)
+	content := fmt.Sprintf(`{"auths":{"foo": {"auth": "%s"}}}`, authString)
 	configFile := path.Join(tmpDir, "docker_config")
 	if err = ioutil.WriteFile(configFile, []byte(content), 0600); err != nil {
 		t.Errorf("Error writing auth config for TestAuthConfigurationsFromFile: %s", err)
@@ -93,6 +93,29 @@ func TestAuthBadConfig(t *testing.T) {
 	}
 	if ac != nil {
 		t.Errorf("Invalid auth configuration returned, should be nil %v\n", ac)
+	}
+}
+
+func TestAuthMixedWithKeyChain(t *testing.T) {
+	t.Parallel()
+	auth := base64.StdEncoding.EncodeToString([]byte("user:pass"))
+	read := strings.NewReader(fmt.Sprintf(`{"auths":{"docker.io":{},"localhost:5000":{"auth":"%s"}},"credsStore":"osxkeychain"}`, auth))
+	ac, err := NewAuthConfigurations(read)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, ok := ac.Configs["localhost:5000"]
+	if !ok {
+		t.Error("NewAuthConfigurations: Expected Configs to contain localhost:5000")
+	}
+	if got, want := c.Username, "user"; got != want {
+		t.Errorf(`AuthConfigurations.Configs["docker.io"].Username: wrong result. Want %q. Got %q`, want, got)
+	}
+	if got, want := c.Password, "pass"; got != want {
+		t.Errorf(`AuthConfigurations.Configs["docker.io"].Password: wrong result. Want %q. Got %q`, want, got)
+	}
+	if got, want := c.ServerAddress, "localhost:5000"; got != want {
+		t.Errorf(`AuthConfigurations.Configs["localhost:5000"].ServerAddress: wrong result. Want %q. Got %q`, want, got)
 	}
 }
 

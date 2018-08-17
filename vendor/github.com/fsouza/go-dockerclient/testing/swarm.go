@@ -255,6 +255,9 @@ func (s *DockerServer) setServiceEndpoint(service *swarm.Service) {
 }
 
 func (s *DockerServer) addTasks(service *swarm.Service, update bool) {
+	if service.Spec.TaskTemplate.ContainerSpec == nil {
+		return
+	}
 	containerCount := 1
 	if service.Spec.Mode.Global != nil {
 		containerCount = len(s.nodes)
@@ -277,7 +280,7 @@ func (s *DockerServer) addTasks(service *swarm.Service, update bool) {
 			NodeID:    chosenNode.ID,
 			Status: swarm.TaskStatus{
 				State: swarm.TaskStateReady,
-				ContainerStatus: swarm.ContainerStatus{
+				ContainerStatus: &swarm.ContainerStatus{
 					ContainerID: container.ID,
 				},
 			},
@@ -285,7 +288,7 @@ func (s *DockerServer) addTasks(service *swarm.Service, update bool) {
 			Spec:         service.Spec.TaskTemplate,
 		}
 		s.tasks = append(s.tasks, &task)
-		s.containers = append(s.containers, container)
+		s.addContainer(container)
 		s.notify(container)
 	}
 }
@@ -441,9 +444,10 @@ func (s *DockerServer) serviceDelete(w http.ResponseWriter, r *http.Request) {
 	s.services = s.services[:len(s.services)-1]
 	for i := 0; i < len(s.tasks); i++ {
 		if s.tasks[i].ServiceID == toDelete.ID {
-			_, contIdx, _ := s.findContainerWithLock(s.tasks[i].Status.ContainerStatus.ContainerID, false)
-			if contIdx != -1 {
-				s.containers = append(s.containers[:contIdx], s.containers[contIdx+1:]...)
+			cont, _ := s.findContainerWithLock(s.tasks[i].Status.ContainerStatus.ContainerID, false)
+			if cont != nil {
+				delete(s.containers, cont.ID)
+				delete(s.contNameToID, cont.Name)
 			}
 			s.tasks = append(s.tasks[:i], s.tasks[i+1:]...)
 			i--
@@ -457,6 +461,7 @@ func (s *DockerServer) serviceDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *DockerServer) serviceUpdate(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.swarmMut.Lock()
 	defer s.swarmMut.Unlock()
 	s.cMut.Lock()
@@ -484,14 +489,21 @@ func (s *DockerServer) serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	toUpdate.Spec = newSpec
+	end := time.Now()
+	toUpdate.UpdateStatus = &swarm.UpdateStatus{
+		State:       swarm.UpdateStateCompleted,
+		CompletedAt: &end,
+		StartedAt:   &start,
+	}
 	s.setServiceEndpoint(toUpdate)
 	for i := 0; i < len(s.tasks); i++ {
 		if s.tasks[i].ServiceID != toUpdate.ID {
 			continue
 		}
-		_, contIdx, _ := s.findContainerWithLock(s.tasks[i].Status.ContainerStatus.ContainerID, false)
-		if contIdx != -1 {
-			s.containers = append(s.containers[:contIdx], s.containers[contIdx+1:]...)
+		cont, _ := s.findContainerWithLock(s.tasks[i].Status.ContainerStatus.ContainerID, false)
+		if cont != nil {
+			delete(s.containers, cont.ID)
+			delete(s.contNameToID, cont.Name)
 		}
 		s.tasks = append(s.tasks[:i], s.tasks[i+1:]...)
 		i--
