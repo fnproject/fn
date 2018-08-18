@@ -49,23 +49,24 @@ func main() {
 	trace.RegisterExporter(e)
 
 	var err error
-	frontendKey, err = tag.NewKey("my.org/keys/frontend")
+	frontendKey, err = tag.NewKey("example.com/keys/frontend")
 	if err != nil {
 		log.Fatal(err)
 	}
-	videoSize = stats.Int64("my.org/measure/video_size", "size of processed videos", stats.UnitBytes)
+	videoSize = stats.Int64("example.com/measure/video_size", "size of processed videos", stats.UnitBytes)
+	view.SetReportingPeriod(2 * time.Second)
 
 	// Create view to see the processed video size
 	// distribution broken down by frontend.
 	// Register will allow view data to be exported.
 	if err := view.Register(&view.View{
-		Name:        "my.org/views/video_size",
+		Name:        "example.com/views/video_size",
 		Description: "processed video size over time",
 		TagKeys:     []tag.Key{frontendKey},
 		Measure:     videoSize,
 		Aggregation: view.Distribution(0, 1<<16, 1<<32),
 	}); err != nil {
-		log.Fatalf("Cannot subscribe to the view: %v", err)
+		log.Fatalf("Cannot register view: %v", err)
 	}
 
 	// Process the video.
@@ -86,7 +87,7 @@ func process(ctx context.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx, span := trace.StartSpan(ctx, "my.org/ProcessVideo")
+	ctx, span := trace.StartSpan(ctx, "example.com/ProcessVideo")
 	defer span.End()
 	// Process video.
 	// Record the processed video size.

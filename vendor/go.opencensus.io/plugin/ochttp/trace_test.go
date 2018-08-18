@@ -25,7 +25,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -35,6 +34,14 @@ import (
 	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
 	"go.opencensus.io/trace"
 )
+
+type testExporter struct {
+	spans []*trace.SpanData
+}
+
+func (t *testExporter) ExportSpan(s *trace.SpanData) {
+	t.spans = append(t.spans, s)
+}
 
 type testTransport struct {
 	ch chan *http.Request
@@ -100,7 +107,7 @@ func TestTransport_RoundTrip(t *testing.T) {
 
 			req, _ := http.NewRequest("GET", "http://foo.com", nil)
 			if tt.parent != nil {
-				req = req.WithContext(trace.WithSpan(req.Context(), tt.parent))
+				req = req.WithContext(trace.NewContext(req.Context(), tt.parent))
 			}
 			rt.RoundTrip(req)
 
@@ -357,11 +364,67 @@ func TestSpanNameFromURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.u, func(t *testing.T) {
-			u, err := url.Parse(tt.u)
+			req, err := http.NewRequest("GET", tt.u, nil)
 			if err != nil {
-				t.Errorf("url.Parse() = %v", err)
+				t.Errorf("url issue = %v", err)
 			}
-			if got := spanNameFromURL(u); got != tt.want {
+			if got := spanNameFromURL(req); got != tt.want {
+				t.Errorf("spanNameFromURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatSpanName(t *testing.T) {
+	formatSpanName := func(r *http.Request) string {
+		return r.Method + " " + r.URL.Path
+	}
+
+	handler := &Handler{
+		Handler: http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+			resp.Write([]byte("Hello, world!"))
+		}),
+		FormatSpanName: formatSpanName,
+	}
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	client := &http.Client{
+		Transport: &Transport{FormatSpanName: formatSpanName},
+	}
+
+	tests := []struct {
+		u    string
+		want string
+	}{
+		{
+			u:    "/hello?q=a",
+			want: "GET /hello",
+		},
+		{
+			u:    "/a/b?q=c",
+			want: "GET /a/b",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.u, func(t *testing.T) {
+			var te testExporter
+			trace.RegisterExporter(&te)
+			res, err := client.Get(server.URL + tt.u)
+			if err != nil {
+				t.Fatalf("error creating request: %v", err)
+			}
+			res.Body.Close()
+			trace.UnregisterExporter(&te)
+			if want, got := 2, len(te.spans); want != got {
+				t.Fatalf("got exported spans %#v, wanted two spans", te.spans)
+			}
+			if got := te.spans[0].Name; got != tt.want {
+				t.Errorf("spanNameFromURL() = %v, want %v", got, tt.want)
+			}
+			if got := te.spans[1].Name; got != tt.want {
 				t.Errorf("spanNameFromURL() = %v, want %v", got, tt.want)
 			}
 		})

@@ -1,4 +1,4 @@
-// Copyright 2017, OpenCensus Authors
+// Copyright 2018, OpenCensus Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,5 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package opencensus contains Go support for OpenCensus.
-package opencensus // import "go.opencensus.io"
+// Package exporterutil contains common utilities for exporter implementations.
+//
+// Deprecated: Don't use this package.
+package exporterutil
+
+import "go.opencensus.io"
+
+// Version is the current release version of OpenCensus in use. It is made
+// available for exporters to include in User-Agent-like metadata.
+// Deprecated: Use opencensus.Version().
+var Version = opencensus.Version()
+
+// TODO(jbd): Remove this package at the next release.

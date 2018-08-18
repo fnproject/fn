@@ -56,7 +56,7 @@ var (
 	}
 )
 
-func init() {
+func registerRPCViews() {
 	views := make([]*view.View, 0, len(viewType))
 	for v := range viewType {
 		views = append(views, v)
@@ -261,7 +261,7 @@ func (s snapExporter) ExportView(vd *view.Data) {
 		// Update field of s corresponding to the view.
 		switch vd.View {
 		case ocgrpc.ClientCompletedRPCsView:
-			if _, ok := haveResetErrors[method]; ok {
+			if _, ok := haveResetErrors[method]; !ok {
 				haveResetErrors[method] = struct{}{}
 				s.ErrorsTotal = 0
 			}
@@ -288,7 +288,7 @@ func (s snapExporter) ExportView(vd *view.Data) {
 			// currently unused
 
 		case ocgrpc.ServerCompletedRPCsView:
-			if _, ok := haveResetErrors[method]; ok {
+			if _, ok := haveResetErrors[method]; !ok {
 				haveResetErrors[method] = struct{}{}
 				s.ErrorsTotal = 0
 			}

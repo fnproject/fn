@@ -171,7 +171,7 @@ func Test_View_MeasureFloat64_AggregationDistribution(t *testing.T) {
 			}
 			ctx, err := tag.New(context.Background(), mods...)
 			if err != nil {
-				t.Errorf("%v: NewMap = %v", tc.label, err)
+				t.Errorf("%v: New = %v", tc.label, err)
 			}
 			view.addSample(tag.FromContext(ctx), r.f)
 		}
@@ -346,7 +346,7 @@ func TestViewSortedKeys(t *testing.T) {
 		Measure:     m,
 		Aggregation: Sum(),
 	})
-	// Subscribe normalizes the view by sorting the tag keys, retrieve the normalized view
+	// Register normalizes the view by sorting the tag keys, retrieve the normalized view
 	v := Find("sort_keys")
 
 	want := []string{"a", "b", "c"}

@@ -29,7 +29,7 @@ import (
 func statsExamples() {
 	ctx := context.Background()
 
-	videoSize := stats.Int64("my.org/video_size", "processed video size", "MB")
+	videoSize := stats.Int64("example.com/video_size", "processed video size", "MB")
 
 	// START aggs
 	distAgg := view.Distribution(0, 1<<32, 2<<32, 3<<32)
@@ -41,12 +41,12 @@ func statsExamples() {
 
 	// START view
 	if err := view.Register(&view.View{
-		Name:        "my.org/video_size_distribution",
+		Name:        "example.com/video_size_distribution",
 		Description: "distribution of processed video size over time",
 		Measure:     videoSize,
 		Aggregation: view.Distribution(0, 1<<32, 2<<32, 3<<32),
 	}); err != nil {
-		log.Fatalf("Failed to subscribe to view: %v", err)
+		log.Fatalf("Failed to register view: %v", err)
 	}
 	// END view
 

@@ -2,3 +2,6 @@
 
 # go.opencensus.io/exporter/aws
 /exporter/aws/
+
+# Exclude vendor, use dep ensure after checkout:
+/vendor/

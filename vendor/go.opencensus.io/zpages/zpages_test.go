@@ -21,6 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+
 	"go.opencensus.io/trace"
 )
 
@@ -83,5 +87,43 @@ func TestTraceRows(t *testing.T) {
 2006/01/02-15:04:05.123456      .500000 sent message [200 bytes, 100 compressed bytes]
 `; buf.String() != want {
 		t.Errorf("writeTextTraces: got %q want %q\n", buf.String(), want)
+	}
+}
+
+func TestGetZPages(t *testing.T) {
+	mux := http.NewServeMux()
+	Handle(mux, "/debug")
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	tests := []string{"/debug/rpcz", "/debug/tracez"}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("GET %s", tt), func(t *testing.T) {
+			res, err := http.Get(server.URL + tt)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if got, want := res.StatusCode, http.StatusOK; got != want {
+				t.Errorf("res.StatusCode = %d; want %d", got, want)
+			}
+		})
+	}
+}
+
+func TestGetZPages_default(t *testing.T) {
+	server := httptest.NewServer(Handler)
+	defer server.Close()
+	tests := []string{"/rpcz", "/tracez"}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("GET %s", tt), func(t *testing.T) {
+			res, err := http.Get(server.URL + tt)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if got, want := res.StatusCode, http.StatusOK; got != want {
+				t.Errorf("res.StatusCode = %d; want %d", got, want)
+			}
+		})
 	}
 }

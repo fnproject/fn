@@ -29,7 +29,12 @@ import (
 )
 
 func main() {
-	go func() { log.Fatal(http.ListenAndServe(":8081", zpages.Handler)) }()
+	// Start z-Pages server.
+	go func() {
+		mux := http.NewServeMux()
+		zpages.Handle(mux, "/debug")
+		log.Fatal(http.ListenAndServe("127.0.0.1:8081", mux))
+	}()
 
 	// Register stats and trace exporters to export the collected data.
 	exporter := &exporter.PrintExporter{}

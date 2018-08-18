@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/net/http2"
 
@@ -138,32 +139,20 @@ func (trw *testResponseWriterHijacker) Hijack() (net.Conn, *bufio.ReadWriter, er
 
 func TestUnitTestHandlerProxiesHijack(t *testing.T) {
 	tests := []struct {
-		w       http.ResponseWriter
-		wantErr string
+		w         http.ResponseWriter
+		hasHijack bool
 	}{
-		{httptest.NewRecorder(), "ResponseWriter does not implement http.Hijacker"},
-		{nil, "ResponseWriter does not implement http.Hijacker"},
-		{new(testResponseWriterHijacker), ""},
+		{httptest.NewRecorder(), false},
+		{nil, false},
+		{new(testResponseWriterHijacker), true},
 	}
 
 	for i, tt := range tests {
 		tw := &trackingResponseWriter{writer: tt.w}
-		conn, buf, err := tw.Hijack()
-		if tt.wantErr != "" {
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("#%d got error (%v) want error substring (%q)", i, err, tt.wantErr)
-			}
-			if conn != nil {
-				t.Errorf("#%d inconsistent state got non-nil conn (%v)", i, conn)
-			}
-			if buf != nil {
-				t.Errorf("#%d inconsistent state got non-nil buf (%v)", i, buf)
-			}
-			continue
-		}
-
-		if err != nil {
-			t.Errorf("#%d got unexpected error %v", i, err)
+		w := tw.wrappedResponseWriter()
+		_, ttHijacker := w.(http.Hijacker)
+		if want, have := tt.hasHijack, ttHijacker; want != have {
+			t.Errorf("#%d Hijack got %t, want %t", i, have, want)
 		}
 	}
 }
@@ -233,20 +222,28 @@ func TestHandlerProxiesHijack_HTTP1(t *testing.T) {
 func TestHandlerProxiesHijack_HTTP2(t *testing.T) {
 	cst := httptest.NewUnstartedServer(&Handler{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			conn, _, err := w.(http.Hijacker).Hijack()
-			if conn != nil {
-				data := fmt.Sprintf("Surprisingly got the Hijacker() Proto: %s", r.Proto)
-				fmt.Fprintf(conn, "%s 200\nContent-Length:%d\r\n\r\n%s", r.Proto, len(data), data)
-				conn.Close()
-				return
-			}
+			if _, ok := w.(http.Hijacker); ok {
+				conn, _, err := w.(http.Hijacker).Hijack()
+				if conn != nil {
+					data := fmt.Sprintf("Surprisingly got the Hijacker() Proto: %s", r.Proto)
+					fmt.Fprintf(conn, "%s 200\nContent-Length:%d\r\n\r\n%s", r.Proto, len(data), data)
+					conn.Close()
+					return
+				}
 
-			switch {
-			case err == nil:
-				fmt.Fprintf(w, "Unexpectedly did not encounter an error!")
-			default:
-				fmt.Fprintf(w, "Unexpected error: %v", err)
-			case strings.Contains(err.(error).Error(), "Hijack"):
+				switch {
+				case err == nil:
+					fmt.Fprintf(w, "Unexpectedly did not encounter an error!")
+				default:
+					fmt.Fprintf(w, "Unexpected error: %v", err)
+				case strings.Contains(err.(error).Error(), "Hijack"):
+					// Confirmed HTTP/2.0, let's stream to it
+					for i := 0; i < 5; i++ {
+						fmt.Fprintf(w, "%d\n", i)
+						w.(http.Flusher).Flush()
+					}
+				}
+			} else {
 				// Confirmed HTTP/2.0, let's stream to it
 				for i := 0; i < 5; i++ {
 					fmt.Fprintf(w, "%d\n", i)
@@ -299,8 +296,7 @@ func TestEnsureTrackingResponseWriterSetsStatusCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.want.Message, func(t *testing.T) {
-			span := trace.NewSpan("testing", nil, trace.StartOptions{Sampler: trace.AlwaysSample()})
-			ctx := trace.WithSpan(context.Background(), span)
+			ctx := context.Background()
 			prc, pwc := io.Pipe()
 			go func() {
 				pwc.Write([]byte("Foo"))
@@ -308,7 +304,13 @@ func TestEnsureTrackingResponseWriterSetsStatusCode(t *testing.T) {
 			}()
 			inRes := tt.res
 			inRes.Body = prc
-			tr := &traceTransport{base: &testResponseTransport{res: inRes}}
+			tr := &traceTransport{
+				base:           &testResponseTransport{res: inRes},
+				formatSpanName: spanNameFromURL,
+				startOptions: trace.StartOptions{
+					Sampler: trace.AlwaysSample(),
+				},
+			}
 			req, err := http.NewRequest("POST", "https://example.org", bytes.NewReader([]byte("testing")))
 			if err != nil {
 				t.Fatalf("NewRequest error: %v", err)
@@ -350,4 +352,243 @@ var _ http.RoundTripper = (*testResponseTransport)(nil)
 
 func (rb *testResponseTransport) RoundTrip(*http.Request) (*http.Response, error) {
 	return rb.res, nil
+}
+
+func TestHandlerImplementsHTTPPusher(t *testing.T) {
+	cst := setupAndStartServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pusher, ok := w.(http.Pusher)
+		if !ok {
+			w.Write([]byte("false"))
+			return
+		}
+		err := pusher.Push("/static.css", &http.PushOptions{
+			Method: "GET",
+			Header: http.Header{"Accept-Encoding": r.Header["Accept-Encoding"]},
+		})
+		if err != nil && false {
+			// TODO: (@odeke-em) consult with Go stdlib for why trying
+			// to configure even an HTTP/2 server and HTTP/2 transport
+			// still return http.ErrNotSupported even without using ochttp.Handler.
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Write([]byte("true"))
+	}), asHTTP2)
+	defer cst.Close()
+
+	tests := []struct {
+		rt       http.RoundTripper
+		wantBody string
+	}{
+		{
+			rt:       h1Transport(),
+			wantBody: "false",
+		},
+		{
+			rt:       h2Transport(),
+			wantBody: "true",
+		},
+		{
+			rt:       &Transport{Base: h1Transport()},
+			wantBody: "false",
+		},
+		{
+			rt:       &Transport{Base: h2Transport()},
+			wantBody: "true",
+		},
+	}
+
+	for i, tt := range tests {
+		c := &http.Client{Transport: &Transport{Base: tt.rt}}
+		res, err := c.Get(cst.URL)
+		if err != nil {
+			t.Errorf("#%d: Unexpected error %v", i, err)
+			continue
+		}
+		body, _ := ioutil.ReadAll(res.Body)
+		_ = res.Body.Close()
+		if g, w := string(body), tt.wantBody; g != w {
+			t.Errorf("#%d: got = %q; want = %q", i, g, w)
+		}
+	}
+}
+
+const (
+	isNil       = "isNil"
+	hang        = "hang"
+	ended       = "ended"
+	nonNotifier = "nonNotifier"
+
+	asHTTP1 = false
+	asHTTP2 = true
+)
+
+func setupAndStartServer(hf func(http.ResponseWriter, *http.Request), isHTTP2 bool) *httptest.Server {
+	cst := httptest.NewUnstartedServer(&Handler{
+		Handler: http.HandlerFunc(hf),
+	})
+	if isHTTP2 {
+		http2.ConfigureServer(cst.Config, new(http2.Server))
+		cst.TLS = cst.Config.TLSConfig
+		cst.StartTLS()
+	} else {
+		cst.Start()
+	}
+
+	return cst
+}
+
+func insecureTLS() *tls.Config     { return &tls.Config{InsecureSkipVerify: true} }
+func h1Transport() *http.Transport { return &http.Transport{TLSClientConfig: insecureTLS()} }
+func h2Transport() *http.Transport {
+	tr := &http.Transport{TLSClientConfig: insecureTLS()}
+	http2.ConfigureTransport(tr)
+	return tr
+}
+
+type concurrentBuffer struct {
+	sync.RWMutex
+	bw *bytes.Buffer
+}
+
+func (cw *concurrentBuffer) Write(b []byte) (int, error) {
+	cw.Lock()
+	defer cw.Unlock()
+
+	return cw.bw.Write(b)
+}
+
+func (cw *concurrentBuffer) String() string {
+	cw.Lock()
+	defer cw.Unlock()
+
+	return cw.bw.String()
+}
+
+func handleCloseNotify(outLog io.Writer) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cn, ok := w.(http.CloseNotifier)
+		if !ok {
+			fmt.Fprintln(outLog, nonNotifier)
+			return
+		}
+		ch := cn.CloseNotify()
+		if ch == nil {
+			fmt.Fprintln(outLog, isNil)
+			return
+		}
+
+		<-ch
+		fmt.Fprintln(outLog, ended)
+	})
+}
+
+func TestHandlerImplementsHTTPCloseNotify(t *testing.T) {
+	http1Log := &concurrentBuffer{bw: new(bytes.Buffer)}
+	http1Server := setupAndStartServer(handleCloseNotify(http1Log), asHTTP1)
+	http2Log := &concurrentBuffer{bw: new(bytes.Buffer)}
+	http2Server := setupAndStartServer(handleCloseNotify(http2Log), asHTTP2)
+
+	defer http1Server.Close()
+	defer http2Server.Close()
+
+	tests := []struct {
+		url  string
+		want string
+	}{
+		{url: http1Server.URL, want: nonNotifier},
+		{url: http2Server.URL, want: ended},
+	}
+
+	transports := []struct {
+		name string
+		rt   http.RoundTripper
+	}{
+		{name: "http2+ochttp", rt: &Transport{Base: h2Transport()}},
+		{name: "http1+ochttp", rt: &Transport{Base: h1Transport()}},
+		{name: "http1-ochttp", rt: h1Transport()},
+		{name: "http2-ochttp", rt: h2Transport()},
+	}
+
+	// Each transport invokes one of two server types, either HTTP/1 or HTTP/2
+	for _, trc := range transports {
+		// Try out all the transport combinations
+		for i, tt := range tests {
+			req, err := http.NewRequest("GET", tt.url, nil)
+			if err != nil {
+				t.Errorf("#%d: Unexpected error making request: %v", i, err)
+				continue
+			}
+
+			// Using a timeout to ensure that the request is cancelled and the server
+			// if its handler implements CloseNotify will see this as the client leaving.
+			ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+			defer cancel()
+			req = req.WithContext(ctx)
+
+			client := &http.Client{Transport: trc.rt}
+			res, err := client.Do(req)
+			if err != nil && !strings.Contains(err.Error(), "context deadline exceeded") {
+				t.Errorf("#%d: %sClient Unexpected error %v", i, trc.name, err)
+				continue
+			}
+			if res != nil && res.Body != nil {
+				io.CopyN(ioutil.Discard, res.Body, 5)
+				_ = res.Body.Close()
+			}
+		}
+	}
+
+	// Wait for a couple of milliseconds for the GoAway frames to be properly propagated
+	<-time.After(150 * time.Millisecond)
+
+	wantHTTP1Log := strings.Repeat("ended\n", len(transports))
+	wantHTTP2Log := strings.Repeat("ended\n", len(transports))
+	if g, w := http1Log.String(), wantHTTP1Log; g != w {
+		t.Errorf("HTTP1Log got\n\t%q\nwant\n\t%q", g, w)
+	}
+	if g, w := http2Log.String(), wantHTTP2Log; g != w {
+		t.Errorf("HTTP2Log got\n\t%q\nwant\n\t%q", g, w)
+	}
+}
+
+func TestIgnoreHealthz(t *testing.T) {
+	var spans int
+
+	ts := httptest.NewServer(&Handler{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			span := trace.FromContext(r.Context())
+			if span != nil {
+				spans++
+			}
+			fmt.Fprint(w, "ok")
+		}),
+		StartOptions: trace.StartOptions{
+			Sampler: trace.AlwaysSample(),
+		},
+	})
+	defer ts.Close()
+
+	client := &http.Client{}
+
+	for _, path := range []string{"/healthz", "/_ah/health"} {
+		resp, err := client.Get(ts.URL + path)
+		if err != nil {
+			t.Fatalf("Cannot GET %q: %v", path, err)
+		}
+
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("Cannot read body for %q: %v", path, err)
+		}
+
+		if got, want := string(b), "ok"; got != want {
+			t.Fatalf("Body for %q = %q; want %q", path, got, want)
+		}
+		resp.Body.Close()
+	}
+
+	if spans > 0 {
+		t.Errorf("Got %v spans; want no spans", spans)
+	}
 }
