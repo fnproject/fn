@@ -361,29 +361,52 @@ func TestFnGet(t *testing.T) {
 
 func TestFnInvokeEndpointAnnotations(t *testing.T) {
 	a := &models.App{ID: "app_id", Name: "myapp"}
-	fn := &models.Fn{ID: "fnid", AppID: a.ID, Name: "fnname"}
+	fn := &models.Fn{AppID: a.ID, Name: "fnname", Image: "fnproject/image"}
 
-	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn})
+	commonDS := datastore.NewMockInit([]*models.App{a})
 
 	srv := testServer(commonDS, &mqs.Mock{}, logs.NewMock(), nil, ServerTypeAPI)
-
-	_, rec := routerRequest(t, srv.Router, "GET", "/v2/fns/fnid", bytes.NewBuffer([]byte("")))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected code %d != 200", rec.Code)
+	body, err := json.Marshal(fn)
+	if err != nil {
+		t.Fatalf("Failed to marshal json to create fn %s", err)
 	}
-	var fnGet models.Fn
-	err := json.NewDecoder(rec.Body).Decode(&fnGet)
+
+	_, createFN := routerRequest(t, srv.Router, "POST", "/v2/fns", bytes.NewReader(body))
+	if createFN.Code != http.StatusOK {
+		t.Fatalf("expected code %d != 200 %s", createFN.Code, createFN.Body.String())
+	}
+
+	var fnCreate models.Fn
+	err = json.NewDecoder(createFN.Body).Decode(&fnCreate)
 	if err != nil {
 		t.Fatalf("Invalid json from server %s", err)
 	}
 
 	const fnEndpoint = "fnproject.io/fn/invokeEndpoint"
-	v, err := fnGet.Annotations.GetString(fnEndpoint)
+	v, err := fnCreate.Annotations.GetString(fnEndpoint)
+	if err != nil {
+		t.Errorf("failed to get fn %s", err)
+	}
+	if v != "http://127.0.0.1:8080/invoke/"+fnCreate.ID {
+		t.Errorf("unexpected fn val %s", v)
+	}
+
+	_, rec := routerRequest(t, srv.Router, "GET", "/v2/fns/"+fnCreate.ID, bytes.NewBuffer([]byte("")))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected code %d != 200", rec.Code)
+	}
+	var fnGet models.Fn
+	err = json.NewDecoder(rec.Body).Decode(&fnGet)
+	if err != nil {
+		t.Fatalf("Invalid json from server %s", err)
+	}
+
+	v, err = fnGet.Annotations.GetString(fnEndpoint)
 	if err != nil {
 		t.Fatalf("failed to get fn %s", err)
 	}
-	if v != "http://127.0.0.1:8080/invoke/fnid" {
+	if v != "http://127.0.0.1:8080/invoke/"+fnCreate.ID {
 		t.Errorf("unexpected fn val %s", v)
 	}
 
@@ -404,7 +427,7 @@ func TestFnInvokeEndpointAnnotations(t *testing.T) {
 	}
 
 	v, err = resp.Items[0].Annotations.GetString(fnEndpoint)
-	if v != "http://127.0.0.1:8080/invoke/fnid" {
+	if v != "http://127.0.0.1:8080/invoke/"+fnCreate.ID {
 		t.Errorf("unexpected fn val %s", v)
 	}
 }

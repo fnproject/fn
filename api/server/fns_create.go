@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/fnproject/fn/api/models"
@@ -24,6 +25,18 @@ func (s *Server) handleFnCreate(c *gin.Context) {
 	fnCreated, err := s.datastore.InsertFn(ctx, fn)
 	if err != nil {
 		handleErrorResponse(c, err)
+	}
+
+	app, err := s.datastore.GetAppByID(ctx, fnCreated.AppID)
+	if err != nil {
+		handleErrorResponse(c, fmt.Errorf("unexpected error - fn app not available: %s", err))
+		return
+	}
+
+	fnCreated, err = s.fnAnnotator.AnnotateFn(c, app, fnCreated)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
 	}
 
 	c.JSON(http.StatusOK, fnCreated)

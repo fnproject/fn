@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/fnproject/fn/api/models"
@@ -25,6 +26,20 @@ func (s *Server) handleTriggerCreate(c *gin.Context) {
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
+	}
+
+	if !s.noHTTTPTriggerEndpoint {
+		app, err := s.datastore.GetAppByID(ctx, triggerCreated.AppID)
+		if err != nil {
+			handleErrorResponse(c, fmt.Errorf("unexpected error - trigger app not available: %s", err))
+			return
+		}
+
+		triggerCreated, err = s.triggerAnnotator.AnnotateTrigger(c, app, triggerCreated)
+		if err != nil {
+			handleErrorResponse(c, err)
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, triggerCreated)
