@@ -1,15 +1,16 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
 
 func (s *Server) handleFnCreate(c *gin.Context) {
 	ctx := c.Request.Context()
+	log := common.Logger(ctx)
 
 	fn := &models.Fn{}
 	err := c.BindJSON(fn)
@@ -25,19 +26,22 @@ func (s *Server) handleFnCreate(c *gin.Context) {
 	fnCreated, err := s.datastore.InsertFn(ctx, fn)
 	if err != nil {
 		handleErrorResponse(c, err)
+		return
 	}
 
 	app, err := s.datastore.GetAppByID(ctx, fnCreated.AppID)
 	if err != nil {
-		handleErrorResponse(c, fmt.Errorf("unexpected error - fn app not available: %s", err))
+		log.Debugln("Failed to lookup app.")
+		c.JSON(http.StatusOK, fnCreated)
 		return
 	}
 
-	fnCreated, err = s.fnAnnotator.AnnotateFn(c, app, fnCreated)
+	fnAnnotated, err := s.fnAnnotator.AnnotateFn(c, app, fnCreated)
 	if err != nil {
-		handleErrorResponse(c, err)
+		log.Debugln("Failed to annotate fn")
+		c.JSON(http.StatusOK, fnCreated)
 		return
 	}
 
-	c.JSON(http.StatusOK, fnCreated)
+	c.JSON(http.StatusOK, fnAnnotated)
 }
