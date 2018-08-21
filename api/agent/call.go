@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime"
 	"net/http"
 	"strings"
@@ -44,7 +46,7 @@ type Call interface {
 type CallOverrider func(*models.Call, map[string]string) (map[string]string, error)
 
 // TODO build w/o closures... lazy
-type CallOpt func(c *call) error
+type CallOpt func(ctx context.Context, c *call) error
 
 const (
 	ceMimeType = "application/cloudevents+json"
@@ -53,9 +55,7 @@ const (
 // FromRequest initialises a call to a route from an HTTP request
 // deprecate with routes
 func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOpt {
-	return func(c *call) error {
-		ctx := req.Context()
-
+	return func(ctx context.Context, c *call) error {
 		log := common.Logger(ctx)
 		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
 		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
@@ -107,9 +107,8 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			Path:  route.Path,
 			Image: route.Image,
 			// Delay: 0,
-			Type:   route.Type,
-			Format: route.Format,
-			// Payload: TODO,
+			Type:        route.Type,
+			Format:      route.Format,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
@@ -127,16 +126,13 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			SyslogURL:   syslogURL,
 		}
 
-		c.req = req
-		return nil
+		return c.setCallPayload(ctx, req.Body, req.GetBody)
 	}
 }
 
 // Sets up a call from an http trigger request
 func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
-	return func(c *call) error {
-		ctx := req.Context()
-
+	return func(ctx context.Context, c *call) error {
 		log := common.Logger(ctx)
 		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
 		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
@@ -175,9 +171,8 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			Path:  trigger.Source,
 			Image: fn.Image,
 			// Delay: 0,
-			Type:   "sync",
-			Format: fn.Format,
-			// Payload: TODO,
+			Type:        "sync",
+			Format:      fn.Format,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     fn.Timeout,
 			IdleTimeout: fn.IdleTimeout,
@@ -199,16 +194,13 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			SyslogURL:   syslogURL,
 		}
 
-		c.req = req
-		return nil
+		return c.setCallPayload(ctx, req.Body, req.GetBody)
 	}
 }
 
 // Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
-	return func(c *call) error {
-		ctx := req.Context()
-
+	return func(ctx context.Context, c *call) error {
 		log := common.Logger(ctx)
 		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
 		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
@@ -268,8 +260,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			SyslogURL:   syslogURL,
 		}
 
-		c.req = req
-		return nil
+		return c.setCallPayload(ctx, req.Body, req.GetBody)
 	}
 }
 
@@ -335,51 +326,26 @@ func reqURL(req *http.Request) string {
 
 // FromModel creates a call object from an existing stored call model object, reading the body from the stored call payload
 func FromModel(mCall *models.Call) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		c.Call = mCall
-
-		req, err := http.NewRequest(c.Method, c.URL, strings.NewReader(c.Payload))
-		if err != nil {
-			return err
-		}
-		req.Header = c.Headers
-
-		c.req = req
-		// TODO anything else really?
-		return nil
+		f := func() (io.ReadCloser, error) { return ioutil.NopCloser(strings.NewReader(c.Payload)), nil }
+		return c.setCallPayload(ctx, strings.NewReader(c.Payload), f)
 	}
 }
 
-// FromModelAndInput creates a call object from an existing stored call model object , reading the body from a provided stream
+// FromModelAndInput creates a call object from an existing stored call model object, reading the body from a provided stream
 func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		c.Call = mCall
-
-		req, err := http.NewRequest(c.Method, c.URL, in)
-		if err != nil {
-			return err
-		}
-		req.Header = c.Headers
-
-		c.req = req
-		// TODO anything else really?
-		return nil
+		return c.setCallPayload(ctx, in, nil)
 	}
 }
 
 // WithWriter sets the writier that the call uses to send its output message to
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		c.w = w
-		return nil
-	}
-}
-
-// WithContext overrides the context on the call
-func WithContext(ctx context.Context) CallOpt {
-	return func(c *call) error {
-		c.req = c.req.WithContext(ctx)
 		return nil
 	}
 }
@@ -387,7 +353,7 @@ func WithContext(ctx context.Context) CallOpt {
 // WithExtensions adds internal attributes to the call that can be interpreted by extensions in the agent
 // Pure runner can use this to pass an extension to the call
 func WithExtensions(extensions map[string]string) CallOpt {
-	return func(c *call) error {
+	return func(ctx context.Context, c *call) error {
 		c.extensions = extensions
 		return nil
 	}
@@ -396,18 +362,18 @@ func WithExtensions(extensions map[string]string) CallOpt {
 // GetCall builds a Call that can be used to submit jobs to the agent.
 //
 // TODO where to put this? async and sync both call this
-func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
+func (a *agent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 	var c call
 
 	for _, o := range opts {
-		err := o(&c)
+		err := o(ctx, &c)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// TODO typed errors to test
-	if c.req == nil || c.Call == nil {
+	if c.Call == nil {
 		return nil, errors.New("no model or request provided for call")
 	}
 
@@ -427,11 +393,12 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, models.ErrCallTimeoutServerBusy
 	}
 
-	setupCtx(&c)
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
 
 	c.handler = a.da
 	c.ct = a
-	c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, c.Call)
+	c.stderr = setupLogger(ctx, a.cfg.MaxLogSize, c.Call)
+
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
@@ -441,28 +408,97 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	return &c, nil
 }
 
-func setupCtx(c *call) {
-	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
-	c.req = c.req.WithContext(ctx)
+// setCallPayload sets the GetBody method on the call, if one doesn't exist
+func (c *call) setCallPayload(ctx context.Context, input io.Reader, getBody func() (io.ReadCloser, error)) error {
+	if getBody != nil {
+		c.getBody = getBody
+		return nil
+	}
+
+	// if it has a string method, shortcut that (say, a bytes buffer...)
+	// TODO we could check Bytes() as well but this whole thing should die anyway, hedging...
+	if stringer, ok := input.(interface{ String() string }); ok {
+		c.getBody = func() (io.ReadCloser, error) {
+			return ioutil.NopCloser(strings.NewReader(stringer.String())), nil
+		}
+		return nil
+	}
+
+	c.getBody = newGetBody(input)
+	return nil
+}
+
+// TODO we could make this a struct instead (GC?), tomato/tomato
+func newGetBody(input io.Reader) func() (io.ReadCloser, error) {
+	// only allow one read of the buffer ever. everybody else must wait. this is
+	// entirely fucked up and can deadlock all succeeding threads for this body,
+	// but go ahead and try just reading the reader into a buffer and see if life
+	// is still worth living. TODO this leaves a situation where if the first reader
+	// doesn't finish then nobody else gets the body ever. NO SOUP FOR YOU
+	done := make(chan struct{}, 1)
+	done <- struct{}{} // prime it
+
+	// save string (immutable) into this, so that we can free the buffer
+	strBody := new(string)
+	var readErr error
+
+	return func() (io.ReadCloser, error) {
+		// NOTE: this may block, until the first reader manages to copy into buf entirely, which may never happen GG
+		_, ok := <-done
+		if !ok {
+			if readErr != nil {
+				return nil, readErr
+			}
+			return ioutil.NopCloser(strings.NewReader(*strBody)), nil
+		}
+
+		// the below only runs once [per call]
+
+		defer close(done) // do this after strBody/readErr are set
+
+		buf := bufPool.Get().(*bytes.Buffer)
+		buf.Reset()
+		_, err := buf.ReadFrom(input)
+		defer bufPool.Put(buf)
+
+		if err != nil && err != io.EOF {
+			readErr = err
+			return nil, err
+		}
+
+		*strBody = buf.String()
+		return ioutil.NopCloser(strings.NewReader(*strBody)), nil
+	}
 }
 
 type call struct {
+	// models.Call is embedded for read access to its fields (XXX needn't be embedded)
 	*models.Call
+	// getBody returns the body. RequestBody method will call this, it must be set
+	// TODO this should go away with the event stuff
+	getBody func() (io.ReadCloser, error)
 
 	// IsCloudEvent flag whether this was ingested as a cloud event. This may become the default or only way.
 	IsCloudEvent bool `json:"is_cloud_event"`
 
-	handler        CallHandler
-	w              io.Writer
-	req            *http.Request
-	stderr         io.ReadWriteCloser
-	ct             callTrigger
-	slots          *slotQueue
-	requestState   RequestState
+	// handler XXX(reed): ??
+	handler CallHandler
+	// w is the output writer to be handed to dispatch
+	w io.Writer
+	// stderr is the logs for this function
+	stderr io.ReadWriteCloser
+	// ct XXX(reed): ??
+	ct callTrigger
+	// slots is the chan from which to receive a slot into a container for a hot function
+	slots *slotQueue
+	// requestState ensures valid request state transitions for this call, it's useful for debugging
+	requestState RequestState
+	// containerState ensures valid request state transitions on container, it's useful for debugging
 	containerState ContainerState
-	slotHashId     string
-	isLB           bool
+	// slotHashId is used for routing in the lb agent (TODO this should be abstracted to its own agent.Call implementation)
+	slotHashId string
+	// isLB is for identifying calls through the lb agent, since they are treated differently (TODO this should be abstracted to its own agent.Call implementation)
+	isLB bool
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
@@ -479,13 +515,9 @@ func (c *call) Extensions() map[string]string {
 }
 
 func (c *call) RequestBody() io.ReadCloser {
-	if c.req.Body != nil && c.req.GetBody != nil {
-		rdr, err := c.req.GetBody()
-		if err == nil {
-			return rdr
-		}
-	}
-	return c.req.Body
+	body, _ := c.getBody()
+	// TODO we should bubble the error up, really, this should die...
+	return body
 }
 
 func (c *call) ResponseWriter() http.ResponseWriter {

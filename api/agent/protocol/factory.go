@@ -29,7 +29,7 @@ type ContainerIO interface {
 
 	// Dispatch will handle sending stdin and stdout to a container. Implementers
 	// of Dispatch may format the input and output differently. Dispatch must respect
-	// the req.Context() timeout / cancellation.
+	// the context timeout / cancellation.
 	Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error
 }
 
@@ -46,7 +46,6 @@ type CallInfo interface {
 	// This could be abstracted into separate Protocol objects for each type and all the following information could go in there.
 	// This is a bit confusing because we also have the protocol's for getting information in and out of the function containers.
 	ProtocolType() string
-	Request() *http.Request
 	Method() string
 	RequestURL() string
 	Headers() map[string][]string
@@ -54,68 +53,43 @@ type CallInfo interface {
 
 type callInfoImpl struct {
 	call         *models.Call
-	req          *http.Request
+	body         io.Reader
+	deadline     common.DateTime
 	isCloudEvent bool
 }
 
-func (ci callInfoImpl) IsCloudEvent() bool {
-	return ci.isCloudEvent
-}
+func (ci callInfoImpl) IsCloudEvent() bool        { return ci.isCloudEvent }
+func (ci callInfoImpl) CallID() string            { return ci.call.ID }
+func (ci callInfoImpl) ContentType() string       { return http.Header(ci.call.Headers).Get("Content-Type") }
+func (ci callInfoImpl) Input() io.Reader          { return ci.body }
+func (ci callInfoImpl) Deadline() common.DateTime { return ci.deadline }
 
-func (ci callInfoImpl) CallID() string {
-	return ci.call.ID
-}
+// CallType returns whether the function call was "sync" or "async".
+func (ci callInfoImpl) CallType() string { return ci.call.Type }
 
-func (ci callInfoImpl) ContentType() string {
-	return ci.req.Header.Get("Content-Type")
-}
+// ProtocolType at the moment can only be "http". Once we have Kafka or other
+// possible origins for calls this will track what the origin was.
+func (ci callInfoImpl) ProtocolType() string         { return "http" }
+func (ci callInfoImpl) Method() string               { return ci.call.Method }
+func (ci callInfoImpl) RequestURL() string           { return ci.call.URL }
+func (ci callInfoImpl) Headers() map[string][]string { return ci.call.Headers }
 
-// Input returns the call's input/body
-func (ci callInfoImpl) Input() io.Reader {
-	return ci.req.Body
-}
-
-func (ci callInfoImpl) Deadline() common.DateTime {
-	deadline, ok := ci.req.Context().Deadline()
+func NewCallInfo(ctx context.Context, isCloudEvent bool, call *models.Call, body io.Reader) CallInfo {
+	deadline, ok := ctx.Deadline()
 	if !ok {
 		// In theory deadline must have been set here
 		panic("No context deadline is set in protocol, should never happen")
 	}
-	return common.DateTime(deadline)
-}
-
-// CallType returns whether the function call was "sync" or "async".
-func (ci callInfoImpl) CallType() string {
-	return ci.call.Type
-}
-
-// ProtocolType at the moment can only be "http". Once we have Kafka or other
-// possible origins for calls this will track what the origin was.
-func (ci callInfoImpl) ProtocolType() string {
-	return "http"
-}
-
-// Request basically just for the http format, since that's the only that makes sense to have the full request as is
-func (ci callInfoImpl) Request() *http.Request {
-	return ci.req
-}
-func (ci callInfoImpl) Method() string {
-	return ci.call.Method
-}
-func (ci callInfoImpl) RequestURL() string {
-	return ci.call.URL
-}
-func (ci callInfoImpl) Headers() map[string][]string {
-	return ci.req.Header
-}
-
-func NewCallInfo(isCloudEvent bool, call *models.Call, req *http.Request) CallInfo {
-	ci := &callInfoImpl{
-		isCloudEvent: isCloudEvent,
-		call:         call,
-		req:          req,
+	if body == nil {
+		panic("body must be non-nil")
 	}
-	return ci
+
+	return &callInfoImpl{
+		isCloudEvent: isCloudEvent,
+		deadline:     common.DateTime(deadline),
+		call:         call,
+		body:         body,
+	}
 }
 
 // Protocol defines all protocols that operates a ContainerIO.

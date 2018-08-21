@@ -103,10 +103,7 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	ctx, span := trace.StartSpan(ctx, "agent_async_run")
 	defer span.End()
 
-	call, err := a.GetCall(
-		FromModel(model),
-		WithContext(ctx), // NOTE: order is important
-	)
+	call, err := a.GetCall(ctx, FromModel(model))
 	if err != nil {
 		logrus.WithError(err).Error("error getting async call")
 		return
@@ -117,7 +114,7 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	// are at least once semantics, which is really preferable to at most
 	// once, so let's do it for now
 
-	err = a.Submit(call)
+	err = a.Submit(ctx, call)
 	if err != nil {
 		// NOTE: these could be errors / timeouts from the call that we're
 		// logging here (i.e. not our fault), but it's likely better to log

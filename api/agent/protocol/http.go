@@ -27,7 +27,13 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	ctx, span := trace.StartSpan(ctx, "dispatch_http")
 	defer span.End()
 
-	req := ci.Request()
+	req, err := http.NewRequest(ci.Method(), ci.RequestURL(), ci.Input())
+	if err != nil {
+		return err
+	}
+
+	req = req.WithContext(ctx)
+	req.Header = http.Header(ci.Headers())
 
 	req.RequestURI = ci.RequestURL() // force set to this, for req.Write to use (TODO? still?)
 
@@ -39,14 +45,14 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 
 	_, span = trace.StartSpan(ctx, "dispatch_http_write_request")
 	// req.Write handles if the user does not specify content length
-	err := req.Write(h.in)
+	err = req.Write(h.in)
 	span.End()
 	if err != nil {
 		return err
 	}
 
 	_, span = trace.StartSpan(ctx, "dispatch_http_read_response")
-	resp, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request())
+	resp, err := http.ReadResponse(bufio.NewReader(h.out), req)
 	span.End()
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid http response from function err: %v", err))

@@ -11,6 +11,7 @@ export FN_DB_URL=$(spawn_${DB_NAME} ${CONTEXT})
 # avoid port conflicts with api_test.sh which are run in parallel
 export FN_API_URL="http://localhost:8085"
 export FN_DS_DB_PING_MAX_RETRIES=60
+#export FN_LOG_LEVEL=debug
 
 # pure runner and LB agent required settings below
 export FN_MAX_REQUEST_SIZE=6291456

@@ -71,7 +71,7 @@ import (
 type Agent interface {
 	// GetCall will return a Call that is executable by the Agent, which
 	// can be built via various CallOpt's provided to the method.
-	GetCall(...CallOpt) (Call, error)
+	GetCall(ctx context.Context, opts ...CallOpt) (Call, error)
 
 	// Submit will attempt to execute a call locally, a Call may store information
 	// about itself in its Start and End methods, which will be called in Submit
@@ -79,7 +79,7 @@ type Agent interface {
 	// will be returned if there is an issue executing the call or the error
 	// may be from the call's execution itself (if, say, the container dies,
 	// or the call times out).
-	Submit(Call) error
+	Submit(ctx context.Context, call Call) error
 
 	// Close will wait for any outstanding calls to complete and then exit.
 	// Closing the agent will invoke Close on the underlying DataAccess.
@@ -239,16 +239,17 @@ func (a *agent) Close() error {
 	return err
 }
 
-func (a *agent) Submit(callI Call) error {
+func (a *agent) Submit(ctx context.Context, callI Call) error {
 	if !a.shutWg.AddSession(1) {
 		return models.ErrCallTimeoutServerBusy
 	}
 
 	call := callI.(*call)
-
-	ctx := call.req.Context()
 	ctx, span := trace.StartSpan(ctx, "agent_submit")
 	defer span.End()
+
+	// XXX(reed): surface fnid,trigid, rid of route
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"id": call.ID, "app_id": call.AppID, "route": call.Path})
 
 	err := a.submit(ctx, call)
 	return err
@@ -762,7 +763,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	errApp := make(chan error, 1)
 	go func() {
-		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req.WithContext(ctx))
+		ci := protocol.NewCallInfo(ctx, call.IsCloudEvent, call.Call, call.RequestBody())
 		errApp <- proto.Dispatch(ctx, ci, call.w)
 	}()
 
@@ -815,7 +816,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		cpus:    uint64(call.CPUs),
 		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.req.Body,
+		stdin:   call.RequestBody(),
 		stdout:  common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
 		stderr:  call.stderr,
 		stats:   &call.Stats,

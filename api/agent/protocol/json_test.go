@@ -18,7 +18,7 @@ type RequestData struct {
 	A string `json:"a"`
 }
 
-func setupRequest(data interface{}) (*callInfoImpl, context.CancelFunc) {
+func setupRequest(data interface{}) (CallInfo, context.CancelFunc) {
 	req := &http.Request{
 		Method: http.MethodPost,
 		URL: &url.URL{
@@ -37,19 +37,21 @@ func setupRequest(data interface{}) (*callInfoImpl, context.CancelFunc) {
 		Host: "localhost:8080",
 	}
 	var buf bytes.Buffer
-
 	if data != nil {
 		_ = json.NewEncoder(&buf).Encode(data)
 	}
 	req.Body = ioutil.NopCloser(&buf)
 
-	call := &models.Call{Type: "sync"}
-
-	// fixup URL in models.Call
-	call.URL = req.URL.String()
+	call := &models.Call{
+		Type:    "sync",
+		Method:  req.Method,
+		Headers: req.Header,
+		Payload: buf.String(),
+		URL:     req.URL.String(),
+	}
 
 	ctx, cancel := context.WithTimeout(req.Context(), 1*time.Second)
-	ci := &callInfoImpl{call: call, req: req.WithContext(ctx)}
+	ci := NewCallInfo(ctx, false, call, &buf)
 	return ci, cancel
 }
 
@@ -164,9 +166,9 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 		t.Errorf("Request body assertion mismatch: expected: %s, got %s",
 			"<empty-string>", incomingReq.Body)
 	}
-	if !models.Headers(ci.req.Header).Equals(models.Headers(incomingReq.Protocol.Headers)) {
+	if !models.Headers(ci.Headers()).Equals(models.Headers(incomingReq.Protocol.Headers)) {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
-			ci.req.Header, incomingReq.Protocol.Headers)
+			ci.Headers(), incomingReq.Protocol.Headers)
 	}
 	if incomingReq.Protocol.Type != ci.ProtocolType() {
 		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
@@ -205,8 +207,8 @@ func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	if incomingReq.Protocol.RequestURL != ci.call.URL {
+	if incomingReq.Protocol.RequestURL != ci.RequestURL() {
 		t.Errorf("Request URL does not match protocol URL: expected: %s, got %s",
-			ci.call.URL, incomingReq.Protocol.RequestURL)
+			ci.RequestURL(), incomingReq.Protocol.RequestURL)
 	}
 }
