@@ -470,7 +470,7 @@ definitions:
       image:
         type: string
         description: "Full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
-      mem:
+      memory:
         type: integer
         format: uint64
         description: "Maximum usable memory given to function (MiB)."
