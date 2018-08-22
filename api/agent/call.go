@@ -431,7 +431,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.handler = a.da
 	c.ct = a
-	c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, c.Call)
+	c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)

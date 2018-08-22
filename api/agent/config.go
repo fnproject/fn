@@ -33,6 +33,7 @@ type Config struct {
 	EnableNBResourceTracker bool          `json:"enable_nb_resource_tracker"`
 	MaxTmpFsInodes          uint64        `json:"max_tmpfs_inodes"`
 	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
+	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
 }
 
 const (
@@ -83,6 +84,8 @@ const (
 	EnvMaxTmpFsInodes = "FN_MAX_TMPFS_INODES"
 	// EnvDisableReadOnlyRootFs makes the root fs for a container have rw permissions, by default it is read only
 	EnvDisableReadOnlyRootFs = "FN_DISABLE_READONLY_ROOTFS"
+	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
+	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
 
 	// MaxMsDisabled is used to determine whether mr freeze is lying in wait. TODO remove this manuever
 	MaxMsDisabled = time.Duration(math.MaxInt64)
@@ -136,6 +139,9 @@ func NewConfig() (*Config, error) {
 	}
 	if _, ok := os.LookupEnv(EnvDisableReadOnlyRootFs); ok {
 		cfg.DisableReadOnlyRootFs = true
+	}
+	if _, ok := os.LookupEnv(EnvDisableDebugUserLogs); ok {
+		cfg.DisableDebugUserLogs = true
 	}
 
 	if cfg.EjectIdle == time.Duration(0) {
