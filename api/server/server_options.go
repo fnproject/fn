@@ -86,3 +86,20 @@ func (e errTooBig) Code() int { return http.StatusRequestEntityTooLarge }
 func (e errTooBig) Error() string {
 	return fmt.Sprintf("Content-Length too large for this server, %d > max %d", e.n, e.max)
 }
+
+// FunctionResponseModifier is a function that allows the HTTP response
+// from a function invocation to be modified
+type FunctionResponseModifier interface {
+	// ModifyResponse provides the ability to mutate the headers of the
+	// HTTP response from a function. The same mechanism could be used
+	// to mutate the body in the future if necessary.
+	ModifyHeaders(rw http.Header)
+}
+
+// WithFunctionResponseModifier adds a function that can modify
+func WithFunctionResponseModifier(modifier FunctionResponseModifier) Option {
+	return func(ctx context.Context, s *Server) error {
+		s.responseModifier = modifier
+		return nil
+	}
+}

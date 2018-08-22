@@ -592,14 +592,6 @@ func WithFnAnnotator(provider FnAnnotator) Option {
 	}
 }
 
-// WithFunctionResponseModifier adds a function that can modify
-func WithFunctionResponseModifier(modifier FunctionResponseModifier) Option {
-	return func(ctx context.Context, s *Server) error {
-		s.responseModifier = modifier
-		return nil
-	}
-}
-
 // WithAdminServer starts the admin server on the specified port.
 func WithAdminServer(port int) Option {
 	return func(ctx context.Context, s *Server) error {

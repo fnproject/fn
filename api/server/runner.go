@@ -142,15 +142,6 @@ type syncResponseWriter struct {
 func (s *syncResponseWriter) Header() http.Header  { return s.headers }
 func (s *syncResponseWriter) WriteHeader(code int) { s.status = code }
 
-// FunctionResponseModifier is a function that allows the HTTP response
-// from a function invocation to be modified
-type FunctionResponseModifier interface {
-	// ModifyResponse provides the ability to mutate the headers of the
-	// HTTP response from a function. The same mechanism could be used
-	// to mutate the body in the future if necessary.
-	ModifyHeaders(rw http.Header)
-}
-
 func (s *Server) writeBufferedResponse(bw *syncResponseWriter, rw http.ResponseWriter) error {
 	// first modify the header via the option, prior to computing Content-Length or
 	// further sanitization
