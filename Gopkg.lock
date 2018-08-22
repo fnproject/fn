@@ -222,6 +222,16 @@
   revision = "0dae4fefe7c0e190f7b5a78dac28a1c82cc8d849"
 
 [[projects]]
+  name = "github.com/leanovate/gopter"
+  packages = [
+    ".",
+    "gen",
+    "prop"
+  ]
+  revision = "1f4d0ba27bd5df5390eb622bcb458f8f7ac2573c"
+  version = "v0.2.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/lib/pq"
   packages = [
@@ -494,6 +504,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "643d4a3862aeaa6f1115edc26fa3f1f3a6822bb17c01d60fcbdf9ce98bf183ac"
+  inputs-digest = "6c6cfaf48ee2f7f926ed2d063af6a65a505f927e7354fe4613ead8c8a6efb203"
   solver-name = "gps-cdcl"
   solver-version = 1

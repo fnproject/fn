@@ -2,7 +2,12 @@ package models
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
+
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 )
 
 var openEmptyJSON = `{"id":"","name":"","app_id":"","fn_id":"","created_at":"0001-01-01T00:00:00.000Z","updated_at":"0001-01-01T00:00:00.000Z","type":"","source":""`
@@ -61,4 +66,84 @@ func TestTriggerValidate(t *testing.T) {
 			t.Errorf("Expected Trigger to be invalid, but no err returned. Trigger: %#v", tc.val)
 		}
 	}
+}
+
+func triggerReflectType() reflect.Type {
+	trigger := Trigger{}
+	return reflect.TypeOf(trigger)
+}
+
+func triggerFieldGenerators(t *testing.T) map[string]gopter.Gen {
+	fieldGens := make(map[string]gopter.Gen)
+	fieldGens["ID"] = gen.AlphaString()
+	fieldGens["Name"] = gen.AlphaString()
+	fieldGens["AppID"] = gen.AlphaString()
+	fieldGens["FnID"] = gen.AlphaString()
+	fieldGens["CreatedAt"] = datetimeGenerator()
+	fieldGens["UpdatedAt"] = datetimeGenerator()
+	fieldGens["Type"] = gen.AlphaString()
+	fieldGens["Source"] = gen.AlphaString()
+	fieldGens["Annotations"] = annotationGenerator()
+
+	triggerFieldCount := triggerReflectType().NumField()
+
+	if triggerFieldCount != len(fieldGens) {
+		t.Fatalf("Trigger struct field count, %d, does not match trigger generator field count, %d", triggerFieldCount, len(fieldGens))
+	}
+
+	return fieldGens
+}
+
+func triggerGenerator(t *testing.T) gopter.Gen {
+	return gen.Struct(triggerReflectType(), triggerFieldGenerators(t))
+}
+
+func TestTriggerEquality(t *testing.T) {
+	properties := gopter.NewProperties(nil)
+
+	properties.Property("A trigger should always equal itself", prop.ForAll(
+		func(trigger Trigger) bool {
+			return trigger.Equals(&trigger)
+		},
+		triggerGenerator(t),
+	))
+
+	properties.Property("A trigger should always equal a clone of itself", prop.ForAll(
+		func(trigger Trigger) bool {
+			clone := trigger.Clone()
+			return trigger.Equals(clone)
+		},
+		triggerGenerator(t),
+	))
+
+	triggerFieldGens := triggerFieldGenerators(t)
+
+	properties.Property("A trigger should never match a modified version of itself", prop.ForAll(
+		func(trigger Trigger) bool {
+			for fieldName, fieldGen := range triggerFieldGens {
+
+				if fieldName == "CreatedAt" ||
+					fieldName == "UpdatedAt" {
+					continue
+				}
+
+				currentValue, newValue := novelValue(t, reflect.ValueOf(trigger), fieldName, fieldGen)
+
+				clone := trigger.Clone()
+				s := reflect.ValueOf(clone).Elem()
+				field := s.FieldByName(fieldName)
+
+				field.Set(newValue)
+
+				if trigger.Equals(clone) {
+					t.Errorf("Changed field, %s, from {%v} to {%v}, but still equal.", fieldName, currentValue, newValue)
+					return false
+				}
+			}
+			return true
+		},
+		triggerGenerator(t),
+	))
+
+	properties.TestingRun(t)
 }
