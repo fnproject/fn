@@ -2,9 +2,6 @@ package server
 
 import (
 	"bytes"
-	"io"
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/fnproject/fn/api"
@@ -79,26 +76,5 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 		return err
 	}
 
-	// if they don't set a content-type - detect it
-	if writer.Header().Get("Content-Type") == "" {
-		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
-		var contentType string
-		jsonPrefix := [1]byte{'{'} // stack allocated
-		if bytes.HasPrefix(buf.Bytes(), jsonPrefix[:]) {
-			// try to detect json, since DetectContentType isn't a hipster.
-			contentType = "application/json; charset=utf-8"
-		} else {
-			contentType = http.DetectContentType(buf.Bytes())
-		}
-		writer.Header().Set("Content-Type", contentType)
-	}
-
-	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
-
-	if writer.status > 0 {
-		c.Writer.WriteHeader(writer.status)
-	}
-	io.Copy(c.Writer, &writer)
-
-	return nil
+	return s.writeBufferedResponse(&writer, c.Writer)
 }

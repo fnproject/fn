@@ -123,28 +123,7 @@ func (s *Server) ServeRoute(c *gin.Context, app *models.App, route *models.Route
 		return err
 	}
 
-	// if they don't set a content-type - detect it
-	if writer.Header().Get("Content-Type") == "" {
-		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
-		var contentType string
-		jsonPrefix := [1]byte{'{'} // stack allocated
-		if bytes.HasPrefix(buf.Bytes(), jsonPrefix[:]) {
-			// try to detect json, since DetectContentType isn't a hipster.
-			contentType = "application/json; charset=utf-8"
-		} else {
-			contentType = http.DetectContentType(buf.Bytes())
-		}
-		writer.Header().Set("Content-Type", contentType)
-	}
-
-	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
-
-	if writer.status > 0 {
-		c.Writer.WriteHeader(writer.status)
-	}
-	io.Copy(c.Writer, &writer)
-
-	return nil
+	return s.writeBufferedResponse(&writer, c.Writer)
 }
 
 var _ http.ResponseWriter = new(syncResponseWriter)
@@ -162,3 +141,50 @@ type syncResponseWriter struct {
 
 func (s *syncResponseWriter) Header() http.Header  { return s.headers }
 func (s *syncResponseWriter) WriteHeader(code int) { s.status = code }
+
+// FunctionResponseModifier is a function that allows the HTTP response
+// from a function invocation to be modified
+type FunctionResponseModifier interface {
+	// ModifyResponse provides the ability to mutate the headers of the
+	// HTTP response from a function. The same mechanism could be used
+	// to mutate the body in the future if necessary.
+	ModifyHeaders(rw http.Header)
+}
+
+func (s *Server) writeBufferedResponse(bw *syncResponseWriter, rw http.ResponseWriter) error {
+	// first modify the header via the option, prior to computing Content-Length or
+	// further sanitization
+	s.handleModifyFunctionResponse(bw)
+
+	// if they don't set a content-type - detect it
+	if bw.Header().Get("Content-Type") == "" {
+		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
+		var contentType string
+		jsonPrefix := [1]byte{'{'} // stack allocated
+		if bytes.HasPrefix(bw.Buffer.Bytes(), jsonPrefix[:]) {
+			// try to detect json, since DetectContentType isn't a hipster.
+			contentType = "application/json; charset=utf-8"
+		} else {
+			contentType = http.DetectContentType(bw.Buffer.Bytes())
+		}
+		bw.Header().Set("Content-Type", contentType)
+	}
+
+	bw.Header().Set("Content-Length", strconv.Itoa(int(bw.Buffer.Len())))
+
+	if bw.status > 0 {
+		rw.WriteHeader(bw.status)
+	}
+
+	_, err := io.Copy(rw, bw)
+	if err != nil {
+		return models.ErrCopyResponseFromBufferFailed
+	}
+	return err
+}
+
+func (s *Server) handleModifyFunctionResponse(rw *syncResponseWriter) {
+	if s.responseModifier != nil {
+		s.responseModifier.ModifyHeaders(rw.Header())
+	}
+}

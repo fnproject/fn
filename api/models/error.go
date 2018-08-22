@@ -206,10 +206,13 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("Invalid annotation change, new key(s) exceed maximum permitted number of annotations keys (%d)", maxAnnotationsKeys),
 	}
-
 	ErrAsyncUnsupported = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Async functions are not supported on this server"),
+	}
+	ErrCopyResponseFromBufferFailed = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Failed to process buffered response"),
 	}
 )
 

@@ -206,6 +206,7 @@ type Server struct {
 	promExporter           *prometheus.Exporter
 	triggerAnnotator       TriggerAnnotator
 	fnAnnotator            FnAnnotator
+	responseModifier       FunctionResponseModifier
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -587,6 +588,14 @@ func WithTriggerAnnotator(provider TriggerAnnotator) Option {
 func WithFnAnnotator(provider FnAnnotator) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.fnAnnotator = provider
+		return nil
+	}
+}
+
+// WithFunctionResponseModifier adds a function that can modify
+func WithFunctionResponseModifier(modifier FunctionResponseModifier) Option {
+	return func(ctx context.Context, s *Server) error {
+		s.responseModifier = modifier
 		return nil
 	}
 }
