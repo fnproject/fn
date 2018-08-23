@@ -51,20 +51,21 @@ func TestTriggerCreate(t *testing.T) {
 
 		{commonDS, logs.NewMock(), BaseRoute, `{"app_id":"appid", "fn_id":"fnid", "name": "Test" }`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "appid", "fn_id": "fnid", "type":"http"}`, http.StatusBadRequest, models.ErrTriggerMissingSource},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "appid", "fn_id": "fnid", "type":"http", "source":"src"}`, http.StatusBadRequest, models.ErrTriggerMissingSourcePrefix},
 
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "1234567890123456789012345678901", "app_id": "appid", "fn_id": "fnid", "type":"http"}`, http.StatusBadRequest, models.ErrTriggerTooLongName},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "&&%@!#$#@$","app_id": "appid", "fn_id": "fnid", "type":"http" }`, http.StatusBadRequest, models.ErrTriggerInvalidName},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "id": "asdasca", "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerIDProvided},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "unsupported", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "/src", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "id": "asdasca", "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "/src"}`, http.StatusBadRequest, models.ErrTriggerIDProvided},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "unsupported", "source": "/src"}`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
 
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid2", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerFnIDNotSameApp},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid2", "fn_id": "fnid", "type": "http", "source": "/src"}`, http.StatusBadRequest, models.ErrTriggerFnIDNotSameApp},
 
 		// // success
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusOK, nil},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "/src"}`, http.StatusOK, nil},
 
 		//repeated name
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "src"}`, http.StatusConflict, nil},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "/src"}`, http.StatusConflict, nil},
 	} {
 
 		rnr, cancel := testRunner(t)
@@ -402,7 +403,7 @@ func TestTriggerUpdate(t *testing.T) {
 		AppID:  "appid",
 		FnID:   "fnid",
 		Type:   "http",
-		Source: "source"}
+		Source: "/source"}
 
 	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn}, []*models.Trigger{trig})
 
@@ -419,6 +420,7 @@ func TestTriggerUpdate(t *testing.T) {
 		{commonDS, logs.NewMock(), BaseRoute + "/notexist", `{"id": "notexist", "name":"changed"}`, "", http.StatusNotFound, nil},
 		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "nonmatching", "name":"changed}`, "", http.StatusBadRequest, models.ErrTriggerIDMismatch},
 		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "triggerid", "name":"changed"}`, "changed", http.StatusOK, nil},
+		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "triggerid", "source":"noprefix"}`, "changed", http.StatusBadRequest, nil},
 		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"name":"again"}`, "again", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)

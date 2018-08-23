@@ -1286,7 +1286,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			for i := 0; i < 10; i++ {
 				trigger := rp.ValidTrigger(testApp.ID, testFn.ID)
-				trigger.Source = fmt.Sprintf("src_%v", i)
+				trigger.Source = fmt.Sprintf("/src_%v", i)
 				storedTriggers = append(storedTriggers, h.GivenTriggerInDb(trigger))
 			}
 
@@ -1397,12 +1397,12 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			for i := 0; i < 10; i++ {
 				trigger := rp.ValidTrigger(testApp.ID, testFn.ID)
-				trigger.Source = fmt.Sprintf("src_%v", i)
+				trigger.Source = fmt.Sprintf("/src_%v", i)
 				storedTriggers = append(storedTriggers, h.GivenTriggerInDb(trigger))
 			}
 
 			trigger := rp.ValidTrigger(testApp.ID, testFn2.ID)
-			trigger.Source = fmt.Sprintf("src_%v", 11)
+			trigger.Source = fmt.Sprintf("/src_%v", 11)
 			trigger = h.GivenTriggerInDb(trigger)
 			storedTriggers = append(storedTriggers, trigger)
 
@@ -1458,7 +1458,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
 
 			testTrigger.Name = "newName"
-			testTrigger.Source = "newSource"
+			testTrigger.Source = "/newSource"
 
 			time.Sleep(10 * time.Millisecond)
 			gotTrigger, err := ds.UpdateTrigger(ctx, testTrigger)
@@ -1557,7 +1557,7 @@ func RunTriggerBySourceTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvide
 		ds := dsf(t)
 		ctx := rp.DefaultCtx()
 		t.Run("get_non_existant_trigger", func(t *testing.T) {
-			_, err := ds.GetTriggerBySource(ctx, "none", "http", "source")
+			_, err := ds.GetTriggerBySource(ctx, "none", "http", "/source")
 			if err != models.ErrTriggerNotFound {
 				t.Fatalf("Expecting trigger not found, got %s", err)
 			}
