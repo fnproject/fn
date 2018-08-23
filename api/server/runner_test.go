@@ -488,3 +488,51 @@ func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 		}
 	}
 }
+
+func TestInvokeRouteWithResponseModifier(t *testing.T) {
+	buf := setLogBuffer()
+	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
+
+	ds := datastore.NewMockInit(
+		[]*models.App{app},
+		[]*models.Route{
+			{Path: "/hot", AppID: app.ID, Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 5},
+		},
+	)
+
+	rnr, cancel := testRunner(t, ds)
+	defer cancel()
+	logDB := logs.NewMock()
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeFull, WithFunctionResponseModifier(&resModifier{}))
+
+	for i, test := range []struct {
+		path          string
+		body          string
+		expectedCode  int
+		expectedError error
+	}{
+		{"/r/myapp/hot", "", http.StatusOK, nil},
+	} {
+		_, rec := routerRequest(t, srv.Router, "POST", test.path, nil)
+
+		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
+			t.Fatalf("Test %d: Expected status code for path %s to be %d but was %d",
+				i, test.path, test.expectedCode, rec.Code)
+		}
+
+		if rec.Header().Get("xxx-foo") != "bar" {
+			t.Fatalf("Expected header to be set by function response modifier")
+		}
+
+		if test.expectedError != nil {
+			resp := getErrorResponse(t, rec)
+
+			if !strings.Contains(resp.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: Expected error message to have `%s`, but got `%s`",
+					i, test.expectedError.Error(), resp.Message)
+			}
+		}
+	}
+}
