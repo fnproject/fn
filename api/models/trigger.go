@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 	"unicode"
 
@@ -119,6 +120,10 @@ var (
 	ErrTriggerMissingSource = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Trigger Source")}
+	//ErrTriggerMissingSourcePrefix - source does not have a / prefix
+	ErrTriggerMissingSourcePrefix = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Trigger Source Prefix '/'")}
 	//ErrTriggerNotFound - trigger not found
 	ErrTriggerNotFound = err{
 		code:  http.StatusNotFound,
@@ -162,6 +167,10 @@ func (t *Trigger) Validate() error {
 
 	if t.Source == "" {
 		return ErrTriggerMissingSource
+	}
+
+	if !strings.HasPrefix(t.Source, "/") {
+		return ErrTriggerMissingSourcePrefix
 	}
 
 	err := t.Annotations.Validate()
