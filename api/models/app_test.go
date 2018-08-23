@@ -20,7 +20,9 @@ func appReflectType() reflect.Type {
 }
 
 func configGenerator() gopter.Gen {
-	return gen.MapOf(gen.AlphaString(), gen.AlphaString())
+	return gen.MapOf(gen.AlphaString(), gen.AlphaString()).Map(func(m map[string]string) Config {
+		return Config(m)
+	})
 }
 
 func annotationGenerator() gopter.Gen {
@@ -73,6 +75,10 @@ func novelValue(t *testing.T, originalInstance reflect.Value, fieldName string, 
 	for i := 0; i < 100; i++ {
 		if fieldName == "Annotations" {
 			if !newValue.(Annotations).Equals(currentValue.(Annotations)) {
+				break
+			}
+		} else if fieldName == "Config" {
+			if !newValue.(Config).Equals(currentValue.(Config)) {
 				break
 			}
 		} else {
