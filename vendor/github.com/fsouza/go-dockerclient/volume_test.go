@@ -18,12 +18,14 @@ func TestListVolumes(t *testing.T) {
 	{
 		"Name": "tardis",
 		"Driver": "local",
-		"Mountpoint": "/var/lib/docker/volumes/tardis"
+		"Mountpoint": "/var/lib/docker/volumes/tardis",
+		"CreatedAt": "2017-07-19T12:00:26Z"
 	},
 	{
 		"Name": "foo",
 		"Driver": "bar",
-		"Mountpoint": "/var/lib/docker/volumes/bar"
+		"Mountpoint": "/var/lib/docker/volumes/bar",
+		"CreatedAt": "2017-07-19T12:01:26Z"
 	}
 ]`
 	body := `{ "Volumes": ` + volumesData + ` }`

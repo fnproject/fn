@@ -133,8 +133,7 @@
     "internal/jsonmessage",
     "internal/term"
   ]
-  revision = "8842d40dbf5ee062d80f9dc429db31a0fe0cdc73"
-  version = "v1.2.2"
+  revision = "ddfe58fbc21ae55e43040f0fef017a5fddb8e54f"
 
 [[projects]]
   name = "github.com/garyburd/redigo"
@@ -502,6 +501,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6a60a2130326efcc95c191b4d0a160b2fc8770c86c6c6f5646ecd93b42e7fbb5"
+  inputs-digest = "dbce15832ac7b58692cd257f32b9d152d8f6ca092ac9d5723c2a313a0ce6e13d"
   solver-name = "gps-cdcl"
   solver-version = 1
