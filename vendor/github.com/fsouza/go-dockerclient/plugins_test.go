@@ -66,7 +66,7 @@ const (
     "Id": "5724e2c8652da337ab2eedd19fc6fc0ec908e4bd907c7421bf6a8dfc70c4c078",
     "Name": "tiborvass/sample-volume-plugin",
     "Tag": "latest",
-    "Active": true,
+    "Enabled": true,
     "Settings": {
       "Env": [
         "DEBUG=0"

@@ -3,8 +3,8 @@
   version = "v0.4.5"
 
 [[constraint]]
+  branch = "master"
   name = "github.com/docker/docker"
-  revision = "3dfb26ab3cbf961298f8ce3f94659b5fe4146ceb"
 
 [[constraint]]
   name = "github.com/docker/go-units"
