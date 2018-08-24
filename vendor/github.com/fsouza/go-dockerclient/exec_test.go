@@ -120,6 +120,68 @@ func TestExecCreateWithEnv(t *testing.T) {
 	}
 }
 
+func TestExecCreateWithWorkingDirErr(t *testing.T) {
+	t.Parallel()
+	jsonContainer := `{"Id": "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"}`
+	var expected struct{ ID string }
+	err := json.Unmarshal([]byte(jsonContainer), &expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeRT := &FakeRoundTripper{message: jsonContainer, status: http.StatusOK}
+	client := newTestClient(fakeRT)
+	config := CreateExecOptions{
+		Container:    "test",
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: false,
+		Tty:          false,
+		WorkingDir:   "/tmp",
+		Cmd:          []string{"touch", "file"},
+		User:         "a-user",
+	}
+	_, err = client.CreateExec(config)
+	if err == nil || err.Error() != "exec configuration WorkingDir is only supported in API#1.35 and above" {
+		t.Error("CreateExec: options contain WorkingDir for unsupported api version")
+	}
+}
+
+func TestExecCreateWithWorkingDir(t *testing.T) {
+	t.Parallel()
+	jsonContainer := `{"Id": "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"}`
+	var expected struct{ ID string }
+	err := json.Unmarshal([]byte(jsonContainer), &expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeRT := &FakeRoundTripper{message: jsonContainer, status: http.StatusOK}
+	endpoint := "http://localhost:4243"
+	u, _ := parseEndpoint("http://localhost:4243", false)
+	testAPIVersion, _ := NewAPIVersion("1.35")
+	client := Client{
+		HTTPClient:             &http.Client{Transport: fakeRT},
+		Dialer:                 &net.Dialer{},
+		endpoint:               endpoint,
+		endpointURL:            u,
+		SkipServerVersionCheck: true,
+		serverAPIVersion:       testAPIVersion,
+	}
+	config := CreateExecOptions{
+		Container:    "test",
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: false,
+		Tty:          false,
+		WorkingDir:   "/tmp",
+		Cmd:          []string{"touch", "file"},
+		User:         "a-user",
+	}
+	_, err = client.CreateExec(config)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestExecStartDetached(t *testing.T) {
 	t.Parallel()
 	execID := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"

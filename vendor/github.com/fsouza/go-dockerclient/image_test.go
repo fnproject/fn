@@ -801,6 +801,7 @@ func TestBuildImageParameters(t *testing.T) {
 		Labels:              map[string]string{"k": "v"},
 		NetworkMode:         "host",
 		CgroupParent:        "cgparent",
+		SecurityOpt:         []string{"securityoptions"},
 	}
 	err := client.BuildImage(opts)
 	if err != nil && !strings.Contains(err.Error(), "build image fail") {
@@ -825,10 +826,11 @@ func TestBuildImageParameters(t *testing.T) {
 		"buildargs":    {`{"SOME_VAR":"some_value"}`},
 		"networkmode":  {"host"},
 		"cgroupparent": {"cgparent"},
+		"securityopt":  {"securityoptions"},
 	}
 	got := map[string][]string(req.URL.Query())
 	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("BuildImage: wrong query string. Want %#v. Got %#v.", expected, got)
+		t.Errorf("BuildImage: wrong query string. Want %#v.\n Got %#v.", expected, got)
 	}
 }
 

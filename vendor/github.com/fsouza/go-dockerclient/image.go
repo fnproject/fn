@@ -6,6 +6,7 @@ package docker
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -16,8 +17,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 // APIImages represent an image returned in the ListImages call.
@@ -473,6 +472,8 @@ type BuildImageOptions struct {
 	NetworkMode         string             `qs:"networkmode"`
 	InactivityTimeout   time.Duration      `qs:"-"`
 	CgroupParent        string             `qs:"cgroupparent"`
+	SecurityOpt         []string           `qs:"securityopt"`
+	Target              string             `gs:"target"`
 	Context             context.Context
 }
 

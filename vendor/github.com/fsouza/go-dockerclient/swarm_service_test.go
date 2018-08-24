@@ -181,6 +181,29 @@ func TestUpdateService(t *testing.T) {
 	}
 }
 
+func TestUpdateServiceRollback(t *testing.T) {
+	t.Parallel()
+	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
+	client := newTestClient(fakeRT)
+	id := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
+	update := UpdateServiceOptions{Version: 23, Rollback: "previous"}
+	err := client.UpdateService(id, update)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := fakeRT.requests[0]
+	if req.Method != "POST" {
+		t.Errorf("UpdateService: wrong HTTP method. Want %q. Got %q.", "POST", req.Method)
+	}
+	expectedURL, _ := url.Parse(client.getURL("/services/" + id + "/update?version=23&rollback=previous"))
+	if req.URL.Path != expectedURL.Path {
+		t.Errorf("UpdateService: Wrong path in request. Want %q. Got %q.", expectedURL.Path, req.URL.Path)
+	}
+	if !reflect.DeepEqual(req.URL.Query(), expectedURL.Query()) {
+		t.Errorf("UpdateService: Wrong querystring in request. Want %v. Got %v.", expectedURL.Query(), req.URL.Query())
+	}
+}
+
 func TestUpdateServiceWithAuthentication(t *testing.T) {
 	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
