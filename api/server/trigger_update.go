@@ -31,7 +31,8 @@ func (s *Server) handleTriggerUpdate(c *gin.Context) {
 		}
 	}
 
-	triggerUpdated, err := s.datastore.UpdateTrigger(c, trigger)
+	ctx := c.Request.Context()
+	triggerUpdated, err := s.datastore.UpdateTrigger(ctx, trigger)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
