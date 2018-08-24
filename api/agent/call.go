@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -46,35 +45,10 @@ type CallOverrider func(*models.Call, map[string]string) (map[string]string, err
 // TODO build w/o closures... lazy
 type CallOpt func(c *call) error
 
-const (
-	ceMimeType = "application/cloudevents+json"
-)
-
 // FromRequest initialises a call to a route from an HTTP request
 // deprecate with routes
 func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOpt {
 	return func(c *call) error {
-		ctx := req.Context()
-
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				route.Format = models.FormatCloudEvent
-			}
-		}
-
-		if route.Format == "" {
-			route.Format = models.FormatDefault
-		}
 
 		id := id.New().String()
 
@@ -90,9 +64,13 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 			}
 		}
 
+		if route.Format == "" {
+			route.Format = models.FormatDefault
+		}
+
 		// this ensures that there is an image, path, timeouts, memory, etc are valid.
 		// NOTE: this means assign any changes above into route's fields
-		err = route.Validate()
+		err := route.Validate()
 		if err != nil {
 			return err
 		}
@@ -135,23 +113,6 @@ func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOp
 // Sets up a call from an http trigger request
 func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
 	return func(c *call) error {
-		ctx := req.Context()
-
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				fn.Format = models.FormatCloudEvent
-			}
-		}
 
 		if fn.Format == "" {
 			fn.Format = models.FormatDefault
@@ -207,23 +168,6 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 // Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
 	return func(c *call) error {
-		ctx := req.Context()
-
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				fn.Format = models.FormatCloudEvent
-			}
-		}
 
 		if fn.Format == "" {
 			fn.Format = models.FormatDefault
