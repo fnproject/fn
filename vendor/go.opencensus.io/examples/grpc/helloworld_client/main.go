@@ -46,7 +46,7 @@ func main() {
 	// stats handler to enable stats and tracing.
 	conn, err := grpc.Dial(address, grpc.WithStatsHandler(&ocgrpc.ClientHandler{}), grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Fatalf("Cannot connect: %v", err)
 	}
 	defer conn.Close()
 	c := pb.NewGreeterClient(conn)
@@ -60,10 +60,10 @@ func main() {
 	for {
 		r, err := c.SayHello(context.Background(), &pb.HelloRequest{Name: name})
 		if err != nil {
-			log.Fatalf("could not greet: %v", err)
+			log.Printf("Could not greet: %v", err)
+		} else {
+			log.Printf("Greeting: %s", r.Message)
 		}
-		log.Printf("Greeting: %s", r.Message)
-
-		time.Sleep(2 * time.Second) // Wait for the data collection.
+		time.Sleep(2 * time.Second)
 	}
 }

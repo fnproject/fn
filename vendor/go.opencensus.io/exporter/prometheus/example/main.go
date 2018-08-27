@@ -31,8 +31,8 @@ import (
 // Create measures. The program will record measures for the size of
 // processed videos and the number of videos marked as spam.
 var (
-	videoCount = stats.Int64("my.org/measures/video_count", "number of processed videos", stats.UnitDimensionless)
-	videoSize  = stats.Int64("my.org/measures/video_size", "size of processed video", stats.UnitBytes)
+	videoCount = stats.Int64("example.com/measures/video_count", "number of processed videos", stats.UnitDimensionless)
+	videoSize  = stats.Int64("example.com/measures/video_size", "size of processed video", stats.UnitBytes)
 )
 
 func main() {
@@ -62,7 +62,7 @@ func main() {
 			Aggregation: view.Distribution(0, 1<<16, 1<<32),
 		},
 	); err != nil {
-		log.Fatalf("Cannot subscribe to the view: %v", err)
+		log.Fatalf("Cannot register the view: %v", err)
 	}
 
 	// Set reporting period to report data at every second.

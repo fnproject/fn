@@ -73,7 +73,7 @@ func TestHTTPFormat_FromRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req, _ := http.NewRequest("GET", "http://example.com", nil)
-			req.Header.Set("Trace-Parent", tt.header)
+			req.Header.Set("traceparent", tt.header)
 
 			gotSc, gotOk := f.SpanContextFromRequest(req)
 			if !reflect.DeepEqual(gotSc, tt.wantSc) {
@@ -106,7 +106,7 @@ func TestHTTPFormat_ToRequest(t *testing.T) {
 			req, _ := http.NewRequest("GET", "http://example.com", nil)
 			f.SpanContextToRequest(tt.sc, req)
 
-			h := req.Header.Get("Trace-Parent")
+			h := req.Header.Get("traceparent")
 			if got, want := h, tt.wantHeader; got != want {
 				t.Errorf("HTTPFormat.ToRequest() header = %v, want %v", got, want)
 			}

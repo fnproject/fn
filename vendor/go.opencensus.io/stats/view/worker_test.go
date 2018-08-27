@@ -42,7 +42,7 @@ func Test_Worker_ViewRegistration(t *testing.T) {
 	}
 	tcs := []testCase{
 		{
-			"register and subscribe to v1ID",
+			"register v1ID",
 			[]registration{
 				{
 					sc1,
@@ -52,7 +52,7 @@ func Test_Worker_ViewRegistration(t *testing.T) {
 			},
 		},
 		{
-			"register v1ID+v2ID, susbsribe to v1ID",
+			"register v1ID+v2ID",
 			[]registration{
 				{
 					sc1,
@@ -62,7 +62,7 @@ func Test_Worker_ViewRegistration(t *testing.T) {
 			},
 		},
 		{
-			"register to v1ID; subscribe to v1ID and view with same ID",
+			"register to v1ID; ??? to v1ID and view with same ID",
 			[]registration{
 				{
 					sc1,
@@ -263,7 +263,7 @@ func TestReportUsage(t *testing.T) {
 		SetReportingPeriod(25 * time.Millisecond)
 
 		if err := Register(tt.view); err != nil {
-			t.Fatalf("%v: cannot subscribe: %v", tt.name, err)
+			t.Fatalf("%v: cannot register: %v", tt.name, err)
 		}
 
 		e := &countExporter{}
@@ -362,9 +362,45 @@ func TestWorkerStarttime(t *testing.T) {
 	e.Unlock()
 }
 
+func TestUnregisterReportsUsage(t *testing.T) {
+	restart()
+	ctx := context.Background()
+
+	m1 := stats.Int64("measure", "desc", "unit")
+	view1 := &View{Name: "count", Measure: m1, Aggregation: Count()}
+	m2 := stats.Int64("measure2", "desc", "unit")
+	view2 := &View{Name: "count2", Measure: m2, Aggregation: Count()}
+
+	SetReportingPeriod(time.Hour)
+
+	if err := Register(view1, view2); err != nil {
+		t.Fatalf("cannot register: %v", err)
+	}
+
+	e := &countExporter{}
+	RegisterExporter(e)
+
+	stats.Record(ctx, m1.M(1))
+	stats.Record(ctx, m2.M(1))
+	stats.Record(ctx, m2.M(1))
+
+	Unregister(view2)
+
+	// Unregister should only flush view2, so expect the count of 2.
+	want := int64(2)
+
+	e.Lock()
+	got := e.totalCount
+	e.Unlock()
+	if got != want {
+		t.Errorf("got count data = %v; want %v", got, want)
+	}
+}
+
 type countExporter struct {
 	sync.Mutex
-	count int64
+	count      int64
+	totalCount int64
 }
 
 func (e *countExporter) ExportView(vd *Data) {
@@ -376,6 +412,7 @@ func (e *countExporter) ExportView(vd *Data) {
 	e.Lock()
 	defer e.Unlock()
 	e.count = d.Value
+	e.totalCount += d.Value
 }
 
 type vdExporter struct {

@@ -1,4 +1,4 @@
-// Copyright 2018, OpenCensus Authors
+// Copyright 2017, OpenCensus Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prometheus_test
+// Package opencensus contains Go support for OpenCensus.
+package opencensus // import "go.opencensus.io"
 
-import (
-	"log"
-	"net/http"
-
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
-)
-
-func Example() {
-	exporter, err := prometheus.NewExporter(prometheus.Options{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	view.RegisterExporter(exporter)
-
-	// Serve the scrape endpoint on port 9999.
-	http.Handle("/metrics", exporter)
-	log.Fatal(http.ListenAndServe(":9999", nil))
+// Version is the current release version of OpenCensus in use.
+func Version() string {
+	return "0.15.0"
 }

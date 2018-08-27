@@ -24,3 +24,4 @@ script:
   - go vet ./...
   - go test -v -race $PKGS            # Run all the tests with the race detector enabled
   - 'if [[ $TRAVIS_GO_VERSION = 1.8* ]]; then ! golint ./... | grep -vE "(_mock|_string|\.pb)\.go:"; fi'
+  - go run internal/check/version.go

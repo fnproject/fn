@@ -29,7 +29,7 @@ import (
 const (
 	supportedVersion = 0
 	maxVersion       = 254
-	header           = "Trace-Parent"
+	header           = "traceparent"
 )
 
 var _ propagation.HTTPFormat = (*HTTPFormat)(nil)
