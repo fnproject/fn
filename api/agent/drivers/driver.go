@@ -86,6 +86,18 @@ type RunResult interface {
 	Status() string
 }
 
+// Logger Configuration for container
+type LoggerConfig struct {
+	// Log Sink URL
+	URL string
+
+	// Application Name for Log Tags
+	AppName string
+
+	// Function Name for Log Tags
+	FuncName string
+}
+
 // The ContainerTask interface guides container execution across a wide variety of
 // container oriented runtimes.
 type ContainerTask interface {
@@ -136,11 +148,8 @@ type ContainerTask interface {
 	// leaves it unset.
 	WorkDir() string
 
-	// Logger URL to stream logs via driver.
-	LoggerURL() string
-
-	// Logger Tags: func_name and app_name
-	LoggerTags() (string, string)
+	// Logger Config to use in driver
+	LoggerConfig() LoggerConfig
 
 	// Close is used to perform cleanup after task execution.
 	// Close should be safe to call multiple times.
@@ -223,7 +232,7 @@ type Config struct {
 	PreForkNetworks      string `json:"pre_fork_networks"`
 	MaxTmpFsInodes       uint64 `json:"max_tmpfs_inodes"`
 	EnableReadOnlyRootFs bool   `json:"enable_readonly_rootfs"`
-	DisableDockerSyslog  bool   `json:"disable_docker_syslog"`
+	EnableDockerSyslog   bool   `json:"enable_docker_syslog"`
 }
 
 func average(samples []Stat) (Stat, bool) {

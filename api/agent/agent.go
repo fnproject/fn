@@ -221,7 +221,7 @@ func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 		PreForkNetworks:      cfg.PreForkNetworks,
 		MaxTmpFsInodes:       cfg.MaxTmpFsInodes,
 		EnableReadOnlyRootFs: !cfg.DisableReadOnlyRootFs,
-		DisableDockerSyslog:  cfg.DisableDockerSyslog,
+		EnableDockerSyslog:   cfg.EnableDockerSyslog,
 	})
 }
 
@@ -698,8 +698,7 @@ type hotSlot struct {
 	done          chan struct{} // signal we are done with slot
 	errC          <-chan error  // container error
 	container     *container    // TODO mask this
-	maxRespSize   uint64        // TODO boo.
-	disableSyslog bool
+	cfg           *Config
 	fatalErr      error
 	containerSpan trace.SpanContext
 }
@@ -744,10 +743,10 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// NOTE: stderr is limited separately (though line writer is vulnerable to attack?)
 	// limit the bytes allowed to be written to the stdout pipe, which handles any
 	// buffering overflows (json to a string, http to a buffer, etc)
-	stdoutWrite := common.NewClampWriter(stdoutWritePipe, s.maxRespSize, models.ErrFunctionResponseTooBig)
+	stdoutWrite := common.NewClampWriter(stdoutWritePipe, s.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
 	var stderr io.Writer
 
-	if !s.disableSyslog {
+	if !s.cfg.EnableDockerSyslog {
 		// get our own syslogger with THIS call id (cheap), using the container's already open syslog conns (expensive)
 		// TODO? we can basically just do this whether there are conns or not, this is relatively cheap (despite appearances)
 		buf1 := bufPool.Get().(*bytes.Buffer)
@@ -824,10 +823,15 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		cpus:    uint64(call.CPUs),
 		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.req.Body,
-		stdout:  common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
-		stderr:  call.stderr,
-		stats:   &call.Stats,
+		logCfg: drivers.LoggerConfig{
+			URL:      call.SyslogURL,
+			AppName:  call.AppName,
+			FuncName: call.Path,
+		},
+		stdin:  call.req.Body,
+		stdout: common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
+		stderr: call.stderr,
+		stats:  &call.Stats,
 	}
 
 	cookie, err := a.driver.CreateCookie(ctx, container)
@@ -908,8 +912,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				done:          make(chan struct{}),
 				errC:          errC,
 				container:     container,
-				maxRespSize:   a.cfg.MaxResponseSize,
-				disableSyslog: !a.cfg.DisableDockerSyslog,
+				cfg:           &a.cfg,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
@@ -1038,9 +1041,7 @@ type container struct {
 	fsSize     uint64
 	tmpFsSize  uint64
 	timeout    time.Duration // cold only (superfluous, but in case)
-	syslogURL  string
-	funcName   string
-	appName    string
+	logCfg     drivers.LoggerConfig
 
 	stdin       io.Reader
 	stdout      io.Writer
@@ -1065,7 +1066,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 	stdout := common.NewGhostWriter()
 
 	var syslogCon io.WriteCloser
-	if cfg.DisableDockerSyslog {
+	if !cfg.EnableDockerSyslog {
 		var err error
 		// these are only the conns, this doesn't write the syslog format (since it will change between calls)
 		syslogCon, err = syslogConns(ctx, call.SyslogURL)
@@ -1119,17 +1120,19 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 	}
 
 	return &container{
-			id:          id, // XXX we could just let docker generate ids...
-			image:       call.Image,
-			env:         map[string]string(call.Config),
-			extensions:  call.extensions,
-			memory:      call.Memory,
-			cpus:        uint64(call.CPUs),
-			fsSize:      cfg.MaxFsSize,
-			tmpFsSize:   uint64(call.TmpFsSize),
-			syslogURL:   call.SyslogURL,
-			funcName:    call.Path,
-			appName:     call.AppName,
+			id:         id, // XXX we could just let docker generate ids...
+			image:      call.Image,
+			env:        map[string]string(call.Config),
+			extensions: call.extensions,
+			memory:     call.Memory,
+			cpus:       uint64(call.CPUs),
+			fsSize:     cfg.MaxFsSize,
+			tmpFsSize:  uint64(call.TmpFsSize),
+			logCfg: drivers.LoggerConfig{
+				URL:      call.SyslogURL,
+				AppName:  call.AppName,
+				FuncName: call.Path,
+			},
 			stdin:       stdin,
 			stdout:      stdout,
 			stderr:      stderr,
@@ -1166,23 +1169,22 @@ func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.
 	}
 }
 
-func (c *container) Id() string                     { return c.id }
-func (c *container) Command() string                { return "" }
-func (c *container) Input() io.Reader               { return c.stdin }
-func (c *container) Logger() (io.Writer, io.Writer) { return c.stdout, c.stderr }
-func (c *container) Volumes() [][2]string           { return nil }
-func (c *container) WorkDir() string                { return "" }
-func (c *container) Close()                         {}
-func (c *container) Image() string                  { return c.image }
-func (c *container) Timeout() time.Duration         { return c.timeout }
-func (c *container) EnvVars() map[string]string     { return c.env }
-func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
-func (c *container) CPUs() uint64                   { return c.cpus }
-func (c *container) FsSize() uint64                 { return c.fsSize }
-func (c *container) TmpFsSize() uint64              { return c.tmpFsSize }
-func (c *container) Extensions() map[string]string  { return c.extensions }
-func (c *container) LoggerURL() string              { return c.syslogURL }
-func (c *container) LoggerTags() (string, string)   { return c.funcName, c.appName }
+func (c *container) Id() string                         { return c.id }
+func (c *container) Command() string                    { return "" }
+func (c *container) Input() io.Reader                   { return c.stdin }
+func (c *container) Logger() (io.Writer, io.Writer)     { return c.stdout, c.stderr }
+func (c *container) Volumes() [][2]string               { return nil }
+func (c *container) WorkDir() string                    { return "" }
+func (c *container) Close()                             {}
+func (c *container) Image() string                      { return c.image }
+func (c *container) Timeout() time.Duration             { return c.timeout }
+func (c *container) EnvVars() map[string]string         { return c.env }
+func (c *container) Memory() uint64                     { return c.memory * 1024 * 1024 } // convert MB
+func (c *container) CPUs() uint64                       { return c.cpus }
+func (c *container) FsSize() uint64                     { return c.fsSize }
+func (c *container) TmpFsSize() uint64                  { return c.tmpFsSize }
+func (c *container) Extensions() map[string]string      { return c.extensions }
+func (c *container) LoggerConfig() drivers.LoggerConfig { return c.logCfg }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

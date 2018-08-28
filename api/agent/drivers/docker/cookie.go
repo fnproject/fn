@@ -33,18 +33,20 @@ func (c *cookie) configureLogger(log logrus.FieldLogger) {
 	}
 
 	// Let's stream logs back to agent if docker syslog is disabled.
-	if c.drv.conf.DisableDockerSyslog {
+	if !c.drv.conf.EnableDockerSyslog {
 		c.opts.Config.AttachStderr = true
 		return
 	}
 
+	conf := c.task.LoggerConfig()
+
 	// If docker-syslog is enabled and Task has no URL, we discard logs.
-	if c.task.LoggerURL() == "" {
+	if conf.URL == "" {
 		return
 	}
 
 	// docker-syslog supports only one sink. We try the first sink
-	sink := strings.TrimSpace(strings.Split(c.task.LoggerURL(), ",")[0])
+	sink := strings.TrimSpace(strings.Split(conf.URL, ",")[0])
 	url, err := url.Parse(sink)
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("cannot parse syslog URL")
@@ -62,23 +64,15 @@ func (c *cookie) configureLogger(log logrus.FieldLogger) {
 		return
 	}
 
-	cfg := make(map[string]string)
-
-	cfg["syslog-address"] = sink
-	cfg["syslog-facility"] = "user"
-
-	funcName, appName := c.task.LoggerTags()
-	if funcName != "" && appName != "" {
-		// .ID is first 12 chars of container ID (see: https://docs.docker.com/config/containers/logging/log_tags/)
-		cfg["tag"] = fmt.Sprintf("func_name=%s,app_name=%s,{{.ID}}", funcName, appName)
-	} else {
-		cfg["tag"] = "{{.ID}}"
-	}
-
 	// Configure Docker-Syslog
+	// {{.ID}} is first 12 chars of container ID (see: https://docs.docker.com/config/containers/logging/log_tags/)
 	c.opts.HostConfig.LogConfig = docker.LogConfig{
-		Type:   "syslog",
-		Config: cfg,
+		Type: "syslog",
+		Config: map[string]string{
+			"syslog-address":  sink,
+			"syslog-facility": "user",
+			"tag":             fmt.Sprintf("func_name=%s,app_name=%s,{{.ID}}", conf.FuncName, conf.AppName),
+		},
 	}
 }
 
