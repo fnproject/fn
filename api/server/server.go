@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 	"unicode"
 
 	"github.com/fnproject/fn/api/agent"
@@ -206,6 +207,10 @@ type Server struct {
 	promExporter           *prometheus.Exporter
 	triggerAnnotator       TriggerAnnotator
 	fnAnnotator            FnAnnotator
+
+	// http server related settings
+	ReadHeaderTimeout time.Duration
+
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -600,6 +605,13 @@ func WithAdminServer(port int) Option {
 	}
 }
 
+func WithHTTPReadHeaderTimeout(timeout time.Duration) Option {
+	return func(ctx context.Context, s *Server) error {
+		s.ReadHeaderTimeout = timeout
+		return nil
+	}
+}
+
 // New creates a new Functions server with the opts given. For convenience, users may
 // prefer to use NewFromEnv but New is more flexible if needed.
 func New(ctx context.Context, opts ...Option) *Server {
@@ -960,6 +972,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		TLSConfig: s.tlsConfigs[TLSWebServer],
 
 		// TODO we should set read/write timeouts
+		ReadHeaderTimeout: s.ReadHeaderTimeout,
 	}
 
 	go func() {
@@ -984,6 +997,8 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 			Addr:      adminListen,
 			Handler:   &ochttp.Handler{Handler: s.AdminRouter},
 			TLSConfig: s.tlsConfigs[TLSAdminServer],
+
+			ReadHeaderTimeout: s.ReadHeaderTimeout,
 		}
 
 		go func() {
