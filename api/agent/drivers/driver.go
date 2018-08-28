@@ -136,6 +136,12 @@ type ContainerTask interface {
 	// leaves it unset.
 	WorkDir() string
 
+	// Logger URL to stream logs via driver.
+	LoggerURL() string
+
+	// Logger Tags: func_name and app_name
+	LoggerTags() (string, string)
+
 	// Close is used to perform cleanup after task execution.
 	// Close should be safe to call multiple times.
 	Close()
@@ -217,6 +223,7 @@ type Config struct {
 	PreForkNetworks      string `json:"pre_fork_networks"`
 	MaxTmpFsInodes       uint64 `json:"max_tmpfs_inodes"`
 	EnableReadOnlyRootFs bool   `json:"enable_readonly_rootfs"`
+	DisableDockerSyslog  bool   `json:"disable_docker_syslog"`
 }
 
 func average(samples []Stat) (Stat, bool) {

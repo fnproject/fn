@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/ioutil"
 	"log/syslog"
 	"strings"
 	"sync"
@@ -220,6 +221,7 @@ func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 		PreForkNetworks:      cfg.PreForkNetworks,
 		MaxTmpFsInodes:       cfg.MaxTmpFsInodes,
 		EnableReadOnlyRootFs: !cfg.DisableReadOnlyRootFs,
+		DisableDockerSyslog:  cfg.DisableDockerSyslog,
 	})
 }
 
@@ -697,6 +699,7 @@ type hotSlot struct {
 	errC          <-chan error  // container error
 	container     *container    // TODO mask this
 	maxRespSize   uint64        // TODO boo.
+	disableSyslog bool
 	fatalErr      error
 	containerSpan trace.SpanContext
 }
@@ -742,19 +745,25 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// limit the bytes allowed to be written to the stdout pipe, which handles any
 	// buffering overflows (json to a string, http to a buffer, etc)
 	stdoutWrite := common.NewClampWriter(stdoutWritePipe, s.maxRespSize, models.ErrFunctionResponseTooBig)
+	var stderr io.Writer
 
-	// get our own syslogger with THIS call id (cheap), using the container's already open syslog conns (expensive)
-	// TODO? we can basically just do this whether there are conns or not, this is relatively cheap (despite appearances)
-	buf1 := bufPool.Get().(*bytes.Buffer)
-	buf2 := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(buf1)
-	defer bufPool.Put(buf2)
+	if !s.disableSyslog {
+		// get our own syslogger with THIS call id (cheap), using the container's already open syslog conns (expensive)
+		// TODO? we can basically just do this whether there are conns or not, this is relatively cheap (despite appearances)
+		buf1 := bufPool.Get().(*bytes.Buffer)
+		buf2 := bufPool.Get().(*bytes.Buffer)
+		defer bufPool.Put(buf1)
+		defer bufPool.Put(buf2)
 
-	sw := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_ERR, s.container.syslogConns, buf1)
-	var syslog io.WriteCloser = &nopCloser{sw}
-	syslog = newLineWriterWithBuffer(buf2, syslog)
-	defer syslog.Close()                            // close syslogger from here, but NOT the call log stderr OR conns
-	stderr := multiWriteCloser{call.stderr, syslog} // use multiWriteCloser for its error ignoring properties
+		sw := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_ERR, s.container.syslogConns, buf1)
+		var syslog io.WriteCloser = &nopCloser{sw}
+		syslog = newLineWriterWithBuffer(buf2, syslog)
+		defer syslog.Close() // close syslogger from here, but NOT the call log stderr OR conns
+
+		stderr = &multiWriteCloser{call.stderr, syslog} // use multiWriteCloser for its error ignoring properties
+	} else {
+		stderr = &nopCloser{ioutil.Discard}
+	}
 
 	proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
 	swapBack := s.container.swap(stdinRead, stdoutWrite, stderr, &call.Stats)
@@ -900,6 +909,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				errC:          errC,
 				container:     container,
 				maxRespSize:   a.cfg.MaxResponseSize,
+				disableSyslog: !a.cfg.DisableDockerSyslog,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
@@ -1028,6 +1038,9 @@ type container struct {
 	fsSize     uint64
 	tmpFsSize  uint64
 	timeout    time.Duration // cold only (superfluous, but in case)
+	syslogURL  string
+	funcName   string
+	appName    string
 
 	stdin       io.Reader
 	stdout      io.Writer
@@ -1051,11 +1064,17 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 	stderr := common.NewGhostWriter()
 	stdout := common.NewGhostWriter()
 
-	// these are only the conns, this doesn't write the syslog format (since it will change between calls)
-	syslogConns, err := syslogConns(ctx, call.SyslogURL)
-	if err != nil {
-		// TODO we could write this to between stderr but between stderr doesn't go to user either. kill me.
-		common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}).Error("error dialing syslog urls")
+	var syslogCon io.WriteCloser
+	if cfg.DisableDockerSyslog {
+		var err error
+		// these are only the conns, this doesn't write the syslog format (since it will change between calls)
+		syslogCon, err = syslogConns(ctx, call.SyslogURL)
+		if err != nil {
+			// TODO we could write this to between stderr but between stderr doesn't go to user either. kill me.
+			common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}).Error("error dialing syslog urls")
+		}
+	} else {
+		syslogCon = &nopCloser{ioutil.Discard}
 	}
 
 	// for use if no freezer (or we ever make up our minds)
@@ -1084,8 +1103,8 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		bufs = []*bytes.Buffer{buf1, buf2, buf3, buf4}
 
 		// stdout = LOG_INFO, stderr = LOG_ERR -- ONLY for the between writers, normal stdout is a response
-		so := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_INFO, syslogConns, buf1)
-		se := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_ERR, syslogConns, buf2)
+		so := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_INFO, syslogCon, buf1)
+		se := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_ERR, syslogCon, buf2)
 
 		// use multiWriteCloser since it ignores errors (io.MultiWriter does not)
 		soc := multiWriteCloser{&nopCloser{so}, &nopCloser{&logWriter{
@@ -1108,10 +1127,13 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 			cpus:        uint64(call.CPUs),
 			fsSize:      cfg.MaxFsSize,
 			tmpFsSize:   uint64(call.TmpFsSize),
+			syslogURL:   call.SyslogURL,
+			funcName:    call.Path,
+			appName:     call.AppName,
 			stdin:       stdin,
 			stdout:      stdout,
 			stderr:      stderr,
-			syslogConns: syslogConns,
+			syslogConns: syslogCon,
 		}, func() {
 			stdin.Close()
 			stderr.Close()
@@ -1119,7 +1141,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 			for _, b := range bufs {
 				bufPool.Put(b)
 			}
-			syslogConns.Close()
+			syslogCon.Close()
 		}
 }
 
@@ -1159,6 +1181,8 @@ func (c *container) CPUs() uint64                   { return c.cpus }
 func (c *container) FsSize() uint64                 { return c.fsSize }
 func (c *container) TmpFsSize() uint64              { return c.tmpFsSize }
 func (c *container) Extensions() map[string]string  { return c.extensions }
+func (c *container) LoggerURL() string              { return c.syslogURL }
+func (c *container) LoggerTags() (string, string)   { return c.funcName, c.appName }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

@@ -76,13 +76,14 @@ func dialSyslog(ctx context.Context, syslogURL string) (io.WriteCloser, error) {
 	}
 
 	// slice off 'xxx://' and dial it
+	// here we try to be compatible with docker-syslog.
 	switch url.Scheme {
-	case "udp", "tcp":
-		return dialer.Dial(url.Scheme, syslogURL[6:])
-	case "tls":
-		return tls.DialWithDialer(&dialer, "tcp", syslogURL[6:], nil)
+	case "udp", "tcp", "unix", "unixgram":
+		return dialer.Dial(url.Scheme, syslogURL[len(url.Scheme)+len("://"):])
+	case "tls", "tcp+tls":
+		return tls.DialWithDialer(&dialer, "tcp", syslogURL[len(url.Scheme)+len("://"):], nil)
 	default:
-		return nil, fmt.Errorf("Unsupported scheme, please use {tcp|udp|tls}: %s: ", url.Scheme)
+		return nil, fmt.Errorf("Unsupported scheme, please use {tcp|udp|tls|tcp+tls|unix|unixgram}: %s: ", url.Scheme)
 	}
 }
 

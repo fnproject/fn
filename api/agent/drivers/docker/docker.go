@@ -217,15 +217,10 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 			Image:        task.Image(),
 			OpenStdin:    true,
 			AttachStdout: true,
-			AttachStderr: true,
 			AttachStdin:  true,
 			StdinOnce:    true,
 		},
-		// turn off logs since we're collecting them from attach
 		HostConfig: &docker.HostConfig{
-			LogConfig: docker.LogConfig{
-				Type: "none",
-			},
 			ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,
 		},
 		Context: ctx,
@@ -237,6 +232,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 		drv:  drv,
 	}
 
+	cookie.configureLogger(log)
 	cookie.configureMem(log)
 	cookie.configureCmd(log)
 	cookie.configureEnv(log)

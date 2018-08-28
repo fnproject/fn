@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/fnproject/fn/api/agent/drivers"
@@ -23,6 +24,62 @@ type cookie struct {
 	task drivers.ContainerTask
 	// pointer to docker driver
 	drv *DockerDriver
+}
+
+func (c *cookie) configureLogger(log logrus.FieldLogger) {
+
+	c.opts.HostConfig.LogConfig = docker.LogConfig{
+		Type: "none",
+	}
+
+	// Let's stream logs back to agent if docker syslog is disabled.
+	if c.drv.conf.DisableDockerSyslog {
+		c.opts.Config.AttachStderr = true
+		return
+	}
+
+	// If docker-syslog is enabled and Task has no URL, we discard logs.
+	if c.task.LoggerURL() == "" {
+		return
+	}
+
+	// docker-syslog supports only one sink. We try the first sink
+	sink := strings.TrimSpace(strings.Split(c.task.LoggerURL(), ",")[0])
+	url, err := url.Parse(sink)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("cannot parse syslog URL")
+		return
+	}
+
+	// See: https://docs.docker.com/config/containers/logging/syslog/#options
+	switch url.Scheme {
+	case "udp", "tcp", "unix", "unixgram", "tcp+tls":
+	case "tls":
+		// here, we try to be compatible with agent-syslog and convert tls into tcp+tls
+		sink = fmt.Sprintf("tcp+tls%s", sink[3:])
+	default:
+		logrus.WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("unsupported scheme in syslog URL: %s", url.Scheme)
+		return
+	}
+
+	cfg := make(map[string]string)
+
+	cfg["syslog-address"] = sink
+	cfg["syslog-facility"] = "user"
+
+	funcName, appName := c.task.LoggerTags()
+	if funcName != "" && appName != "" {
+		// .ID is first 12 chars of container ID (see: https://docs.docker.com/config/containers/logging/log_tags/)
+		cfg["tag"] = fmt.Sprintf("func_name=%s,app_name=%s,{{.ID}}", funcName, appName)
+	} else {
+		cfg["tag"] = "{{.ID}}"
+	}
+
+	// Configure Docker-Syslog
+	c.opts.HostConfig.LogConfig = docker.LogConfig{
+		Type:   "syslog",
+		Config: cfg,
+	}
 }
 
 func (c *cookie) configureMem(log logrus.FieldLogger) {

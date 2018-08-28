@@ -34,6 +34,7 @@ type Config struct {
 	MaxTmpFsInodes          uint64        `json:"max_tmpfs_inodes"`
 	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
 	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
+	DisableDockerSyslog     bool          `json:"disable_docker_syslog"`
 }
 
 const (
@@ -86,6 +87,9 @@ const (
 	EnvDisableReadOnlyRootFs = "FN_DISABLE_READONLY_ROOTFS"
 	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
 	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
+
+	// EnvDisableDockerSyslog disables docker-syslog and enables streaming of stderr back to agent
+	EnvDisableDockerSyslog = "FN_DISABLE_DOCKER_SYSLOG"
 
 	// MaxMsDisabled is used to determine whether mr freeze is lying in wait. TODO remove this manuever
 	MaxMsDisabled = time.Duration(math.MaxInt64)
@@ -142,6 +146,9 @@ func NewConfig() (*Config, error) {
 	}
 	if _, ok := os.LookupEnv(EnvDisableDebugUserLogs); ok {
 		cfg.DisableDebugUserLogs = true
+	}
+	if _, ok := os.LookupEnv(EnvDisableDockerSyslog); ok {
+		cfg.DisableDockerSyslog = true
 	}
 
 	if cfg.EjectIdle == time.Duration(0) {
