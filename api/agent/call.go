@@ -48,6 +48,8 @@ type CallOpt func(c *call) error
 
 const (
 	ceMimeType = "application/cloudevents+json"
+	// static path for all fn invocations
+	invokePath = "/invoke"
 )
 
 // FromRequest initialises a call to a route from an HTTP request
@@ -184,7 +186,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			TmpFsSize:   0, // TODO clean up this
 			Memory:      fn.Memory,
 			CPUs:        0, // TODO clean up this
-			Config:      buildTriggerConfig(app, fn, trigger),
+			Config:      buildConfigWithPath(app, fn, trigger.Source),
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
 			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
@@ -244,6 +246,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 
 		c.Call = &models.Call{
 			ID:    id,
+			Path:  invokePath,
 			Image: fn.Image,
 			// Delay: 0,
 			Type:   "sync",
@@ -255,7 +258,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			TmpFsSize:   0, // TODO clean up this
 			Memory:      fn.Memory,
 			CPUs:        0, // TODO clean up this
-			Config:      buildTriggerConfig(app, fn, nil),
+			Config:      buildConfigWithPath(app, fn, invokePath),
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
 			Annotations: app.Annotations.MergeChange(fn.Annotations),
@@ -264,6 +267,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			URL:         reqURL(req),
 			Method:      req.Method,
 			AppID:       app.ID,
+			AppName:     app.Name,
 			FnID:        fn.ID,
 			SyslogURL:   syslogURL,
 		}
@@ -297,7 +301,7 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 	return conf
 }
 
-func buildTriggerConfig(app *models.App, fn *models.Fn, trigger *models.Trigger) models.Config {
+func buildConfigWithPath(app *models.App, fn *models.Fn, path string) models.Config {
 	conf := make(models.Config, 8+len(app.Config)+len(fn.Config))
 	for k, v := range app.Config {
 		conf[k] = v
@@ -308,9 +312,7 @@ func buildTriggerConfig(app *models.App, fn *models.Fn, trigger *models.Trigger)
 
 	conf["FN_FORMAT"] = fn.Format
 	conf["FN_APP_NAME"] = app.Name
-	if trigger != nil {
-		conf["FN_PATH"] = trigger.Source
-	}
+	conf["FN_PATH"] = path
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", fn.Memory)
 	conf["FN_TYPE"] = "sync"
