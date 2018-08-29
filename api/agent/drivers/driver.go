@@ -86,6 +86,21 @@ type RunResult interface {
 	Status() string
 }
 
+// Logger Tags for container
+type LoggerTag struct {
+	Name  string
+	Value string
+}
+
+// Logger Configuration for container
+type LoggerConfig struct {
+	// Log Sink URL
+	URL string
+
+	// Log Tag Pairs
+	Tags []LoggerTag
+}
+
 // The ContainerTask interface guides container execution across a wide variety of
 // container oriented runtimes.
 type ContainerTask interface {
@@ -135,6 +150,9 @@ type ContainerTask interface {
 	// WorkDir returns the working directory to use for the task. Empty string
 	// leaves it unset.
 	WorkDir() string
+
+	// Logger Config to use in driver
+	LoggerConfig() LoggerConfig
 
 	// Close is used to perform cleanup after task execution.
 	// Close should be safe to call multiple times.

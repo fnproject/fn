@@ -37,6 +37,7 @@ func (f *taskDockerTest) WorkDir() string                         { return "" }
 func (f *taskDockerTest) Close()                                  {}
 func (f *taskDockerTest) Input() io.Reader                        { return f.input }
 func (f *taskDockerTest) Extensions() map[string]string           { return nil }
+func (f *taskDockerTest) LoggerConfig() drivers.LoggerConfig      { return drivers.LoggerConfig{} }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})

@@ -25,6 +25,34 @@ type cookie struct {
 	drv *DockerDriver
 }
 
+func (c *cookie) configureLogger(log logrus.FieldLogger) {
+
+	conf := c.task.LoggerConfig()
+	if conf.URL == "" {
+		c.opts.HostConfig.LogConfig = docker.LogConfig{
+			Type: "none",
+		}
+		return
+	}
+
+	c.opts.HostConfig.LogConfig = docker.LogConfig{
+		Type: "syslog",
+		Config: map[string]string{
+			"syslog-address":  conf.URL,
+			"syslog-facility": "user",
+			"syslog-format":   "rfc5424",
+		},
+	}
+
+	tags := make([]string, 0, len(conf.Tags))
+	for _, pair := range conf.Tags {
+		tags = append(tags, fmt.Sprintf("%s=%s", pair.Name, pair.Value))
+	}
+	if len(tags) > 0 {
+		c.opts.HostConfig.LogConfig.Config["tag"] = strings.Join(tags, ",")
+	}
+}
+
 func (c *cookie) configureMem(log logrus.FieldLogger) {
 	if c.task.Memory() == 0 {
 		return
