@@ -218,6 +218,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 			OpenStdin:    true,
 			AttachStdout: true,
 			AttachStdin:  true,
+			AttachStderr: true,
 			StdinOnce:    true,
 		},
 		HostConfig: &docker.HostConfig{

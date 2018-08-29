@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
-	"log/syslog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -221,7 +219,6 @@ func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 		PreForkNetworks:      cfg.PreForkNetworks,
 		MaxTmpFsInodes:       cfg.MaxTmpFsInodes,
 		EnableReadOnlyRootFs: !cfg.DisableReadOnlyRootFs,
-		EnableDockerSyslog:   cfg.EnableDockerSyslog,
 	})
 }
 
@@ -744,28 +741,9 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// limit the bytes allowed to be written to the stdout pipe, which handles any
 	// buffering overflows (json to a string, http to a buffer, etc)
 	stdoutWrite := common.NewClampWriter(stdoutWritePipe, s.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
-	var stderr io.Writer
-
-	if !s.cfg.EnableDockerSyslog {
-		// get our own syslogger with THIS call id (cheap), using the container's already open syslog conns (expensive)
-		// TODO? we can basically just do this whether there are conns or not, this is relatively cheap (despite appearances)
-		buf1 := bufPool.Get().(*bytes.Buffer)
-		buf2 := bufPool.Get().(*bytes.Buffer)
-		defer bufPool.Put(buf1)
-		defer bufPool.Put(buf2)
-
-		sw := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_ERR, s.container.syslogConns, buf1)
-		var syslog io.WriteCloser = &nopCloser{sw}
-		syslog = newLineWriterWithBuffer(buf2, syslog)
-		defer syslog.Close() // close syslogger from here, but NOT the call log stderr OR conns
-
-		stderr = &multiWriteCloser{call.stderr, syslog} // use multiWriteCloser for its error ignoring properties
-	} else {
-		stderr = &nopCloser{ioutil.Discard}
-	}
 
 	proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
-	swapBack := s.container.swap(stdinRead, stdoutWrite, stderr, &call.Stats)
+	swapBack := s.container.swap(stdinRead, stdoutWrite, call.stderr, &call.Stats)
 	defer swapBack() // NOTE: it's important this runs before the pipes are closed.
 
 	errApp := make(chan error, 1)
@@ -824,7 +802,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		logCfg: drivers.LoggerConfig{
-			URL:      call.SyslogURL,
+			URL:      strings.TrimSpace(call.SyslogURL),
 			AppName:  call.AppName,
 			FuncName: call.Path,
 		},
@@ -1043,10 +1021,9 @@ type container struct {
 	timeout    time.Duration // cold only (superfluous, but in case)
 	logCfg     drivers.LoggerConfig
 
-	stdin       io.Reader
-	stdout      io.Writer
-	stderr      io.Writer
-	syslogConns io.WriteCloser
+	stdin  io.Reader
+	stdout io.Writer
+	stderr io.Writer
 
 	// swapMu protects the stats swapping
 	swapMu sync.Mutex
@@ -1065,19 +1042,6 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 	stderr := common.NewGhostWriter()
 	stdout := common.NewGhostWriter()
 
-	var syslogCon io.WriteCloser
-	if !cfg.EnableDockerSyslog {
-		var err error
-		// these are only the conns, this doesn't write the syslog format (since it will change between calls)
-		syslogCon, err = syslogConns(ctx, call.SyslogURL)
-		if err != nil {
-			// TODO we could write this to between stderr but between stderr doesn't go to user either. kill me.
-			common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}).Error("error dialing syslog urls")
-		}
-	} else {
-		syslogCon = &nopCloser{ioutil.Discard}
-	}
-
 	// for use if no freezer (or we ever make up our minds)
 	var bufs []*bytes.Buffer
 
@@ -1090,7 +1054,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 
 		// wrap the syslog and debug loggers in the same (respective) line writer
 		// syslog complete chain for this (from top):
-		// stderr -> line writer -> syslog -> []conns
+		// stderr -> line writer
 
 		// TODO(reed): I guess this is worth it
 		// TODO(reed): there's a bug here where the between writers could have
@@ -1099,24 +1063,17 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		// and mostly came to the conclusion that life is meaningless.
 		buf1 := bufPool.Get().(*bytes.Buffer)
 		buf2 := bufPool.Get().(*bytes.Buffer)
-		buf3 := bufPool.Get().(*bytes.Buffer)
-		buf4 := bufPool.Get().(*bytes.Buffer)
-		bufs = []*bytes.Buffer{buf1, buf2, buf3, buf4}
+		bufs = []*bytes.Buffer{buf1, buf2}
 
-		// stdout = LOG_INFO, stderr = LOG_ERR -- ONLY for the between writers, normal stdout is a response
-		so := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_INFO, syslogCon, buf1)
-		se := newSyslogWriter(call.ID, call.Path, call.AppName, syslog.LOG_ERR, syslogCon, buf2)
-
-		// use multiWriteCloser since it ignores errors (io.MultiWriter does not)
-		soc := multiWriteCloser{&nopCloser{so}, &nopCloser{&logWriter{
+		soc := &nopCloser{&logWriter{
 			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
-		}}}
-		sec := multiWriteCloser{&nopCloser{se}, &nopCloser{&logWriter{
+		}}
+		sec := &nopCloser{&logWriter{
 			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
-		}}}
+		}}
 
-		stdout.Swap(newLineWriterWithBuffer(buf4, soc))
-		stderr.Swap(newLineWriterWithBuffer(buf3, sec))
+		stdout.Swap(newLineWriterWithBuffer(buf1, soc))
+		stderr.Swap(newLineWriterWithBuffer(buf2, sec))
 	}
 
 	return &container{
@@ -1129,14 +1086,13 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 			fsSize:     cfg.MaxFsSize,
 			tmpFsSize:  uint64(call.TmpFsSize),
 			logCfg: drivers.LoggerConfig{
-				URL:      call.SyslogURL,
+				URL:      strings.TrimSpace(call.SyslogURL),
 				AppName:  call.AppName,
 				FuncName: call.Path,
 			},
-			stdin:       stdin,
-			stdout:      stdout,
-			stderr:      stderr,
-			syslogConns: syslogCon,
+			stdin:  stdin,
+			stdout: stdout,
+			stderr: stderr,
 		}, func() {
 			stdin.Close()
 			stderr.Close()
@@ -1144,7 +1100,6 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 			for _, b := range bufs {
 				bufPool.Put(b)
 			}
-			syslogCon.Close()
 		}
 }
 

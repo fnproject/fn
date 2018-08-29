@@ -85,20 +85,18 @@ func (a *App) Validate() error {
 	}
 
 	if a.SyslogURL != nil && *a.SyslogURL != "" {
-		sinks := strings.Split(*a.SyslogURL, ",")
-		for _, s := range sinks {
-			url, err := url.Parse(strings.TrimSpace(s))
-			fail := err != nil
-			if !fail {
-				switch url.Scheme {
-				case "udp", "tcp", "tls":
-				default:
-					fail = true
-				}
+		url, err := url.Parse(strings.TrimSpace(*a.SyslogURL))
+		fail := err != nil
+		if !fail {
+			// See: https://docs.docker.com/config/containers/logging/syslog/#options
+			switch url.Scheme {
+			case "udp", "tcp", "unix", "unixgram", "tcp+tls":
+			default:
+				fail = true
 			}
-			if fail {
-				return ErrInvalidSyslog(fmt.Sprintf(`invalid syslog url: "%v"`, s))
-			}
+		}
+		if fail {
+			return ErrInvalidSyslog(fmt.Sprintf(`invalid syslog url: "%v"`, *a.SyslogURL))
 		}
 	}
 	return nil
