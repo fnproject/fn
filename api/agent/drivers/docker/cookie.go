@@ -35,14 +35,21 @@ func (c *cookie) configureLogger(log logrus.FieldLogger) {
 		return
 	}
 
-	// {{.ID}} is first 12 chars of container ID (see: https://docs.docker.com/config/containers/logging/log_tags/)
 	c.opts.HostConfig.LogConfig = docker.LogConfig{
 		Type: "syslog",
 		Config: map[string]string{
 			"syslog-address":  conf.URL,
 			"syslog-facility": "user",
-			"tag":             fmt.Sprintf("func_name=%s,app_name=%s,{{.ID}}", conf.FuncName, conf.AppName),
+			"syslog-format":   "rfc5424",
 		},
+	}
+
+	tags := make([]string, 0, len(conf.Tags))
+	for _, pair := range conf.Tags {
+		tags = append(tags, fmt.Sprintf("%s=%s", pair.Name, pair.Value))
+	}
+	if len(tags) > 0 {
+		c.opts.HostConfig.LogConfig.Config["tag"] = strings.Join(tags, ",")
 	}
 }
 

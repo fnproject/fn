@@ -86,16 +86,19 @@ type RunResult interface {
 	Status() string
 }
 
+// Logger Tags for container
+type LoggerTag struct {
+	Name  string
+	Value string
+}
+
 // Logger Configuration for container
 type LoggerConfig struct {
 	// Log Sink URL
 	URL string
 
-	// Application Name for Log Tags
-	AppName string
-
-	// Function Name for Log Tags
-	FuncName string
+	// Log Tag Pairs
+	Tags []LoggerTag
 }
 
 // The ContainerTask interface guides container execution across a wide variety of

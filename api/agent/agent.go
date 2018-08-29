@@ -802,9 +802,11 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		logCfg: drivers.LoggerConfig{
-			URL:      strings.TrimSpace(call.SyslogURL),
-			AppName:  call.AppName,
-			FuncName: call.Path,
+			URL: strings.TrimSpace(call.SyslogURL),
+			Tags: []drivers.LoggerTag{
+				{Name: "app_name", Value: call.AppName},
+				{Name: "func_name", Value: call.Path},
+			},
 		},
 		stdin:  call.req.Body,
 		stdout: common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
@@ -1086,9 +1088,11 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 			fsSize:     cfg.MaxFsSize,
 			tmpFsSize:  uint64(call.TmpFsSize),
 			logCfg: drivers.LoggerConfig{
-				URL:      strings.TrimSpace(call.SyslogURL),
-				AppName:  call.AppName,
-				FuncName: call.Path,
+				URL: strings.TrimSpace(call.SyslogURL),
+				Tags: []drivers.LoggerTag{
+					{Name: "app_name", Value: call.AppName},
+					{Name: "func_name", Value: call.Path},
+				},
 			},
 			stdin:  stdin,
 			stdout: stdout,

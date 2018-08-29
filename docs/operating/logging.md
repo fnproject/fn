@@ -25,14 +25,14 @@ tcp+tls://logs.papertrailapp.com:1
 
 See docker syslog driver [syslog-address](https://docs.docker.com/config/containers/logging/syslog/#options) for supported formats.
 
-In addition to `{{.ID}}` (first 12 characters of the container ID), Fn adds `func_name` and `app_name` tags to the container logs using [docker syslog driver tags](https://docs.docker.com/config/containers/logging/syslog/#options):
+Fn adds `func_name` and `app_name` tags to the container logs using [docker syslog driver tags](https://docs.docker.com/config/containers/logging/syslog/#options):
 
 ```
-Aug 28 00:46:19 fnserver func_name=/fn-http-func,app_name=fn-http-func,e97dd9aff479[17]: 2018/08/28 00:46:19 Example log output
-Aug 28 00:46:19 fnserver func_name=/fn-http-func,app_name=fn-http-func,e97dd9aff479[17]: HTTP/1.1 200 OK
-Aug 28 00:46:19 fnserver func_name=/fn-http-func,app_name=fn-http-func,e97dd9aff479[17]: Content-Length: 11
-Aug 28 00:46:19 fnserver func_name=/fn-http-func,app_name=fn-http-func,e97dd9aff479[17]: 
-Aug 28 00:46:19 fnserver func_name=/fn-http-func,app_name=fn-http-func,e97dd9aff479[17]: Hello World
+Aug 29 19:41:31 fnserver 178 <11>1 2018-08-29T19:41:31Z 59ff8628a941 app_name=fn-http-func,func_name=/fn-http-func 17 app_name=fn-http-func,func_name=/fn-http-func - 2018/08/29 19:41:31 Example log output
+Aug 29 19:41:31 fnserver 154 <14>1 2018-08-29T19:41:31Z 59ff8628a941 app_name=fn-http-func,func_name=/fn-http-func 17 app_name=fn-http-func,func_name=/fn-http-func - HTTP/1.1 200 OK
+Aug 29 19:41:31 fnserver 158 <14>1 2018-08-29T19:41:31Z 59ff8628a941 app_name=fn-http-func,func_name=/fn-http-func 17 app_name=fn-http-func,func_name=/fn-http-func - Content-Length: 11
+Aug 29 19:41:31 fnserver 139 <14>1 2018-08-29T19:41:31Z 59ff8628a941 app_name=fn-http-func,func_name=/fn-http-func 17 app_name=fn-http-func,func_name=/fn-http-func - 
+Aug 29 19:41:31 fnserver 761 <14>1 2018-08-29T19:41:31Z 59ff8628a941 app_name=fn-http-func,func_name=/fn-http-func 17 app_name=fn-http-func,func_name=/fn-http-func - Hello World
 ```
 
-
+Currently, Fn does not add `call_id` to the log tags and it's user function responsibility to include this. FDKs will add support for this.
