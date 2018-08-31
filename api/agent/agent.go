@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/ioutil"
+	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -697,6 +700,8 @@ type hotSlot struct {
 	errC          <-chan error  // container error
 	container     *container    // TODO mask this
 	cfg           *Config
+	uds           string
+	udsChan       chan struct{}
 	fatalErr      error
 	containerSpan trace.SpanContext
 }
@@ -714,6 +719,33 @@ func (s *hotSlot) trySetError(err error) {
 	if s.fatalErr == nil {
 		s.fatalErr = err
 	}
+}
+
+func doHTTPUDS(log logrus.FieldLogger, path string, w chan struct{}) {
+
+	<-w
+
+	httpc := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", path)
+			},
+		},
+	}
+
+	var response *http.Response
+	var err error
+
+	response, err = httpc.Get("http://unix/")
+
+	if err != nil {
+		log.WithError(err).Error("some failure")
+		return
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	log.WithError(err).Errorf("got %s", body)
 }
 
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
@@ -751,6 +783,10 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	go func() {
 		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req.WithContext(ctx))
 		errApp <- proto.Dispatch(ctx, ci, call.w)
+
+		if s.uds != "" {
+			doHTTPUDS(common.Logger(ctx), s.uds, s.udsChan)
+		}
 	}()
 
 	select {
@@ -894,6 +930,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				errC:          errC,
 				container:     container,
 				cfg:           &a.cfg,
+				uds:           cookie.UDSPath(),
+				udsChan:       cookie.UDSWatcher(),
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {

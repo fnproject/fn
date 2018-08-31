@@ -46,6 +46,10 @@ type Cookie interface {
 	// yet called with the cookie, then this can be used to modify container
 	// create options.
 	ContainerOptions() interface{}
+
+	UDSPath() string
+
+	UDSWatcher() chan struct{}
 }
 
 type WaitResult interface {

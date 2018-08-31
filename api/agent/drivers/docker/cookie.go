@@ -3,10 +3,14 @@ package docker
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
+	"syscall"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fsnotify/fsnotify"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 )
@@ -17,6 +21,12 @@ type cookie struct {
 	poolId string
 	// network name from docker networks if applicable
 	netId string
+	//
+	ioFs string
+
+	fsWatcher *fsnotify.Watcher
+	ioWatcher chan struct{}
+
 	// docker container create options created by Driver.CreateCookie, required for Driver.Prepare()
 	opts docker.CreateContainerOptions
 	// task associated with this cookie
@@ -104,6 +114,68 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	c.opts.HostConfig.Tmpfs["/tmp"] = tmpFsOption
 }
 
+func (c *cookie) configureIOFs(log logrus.FieldLogger) {
+
+	var err error
+
+	// create a tmpdir
+	c.ioFs, err = ioutil.TempDir("/tmp", "iofs")
+	if err != nil {
+		log.WithError(err).Fatal("cannot create tmpdir")
+	}
+
+	opts := "size=1k,nr_inodes=8,mode=770"
+
+	// under tmpdir, create tmpfs
+	err = syscall.Mount("tmpfs", c.ioFs, "tmpfs", uintptr(syscall.MS_NOEXEC|syscall.MS_NOSUID|syscall.MS_NODEV), opts)
+	if err != nil {
+		log.WithError(err).Fatalf("cannot mount/create tmpfs=%s", c.ioFs)
+	}
+
+	bind := fmt.Sprintf("%s:/iofs", c.ioFs)
+	c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, bind)
+
+	if c.opts.Config.Env == nil {
+		c.opts.Config.Env = make([]string, 0, len(c.task.EnvVars())+1)
+	}
+
+	c.fsWatcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		log.WithError(err).Fatalf("watcher init")
+	}
+
+	c.ioWatcher = make(chan struct{})
+
+	go func() {
+		defer close(c.ioWatcher)
+		select {
+		case event, ok := <-c.fsWatcher.Events:
+			if !ok {
+				log.Error("watcher events closed")
+				return
+			}
+			log.Errorf("event: %v", event)
+			if event.Op&fsnotify.Write == fsnotify.Write {
+				log.Errorf("modified file: %v", event.Name)
+			}
+
+		case err, ok := <-c.fsWatcher.Errors:
+			if !ok {
+				log.Error("watcher error closed")
+				return
+			}
+			log.WithError(err).Fatal("watcher error")
+		}
+	}()
+
+	err = c.fsWatcher.Add(c.ioFs)
+	if err != nil {
+		log.WithError(err).Fatalf("watcher add")
+	}
+
+	c.opts.Config.Env = append(c.opts.Config.Env, "FN_LISTENER=unix:/iofs/lsnr.sock")
+}
+
 func (c *cookie) configureVolumes(log logrus.FieldLogger) {
 	if len(c.task.Volumes()) == 0 {
 		return
@@ -176,12 +248,13 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 		return
 	}
 
-	envvars := make([]string, 0, len(c.task.EnvVars()))
-	for name, val := range c.task.EnvVars() {
-		envvars = append(envvars, name+"="+val)
+	if c.opts.Config.Env == nil {
+		c.opts.Config.Env = make([]string, 0, len(c.task.EnvVars()))
 	}
 
-	c.opts.Config.Env = envvars
+	for name, val := range c.task.EnvVars() {
+		c.opts.Config.Env = append(c.opts.Config.Env, name+"="+val)
+	}
 }
 
 // implements Cookie
@@ -189,6 +262,22 @@ func (c *cookie) Close(ctx context.Context) error {
 	err := c.drv.removeContainer(ctx, c.task.Id())
 	c.drv.unpickPool(c)
 	c.drv.unpickNetwork(c)
+	if c.ioFs != "" {
+
+		err2 := syscall.Unmount(c.ioFs, 0)
+		if err == nil && err2 != nil {
+			err = err2
+		}
+
+		err2 = os.RemoveAll(c.ioFs)
+		if err == nil && err2 != nil {
+			err = err2
+		}
+	}
+	if c.fsWatcher != nil {
+		c.fsWatcher.Close()
+	}
+
 	return err
 }
 
@@ -200,6 +289,16 @@ func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 // implements Cookie
 func (c *cookie) ContainerOptions() interface{} {
 	return c.opts
+}
+
+func (c *cookie) UDSPath() string {
+	if c.ioFs != "" {
+		return fmt.Sprintf("%s/lsnr.sock", c.ioFs)
+	}
+	return ""
+}
+func (c *cookie) UDSWatcher() chan struct{} {
+	return c.ioWatcher
 }
 
 // implements Cookie
