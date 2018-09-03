@@ -1113,6 +1113,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v2.GET("/triggers/:triggerID", s.handleTriggerGet)
 			v2.PUT("/triggers/:triggerID", s.handleTriggerUpdate)
 			v2.DELETE("/triggers/:triggerID", s.handleTriggerDelete)
+
+			v2.GET("/calls", s.handleCallList)
+			v2.GET("/calls/:callID", s.handleCallGet)
+
+			v2.GET("/log", s.handleCallLogGet)
 		}
 
 		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers

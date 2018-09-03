@@ -73,6 +73,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	status varchar(256) NOT NULL,
 	id varchar(256) NOT NULL,
 	app_id varchar(256) NOT NULL,
+	fn_id varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
 	stats text,
 	error text,
@@ -95,6 +96,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	`CREATE TABLE IF NOT EXISTS logs (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	app_id varchar(256) NOT NULL,
+	fn_id varchar(256) NOT NULL,
+	call_id varchar(256) NOT NULL,
 	log text NOT NULL
 );`,
 
@@ -117,7 +120,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 const (
 	routeSelector     = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, tmpfs_size, headers, config, annotations, created_at, updated_at FROM routes`
-	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
+	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, fn_id, path, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 
@@ -955,6 +958,7 @@ func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
 		completed_at,
 		status,
 		app_id,
+		fn_id,
 		path,
 		stats,
 		error
@@ -966,6 +970,7 @@ func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
 		:completed_at,
 		:status,
 		:app_id,
+		:fn_id,
 		:path,
 		:stats,
 		:error
@@ -975,10 +980,10 @@ func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
 	return err
 }
 
-func (ds *SQLStore) GetCall(ctx context.Context, appID, callID string) (*models.Call, error) {
-	query := fmt.Sprintf(`%s WHERE id=? AND app_id=?`, callSelector)
+func (ds *SQLStore) GetCall(ctx context.Context, callID string) (*models.Call, error) {
+	query := fmt.Sprintf(`%s WHERE id=?`, callSelector)
 	query = ds.db.Rebind(query)
-	row := ds.db.QueryRowxContext(ctx, query, callID, appID)
+	row := ds.db.QueryRowxContext(ctx, query, callID)
 
 	var call models.Call
 	err := row.StructScan(&call)
@@ -991,8 +996,8 @@ func (ds *SQLStore) GetCall(ctx context.Context, appID, callID string) (*models.
 	return &call, nil
 }
 
-func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
-	res := []*models.Call{}
+func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) (*models.CallList, error) {
+	res := &models.CallList{Items: []*models.Call{}}
 	query, args := buildFilterCallQuery(filter)
 	query = fmt.Sprintf("%s %s", callSelector, query)
 	query = ds.db.Rebind(query)
@@ -1008,7 +1013,7 @@ func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]
 		if err != nil {
 			continue
 		}
-		res = append(res, &call)
+		res.Items = append(res.Items, &call)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1016,7 +1021,7 @@ func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]
 	return res, nil
 }
 
-func (ds *SQLStore) InsertLog(ctx context.Context, appID, callID string, logR io.Reader) error {
+func (ds *SQLStore) InsertLog(ctx context.Context, appID, fnID, callID string, logR io.Reader) error {
 	// coerce this into a string for sql
 	var log string
 	if stringer, ok := logR.(fmt.Stringer); ok {
@@ -1029,15 +1034,15 @@ func (ds *SQLStore) InsertLog(ctx context.Context, appID, callID string, logR io
 		log = b.String()
 	}
 
-	query := ds.db.Rebind(`INSERT INTO logs (id, app_id, log) VALUES (?, ?, ?);`)
-	_, err := ds.db.ExecContext(ctx, query, callID, appID, log)
+	query := ds.db.Rebind(`INSERT INTO logs (id, app_id, fn_id, log) VALUES (?, ?, ?, ?);`)
+	_, err := ds.db.ExecContext(ctx, query, callID, appID, fnID, log)
 
 	return err
 }
 
-func (ds *SQLStore) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
-	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND app_id=?`)
-	row := ds.db.QueryRowContext(ctx, query, callID, appID)
+func (ds *SQLStore) GetLog(ctx context.Context, callID string) (io.Reader, error) {
+	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=?`)
+	row := ds.db.QueryRowContext(ctx, query, callID)
 
 	var log string
 	err := row.Scan(&log)
@@ -1109,7 +1114,7 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	if !time.Time(filter.FromTime).IsZero() {
 		args = where(&b, args, "created_at>?", filter.FromTime.String())
 	}
-	args = where(&b, args, "app_id=?", filter.AppID)
+	args = where(&b, args, "fn_id=?", filter.FnID)
 	args = where(&b, args, "path=?", filter.Path)
 
 	fmt.Fprintf(&b, ` ORDER BY id DESC`) // TODO assert this is indexed

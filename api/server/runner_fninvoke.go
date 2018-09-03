@@ -17,6 +17,7 @@ import (
 
 // handleFnInvokeCall executes the function, for router handlers
 func (s *Server) handleFnInvokeCall(c *gin.Context) {
+	//ap := c.Param(api.AppID)
 	fnID := c.Param(api.ParamFnID)
 	ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"fnID": fnID})
 	c.Request = c.Request.WithContext(ctx)

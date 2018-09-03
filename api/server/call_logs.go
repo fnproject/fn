@@ -2,13 +2,13 @@ package server
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 
 	"errors"
 	"strings"
 
-	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
@@ -27,6 +27,7 @@ type callLog struct {
 func writeJSON(c *gin.Context, callID string, logReader io.Reader) {
 	var b bytes.Buffer
 	b.ReadFrom(logReader)
+	fmt.Println("B: ", b.String())
 	c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
 		&callLog{
 			CallID: callID,
@@ -37,12 +38,11 @@ func writeJSON(c *gin.Context, callID string, logReader io.Reader) {
 func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appID := c.MustGet(api.AppID).(string)
-	callID := c.Param(api.ParamCallID)
+	callID := c.Query("call_id")
 
-	logReader, err := s.logstore.GetLog(ctx, appID, callID)
+	logReader, err := s.logstore.GetLog(ctx, callID)
 	if err != nil {
-		handleV1ErrorResponse(c, err)
+		handleErrorResponse(c, err)
 		return
 	}
 
@@ -70,6 +70,6 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	}
 
 	// if we've reached this point it means that Fn didn't recognize Accepted content type
-	handleV1ErrorResponse(c, models.NewAPIError(http.StatusNotAcceptable,
+	handleErrorResponse(c, models.NewAPIError(http.StatusNotAcceptable,
 		errors.New("unable to respond within acceptable response content types")))
 }

@@ -145,6 +145,75 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
+  /log:
+    get:
+      operationId: "GetCallLogs"
+      summary: "Get Call Logs For An Application."
+      description: "Returns the call logs for a specific Call."
+      tags:
+        - Call
+        - Log
+      parameters:
+        - $ref: '#/parameters/CallIDQuery'
+      responses:
+        200:
+          description: Log found
+          schema:
+            $ref:  '#/definitions/Log'
+        404:
+          description: Log not found.
+          schema:
+            $ref: '#/definitions/Error'
+
+  /calls:
+    get:
+      summary: Get app-bound calls.
+      description: Get app-bound calls can filter to route-bound calls, results returned in created_at, descending order (newest first).
+      tags:
+        - Call
+      parameters:
+        - $ref: '#/parameters/AppIDQuery'
+        - $ref: '#/parameters/FnIDQuery'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
+        - name: from_time
+          description: Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
+          required: false
+          type: integer
+          in: query
+        - name: to_time
+          description: Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
+          required: false
+          type: integer
+          in: query
+      responses:
+        200:
+          description: "List of Calls"
+          schema:
+            $ref:  '#/definitions/CallList'
+        404:
+          description: "Calls not found"
+          schema:
+            $ref: '#/definitions/Error'
+
+  /calls/{callID}:
+    get:
+      summary: Get call information
+      description: Get call information
+      tags:
+        - Call
+      parameters:
+        - $ref: '#/parameters/CallID'
+      responses:
+        200:
+          description: Call found
+          schema:
+            $ref:  '#/definitions/Call'
+        404:
+          description: Call not found.
+          schema:
+            $ref: '#/definitions/Error'
+
   /fns:
     get:
       operationId: "ListFns"
@@ -527,6 +596,7 @@ definitions:
         items:
           $ref: '#/definitions/Fn'
 
+
   Trigger:
     type: object
     properties:
@@ -581,7 +651,156 @@ definitions:
         items:
           $ref: '#/definitions/Trigger'
 
+  # CallsWrapper:
+  #   type: object
+  #   required:
+  #     - calls
+  #   properties:
+  #     next_cursor:
+  #       type: string
+  #       description: cursor to send with subsequent request to receive the next page, if non-empty
+  #       readOnly: true
+  #     calls:
+  #       type: array
+  #       items:
+  #         $ref: '#/definitions/Call'
+  #     error:
+  #       $ref: '#/definitions/ErrorBody'
+
+  # CallWrapper:
+  #   type: object
+  #   required:
+  #     - call
+  #   properties:
+  #     call:
+  #       $ref: '#/definitions/Call'
+  #       description: "Call object."
+
+  # LogWrapper:
+  #   type: object
+  #   required:
+  #     - log
+  #   properties:
+  #     log:
+  #       $ref: '#/definitions/Log'
+  #       description: "Call log entry."
+
+  Log:
+    type: object
+    properties:
+      call_id:
+        type: string
+        description: Call ID
+      log:
+        type: string # maybe bytes, long logs wouldn't fit into string type
+
+  Call:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Call ID.
+        readOnly: true
+      status:
+        type: string
+        description: Call execution status.
+        readOnly: true
+      error:
+        type: string
+        description: Call execution error, if status is 'error'.
+        readOnly: true
+      app_id:
+        type: string
+        description: App ID that is assigned to a route that is being executed.
+        readOnly: true
+      path:
+        type: string
+        description: App route that is being executed.
+        readOnly: true
+      created_at:
+        type: string
+        format: date-time
+        description: Time when call was submitted. Always in UTC.
+        readOnly: true
+      started_at:
+        type: string
+        format: date-time
+        description: Time when call started execution. Always in UTC.
+        readOnly: true
+      completed_at:
+        type: string
+        format: date-time
+        description: Time when call completed, whether it was successul or failed. Always in UTC.
+        readOnly: true
+      stats:
+        type: array
+        items:
+          $ref: '#/definitions/Stat'
+        description: A histogram of stats for a call, each is a snapshot of a calls state at the timestamp.
+        readOnly: true
+
+  CallList:
+    type: object
+    required:
+      - items
+    properties:
+      next_cursor:
+        type: string
+        description: "Cursor to send with subsequent request to recieve next page, if non-empty."
+        readOnly: true
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/Call'
+
+  Stat:
+    type: object
+    properties:
+      timestamp:
+        type: string
+        format: date-time
+      metrics:
+        type: object
+        properties:
+          net_rx:
+            type: integer
+            format: int64
+          net_tx:
+            type: integer
+            format: int64
+          mem_limit:
+            type: integer
+            format: int64
+          mem_usage:
+            type: integer
+            format: int64
+          disk_read:
+            type: integer
+            format: int64
+          disk_write:
+            type: integer
+            format: int64
+          cpu_user:
+            type: integer
+            format: int64
+          cpu_total:
+            type: integer
+            format: int64
+          cpu_kernel:
+            type: integer
+            format: int64
+
   Error:
+    type: object
+    properties:
+      message:
+        type: string
+        readOnly: true
+      fields:
+        type: string
+        readOnly: true
+
+  ErrorBody:
     type: object
     properties:
       message:
@@ -623,6 +842,13 @@ parameters:
     description: "Opaque, unique Trigger ID."
     required: true
     type: string
+  CallID:
+    name: callID
+    in: path
+    description: "Opaque, unique Call ID."
+    required: true
+    type: string
+
 
   FnIDQuery:
     name: fn_id
@@ -634,5 +860,11 @@ parameters:
     name: app_id
     in: query
     description: "Application ID."
+    required: false
+    type: string
+  CallIDQuery:
+    name: call_id
+    in: query
+    description: "Call ID."
     required: false
     type: string

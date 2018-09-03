@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -136,13 +137,14 @@ func (s3StoreProvider) New(ctx context.Context, u *url.URL) (models.LogStore, er
 	return store, nil
 }
 
-func (s *store) InsertLog(ctx context.Context, appID, callID string, callLog io.Reader) error {
+func (s *store) InsertLog(ctx context.Context, appID, fnID, callID string, callLog io.Reader) error {
+	debug.PrintStack()
 	ctx, span := trace.StartSpan(ctx, "s3_insert_log")
 	defer span.End()
 
 	// wrap original reader in a decorator to keep track of read bytes without buffering
 	cr := &countingReader{r: callLog}
-	objectName := logKey(appID, callID)
+	objectName := logKey(callID)
 	params := &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(objectName),
@@ -160,11 +162,11 @@ func (s *store) InsertLog(ctx context.Context, appID, callID string, callLog io.
 	return nil
 }
 
-func (s *store) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
+func (s *store) GetLog(ctx context.Context, callID string) (io.Reader, error) {
 	ctx, span := trace.StartSpan(ctx, "s3_get_log")
 	defer span.End()
 
-	objectName := logKey(appID, callID)
+	objectName := logKey(callID)
 	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading log")
 
 	// stream the logs to an in-memory buffer
@@ -186,6 +188,7 @@ func (s *store) GetLog(ctx context.Context, appID, callID string) (io.Reader, er
 }
 
 func (s *store) InsertCall(ctx context.Context, call *models.Call) error {
+	fmt.Println("Datastore Call: ", call)
 	ctx, span := trace.StartSpan(ctx, "s3_insert_call")
 	defer span.End()
 
@@ -194,7 +197,7 @@ func (s *store) InsertCall(ctx context.Context, call *models.Call) error {
 		return err
 	}
 
-	objectName := callKey(call.AppID, call.ID)
+	objectName := callKey(call.ID)
 	params := &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(objectName),
@@ -232,11 +235,11 @@ func (s *store) InsertCall(ctx context.Context, call *models.Call) error {
 }
 
 // GetCall returns a call at a certain id and app name.
-func (s *store) GetCall(ctx context.Context, appID, callID string) (*models.Call, error) {
+func (s *store) GetCall(ctx context.Context, callID string) (*models.Call, error) {
 	ctx, span := trace.StartSpan(ctx, "s3_get_call")
 	defer span.End()
 
-	objectName := callKey(appID, callID)
+	objectName := callKey(callID)
 	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading call")
 
 	return s.getCallByKey(ctx, objectName)
@@ -283,28 +286,28 @@ func callMarkerKey(app, path, id string) string {
 	return callMarkerPrefix + app + "/" + path + "/" + id
 }
 
-func callKey(app, id string) string {
+func callKey(id string) string {
 	id = flipCursor(id)
-	return callKeyFlipped(app, id)
+	return callKeyFlipped(id)
 }
 
-func callKeyFlipped(app, id string) string {
-	return callKeyPrefix + app + "/" + id
+func callKeyFlipped(id string) string {
+	return callKeyPrefix + "/" + id
 }
 
-func logKey(appID, callID string) string {
-	return logKeyPrefix + appID + "/" + callID
+func logKey(callID string) string {
+	return logKeyPrefix + "/" + callID
 }
 
 // GetCalls returns a list of calls that satisfy the given CallFilter. If no
 // calls exist, an empty list and a nil error are returned.
 // NOTE: this relies on call ids being lexicographically sortable and <= 16 byte
-func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) (*models.CallList, error) {
 	ctx, span := trace.StartSpan(ctx, "s3_get_calls")
 	defer span.End()
 
-	if filter.AppID == "" {
-		return nil, errors.New("s3 store does not support listing across all apps")
+	if filter.FnID == "" {
+		return nil, errors.New("s3 store does not support listing across all functions")
 	}
 
 	// NOTE:
@@ -330,9 +333,9 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 	// filter.Cursor is a call id, translate to our key format. if a path is
 	// provided, we list keys from markers instead.
 	if filter.Cursor != "" {
-		marker = callKey(filter.AppID, filter.Cursor)
+		marker = callKey(filter.Cursor)
 		if filter.Path != "" {
-			marker = callMarkerKey(filter.AppID, filter.Path, filter.Cursor)
+			marker = callMarkerKey(filter.FnID, filter.Path, filter.Cursor)
 		}
 	} else if t := time.Time(filter.ToTime); !t.IsZero() {
 		// get a fake id that has the most significant bits set to the to_time (first 48 bits)
@@ -341,16 +344,16 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 		//fakoId.MarshalTextTo(buf)
 		//mid := string(buf[:10])
 		mid := fako.String()
-		marker = callKey(filter.AppID, mid)
+		marker = callKey(mid)
 		if filter.Path != "" {
-			marker = callMarkerKey(filter.AppID, filter.Path, mid)
+			marker = callMarkerKey(filter.FnID, filter.Path, mid)
 		}
 	}
 
 	// prefix prevents leaving bounds of app or path marker keys
-	prefix := callKey(filter.AppID, "")
+	prefix := callKey("")
 	if filter.Path != "" {
-		prefix = callMarkerKey(filter.AppID, filter.Path, "")
+		prefix = callMarkerKey(filter.FnID, filter.Path, "")
 	}
 
 	input := &s3.ListObjectsInput{
@@ -365,59 +368,62 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 		return nil, fmt.Errorf("failed to list logs: %v", err)
 	}
 
-	calls := make([]*models.Call, 0, len(result.Contents))
+	fmt.Println("Results: ", result)
 
-	for _, obj := range result.Contents {
-		if len(calls) == filter.PerPage {
-			break
-		}
+	// var calls *models.CallList
+	// calls.Items = make(map[string]*models.Call)
 
-		// extract the app and id from the key to lookup the object, this also
-		// validates we aren't reading strangely keyed objects from the bucket.
-		var app, id string
-		if filter.Path != "" {
-			fields := strings.Split(*obj.Key, "/")
-			if len(fields) != 4 {
-				return calls, fmt.Errorf("invalid key in call markers: %v", *obj.Key)
-			}
-			app = fields[1]
-			id = fields[3]
-		} else {
-			fields := strings.Split(*obj.Key, "/")
-			if len(fields) != 3 {
-				return calls, fmt.Errorf("invalid key in calls: %v", *obj.Key)
-			}
-			app = fields[1]
-			id = fields[2]
-		}
+	// for _, obj := range result.Contents {
+	// 	if len(calls.Items) == filter.PerPage {
+	// 		break
+	// 	}
 
-		// the id here is already reverse encoded, keep it that way.
-		objectName := callKeyFlipped(app, id)
+	// 	// extract the app and id from the key to lookup the object, this also
+	// 	// validates we aren't reading strangely keyed objects from the bucket.
+	// 	var app, id string
+	// 	if filter.Path != "" {
+	// 		fields := strings.Split(*obj.Key, "/")
+	// 		if len(fields) != 4 {
+	// 			return calls, fmt.Errorf("invalid key in call markers: %v", *obj.Key)
+	// 		}
+	// 		app = fields[1]
+	// 		id = fields[3]
+	// 	} else {
+	// 		fields := strings.Split(*obj.Key, "/")
+	// 		if len(fields) != 3 {
+	// 			return calls, fmt.Errorf("invalid key in calls: %v", *obj.Key)
+	// 		}
+	// 		app = fields[1]
+	// 		id = fields[2]
+	// 	}
 
-		// NOTE: s3 doesn't have a way to get multiple objects so just use GetCall
-		// TODO we should reuse the buffer to decode these
-		call, err := s.getCallByKey(ctx, objectName)
-		if err != nil {
-			common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app": app, "id": id}).Error("error filling call object")
-			continue
-		}
+	// 	// the id here is already reverse encoded, keep it that way.
+	// 	objectName := callKeyFlipped(app, id)
 
-		// ensure: from_time < created_at < to_time
-		fromTime := time.Time(filter.FromTime).Truncate(time.Millisecond)
-		if !fromTime.IsZero() && !fromTime.Before(time.Time(call.CreatedAt)) {
-			// NOTE could break, ids and created_at aren't necessarily in perfect order
-			continue
-		}
+	// 	// NOTE: s3 doesn't have a way to get multiple objects so just use GetCall
+	// 	// TODO we should reuse the buffer to decode these
+	// 	call, err := s.getCallByKey(ctx, objectName)
+	// 	if err != nil {
+	// 		common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app": app, "id": id}).Error("error filling call object")
+	// 		continue
+	// 	}
 
-		toTime := time.Time(filter.ToTime).Truncate(time.Millisecond)
-		if !toTime.IsZero() && !time.Time(call.CreatedAt).Before(toTime) {
-			continue
-		}
+	// 	// ensure: from_time < created_at < to_time
+	// 	fromTime := time.Time(filter.FromTime).Truncate(time.Millisecond)
+	// 	if !fromTime.IsZero() && !fromTime.Before(time.Time(call.CreatedAt)) {
+	// 		// NOTE could break, ids and created_at aren't necessarily in perfect order
+	// 		continue
+	// 	}
 
-		calls = append(calls, call)
-	}
+	// 	toTime := time.Time(filter.ToTime).Truncate(time.Millisecond)
+	// 	if !toTime.IsZero() && !time.Time(call.CreatedAt).Before(toTime) {
+	// 		continue
+	// 	}
 
-	return calls, nil
+	// 	calls = append(calls, call)
+	// }
+
+	return nil, nil
 }
 
 func (s *store) Close() error {

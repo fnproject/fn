@@ -153,11 +153,11 @@ func Test(t *testing.T, fnl models.LogStore) {
 		call.ID = id.New().String()
 		logText := "test"
 		log := strings.NewReader(logText)
-		err := fnl.InsertLog(ctx, call.AppID, call.ID, log)
+		err := fnl.InsertLog(ctx, call.AppID, call.FnID, call.ID, log)
 		if err != nil {
 			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
-		logEntry, err := fnl.GetLog(ctx, call.AppID, call.ID)
+		logEntry, err := fnl.GetLog(ctx, call.ID)
 		var b bytes.Buffer
 		io.Copy(&b, logEntry)
 		if !strings.Contains(b.String(), logText) {
@@ -168,7 +168,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 
 	t.Run("call-log-not-found", func(t *testing.T) {
 		call.ID = id.New().String()
-		_, err := fnl.GetLog(ctx, call.AppID, call.ID)
+		_, err := fnl.GetLog(ctx, call.AppID, call.FnID, call.ID)
 		if err != models.ErrCallLogNotFound {
 			t.Fatal("GetLog should return not found, but got:", err)
 		}

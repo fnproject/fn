@@ -13,32 +13,46 @@ import (
 
 func (s *Server) handleCallList(c *gin.Context) {
 	ctx := c.Request.Context()
+	var filter models.CallFilter
 	var err error
 
-	appID := c.MustGet(api.AppID).(string)
-	// TODO api.ParamRouteName needs to be escaped probably, since it has '/' a lot
-	filter := models.CallFilter{AppID: appID, Path: c.Query("path")}
-	filter.Cursor, filter.PerPage = pageParams(c, false) // ids are url safe
+	filter.Cursor, filter.PerPage = pageParamsV2(c)
+	filter.AppID = c.Query(api.AppID)
+	filter.FnID = c.Query("fn_id")
 
 	filter.FromTime, filter.ToTime, err = timeParams(c)
 	if err != nil {
-		handleV1ErrorResponse(c, err)
+		handleErrorResponse(c, err)
 		return
 	}
 
 	calls, err := s.logstore.GetCalls(ctx, &filter)
 
-	var nextCursor string
-	if len(calls) > 0 && len(calls) == filter.PerPage {
-		nextCursor = calls[len(calls)-1].ID
-		// don't base64, IDs are url safe
-	}
+	// appCache := make(map[string]*models.App)
 
-	c.JSON(http.StatusOK, callsResponse{
-		Message:    "Successfully listed calls",
-		NextCursor: nextCursor,
-		Calls:      calls,
-	})
+	// for idx, cl := range calls.Items {
+	// 	app, ok := appCache[cl.AppID]
+	// 	if !ok {
+	// 		gotApp, err := s.Datastore().GetAppByID(ctx, cl.AppID)
+	// 		if err != nil {
+	// 			handleErrorResponse(c, fmt.Errorf("failed to get app from calls %s", err))
+	// 			return
+	// 		}
+	// 		app = gotApp
+	// 		appCache[app.ID] = gotApp
+	// 	}
+
+	// 	newC, err := s.callA
+
+	// }
+	// var nextCursor string
+	// if len(calls) > 0 && len(calls) == filter.PerPage {
+	// 	nextCursor = calls[len(calls)-1].ID
+	// 	// don't base64, IDs are url safe
+	// }
+
+	c.JSON(http.StatusOK, calls)
+
 }
 
 // "" gets parsed to a zero time, which is fine (ignored in query)
