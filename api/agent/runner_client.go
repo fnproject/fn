@@ -358,7 +358,7 @@ DataLoop:
 			break DataLoop
 
 		default:
-			log.Error("Ignoring unknown message type %T from runner, possible client/server mismatch", body)
+			log.Errorf("Ignoring unknown message type %T from runner, possible client/server mismatch", body)
 		}
 	}
 
