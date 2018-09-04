@@ -28,7 +28,7 @@ func simpleError(err error) *models.Error {
 // TODO delete me !
 func handleV1ErrorResponse(ctx *gin.Context, err error) {
 	log := common.Logger(ctx)
-	if ctx.Err() == context.Canceled {
+	if ctx.Request.Context().Err() == context.Canceled {
 		log.Info("request canceled")
 		return
 	}
