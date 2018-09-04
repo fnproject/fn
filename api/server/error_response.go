@@ -28,12 +28,9 @@ func simpleError(err error) *models.Error {
 // TODO delete me !
 func handleV1ErrorResponse(ctx *gin.Context, err error) {
 	log := common.Logger(ctx)
-	select {
-	case <-ctx.Done():
+	if ctx.Err() == context.Canceled {
 		log.Info("request canceled")
 		return
-	default:
-		break
 	}
 
 	w := ctx.Writer
@@ -74,12 +71,9 @@ func writeV1Error(ctx context.Context, w http.ResponseWriter, statuscode int, er
 // HandleErrorResponse used to handle response errors in the same way.
 func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) {
 	log := common.Logger(ctx)
-	select {
-	case <-ctx.Done():
+	if ctx.Err() == context.Canceled {
 		log.Info("request canceled")
 		return
-	default:
-		break
 	}
 
 	var statuscode int
