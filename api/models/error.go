@@ -18,6 +18,11 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid JSON"),
 	}
+	ErrClientCancel = err{
+		// The special custom error code to close connection without any response
+		code:  444,
+		error: errors.New("Client cancelled context"),
+	}
 	ErrCallTimeout = err{
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
