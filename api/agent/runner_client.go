@@ -192,8 +192,8 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 
 	recvDone := make(chan error, 1)
 
-	go receiveFromRunner(ctx, runnerConnection, call, recvDone)
-	go sendToRunner(ctx, runnerConnection, call)
+	go receiveFromRunner(ctx, runnerConnection, r.address, call, recvDone)
+	go sendToRunner(ctx, runnerConnection, r.address, call)
 
 	select {
 	case <-ctx.Done():
@@ -208,11 +208,11 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	}
 }
 
-func sendToRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall) {
+func sendToRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, runnerAddress string, call pool.RunnerCall) {
 	bodyReader := call.RequestBody()
 	writeBuffer := make([]byte, MaxDataChunk)
 
-	log := common.Logger(ctx)
+	log := common.Logger(ctx).WithField("runner_addr", runnerAddress)
 	// IMPORTANT: IO Read below can fail in multiple go-routine cases (in retry
 	// case especially if receiveFromRunner go-routine receives a NACK while sendToRunner is
 	// already blocked on a read) or in the case of reading the http body multiple times (retries.)
@@ -297,11 +297,11 @@ func recordFinishStats(ctx context.Context, msg *pb.CallFinished) {
 	}
 }
 
-func receiveFromRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
+func receiveFromRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, runnerAddress string, c pool.RunnerCall, done chan error) {
 	w := c.ResponseWriter()
 	defer close(done)
 
-	log := common.Logger(ctx)
+	log := common.Logger(ctx).WithField("runner_addr", runnerAddress)
 	isPartialWrite := false
 
 DataLoop:
@@ -358,7 +358,7 @@ DataLoop:
 			break DataLoop
 
 		default:
-			log.Error("Ignoring unknown message type %T from runner, possible client/server mismatch", body)
+			log.Errorf("Ignoring unknown message type %T from runner, possible client/server mismatch", body)
 		}
 	}
 
