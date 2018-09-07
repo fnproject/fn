@@ -1,0 +1,78 @@
+box: golang:1.10
+no-response-timeout: 15
+
+build:
+  docker: true
+  base-path: /go/src/github.com/fnproject/fn
+  steps:
+    - script:
+        name: Set env variables
+        code: |
+          mkdir -p /home/circleci/go
+          export GOVERSION=1.10
+          export OS=linux
+          export ARCH=amd64
+          export FN_LOG_LEVEL=debug
+
+    - script:
+        name: go version
+        code: go version
+
+    - script:
+        name: install docker
+        code: |
+            rm -rf /var/cache/apt/archives && ln -s ~/.apt-cache /var/cache/apt/archives && mkdir -p ~/.apt-cache/partial
+            echo "Acquire::Check-Valid-Until \"0\";" > /etc/apt/apt.conf.d/10no--check-valid-until
+            curl -fsSL https://get.docker.com/ | sudo sh
+            docker version    
+
+    - script:
+        name: docker version
+        code: docker version
+
+    - script:
+        name: nproc
+        code: nproc
+
+    - script:
+        name: make clear-images
+        code: make clear-images
+
+    - script:
+        name: changed since last
+        code: |
+          ( ./changed-since-last.sh
+            echo "export DIND_NEEDED DIND_TAG DIND_PREV"
+            echo "export FN_NEEDED FN_TAG FN_PREV"
+          ) > /tmp/exports.sh
+          . /tmp/exports.sh
+
+    - script:
+        name: DIND
+        code: |
+          if [[ -n "$DIND_NEEDED" ]]; then
+            make build-dind
+          fi
+
+    - script:
+        name: FNSERVER
+        code: |
+          if [[ -n "$FN_NEEDED" ]]; then
+            make test-wercker -j $(nproc)
+          fi
+
+    - script:
+        name: deploy
+        code: |
+            if [[ "${WERCKER_GIT_BRANCH}" == "master" ]]; then
+              printenv DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+              git config --global user.email "ci@fnproject.com"
+              git config --global user.name "CI"
+              git branch --set-upstream-to=origin/${WERCKER_GIT_BRANCH} ${WERCKER_GIT_BRANCH}
+              if [[ -n "$DIND_NEEDED" ]]; then
+                make release-dind-wercker
+              fi
+              if [[ -n "$FN_NEEDED" ]]; then
+                make release-fnserver-wercker
+              fi
+            fi

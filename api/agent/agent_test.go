@@ -650,7 +650,6 @@ func TestTmpFsRW(t *testing.T) {
 	// Let's check what mounts are on...
 	mounts := strings.Split(resp.R.MountsRead, "\n")
 	isFound := false
-	isRootFound := false
 	for _, mnt := range mounts {
 		tokens := strings.Split(mnt, " ")
 		if len(tokens) < 3 {
@@ -661,17 +660,20 @@ func TestTmpFsRW(t *testing.T) {
 		opts := tokens[3]
 
 		// tmp dir with RW and no other options (size, inodes, etc.)
-		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime" {
-			// good
+		if point == "/tmp" {
 			isFound = true
-		} else if point == "/" && strings.HasPrefix(opts, "ro,") {
-			// Read-only root, good...
-			isRootFound = true
+			optsPresent := strings.Split(opts, ",")
+			optsRequired := strings.Split("rw,nosuid,nodev,noexec,relatime", ",")
+			for _, opt := range optsRequired {
+				if !contains(optsPresent, opt) {
+					isFound = false
+				}
+			}
 		}
 	}
 
-	if !isFound || !isRootFound {
-		t.Fatal(`didn't get proper mounts for /tmp or /, got /proc/mounts content of:\n`, resp.R.MountsRead)
+	if !isFound {
+		t.Fatal(`didn't get proper mounts for /tmp, got /proc/mounts content of:\n`, resp.R.MountsRead)
 	}
 
 	// write file should not have failed...
@@ -749,7 +751,6 @@ func TestTmpFsSize(t *testing.T) {
 	// Let's check what mounts are on...
 	mounts := strings.Split(resp.R.MountsRead, "\n")
 	isFound := false
-	isRootFound := false
 	for _, mnt := range mounts {
 		tokens := strings.Split(mnt, " ")
 		if len(tokens) < 3 {
@@ -760,17 +761,20 @@ func TestTmpFsSize(t *testing.T) {
 		opts := tokens[3]
 
 		// rw tmp dir with size and inode limits applied.
-		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1024" {
-			// good
+		if point == "/tmp" {
 			isFound = true
-		} else if point == "/" && strings.HasPrefix(opts, "ro,") {
-			// Read-only root, good...
-			isRootFound = true
+			optsPresent := strings.Split(opts, ",")
+			optsRequired := strings.Split("rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1024", ",")
+			for _, opt := range optsRequired {
+				if !contains(optsPresent, opt) {
+					isFound = false
+				}
+			}
 		}
 	}
 
-	if !isFound || !isRootFound {
-		t.Fatal(`didn't get proper mounts for  /tmp or /, got /proc/mounts content of:\n`, resp.R.MountsRead)
+	if !isFound {
+		t.Fatal(`didn't get proper mounts for  /tmp, got /proc/mounts content of:\n`, resp.R.MountsRead)
 	}
 
 	// write file should have failed...
@@ -1171,4 +1175,13 @@ func TestNBIOResourceTracker(t *testing.T) {
 	if ok < 4 || ok > 5 {
 		t.Fatalf("Expected successes, but got %d", ok)
 	}
+}
+
+func contains(arr []string, str string) bool {
+	for _, a := range arr {
+		if a == str {
+			return true
+		}
+	}
+	return false
 }
