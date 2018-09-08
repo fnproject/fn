@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
 
 	"github.com/coreos/go-semver/semver"
@@ -368,33 +367,20 @@ func dockerMsg(derr *docker.Error) string {
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
 
-	attachSuccess := make(chan struct{})
 	mwOut, mwErr := task.Logger()
-
-	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
-		Success:      attachSuccess,
+	waiter, err := drv.docker.AttachToContainer(ctx, docker.AttachToContainerOptions{
 		Container:    container,
+		InputStream:  task.Input(),
 		OutputStream: mwOut,
 		ErrorStream:  mwErr,
 		Stream:       true,
 		Stdout:       true,
 		Stderr:       true,
 		Stdin:        true,
-		InputStream:  task.Input()})
-
+	})
 	if err != nil && ctx.Err() == nil {
 		// ignore if ctx has errored, rewrite status lay below
 		return nil, err
-	}
-
-	// Sync up with NB Attacher above before starting the task
-	if err == nil {
-		// WARNING: the I/O below requires docker hijack function to honor
-		// the contract below, specifically if an error is not returned
-		// from AttachToContainerNonBlocking, then max blocking time
-		// here should be what drv.docker dialer/client config was set to.
-		<-attachSuccess
-		attachSuccess <- struct{}{}
 	}
 
 	// we want to stop trying to collect stats when the container exits
@@ -588,6 +574,7 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
 	// a more prevalent case is calling wait & container already finished, so again ignore err.
 	exitCode, _ := w.drv.docker.WaitContainerWithContext(w.container, ctx)
+	defer w.drv.docker.RecordWaitContainerResult(ctx, exitCode)
 
 	w.waiter.Close()
 	err = w.waiter.Wait()
@@ -618,7 +605,6 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 	case 0:
 		return drivers.StatusSuccess, nil
 	case 137: // OOM
-		stats.Record(ctx, dockerOOMMeasure.M(1))
 		common.Logger(ctx).Error("docker oom")
 		err := errors.New("container out of memory, you may want to raise route.memory for this route (default: 128MB)")
 		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, err)
