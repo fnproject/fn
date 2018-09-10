@@ -45,7 +45,6 @@ type dockerClient interface {
 	Stats(opts docker.StatsOptions) error
 	Info(ctx context.Context) (*docker.DockerInfo, error)
 	LoadImages(ctx context.Context, filePath string) error
-	RecordWaitContainerResult(ctx context.Context, exitCode int)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -100,7 +99,7 @@ func makeTracker(ctx context.Context, name string) (context.Context, func()) {
 	}
 }
 
-func (d *dockerWrap) RecordWaitContainerResult(ctx context.Context, exitCode int) {
+func RecordWaitContainerResult(ctx context.Context, exitCode int) {
 
 	// Tag the metric with error-code or context-cancel/deadline info
 	exitStr := fmt.Sprintf("exit_%d", exitCode)

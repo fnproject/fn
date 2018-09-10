@@ -574,7 +574,7 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
 	// a more prevalent case is calling wait & container already finished, so again ignore err.
 	exitCode, _ := w.drv.docker.WaitContainerWithContext(w.container, ctx)
-	defer w.drv.docker.RecordWaitContainerResult(ctx, exitCode)
+	defer RecordWaitContainerResult(ctx, exitCode)
 
 	w.waiter.Close()
 	err = w.waiter.Wait()
