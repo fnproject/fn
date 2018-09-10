@@ -501,20 +501,16 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	curStats := call.slots.getStats()
 	isAsync := call.Type == models.TypeAsync
 	isNB := a.cfg.EnableNBResourceTracker
-	isNeeded := isNewContainerNeeded(&curStats)
-	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": curStats, "isNeeded": isNeeded}).Debug("Hot function launcher stats")
-	if !isNeeded {
+	if !isNewContainerNeeded(&curStats) {
 		return
 	}
 
 	state := NewContainerState()
 	state.UpdateState(ctx, ContainerStateWait, call.slots)
 
-	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Debug("Hot function launcher attempting to start a container")
-
 	mem := call.Memory + uint64(call.TmpFsSize)
 
-	// WARNING: Tricky flow below. We are here because: isNeeded is set,
+	// WARNING: Tricky flow below. We are here because: isNewContainerNeeded is true,
 	// in other words, we need to launch a new container at this time due to high load.
 	//
 	// For non-blocking mode, this means, if we cannot acquire resources (cpu+mem), then we need
@@ -529,7 +525,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	// be an acceptable workaround for the short term since non-blocking mode likely to reduce
 	// the number of waiters which perhaps could compensate for more frequent polling.
 	//
-	// Non-blocking mode only applies to cpu+mem, and if isNeeded decided that we do not
+	// Non-blocking mode only applies to cpu+mem, and if isNewContainerNeeded decided that we do not
 	// need to start a new container, then waiters will wait.
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, mem, uint64(call.CPUs), isAsync, isNB):
