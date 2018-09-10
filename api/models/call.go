@@ -71,9 +71,6 @@ type Call struct {
 	//   - client_request - Request was cancelled by a client.
 	Status string `json:"status" db:"status"`
 
-	// Path of the route that is responsible for this call
-	Path string `json:"path" db:"path"`
-
 	// Name of Docker image to use.
 	Image string `json:"image,omitempty" db:"-"`
 
@@ -161,8 +158,8 @@ type Call struct {
 }
 
 type CallFilter struct {
-	Path     string // match
 	AppID    string // match
+	FnID     string //match
 	FromTime common.DateTime
 	ToTime   common.DateTime
 	Cursor   string

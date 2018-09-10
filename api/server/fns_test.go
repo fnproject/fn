@@ -99,7 +99,7 @@ func TestFnCreate(t *testing.T) {
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "format": "wazzup" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidFormat},
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "idle_timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrInvalidMemory},
+		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidMemory},
 
 		// success create & update
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusOK, nil},
@@ -133,7 +133,7 @@ func TestFnUpdate(t *testing.T) {
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "format": "wazzup" }`, http.StatusBadRequest, models.ErrFnsInvalidFormat},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "timeout": 3601 }`, http.StatusBadRequest, models.ErrFnsInvalidTimeout},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "idle_timeout": 3601 }`, http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 100000000000000 }`, http.StatusBadRequest, models.ErrInvalidMemory},
+		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 100000000000000 }`, http.StatusBadRequest, models.ErrFnsInvalidMemory},
 	} {
 		test.run(t, i, buf)
 	}

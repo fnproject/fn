@@ -268,32 +268,31 @@ func TestSlotQueueBasic3(t *testing.T) {
 func BenchmarkSlotKey(b *testing.B) {
 	appName := "myapp"
 	appID := id.New().String()
-	path := "/"
+	fnID := id.New().String()
+
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
 	CPUs := models.MilliCPUs(1000)
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + appName + path
+	url := "http://127.0.0.1:8080/invoke/" + fnID
 	payload := "payload"
 	typ := "sync"
 	format := "default"
 	cfg := models.Config{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
-		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_CPUS":     CPUs.String(),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
 	}
 
 	cm := &models.Call{
 		Config:      cfg,
 		AppID:       appID,
-		Path:        path,
+		FnID:        fnID,
 		Image:       image,
 		Type:        typ,
 		Format:      format,

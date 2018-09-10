@@ -65,12 +65,6 @@ func (cl *nopDataStore) Finish(ctx context.Context, c *models.Call, r io.Reader,
 	return nil // It's ok to call this method, and it does no operations
 }
 
-func (cl *nopDataStore) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
-	ctx, span := trace.StartSpan(ctx, "nop_datastore_get_route")
-	defer span.End()
-	return nil, errors.New("Should not call GetRoute on a NOP data store")
-}
-
 func (cl *nopDataStore) Close() error {
 	return nil
 }

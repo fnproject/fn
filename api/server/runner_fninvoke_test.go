@@ -294,8 +294,8 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 		}
 	}()
 
-	models.RouteMaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
-	hugeMem := uint64(models.RouteMaxMemory - 1)
+	models.MaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
+	hugeMem := uint64(models.MaxMemory - 1)
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	coldFn := &models.Fn{ID: "cold", Name: "cold", AppID: app.ID, Format: "", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}

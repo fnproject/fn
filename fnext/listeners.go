@@ -41,22 +41,6 @@ type AppListener interface {
 	// }
 }
 
-// RouteListener is an interface used to inject custom code at key points in the route lifecycle.
-type RouteListener interface {
-	// BeforeRouteCreate called before route created in the datastore
-	BeforeRouteCreate(ctx context.Context, route *models.Route) error
-	// AfterRouteCreate called after route create in the datastore
-	AfterRouteCreate(ctx context.Context, route *models.Route) error
-	// BeforeRouteUpdate called before route update in datastore
-	BeforeRouteUpdate(ctx context.Context, route *models.Route) error
-	// AfterRouteUpdate called after route updated in datastore
-	AfterRouteUpdate(ctx context.Context, route *models.Route) error
-	// BeforeRouteDelete called before route deleted from the datastore
-	BeforeRouteDelete(ctx context.Context, appId string, routePath string) error
-	// AfterRouteDelete called after route deleted from the datastore
-	AfterRouteDelete(ctx context.Context, appId string, routePath string) error
-}
-
 // FnListener enables callbacks around Fn events
 type FnListener interface {
 	// BeforeFnCreate called before fn created in the datastore

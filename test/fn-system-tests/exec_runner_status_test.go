@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -23,15 +24,16 @@ func TestCannotExecuteStatusImage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	rt := &models.Route{
-		Path:   routeName + "yogurt",
-		Image:  StatusImage,
-		Format: format,
-		Memory: memory,
-		Type:   typ,
+	app := ensureApp(t, rp.ValidApp())
+	fn := &models.Fn{
+		AppID:          app.ID,
+		Name:           "fnname",
+		Image:          StatusImage,
+		Format:         format,
+		ResourceConfig: models.ResourceConfig{Memory: memory},
 	}
 
-	rt = ensureRoute(t, rt)
+	fn = ensureFn(t, fn)
 
 	lb, err := LB()
 	if err != nil {
@@ -41,12 +43,12 @@ func TestCannotExecuteStatusImage(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
 	content := bytes.NewBuffer([]byte(`status`))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callFn(ctx, u.String(), content, output, "POST")
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -141,4 +143,30 @@ func TestExecuteRunnerStatus(t *testing.T) {
 		}
 	}
 
+}
+
+func callFn(ctx context.Context, u string, content io.Reader, output io.Writer, method string) (*http.Response, error) {
+	if method == "" {
+		if content == nil {
+			method = "GET"
+		} else {
+			method = "POST"
+		}
+	}
+
+	req, err := http.NewRequest(method, u, content)
+	if err != nil {
+		return nil, fmt.Errorf("error running route: %s", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(ctx)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error running route: %s", err)
+	}
+
+	io.Copy(output, resp.Body)
+
+	return resp, nil
 }

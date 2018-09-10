@@ -198,7 +198,6 @@ type Server struct {
 	noHybridAPI            bool
 	noFnInvokeEndpoint     bool
 	appListeners           *appListeners
-	routeListeners         *routeListeners
 	fnListeners            *fnListeners
 	triggerListeners       *triggerListeners
 	rootMiddlewares        []fnext.Middleware
@@ -680,13 +679,12 @@ func New(ctx context.Context, opts ...Option) *Server {
 	s.bindHandlers(ctx)
 
 	s.appListeners = new(appListeners)
-	s.routeListeners = new(routeListeners)
 	s.fnListeners = new(fnListeners)
 	s.triggerListeners = new(triggerListeners)
 
 	// TODO it's not clear that this is always correct as the read store  won't  get wrapping
 	s.datastore = datastore.Wrap(s.datastore)
-	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners, s.triggerListeners)
+	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.fnListeners, s.triggerListeners)
 	s.logstore = logs.Wrap(s.logstore)
 
 	return s
@@ -1078,17 +1076,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				withAppCheck.PATCH("", s.handleV1AppUpdate)
 				withAppCheck.DELETE("", s.handleV1AppDelete)
 
-				withAppCheck.GET("/routes", s.handleRouteList)
-				withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
-				withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
-				withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
 				withAppCheck.GET("/calls/:call", s.handleCallGet)
 				withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 				withAppCheck.GET("/calls", s.handleCallList)
 			}
 
-			apps.POST("/routes", s.handleRoutesPostPut)
-			apps.PUT("/routes/*route", s.handleRoutesPostPut)
 		}
 
 		cleanv2 := engine.Group("/v2")
@@ -1126,10 +1118,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runnerAppAPI := runner.Group(
 				"/apps/:appID")
 			runnerAppAPI.Use(setAppIDInCtx)
-			// Both of these are somewhat odd -
-			// Deprecate, remove with routes
-			runnerAppAPI.GET("/routes/*route", s.handleRunnerGetRoute)
-			runnerAppAPI.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
 		}
 	}
 
@@ -1139,12 +1127,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			lbTriggerGroup := engine.Group("/t")
 			lbTriggerGroup.Any("/:appName", s.handleHTTPTriggerCall)
 			lbTriggerGroup.Any("/:appName/*triggerSource", s.handleHTTPTriggerCall)
-
-			// TODO Deprecate with routes
-			lbRouteGroup := engine.Group("/r")
-			lbRouteGroup.Use(s.checkAppPresenceByNameAtLB())
-			lbRouteGroup.Any("/:appName", s.handleV1FunctionCall)
-			lbRouteGroup.Any("/:appName/*route", s.handleV1FunctionCall)
 		}
 
 		if !s.noFnInvokeEndpoint {
@@ -1157,8 +1139,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.NoRoute(func(c *gin.Context) {
 		var err error
 		switch {
-		case s.nodeType == ServerTypeAPI && strings.HasPrefix(c.Request.URL.Path, "/r/"):
-			err = models.ErrInvokeNotSupported
 		case s.nodeType == ServerTypeRunner && strings.HasPrefix(c.Request.URL.Path, "/v1/"):
 			err = models.ErrAPINotSupported
 		default:
@@ -1221,17 +1201,6 @@ type appsV1Response struct {
 	Message    string        `json:"message"`
 	NextCursor string        `json:"next_cursor"`
 	Apps       []*models.App `json:"apps"`
-}
-
-type routeResponse struct {
-	Message string        `json:"message"`
-	Route   *models.Route `json:"route"`
-}
-
-type routesResponse struct {
-	Message    string          `json:"message"`
-	NextCursor string          `json:"next_cursor"`
-	Routes     []*models.Route `json:"routes"`
 }
 
 type callResponse struct {
