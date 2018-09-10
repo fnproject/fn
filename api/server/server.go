@@ -1118,6 +1118,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runnerAppAPI := runner.Group(
 				"/apps/:appID")
 			runnerAppAPI.Use(setAppIDInCtx)
+			runnerAppAPI.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
 		}
 	}
 

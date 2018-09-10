@@ -2,11 +2,13 @@ package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
-	"net/http"
-
+	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
@@ -183,4 +185,27 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	//}
 
 	c.String(http.StatusNoContent, "")
+}
+
+func (s *Server) handleRunnerGetTriggerBySource(c *gin.Context) {
+	ctx := c.Request.Context()
+	appID := c.MustGet(api.AppID).(string)
+	triggerType := c.Param(api.ParamTriggerType)
+	if triggerType == "" {
+		handleErrorResponse(c, errors.New("no trigger type in request"))
+		return
+	}
+	triggerSource := strings.TrimPrefix(c.Param(api.ParamTriggerSource), "/")
+	trigger, err := s.datastore.GetTriggerBySource(ctx, appID, triggerType, triggerSource)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+	// Not clear that we really need to annotate the trigger here but ... lets do it just in case.
+	app, err := s.datastore.GetAppByID(ctx, trigger.AppID)
+	if err != nil {
+		handleErrorResponse(c, fmt.Errorf("unexpected error - trigger app not available: %s", err))
+	}
+	s.triggerAnnotator.AnnotateTrigger(c, app, trigger)
+	c.JSON(http.StatusOK, trigger)
 }
