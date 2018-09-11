@@ -782,6 +782,12 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 	req := call.req
 	req.RequestURI = "" // we have to clear this before using it as a client request, see https://golang.org/pkg/net/http/#Request
 
+	// XXX(reed): add our headers in here
+	//req.Header.Set("FN_DEADLINE", ci.Deadline().String())
+	//req.Header.Set("FN_METHOD", ci.Method())
+	//req.Header.Set("FN_REQUEST_URL", ci.RequestURL())
+	req.Header.Set("FN_CALL_ID", call.ID)
+
 	go func() {
 		resp, err := s.udsClient.Do(req)
 		if err != nil {
