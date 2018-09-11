@@ -373,6 +373,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		InputStream:  task.Input(),
 		OutputStream: mwOut,
 		ErrorStream:  mwErr,
+		Success:      make(chan struct{}),
 		Stream:       true,
 		Stdout:       true,
 		Stderr:       true,

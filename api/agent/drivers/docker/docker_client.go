@@ -256,22 +256,31 @@ func (d *dockerWrap) AttachToContainer(ctx context.Context, opts docker.AttachTo
 	ctx, closer := makeTracker(ctx, "docker_attach_container")
 	defer closer()
 
-	if opts.Success != nil {
-		logrus.Fatal("BUG: Invalid AttachToContainerOptions, Success channel must not be set")
-	}
-	opts.Success = make(chan struct{})
-
-	// We use non-blocking here since we need the CloseWaiter
+	// We use non-blocking attach here since we need the CloseWaiter
 	waiter, err := d.docker.AttachToContainerNonBlocking(opts)
 
-	// Sync up with NB Attacher above before starting the task
-	if err == nil {
-		// WARNING: the I/O below requires docker hijack function to honor
-		// the contract below, specifically if an error is not returned
-		// from AttachToContainerNonBlocking, then max blocking time
-		// here should be what drv.docker dialer/client config was set to.
-		<-opts.Success
-		opts.Success <- struct{}{}
+	if opts.Success != nil && err == nil {
+		mon := make(chan struct{})
+
+		// We block here, since we would like to have stdin/stdout/stderr
+		// streams already attached before starting task and I/O.
+		// if AttachToContainerNonBlocking() returns no error, then we'll
+		// sync up with NB Attacher above before starting the task. However,
+		// we might leak our go-routine if AttachToContainerNonBlocking()
+		// Dial/HTTP does not honor the Success channel contract.
+		// Here we assume that if our context times out, then underlying
+		// go-routines in AttachToContainerNonBlocking() will unlock
+		// (or eventually timeout) once we tear down the container.
+		go func() {
+			<-opts.Success
+			opts.Success <- struct{}{}
+			close(mon)
+		}()
+
+		select {
+		case <-ctx.Done():
+		case <-mon:
+		}
 	}
 
 	return waiter, err
