@@ -1068,7 +1068,10 @@ func createIOFS(cfg *Config) (string, error) {
 		return "", fmt.Errorf("cannot create tmpdir for iofs: %v", err)
 	}
 
-	opts := "size=1k,nr_inodes=8,mode=0777"
+	opts := cfg.IOFSOpts
+	if opts == "" {
+		opts = "size=1k,nr_inodes=8,mode=0777"
+	}
 
 	// under tmpdir, create tmpfs
 	err = syscall.Mount("tmpfs", iofsDir, "tmpfs", uintptr(syscall.MS_NOEXEC|syscall.MS_NOSUID|syscall.MS_NODEV), opts)
