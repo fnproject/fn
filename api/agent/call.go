@@ -444,7 +444,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.w = c.stderr
 	}
 	// NOTE: we need to limit the output size(?) since users may not use fdk we can't limit it there
-	c.w = common.NewClampWriter(c.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
+	// c.w = common.NewClampWriter(c.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
 
 	return &c, nil
 }
