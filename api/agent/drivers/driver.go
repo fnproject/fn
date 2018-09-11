@@ -46,10 +46,6 @@ type Cookie interface {
 	// yet called with the cookie, then this can be used to modify container
 	// create options.
 	ContainerOptions() interface{}
-
-	UDSPath() string
-
-	UDSWatcher() chan struct{}
 }
 
 type WaitResult interface {
@@ -162,8 +158,13 @@ type ContainerTask interface {
 	// Close should be safe to call multiple times.
 	Close()
 
-	// Extra Configuration Options
+	// Extensions are extra driver specific configuration options. They should be
+	// more specific but it's easier to be lazy.
 	Extensions() map[string]string
+
+	// UDSPath to use to configure the unix domain socket. the drivers
+	// abstractions have leaked so bad at this point it's a monsoon.
+	UDSPath() string
 }
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.

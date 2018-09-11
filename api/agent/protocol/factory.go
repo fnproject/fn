@@ -125,6 +125,7 @@ type Protocol string
 const (
 	Default     Protocol = models.FormatDefault
 	HTTP        Protocol = models.FormatHTTP
+	HTTPStream  Protocol = models.FormatHTTPStream
 	JSON        Protocol = models.FormatJSON
 	CloudEventP Protocol = models.FormatCloudEvent
 	Empty       Protocol = ""
@@ -160,7 +161,7 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 // stdin/stdout.
 func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 	switch p {
-	case HTTP:
+	case HTTP, HTTPStream:
 		return &HTTPProtocol{in, out}
 	case JSON:
 		return &JSONProtocol{in, out}

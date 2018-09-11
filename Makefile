@@ -8,7 +8,7 @@ dep-up:
 	dep ensure
 
 .PHONY: build
-build: api/agent/grpc/runner.pb.go
+build:
 	go build -o fnserver ./cmd/fnserver 
 
 .PHONY: install

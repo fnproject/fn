@@ -35,6 +35,7 @@ type Config struct {
 	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
 	DisableTini             bool          `json:"disable_tini"`
 	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
+	IOFSPath                string        `json:"iofs_path"`
 }
 
 const (
@@ -89,6 +90,8 @@ const (
 	EnvDisableTini = "FN_DISABLE_TINI"
 	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
 	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
+	// EnvIOFSPath is the path of a directory to configure for unix socket files for each container
+	EnvIOFSPath = "FN_IOFS_PATH"
 
 	// MaxMsDisabled is used to determine whether mr freeze is lying in wait. TODO remove this manuever
 	MaxMsDisabled = time.Duration(math.MaxInt64)

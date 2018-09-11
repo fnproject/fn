@@ -171,7 +171,7 @@ func (f *Fn) Validate() error {
 	}
 
 	switch f.Format {
-	case FormatDefault, FormatHTTP, FormatJSON, FormatCloudEvent:
+	case FormatDefault, FormatHTTP, FormatHTTPStream, FormatJSON, FormatCloudEvent:
 	default:
 		return ErrFnsInvalidFormat
 	}

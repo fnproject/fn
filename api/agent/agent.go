@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
@@ -19,6 +23,7 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
+	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
@@ -700,8 +705,7 @@ type hotSlot struct {
 	errC          <-chan error  // container error
 	container     *container    // TODO mask this
 	cfg           *Config
-	uds           string
-	udsChan       chan struct{}
+	udsClient     http.Client
 	fatalErr      error
 	containerSpan trace.SpanContext
 }
@@ -721,33 +725,6 @@ func (s *hotSlot) trySetError(err error) {
 	}
 }
 
-func doHTTPUDS(log logrus.FieldLogger, path string, w chan struct{}) {
-
-	<-w
-
-	httpc := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", path)
-			},
-		},
-	}
-
-	var response *http.Response
-	var err error
-
-	response, err = httpc.Get("http://unix/")
-
-	if err != nil {
-		log.WithError(err).Error("some failure")
-		return
-	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	log.WithError(err).Errorf("got %s", body)
-}
-
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	ctx, span := trace.StartSpan(ctx, "agent_hot_exec")
 	defer span.End()
@@ -764,30 +741,14 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 		Type:    trace.LinkTypeChild,
 	})
 
-	// swap in fresh pipes & stat accumulator to not interlace with other calls that used this slot [and timed out]
-	stdinRead, stdinWrite := io.Pipe()
-	stdoutRead, stdoutWritePipe := io.Pipe()
-	defer stdinRead.Close()
-	defer stdoutWritePipe.Close()
+	call.req = call.req.WithContext(ctx) // TODO this is funny biz reed is bad
 
-	// NOTE: stderr is limited separately (though line writer is vulnerable to attack?)
-	// limit the bytes allowed to be written to the stdout pipe, which handles any
-	// buffering overflows (json to a string, http to a buffer, etc)
-	stdoutWrite := common.NewClampWriter(stdoutWritePipe, s.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
-
-	proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
-	swapBack := s.container.swap(stdinRead, stdoutWrite, call.stderr, &call.Stats)
-	defer swapBack() // NOTE: it's important this runs before the pipes are closed.
-
-	errApp := make(chan error, 1)
-	go func() {
-		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req.WithContext(ctx))
-		errApp <- proto.Dispatch(ctx, ci, call.w)
-
-		if s.uds != "" {
-			doHTTPUDS(common.Logger(ctx), s.uds, s.udsChan)
-		}
-	}()
+	var errApp chan error
+	if call.Format == models.FormatHTTPStream {
+		errApp = s.dispatch(ctx, call)
+	} else { // TODO remove this block one glorious day
+		errApp = s.dispatchOldFormats(ctx, call)
+	}
 
 	select {
 	case err := <-s.errC: // error from container
@@ -808,6 +769,90 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 		s.trySetError(ctx.Err())
 		return ctx.Err()
 	}
+}
+
+func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
+	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
+	defer span.End()
+
+	// TODO we can't trust that resp.Write doesn't timeout, even if the http
+	// client should respect the request context (right?) so we still need this (right?)
+	errApp := make(chan error, 1)
+
+	req := call.req
+	req.RequestURI = "" // we have to clear this before using it as a client request, see https://golang.org/pkg/net/http/#Request
+
+	go func() {
+		resp, err := s.udsClient.Do(req)
+		if err != nil {
+			errApp <- err
+			return
+		}
+		defer resp.Body.Close()
+
+		select {
+		case errApp <- writeResp(resp, call.w):
+		case <-ctx.Done():
+			errApp <- ctx.Err()
+		}
+	}()
+	return errApp
+}
+
+// XXX(reed): dupe code in http proto (which will die...)
+func writeResp(resp *http.Response, w io.Writer) error {
+	rw, ok := w.(http.ResponseWriter)
+	if !ok {
+		return resp.Write(w)
+	}
+
+	// if we're writing directly to the response writer, we need to set headers
+	// and status code, and only copy the body. resp.Write would copy a full
+	// http request into the response body (not what we want).
+
+	for k, vs := range resp.Header {
+		for _, v := range vs {
+			rw.Header().Add(k, v)
+		}
+	}
+	if resp.StatusCode > 0 {
+		rw.WriteHeader(resp.StatusCode)
+	}
+	_, err := io.Copy(rw, resp.Body)
+	return err
+}
+
+// TODO remove
+func (s *hotSlot) dispatchOldFormats(ctx context.Context, call *call) chan error {
+
+	errApp := make(chan error, 1)
+	go func() {
+		// XXX(reed): this may be liable to leave the pipes fucked up if dispatch times out, eg
+		// we may need ye ole close() func to put the Close()/swapBack() in from the caller
+
+		// swap in fresh pipes & stat accumulator to not interlace with other calls that used this slot [and timed out]
+		stdinRead, stdinWrite := io.Pipe()
+		stdoutRead, stdoutWritePipe := io.Pipe()
+		defer stdinRead.Close()
+		defer stdoutWritePipe.Close()
+
+		// NOTE: stderr is limited separately (though line writer is vulnerable to attack?)
+		// limit the bytes allowed to be written to the stdout pipe, which handles any
+		// buffering overflows (json to a string, http to a buffer, etc)
+		stdoutWrite := common.NewClampWriter(stdoutWritePipe, s.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
+
+		swapBack := s.container.swap(stdinRead, stdoutWrite, call.stderr, &call.Stats)
+		defer swapBack() // NOTE: it's important this runs before the pipes are closed.
+
+		// TODO this should get killed completely
+		// TODO we could alternatively dial in and use the conn as stdin/stdout for an interim solution
+		// XXX(reed): ^^^ do we need that for the cloud event dance ????
+		proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
+		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req)
+		errApp <- proto.Dispatch(ctx, ci, call.w)
+	}()
+
+	return errApp
 }
 
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
@@ -879,8 +924,32 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
 
-	container, closer := newHotContainer(ctx, call, &a.cfg)
-	defer closer()
+	container, err := newHotContainer(ctx, call, &a.cfg)
+	if err != nil {
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+		return
+	}
+
+	// NOTE: soon this isn't assigned in a branch...
+	var udsClient http.Client
+	udsAwait := make(chan error)
+	if call.Format == models.FormatHTTPStream {
+		// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
+		// XXX(reed): figure out cleaner way to carry around the directory and expose the lsnr.sock file
+		go inotifyUDS(ctx, container.UDSPath(), udsAwait)
+
+		udsClient = http.Client{
+			Transport: &http.Transport{
+				// XXX(reed): other settings ?
+				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+					var d net.Dialer
+					return d.DialContext(ctx, "unix", container.UDSPath()+"/lsnr.sock") // XXX(reed): hardcoded lsnr.sock
+				},
+			},
+		}
+	} else {
+		close(udsAwait) // XXX(reed): short case first / kill this
+	}
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
@@ -891,7 +960,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
-	defer cookie.Close(ctx) // NOTE ensure this ctx doesn't time out
+	defer cookie.Close(ctx)
 
 	err = a.driver.PrepareCookie(ctx, cookie)
 	if err != nil {
@@ -902,6 +971,19 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+		return
+	}
+
+	// now we wait for the socket to be created before handing out any slots
+	select {
+	case err := <-udsAwait: // XXX(reed): need to leave a note about pairing ctx here?
+		// sends a nil error if all is good, we can proceed...
+		if err != nil {
+			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+			return
+		}
+	case <-ctx.Done():
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: ctx.Err()})
 		return
 	}
 
@@ -930,8 +1012,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				errC:          errC,
 				container:     container,
 				cfg:           &a.cfg,
-				uds:           cookie.UDSPath(),
-				udsChan:       cookie.UDSWatcher(),
+				udsClient:     udsClient,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
@@ -954,6 +1035,83 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	}
 
 	logger.WithError(res.Error()).Info("hot function terminated")
+}
+
+func createIOFS(cfg *Config) (string, error) {
+	// XXX(reed): need to ensure these are cleaned up if any of these ops in here fail...
+
+	dir := cfg.IOFSPath
+	if dir == "" {
+		// XXX(reed): figure out a sane default here...
+		pwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("cannot get pwd to create iofs: %v", err)
+		}
+		dir = path.Join(pwd, "tmp")
+
+		err = os.MkdirAll(dir, 0777)
+		if err != nil {
+			return "", fmt.Errorf("cannot create directory for iofs: %v", err)
+		}
+	}
+
+	// create a tmpdir
+	iofsDir, err := ioutil.TempDir(dir, "iofs")
+	if err != nil {
+		return "", fmt.Errorf("cannot create tmpdir for iofs: %v", err)
+	}
+
+	opts := "size=1k,nr_inodes=8,mode=0777"
+
+	// under tmpdir, create tmpfs
+	err = syscall.Mount("tmpfs", iofsDir, "tmpfs", uintptr(syscall.MS_NOEXEC|syscall.MS_NOSUID|syscall.MS_NODEV), opts)
+	if err != nil {
+		return "", fmt.Errorf("cannot mount/create tmpfs=%s", iofsDir)
+	}
+
+	return iofsDir, nil
+}
+
+func inotifyUDS(ctx context.Context, iofsDir string, awaitUDS chan<- error) {
+	// XXX(reed): I forgot how to plumb channels temporarily forgive me for this sin (inotify will timeout, this is just bad programming)
+	err := inotifyAwait(ctx, iofsDir)
+	select {
+	case awaitUDS <- err:
+	case <-ctx.Done():
+	}
+}
+
+func inotifyAwait(ctx context.Context, iofsDir string) error {
+	ctx, span := trace.StartSpan(ctx, "inotify_await")
+	defer span.End()
+
+	fsWatcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("error getting fsnotify watcher: %v", err)
+	}
+	defer fsWatcher.Close()
+
+	err = fsWatcher.Add(iofsDir)
+	if err != nil {
+		return fmt.Errorf("error adding iofs dir to fswatcher: %v", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			// XXX(reed): damn it would sure be nice to tell users they didn't make a uds and that's why it timed out
+			return ctx.Err()
+		case err := <-fsWatcher.Errors:
+			return fmt.Errorf("error watching for iofs: %v", err)
+		case event := <-fsWatcher.Events:
+			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == iofsDir+"/lsnr.sock" {
+				// XXX(reed): hardcoded /lsnr.sock path
+				// wait until the socket file is created by the container
+				return nil
+			}
+		}
+	}
 }
 
 // runHotReq enqueues a free slot to slot queue manager and watches various timers and the consumer until
@@ -1059,8 +1217,10 @@ type container struct {
 	cpus       uint64
 	fsSize     uint64
 	tmpFsSize  uint64
+	iofs       string
 	timeout    time.Duration // cold only (superfluous, but in case)
 	logCfg     drivers.LoggerConfig
+	close      func()
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -1072,7 +1232,7 @@ type container struct {
 }
 
 //newHotContainer creates a container that can be used for multiple sequential events
-func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, func()) {
+func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, error) {
 	// if freezer is enabled, be consistent with freezer behavior and
 	// block stdout and stderr between calls.
 	isBlockIdleIO := MaxMsDisabled != cfg.FreezeIdle
@@ -1117,33 +1277,61 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		stderr.Swap(newLineWriterWithBuffer(buf2, sec))
 	}
 
+	var iofs string
+	var err error
+	closer := func() {} // XXX(reed):
+	if call.Format == models.FormatHTTPStream {
+		// XXX(reed): we should also point stdout to stderr, and not have stdin
+
+		iofs, err = createIOFS(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		// XXX(reed): futz with this, we have to make sure shit gets cleaned up properly
+		closer = func() {
+			err := syscall.Unmount(iofs, 0)
+			if err != nil {
+				common.Logger(ctx).WithError(err).Error("error unmounting iofs")
+			}
+
+			err = os.RemoveAll(iofs)
+			if err != nil {
+				common.Logger(ctx).WithError(err).Error("error unmounting iofs")
+			}
+		}
+	}
+
 	return &container{
-			id:         id, // XXX we could just let docker generate ids...
-			image:      call.Image,
-			env:        map[string]string(call.Config),
-			extensions: call.extensions,
-			memory:     call.Memory,
-			cpus:       uint64(call.CPUs),
-			fsSize:     cfg.MaxFsSize,
-			tmpFsSize:  uint64(call.TmpFsSize),
-			logCfg: drivers.LoggerConfig{
-				URL: strings.TrimSpace(call.SyslogURL),
-				Tags: []drivers.LoggerTag{
-					{Name: "app_name", Value: call.AppName},
-					{Name: "func_name", Value: call.Path},
-				},
+		id:         id, // XXX we could just let docker generate ids...
+		image:      call.Image,
+		env:        map[string]string(call.Config),
+		extensions: call.extensions,
+		memory:     call.Memory,
+		cpus:       uint64(call.CPUs),
+		fsSize:     cfg.MaxFsSize,
+		tmpFsSize:  uint64(call.TmpFsSize),
+		iofs:       iofs,
+		logCfg: drivers.LoggerConfig{
+			URL: strings.TrimSpace(call.SyslogURL),
+			Tags: []drivers.LoggerTag{
+				{Name: "app_name", Value: call.AppName},
+				{Name: "func_name", Value: call.Path},
 			},
-			stdin:  stdin,
-			stdout: stdout,
-			stderr: stderr,
-		}, func() {
+		},
+		stdin:  stdin,
+		stdout: stdout,
+		stderr: stderr,
+		close: func() {
 			stdin.Close()
 			stderr.Close()
 			stdout.Close()
 			for _, b := range bufs {
 				bufPool.Put(b)
 			}
-		}
+			closer() // XXX(reed): clean up
+		},
+	}, nil
 }
 
 func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.Stats) func() {
@@ -1173,7 +1361,7 @@ func (c *container) Input() io.Reader                   { return c.stdin }
 func (c *container) Logger() (io.Writer, io.Writer)     { return c.stdout, c.stderr }
 func (c *container) Volumes() [][2]string               { return nil }
 func (c *container) WorkDir() string                    { return "" }
-func (c *container) Close()                             {}
+func (c *container) Close()                             { c.close() }
 func (c *container) Image() string                      { return c.image }
 func (c *container) Timeout() time.Duration             { return c.timeout }
 func (c *container) EnvVars() map[string]string         { return c.env }
@@ -1183,6 +1371,7 @@ func (c *container) FsSize() uint64                     { return c.fsSize }
 func (c *container) TmpFsSize() uint64                  { return c.tmpFsSize }
 func (c *container) Extensions() map[string]string      { return c.extensions }
 func (c *container) LoggerConfig() drivers.LoggerConfig { return c.logCfg }
+func (c *container) UDSPath() string                    { return c.iofs }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
