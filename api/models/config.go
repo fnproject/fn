@@ -20,8 +20,7 @@ func (c1 Config) Equals(c2 Config) bool {
 		return false
 	}
 	for k1, v1 := range c1 {
-		v2, _ := c2[k1]
-		if v1 != v2 {
+		if v2, ok := c2[k1]; !ok || v1 != v2 {
 			return false
 		}
 	}
