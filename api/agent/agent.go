@@ -929,6 +929,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 		return
 	}
+	defer container.Close()
 
 	// NOTE: soon this isn't assigned in a branch...
 	var udsClient http.Client
@@ -1297,7 +1298,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 
 			err = os.RemoveAll(iofs)
 			if err != nil {
-				common.Logger(ctx).WithError(err).Error("error unmounting iofs")
+				common.Logger(ctx).WithError(err).Error("error removing iofs")
 			}
 		}
 	}
