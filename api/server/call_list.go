@@ -16,8 +16,12 @@ func (s *Server) handleCallList(c *gin.Context) {
 	var err error
 
 	appID := c.MustGet(api.AppID).(string)
-	// TODO api.ParamRouteName needs to be escaped probably, since it has '/' a lot
-	filter := models.CallFilter{AppID: appID, Path: c.Query("path")}
+	fnID := c.Query(api.ParamFnID)
+
+	filter := models.CallFilter{AppID: appID}
+	if fnID != "" {
+		filter.FnID = fnID
+	}
 	filter.Cursor, filter.PerPage = pageParams(c, false) // ids are url safe
 
 	filter.FromTime, filter.ToTime, err = timeParams(c)

@@ -8,11 +8,10 @@ import (
 
 // NewDatastore returns a Datastore that wraps the provided Datastore, calling any relevant
 // listeners around any of the Datastore methods.
-func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener, fl FnListener, tl TriggerListener) models.Datastore {
+func NewDatastore(ds models.Datastore, al AppListener, fl FnListener, tl TriggerListener) models.Datastore {
 	return &extds{
 		Datastore: ds,
 		al:        al,
-		rl:        rl,
 		fl:        fl,
 		tl:        tl,
 	}
@@ -21,7 +20,6 @@ func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener, fl FnLi
 type extds struct {
 	models.Datastore
 	al AppListener
-	rl RouteListener
 	fl FnListener
 	tl TriggerListener
 }
@@ -145,48 +143,6 @@ func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) (*models.
 
 	err = e.al.AfterAppsList(ctx, apps.Items)
 	return apps, err
-}
-
-func (e *extds) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	err := e.rl.BeforeRouteCreate(ctx, route)
-	if err != nil {
-		return nil, err
-	}
-
-	route, err = e.Datastore.InsertRoute(ctx, route)
-	if err != nil {
-		return nil, err
-	}
-
-	err = e.rl.AfterRouteCreate(ctx, route)
-	return route, err
-}
-
-func (e *extds) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	err := e.rl.BeforeRouteUpdate(ctx, route)
-	if err != nil {
-		return nil, err
-	}
-
-	route, err = e.Datastore.UpdateRoute(ctx, route)
-	if err != nil {
-		return nil, err
-	}
-
-	err = e.rl.AfterRouteUpdate(ctx, route)
-	return route, err
-}
-
-func (e *extds) RemoveRoute(ctx context.Context, appId string, routePath string) error {
-	err := e.rl.BeforeRouteDelete(ctx, appId, routePath)
-	if err != nil {
-		return err
-	}
-	err = e.Datastore.RemoveRoute(ctx, appId, routePath)
-	if err != nil {
-		return err
-	}
-	return e.rl.AfterRouteDelete(ctx, appId, routePath)
 }
 
 func (e *extds) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {

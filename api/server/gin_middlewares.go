@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	"strconv"
+	"time"
+
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -18,8 +21,6 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
-	"strconv"
-	"time"
 )
 
 var (
@@ -67,13 +68,13 @@ func traceWrap(c *gin.Context) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	pathKey, err := tag.NewKey("fn_path")
+	fnIDKey, err := tag.NewKey("fn_id")
 	if err != nil {
 		logrus.Fatal(err)
 	}
 	ctx, err := tag.New(c.Request.Context(),
 		tag.Insert(appKey, c.Param(api.ParamAppName)),
-		tag.Insert(pathKey, c.Param(api.ParamRouteName)),
+		tag.Insert(fnIDKey, c.Param(api.ParamFnID)),
 	)
 	if err != nil {
 		logrus.Fatal(err)
@@ -184,7 +185,7 @@ func loggerWrap(c *gin.Context) {
 		ctx = ContextWithApp(ctx, appName)
 	}
 
-	if routePath := c.Param(api.ParamRouteName); routePath != "" {
+	if routePath := c.Param(api.ParamFnID); routePath != "" {
 		c.Set(api.Path, routePath)
 		ctx = ContextWithPath(ctx, routePath)
 	}

@@ -2,17 +2,16 @@ package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
-	"errors"
-	"fmt"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"path"
 )
 
 func (s *Server) handleRunnerEnqueue(c *gin.Context) {
@@ -188,46 +187,25 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	c.String(http.StatusNoContent, "")
 }
 
-// This is a sort of interim route  that is V2 API style but due for deprectation
-func (s *Server) handleRunnerGetRoute(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	routePath := path.Clean("/" + c.MustGet(api.Path).(string))
-	route, err := s.datastore.GetRoute(ctx, c.MustGet(api.AppID).(string), routePath)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, route)
-}
-
 func (s *Server) handleRunnerGetTriggerBySource(c *gin.Context) {
 	ctx := c.Request.Context()
-
-	appId := c.MustGet(api.AppID).(string)
-
+	appID := c.MustGet(api.AppID).(string)
 	triggerType := c.Param(api.ParamTriggerType)
 	if triggerType == "" {
 		handleErrorResponse(c, errors.New("no trigger type in request"))
 		return
 	}
 	triggerSource := strings.TrimPrefix(c.Param(api.ParamTriggerSource), "/")
-
-	trigger, err := s.datastore.GetTriggerBySource(ctx, appId, triggerType, triggerSource)
-
+	trigger, err := s.datastore.GetTriggerBySource(ctx, appID, triggerType, triggerSource)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 	// Not clear that we really need to annotate the trigger here but ... lets do it just in case.
 	app, err := s.datastore.GetAppByID(ctx, trigger.AppID)
-
 	if err != nil {
 		handleErrorResponse(c, fmt.Errorf("unexpected error - trigger app not available: %s", err))
 	}
-
 	s.triggerAnnotator.AnnotateTrigger(c, app, trigger)
-
 	c.JSON(http.StatusOK, trigger)
 }

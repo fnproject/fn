@@ -67,66 +67,6 @@ func (v *validator) RemoveApp(ctx context.Context, appID string) error {
 	return v.Datastore.RemoveApp(ctx, appID)
 }
 
-// appName and routePath will never be empty.
-func (v *validator) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
-	if appID == "" {
-		return nil, models.ErrRoutesMissingAppID
-	}
-	if routePath == "" {
-		return nil, models.ErrRoutesMissingPath
-	}
-
-	return v.Datastore.GetRoute(ctx, appID, routePath)
-}
-
-// appName will never be empty
-func (v *validator) GetRoutesByApp(ctx context.Context, appID string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
-	if appID == "" {
-		return nil, models.ErrRoutesMissingAppID
-	}
-
-	return v.Datastore.GetRoutesByApp(ctx, appID, routeFilter)
-}
-
-// route will never be nil and route's AppName and Path will never be empty.
-func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	if route == nil {
-		return nil, models.ErrDatastoreEmptyRoute
-	}
-
-	if err := route.Validate(); err != nil {
-		return nil, err
-	}
-
-	return v.Datastore.InsertRoute(ctx, route)
-}
-
-// route will never be nil and route's AppName and Path will never be empty.
-func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
-	if newroute == nil {
-		return nil, models.ErrDatastoreEmptyRoute
-	}
-	if newroute.AppID == "" {
-		return nil, models.ErrRoutesMissingAppID
-	}
-	if newroute.Path == "" {
-		return nil, models.ErrRoutesMissingPath
-	}
-	return v.Datastore.UpdateRoute(ctx, newroute)
-}
-
-// appName and routePath will never be empty.
-func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath string) error {
-	if appID == "" {
-		return models.ErrRoutesMissingAppID
-	}
-	if routePath == "" {
-		return models.ErrRoutesMissingPath
-	}
-
-	return v.Datastore.RemoveRoute(ctx, appID, routePath)
-}
-
 func (v *validator) InsertTrigger(ctx context.Context, t *models.Trigger) (*models.Trigger, error) {
 
 	if t.ID != "" {

@@ -18,11 +18,9 @@ var testApp = &models.App{
 	ID:   id.New().String(),
 }
 
-var testRoute = &models.Route{
-	Path:   "/test",
-	Image:  "fnproject/fn-test-utils",
-	Type:   "sync",
-	Format: "http",
+var testFn = &models.Fn{
+	Name: "TestFn",
+	ID:   id.New().String(),
 }
 
 func SetupTestCall(t *testing.T, ctx context.Context, ls models.LogStore) *models.Call {
@@ -32,7 +30,7 @@ func SetupTestCall(t *testing.T, ctx context.Context, ls models.LogStore) *model
 	call.Status = "success"
 	call.StartedAt = common.DateTime(time.Now())
 	call.CompletedAt = common.DateTime(time.Now())
-	call.Path = testRoute.Path
+	call.FnID = testFn.ID
 	return &call
 }
 
@@ -44,7 +42,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 
 	// test list first, the rest are point lookup tests
 	t.Run("calls-get", func(t *testing.T) {
-		filter := &models.CallFilter{AppID: call.AppID, Path: call.Path, PerPage: 100}
+		filter := &models.CallFilter{AppID: call.AppID, FnID: call.FnID, PerPage: 100}
 		now := time.Now()
 		call.CreatedAt = common.DateTime(now)
 		call.ID = id.New().String()
@@ -123,7 +121,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
 		}
 
-		calls, err = fnl.GetCalls(ctx, &models.CallFilter{AppID: call.AppID, Path: "wrongpath", PerPage: 100})
+		calls, err = fnl.GetCalls(ctx, &models.CallFilter{AppID: call.AppID, FnID: "wrongid", PerPage: 100})
 		if err != nil {
 			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
 		}
@@ -181,7 +179,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 	call.StartedAt = common.DateTime(time.Now())
 	call.CompletedAt = common.DateTime(time.Now())
 	call.AppID = testApp.Name
-	call.Path = testRoute.Path
+	call.FnID = ""
 
 	t.Run("call-insert", func(t *testing.T) {
 		call.ID = id.New().String()
@@ -222,8 +220,8 @@ func Test(t *testing.T, fnl models.LogStore) {
 		if call.AppID != newCall.AppID {
 			t.Fatalf("Test GetCall: app_name mismatch `%v` `%v`", call.AppID, newCall.AppID)
 		}
-		if call.Path != newCall.Path {
-			t.Fatalf("Test GetCall: path mismatch `%v` `%v`", call.Path, newCall.Path)
+		if call.FnID != newCall.FnID {
+			t.Fatalf("Test GetCall: fn id mismatch `%v` `%v`", call.FnID, newCall.FnID)
 		}
 	})
 }

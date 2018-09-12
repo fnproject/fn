@@ -213,7 +213,7 @@ func (s *store) InsertCall(ctx context.Context, call *models.Call) error {
 	// see this entry when listing only when specifying a route path. (NOTE: this
 	// behavior will go away if we stop listing by route -> triggers)
 
-	objectName = callMarkerKey(call.AppID, call.Path, call.ID)
+	objectName = callMarkerKey(call.AppID, call.FnID, call.ID)
 	params = &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(objectName),
@@ -274,13 +274,13 @@ func flipCursor(oid string) string {
 	return id.EncodeDescending(oid)
 }
 
-func callMarkerKey(app, path, id string) string {
+func callMarkerKey(app, fnID, id string) string {
 	id = flipCursor(id)
 	// s3 urls use / and are url, we need to encode this since paths have / in them
 	// NOTE: s3 urls are max of 1024 chars. path is the only non-fixed sized object in here
 	// but it is fixed to 256 chars in sql (by chance, mostly). further validation may be needed if weirdness ensues.
-	path = base64.RawURLEncoding.EncodeToString([]byte(path))
-	return callMarkerPrefix + app + "/" + path + "/" + id
+	fnID = base64.RawURLEncoding.EncodeToString([]byte(fnID))
+	return callMarkerPrefix + app + "/" + fnID + "/" + id
 }
 
 func callKey(app, id string) string {
@@ -331,8 +331,8 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 	// provided, we list keys from markers instead.
 	if filter.Cursor != "" {
 		marker = callKey(filter.AppID, filter.Cursor)
-		if filter.Path != "" {
-			marker = callMarkerKey(filter.AppID, filter.Path, filter.Cursor)
+		if filter.FnID != "" {
+			marker = callMarkerKey(filter.AppID, filter.FnID, filter.Cursor)
 		}
 	} else if t := time.Time(filter.ToTime); !t.IsZero() {
 		// get a fake id that has the most significant bits set to the to_time (first 48 bits)
@@ -342,15 +342,15 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 		//mid := string(buf[:10])
 		mid := fako.String()
 		marker = callKey(filter.AppID, mid)
-		if filter.Path != "" {
-			marker = callMarkerKey(filter.AppID, filter.Path, mid)
+		if filter.FnID != "" {
+			marker = callMarkerKey(filter.AppID, filter.FnID, mid)
 		}
 	}
 
 	// prefix prevents leaving bounds of app or path marker keys
 	prefix := callKey(filter.AppID, "")
-	if filter.Path != "" {
-		prefix = callMarkerKey(filter.AppID, filter.Path, "")
+	if filter.FnID != "" {
+		prefix = callMarkerKey(filter.AppID, filter.FnID, "")
 	}
 
 	input := &s3.ListObjectsInput{
@@ -375,7 +375,7 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 		// extract the app and id from the key to lookup the object, this also
 		// validates we aren't reading strangely keyed objects from the bucket.
 		var app, id string
-		if filter.Path != "" {
+		if filter.FnID != "" {
 			fields := strings.Split(*obj.Key, "/")
 			if len(fields) != 4 {
 				return calls, fmt.Errorf("invalid key in call markers: %v", *obj.Key)

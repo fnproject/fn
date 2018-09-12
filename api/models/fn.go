@@ -18,6 +18,13 @@ var (
 	MaxTimeout     int32  = 300      // 5m
 	MaxIdleTimeout int32  = 3600     // 1h
 
+	DefaultTimeout     int32  = 30  // seconds
+	DefaultIdleTimeout int32  = 30  // seconds
+	DefaultMemory      uint64 = 128 // MB
+
+	MaxSyncTimeout  = 120  // 2 minutes
+	MaxAsyncTimeout = 3600 // 1 hour
+
 	ErrFnsIDMismatch = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Fn ID in path does not match that in body"),
@@ -49,6 +56,14 @@ var (
 	ErrFnsMissingImage = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing image on Fn"),
+	}
+	ErrFnsInvalidMemory = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", MaxMemory),
+	}
+	ErrFnsInvalidImage = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid FN Image"),
 	}
 	ErrFnsInvalidFormat = err{
 		code:  http.StatusBadRequest,
@@ -185,7 +200,7 @@ func (f *Fn) Validate() error {
 	}
 
 	if f.Memory < 1 || f.Memory > MaxMemory {
-		return ErrInvalidMemory
+		return ErrFnsInvalidMemory
 	}
 
 	return f.Annotations.Validate()

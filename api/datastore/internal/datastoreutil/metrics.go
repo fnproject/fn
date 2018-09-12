@@ -58,36 +58,6 @@ func (m *metricds) RemoveApp(ctx context.Context, appID string) error {
 	return m.ds.RemoveApp(ctx, appID)
 }
 
-func (m *metricds) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_get_route")
-	defer span.End()
-	return m.ds.GetRoute(ctx, appID, routePath)
-}
-
-func (m *metricds) GetRoutesByApp(ctx context.Context, appID string, filter *models.RouteFilter) (routes []*models.Route, err error) {
-	ctx, span := trace.StartSpan(ctx, "ds_get_routes_by_app")
-	defer span.End()
-	return m.ds.GetRoutesByApp(ctx, appID, filter)
-}
-
-func (m *metricds) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_insert_route")
-	defer span.End()
-	return m.ds.InsertRoute(ctx, route)
-}
-
-func (m *metricds) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_update_route")
-	defer span.End()
-	return m.ds.UpdateRoute(ctx, route)
-}
-
-func (m *metricds) RemoveRoute(ctx context.Context, appID string, routePath string) error {
-	ctx, span := trace.StartSpan(ctx, "ds_remove_route")
-	defer span.End()
-	return m.ds.RemoveRoute(ctx, appID, routePath)
-}
-
 func (m *metricds) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_insert_trigger")
 	defer span.End()

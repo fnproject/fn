@@ -802,7 +802,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 			URL: strings.TrimSpace(call.SyslogURL),
 			Tags: []drivers.LoggerTag{
 				{Name: "app_name", Value: call.AppName},
-				{Name: "func_name", Value: call.Path},
+				{Name: "fn_id", Value: call.FnID},
 			},
 		},
 		stdin:  call.req.Body,
@@ -842,7 +842,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	container, closer := newHotContainer(ctx, call, &a.cfg)
 	defer closer()
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.CreateCookie(ctx, container)
@@ -1065,10 +1065,10 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		bufs = []*bytes.Buffer{buf1, buf2}
 
 		soc := &nopCloser{&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
 		}}
 		sec := &nopCloser{&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
 		}}
 
 		stdout.Swap(newLineWriterWithBuffer(buf1, soc))
@@ -1088,7 +1088,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 				URL: strings.TrimSpace(call.SyslogURL),
 				Tags: []drivers.LoggerTag{
 					{Name: "app_name", Value: call.AppName},
-					{Name: "func_name", Value: call.Path},
+					{Name: "fn_id", Value: call.FnID},
 				},
 			},
 			stdin:  stdin,

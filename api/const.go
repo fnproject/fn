@@ -12,8 +12,6 @@ const (
 	ParamAppID string = "appID"
 	// ParamAppName is the url path parameter for app name
 	ParamAppName string = "appName"
-	// ParamRouteName is the url path parameter for route name
-	ParamRouteName string = "route"
 	// ParamTriggerID is the url path parameter for trigger id
 	ParamTriggerID string = "triggerID"
 	// ParamCallID is the url path parameter for call id

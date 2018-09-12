@@ -78,7 +78,7 @@ func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mode
 		}
 
 		if (filter.AppID == "" || c.AppID == filter.AppID) &&
-			(filter.Path == "" || filter.Path == c.Path) &&
+			(filter.FnID == "" || filter.FnID == c.FnID) &&
 			(time.Time(filter.FromTime).IsZero() || time.Time(filter.FromTime).Before(time.Time(c.CreatedAt))) &&
 			(time.Time(filter.ToTime).IsZero() || time.Time(c.CreatedAt).Before(time.Time(filter.ToTime))) &&
 			(filter.Cursor == "" || strings.Compare(filter.Cursor, c.ID) > 0) {

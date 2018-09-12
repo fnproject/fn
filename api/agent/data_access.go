@@ -18,8 +18,6 @@ type ReadDataAccess interface {
 	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 	GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error)
 	GetFnByID(ctx context.Context, fnId string) (*models.Fn, error)
-	// GetRoute abstracts querying the datastore for a route within an app.
-	GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error)
 }
 
 //DequeueDataAccess abstracts an underlying dequeue for async runners
@@ -55,7 +53,7 @@ type DataAccess interface {
 	CallHandler
 }
 
-// CachedDataAccess wraps a DataAccess and caches the results of GetApp and GetRoute.
+// CachedDataAccess wraps a DataAccess and caches the results of GetApp
 type cachedDataAccess struct {
 	ReadDataAccess
 
@@ -101,26 +99,6 @@ func (da *cachedDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 	app = resp.(*models.App)
 	da.cache.Set(key, app, cache.DefaultExpiration)
 	return app.(*models.App), nil
-}
-
-func (da *cachedDataAccess) GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error) {
-	key := routeCacheKey(appID, routePath)
-	r, ok := da.cache.Get(key)
-	if ok {
-		return r.(*models.Route), nil
-	}
-
-	resp, err := da.singleflight.Do(key,
-		func() (interface{}, error) {
-			return da.ReadDataAccess.GetRoute(ctx, appID, routePath)
-		})
-
-	if err != nil {
-		return nil, err
-	}
-	r = resp.(*models.Route)
-	da.cache.Set(key, r, cache.DefaultExpiration)
-	return r.(*models.Route), nil
 }
 
 type directDataAccess struct {

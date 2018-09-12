@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"context"
-	"errors"
 	"os"
 
 	"github.com/fnproject/fn/api/agent"
@@ -99,40 +98,6 @@ func (mock *errorMQ) Reserve(context.Context) (*models.Call, error)            {
 func (mock *errorMQ) Delete(context.Context, *models.Call) error               { return mock }
 func (mock *errorMQ) Code() int                                                { return mock.code }
 func (mock *errorMQ) Close() error                                             { return nil }
-func TestFailedEnqueue(t *testing.T) {
-	buf := setLogBuffer()
-	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
-	ds := datastore.NewMockInit(
-		[]*models.App{app},
-		[]*models.Route{
-			{Path: "/dummy", Image: "dummy/dummy", Type: "async", Memory: 128, Timeout: 30, IdleTimeout: 30, AppID: app.ID},
-		},
-	)
-	err := errors.New("Unable to push task to queue")
-	mq := &errorMQ{err, http.StatusInternalServerError}
-	fnl := logs.NewMock()
-	rnr, cancelrnr := testRunner(t, ds, mq, fnl)
-	defer cancelrnr()
-
-	srv := testServer(ds, mq, fnl, rnr, ServerTypeFull)
-	for i, test := range []struct {
-		path            string
-		body            string
-		method          string
-		expectedCode    int
-		expectedHeaders map[string][]string
-	}{
-		{"/r/myapp/dummy", ``, "POST", http.StatusInternalServerError, nil},
-	} {
-		body := strings.NewReader(test.body)
-		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
-		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
-		}
-	}
-}
 
 func TestTriggerRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
@@ -475,8 +440,8 @@ func TestTriggerRunnerTimeout(t *testing.T) {
 		}
 	}()
 
-	models.RouteMaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
-	hugeMem := uint64(models.RouteMaxMemory - 1)
+	models.MaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
+	hugeMem := uint64(models.MaxMemory - 1)
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	coldFn := &models.Fn{ID: "cold", Name: "cold", AppID: app.ID, Format: "", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}

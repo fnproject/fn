@@ -25,10 +25,11 @@ func TestCallGet(t *testing.T) {
 	}()
 
 	app := &models.App{Name: "myapp", ID: "app_id"}
+	fn := &models.Fn{Name: "myfn", ID: "fn_id"}
 	call := &models.Call{
 		AppID: app.ID,
 		ID:    id.New().String(),
-		Path:  "/thisisatest",
+		FnID:  fn.ID,
 		Image: "fnproject/hello",
 		// Delay: 0,
 		Type:   "sync",
@@ -94,11 +95,11 @@ func TestCallList(t *testing.T) {
 	}()
 
 	app := &models.App{Name: "myapp", ID: "app_id"}
-
+	fn := &models.Fn{Name: "myfn", ID: "fn_id"}
 	call := &models.Call{
 		AppID: app.ID,
 		ID:    id.New().String(),
-		Path:  "/thisisatest",
+		FnID:  fn.ID,
 		Image: "fnproject/hello",
 		// Delay: 0,
 		Type:   "sync",
@@ -116,10 +117,10 @@ func TestCallList(t *testing.T) {
 	c3 := *call
 	c2.CreatedAt = common.DateTime(time.Now().Add(100 * time.Second))
 	c2.ID = id.New().String()
-	c2.Path = "test2"
+	c2.FnID = "fn2"
 	c3.CreatedAt = common.DateTime(time.Now().Add(200 * time.Second))
 	c3.ID = id.New().String()
-	c3.Path = "/test3"
+	c3.FnID = "fn3"
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
@@ -154,9 +155,8 @@ func TestCallList(t *testing.T) {
 		{"/v1/apps/myapp/calls?" + rangeTest, "", http.StatusOK, nil, 1, ""},
 		{"/v1/apps/myapp/calls?from_time=xyz", "", http.StatusBadRequest, models.ErrInvalidFromTime, 0, ""},
 		{"/v1/apps/myapp/calls?to_time=xyz", "", http.StatusBadRequest, models.ErrInvalidToTime, 0, ""},
-
-		// TODO path isn't url safe w/ '/', so this is weird. hack in for tests
-		{"/v1/apps/myapp/calls?path=test2", "", http.StatusOK, nil, 1, ""},
+		{"/v1/apps/myapp/calls?fnID=notexist", "", http.StatusOK, nil, 0, ""},
+		{"/v1/apps/myapp/calls?fnID=fn2", "", http.StatusOK, nil, 1, ""},
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
@@ -181,7 +181,7 @@ func TestCallList(t *testing.T) {
 				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
 			}
 			if len(resp.Calls) != test.expectedLen {
-				t.Fatalf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Calls))
+				t.Errorf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Calls))
 			}
 			if resp.NextCursor != test.nextCursor {
 				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)
