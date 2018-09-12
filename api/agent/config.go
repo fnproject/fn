@@ -18,8 +18,6 @@ type Config struct {
 	HotPoll                 time.Duration `json:"hot_poll_msecs"`
 	HotLauncherTimeout      time.Duration `json:"hot_launcher_timeout_msecs"`
 	AsyncChewPoll           time.Duration `json:"async_chew_poll_msecs"`
-	CallEndTimeout          time.Duration `json:"call_end_timeout"`
-	MaxCallEndStacking      uint64        `json:"max_call_end_stacking"`
 	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
 	MaxLogSize              uint64        `json:"max_log_size_bytes"`
 	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
@@ -54,10 +52,6 @@ const (
 	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
 	// EnvAsyncChewPoll is the interval to poll the queue that contains async function invocations
 	EnvAsyncChewPoll = "FN_ASYNC_CHEW_POLL_MSECS"
-	// EnvCallEndTimeout is the timeout after a call is completed to store information about that invocation
-	EnvCallEndTimeout = "FN_CALL_END_TIMEOUT_MSECS"
-	// EnvMaxCallEndStacking is the maximum number of concurrent calls in call.End storing info
-	EnvMaxCallEndStacking = "FN_MAX_CALL_END_STACKING"
 	// EnvMaxResponseSize is the maximum number of bytes that a function may return from an invocation
 	EnvMaxResponseSize = "FN_MAX_RESPONSE_SIZE"
 	// EnvMaxLogSize is the maximum size that a function's log may reach
@@ -103,11 +97,10 @@ const (
 func NewConfig() (*Config, error) {
 
 	cfg := &Config{
-		MinDockerVersion:   "17.10.0-ce",
-		MaxLogSize:         1 * 1024 * 1024,
-		MaxCallEndStacking: 8192,
-		PreForkImage:       "busybox",
-		PreForkCmd:         "tail -f /dev/null",
+		MinDockerVersion: "17.10.0-ce",
+		MaxLogSize:       1 * 1024 * 1024,
+		PreForkImage:     "busybox",
+		PreForkCmd:       "tail -f /dev/null",
 	}
 
 	var err error
@@ -117,14 +110,12 @@ func NewConfig() (*Config, error) {
 	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, DefaultHotPoll)
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
-	err = setEnvMsecs(err, EnvCallEndTimeout, &cfg.CallEndTimeout, time.Duration(10)*time.Minute)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
 	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
 	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
-	err = setEnvUint(err, EnvMaxCallEndStacking, &cfg.MaxCallEndStacking)
 	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
 	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
 	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce)
