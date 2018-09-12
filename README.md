@@ -104,12 +104,8 @@ fn deploy --app myapp --local
 Now you can call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/hello
-# or:
-fn call myapp /hello
+fn invoke myapp hello
 ```
-
-Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
 That's it! You just deployed your first function and called it. Try updating the function code in `func.go` then deploy it again to see the change.
 
