@@ -368,17 +368,44 @@ func dockerMsg(derr *docker.Error) string {
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
 
 	mwOut, mwErr := task.Logger()
-	waiter, err := drv.docker.AttachToContainer(ctx, docker.AttachToContainerOptions{
+	successChan := make(chan struct{})
+
+	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
 		Container:    container,
 		InputStream:  task.Input(),
 		OutputStream: mwOut,
 		ErrorStream:  mwErr,
-		Success:      make(chan struct{}),
+		Success:      successChan,
 		Stream:       true,
 		Stdout:       true,
 		Stderr:       true,
 		Stdin:        true,
 	})
+
+	if err == nil {
+		mon := make(chan struct{})
+
+		// We block here, since we would like to have stdin/stdout/stderr
+		// streams already attached before starting task and I/O.
+		// if AttachToContainerNonBlocking() returns no error, then we'll
+		// sync up with NB Attacher above before starting the task. However,
+		// we might leak our go-routine if AttachToContainerNonBlocking()
+		// Dial/HTTP does not honor the Success channel contract.
+		// Here we assume that if our context times out, then underlying
+		// go-routines in AttachToContainerNonBlocking() will unlock
+		// (or eventually timeout) once we tear down the container.
+		go func() {
+			<-successChan
+			successChan <- struct{}{}
+			close(mon)
+		}()
+
+		select {
+		case <-ctx.Done():
+		case <-mon:
+		}
+	}
+
 	if err != nil && ctx.Err() == nil {
 		// ignore if ctx has errored, rewrite status lay below
 		return nil, err

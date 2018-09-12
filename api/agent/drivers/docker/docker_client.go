@@ -31,7 +31,7 @@ const (
 type dockerClient interface {
 	// Each of these are github.com/fsouza/go-dockerclient methods
 
-	AttachToContainer(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
+	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	KillContainer(opts docker.KillContainerOptions) error
@@ -252,38 +252,11 @@ func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err err
 	return d.docker.Info()
 }
 
-func (d *dockerWrap) AttachToContainer(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error) {
+func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error) {
 	ctx, closer := makeTracker(ctx, "docker_attach_container")
 	defer closer()
 
-	// We use non-blocking attach here since we need the CloseWaiter
-	waiter, err := d.docker.AttachToContainerNonBlocking(opts)
-
-	if opts.Success != nil && err == nil {
-		mon := make(chan struct{})
-
-		// We block here, since we would like to have stdin/stdout/stderr
-		// streams already attached before starting task and I/O.
-		// if AttachToContainerNonBlocking() returns no error, then we'll
-		// sync up with NB Attacher above before starting the task. However,
-		// we might leak our go-routine if AttachToContainerNonBlocking()
-		// Dial/HTTP does not honor the Success channel contract.
-		// Here we assume that if our context times out, then underlying
-		// go-routines in AttachToContainerNonBlocking() will unlock
-		// (or eventually timeout) once we tear down the container.
-		go func() {
-			<-opts.Success
-			opts.Success <- struct{}{}
-			close(mon)
-		}()
-
-		select {
-		case <-ctx.Done():
-		case <-mon:
-		}
-	}
-
-	return waiter, err
+	return d.docker.AttachToContainerNonBlocking(opts)
 }
 
 func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (code int, err error) {
