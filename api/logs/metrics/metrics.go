@@ -22,13 +22,25 @@ func (m *metricls) InsertCall(ctx context.Context, call *models.Call) error {
 	return m.ls.InsertCall(ctx, call)
 }
 
-func (m *metricls) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
+func (m *metricls) GetCall1(ctx context.Context, appName, callID string) (*models.Call, error) {
 	ctx, span := trace.StartSpan(ctx, "ls_get_call")
 	defer span.End()
-	return m.ls.GetCall(ctx, appName, callID)
+	return m.ls.GetCall1(ctx, appName, callID)
 }
 
-func (m *metricls) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+func (m *metricls) GetCall(ctx context.Context, fnID, callID string) (*models.Call, error) {
+	ctx, span := trace.StartSpan(ctx, "ls_get_call")
+	defer span.End()
+	return m.ls.GetCall(ctx, fnID, callID)
+}
+
+func (m *metricls) GetCalls1(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+	ctx, span := trace.StartSpan(ctx, "ls_get_calls")
+	defer span.End()
+	return m.ls.GetCalls1(ctx, filter)
+}
+
+func (m *metricls) GetCalls(ctx context.Context, filter *models.CallFilter) (*models.CallList, error) {
 	ctx, span := trace.StartSpan(ctx, "ls_get_calls")
 	defer span.End()
 	return m.ls.GetCalls(ctx, filter)

@@ -72,7 +72,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	completed_at varchar(256) NOT NULL,
 	status varchar(256) NOT NULL,
 	id varchar(256) NOT NULL,
-	app_id varchar(256) NOT NULL,
+	app_id varchar(256),
+	fn_id varchar(256),
 	path varchar(256) NOT NULL,
 	stats text,
 	error text,
@@ -955,6 +956,7 @@ func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
 		completed_at,
 		status,
 		app_id,
+		fn_id,
 		path,
 		stats,
 		error
@@ -966,6 +968,7 @@ func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
 		:completed_at,
 		:status,
 		:app_id,
+		:fn_id,
 		:path,
 		:stats,
 		:error
@@ -975,7 +978,7 @@ func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
 	return err
 }
 
-func (ds *SQLStore) GetCall(ctx context.Context, appID, callID string) (*models.Call, error) {
+func (ds *SQLStore) GetCall1(ctx context.Context, appID, callID string) (*models.Call, error) {
 	query := fmt.Sprintf(`%s WHERE id=? AND app_id=?`, callSelector)
 	query = ds.db.Rebind(query)
 	row := ds.db.QueryRowxContext(ctx, query, callID, appID)
@@ -991,7 +994,47 @@ func (ds *SQLStore) GetCall(ctx context.Context, appID, callID string) (*models.
 	return &call, nil
 }
 
-func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+func (ds *SQLStore) GetCall(ctx context.Context, fnID, callID string) (*models.Call, error) {
+	query := fmt.Sprintf(`%s WHERE id=? AND fn_id=?`, callSelector)
+	query = ds.db.Rebind(query)
+	row := ds.db.QueryRowxContext(ctx, query, callID, fnID)
+
+	var call models.Call
+	err := row.StructScan(&call)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, models.ErrCallNotFound
+		}
+		return nil, err
+	}
+	return &call, nil
+}
+
+func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) (*models.CallList, error) {
+	if filter.Cursor != "" {
+		cursor, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		filter.Cursor = string(cursor)
+	}
+
+	calls, err := ds.GetCalls1(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	callList := &models.CallList{Items: calls}
+
+	if len(calls) > 0 && len(calls) == filter.PerPage {
+		last := []byte(calls[len(calls)-1].ID)
+		callList.NextCursor = base64.RawURLEncoding.EncodeToString(last)
+	}
+
+	return callList, nil
+}
+
+func (ds *SQLStore) GetCalls1(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
 	res := []*models.Call{}
 	query, args := buildFilterCallQuery(filter)
 	query = fmt.Sprintf("%s %s", callSelector, query)
@@ -1109,8 +1152,15 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	if !time.Time(filter.FromTime).IsZero() {
 		args = where(&b, args, "created_at>?", filter.FromTime.String())
 	}
-	args = where(&b, args, "app_id=?", filter.AppID)
-	args = where(&b, args, "path=?", filter.Path)
+	if filter.AppID != "" {
+		args = where(&b, args, "app_id=?", filter.AppID)
+	}
+	if filter.FnID != "" {
+		args = where(&b, args, "fn_id=?", filter.FnID)
+	}
+	if filter.Path != "" {
+		args = where(&b, args, "path=?", filter.Path)
+	}
 
 	fmt.Fprintf(&b, ` ORDER BY id DESC`) // TODO assert this is indexed
 	fmt.Fprintf(&b, ` LIMIT ?`)

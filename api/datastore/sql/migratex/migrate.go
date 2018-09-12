@@ -27,6 +27,7 @@ func migrateErr(version int64, up bool, err error) ErrMigration {
 	dir := "up"
 	if !up {
 		dir = "down"
+		version++
 	}
 	return ErrMigration(fmt.Sprintf("error running migration. version: %v direction: %v err: %v", version, dir, err))
 }
@@ -185,7 +186,6 @@ func run(ctx context.Context, tx *sqlx.Tx, m Migration, up bool) error {
 			return fmt.Errorf("non-contiguous migration attempted down: %v != %v", m.Version(), curVersion)
 		}
 
-		// TODO is this robust enough? we could check
 		version := m.Version()
 		if !up {
 			version = m.Version() - 1
