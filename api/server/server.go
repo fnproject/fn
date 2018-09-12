@@ -1048,8 +1048,8 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	}
 }
 
-func (s *Server) notImplementedResponse(c *gin.Context) {
-	c.Status(http.StatusNotImplemented)
+func (s *Server) goneResponse(c *gin.Context) {
+	c.Status(http.StatusGone)
 }
 
 func (s *Server) bindHandlers(ctx context.Context) {
@@ -1132,8 +1132,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v2.GET("/fns/:fnID/calls", s.handleCallList)
 			v2.GET("/fns/:fnID/calls/:callID", s.handleCallGet)
 		} else {
-			v2.GET("/fns/:fnID/calls", s.notImplementedResponse)
-			v2.GET("/fns/:fnID/calls/:callID", s.notImplementedResponse)
+			v2.GET("/fns/:fnID/calls", s.goneResponse)
+			v2.GET("/fns/:fnID/calls/:callID", s.goneResponse)
 		}
 
 		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers
