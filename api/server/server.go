@@ -1096,7 +1096,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
 				withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
 				withAppCheck.GET("/calls/:call", s.handleCallGet1)
-				withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
+				withAppCheck.GET("/calls/:call/log", s.handleCallLogGet1)
 				withAppCheck.GET("/calls", s.handleCallList1)
 			}
 
@@ -1131,9 +1131,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		if !s.noCallEndpoints {
 			v2.GET("/fns/:fnID/calls", s.handleCallList)
 			v2.GET("/fns/:fnID/calls/:callID", s.handleCallGet)
+			v2.GET("/fns/:fnID/calls/:callID/log", s.handleCallLogGet)
 		} else {
 			v2.GET("/fns/:fnID/calls", s.goneResponse)
 			v2.GET("/fns/:fnID/calls/:callID", s.goneResponse)
+			v2.GET("/fns/:fnID/calls/:callID/log", s.goneResponse)
 		}
 
 		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers

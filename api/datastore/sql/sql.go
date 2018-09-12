@@ -95,7 +95,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 	`CREATE TABLE IF NOT EXISTS logs (
 	id varchar(256) NOT NULL PRIMARY KEY,
-	app_id varchar(256) NOT NULL,
+	app_id varchar(256),
+	fn_id varchar(256),
 	log text NOT NULL
 );`,
 
@@ -1059,7 +1060,7 @@ func (ds *SQLStore) GetCalls1(ctx context.Context, filter *models.CallFilter) ([
 	return res, nil
 }
 
-func (ds *SQLStore) InsertLog(ctx context.Context, appID, callID string, logR io.Reader) error {
+func (ds *SQLStore) InsertLog(ctx context.Context, call *models.Call, logR io.Reader) error {
 	// coerce this into a string for sql
 	var log string
 	if stringer, ok := logR.(fmt.Stringer); ok {
@@ -1072,15 +1073,30 @@ func (ds *SQLStore) InsertLog(ctx context.Context, appID, callID string, logR io
 		log = b.String()
 	}
 
-	query := ds.db.Rebind(`INSERT INTO logs (id, app_id, log) VALUES (?, ?, ?);`)
-	_, err := ds.db.ExecContext(ctx, query, callID, appID, log)
-
+	query := ds.db.Rebind(`INSERT INTO logs (id, app_id, fn_id, log) VALUES (?, ?, ?, ?);`)
+	_, err := ds.db.ExecContext(ctx, query, call.ID, call.AppID, call.FnID, log)
 	return err
 }
 
-func (ds *SQLStore) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
+func (ds *SQLStore) GetLog1(ctx context.Context, appID, callID string) (io.Reader, error) {
 	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND app_id=?`)
 	row := ds.db.QueryRowContext(ctx, query, callID, appID)
+
+	var log string
+	err := row.Scan(&log)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, models.ErrCallLogNotFound
+		}
+		return nil, err
+	}
+
+	return strings.NewReader(log), nil
+}
+
+func (ds *SQLStore) GetLog(ctx context.Context, fnID, callID string) (io.Reader, error) {
+	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND fn_id=?`)
+	row := ds.db.QueryRowContext(ctx, query, callID, fnID)
 
 	var log string
 	err := row.Scan(&log)

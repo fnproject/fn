@@ -1,8 +1,9 @@
 package logs
 
 import (
-	logTesting "github.com/fnproject/fn/api/logs/testing"
 	"testing"
+
+	logTesting "github.com/fnproject/fn/api/logs/testing"
 )
 
 func TestMock(t *testing.T) {

@@ -16,14 +16,14 @@ type validator struct {
 }
 
 // callID or appID will never be empty.
-func (v *validator) InsertLog(ctx context.Context, appID, callID string, callLog io.Reader) error {
-	if callID == "" {
+func (v *validator) InsertLog(ctx context.Context, call *models.Call, callLog io.Reader) error {
+	if call.ID == "" {
 		return models.ErrDatastoreEmptyCallID
 	}
-	if appID == "" {
-		return models.ErrMissingAppID
+	if call.AppID == "" && call.FnID == "" {
+		return models.ErrMissingFnID
 	}
-	return v.LogStore.InsertLog(ctx, appID, callID, callLog)
+	return v.LogStore.InsertLog(ctx, call, callLog)
 }
 
 // callID or appID will never be empty.
@@ -32,7 +32,7 @@ func (v *validator) GetLog(ctx context.Context, appID, callID string) (io.Reader
 		return nil, models.ErrDatastoreEmptyCallID
 	}
 	if appID == "" {
-		return nil, models.ErrMissingAppID
+		return nil, models.ErrMissingFnID
 	}
 	return v.LogStore.GetLog(ctx, appID, callID)
 }

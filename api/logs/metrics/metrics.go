@@ -46,10 +46,10 @@ func (m *metricls) GetCalls(ctx context.Context, filter *models.CallFilter) (*mo
 	return m.ls.GetCalls(ctx, filter)
 }
 
-func (m *metricls) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
+func (m *metricls) InsertLog(ctx context.Context, call *models.Call, callLog io.Reader) error {
 	ctx, span := trace.StartSpan(ctx, "ls_insert_log")
 	defer span.End()
-	return m.ls.InsertLog(ctx, appName, callID, callLog)
+	return m.ls.InsertLog(ctx, call, callLog)
 }
 
 func (m *metricls) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {

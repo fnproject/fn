@@ -136,13 +136,20 @@ func (s3StoreProvider) New(ctx context.Context, u *url.URL) (models.LogStore, er
 	return store, nil
 }
 
-func (s *store) InsertLog(ctx context.Context, appID, callID string, callLog io.Reader) error {
+func (s *store) InsertLog(ctx context.Context, call *models.Call, callLog io.Reader) error {
 	ctx, span := trace.StartSpan(ctx, "s3_insert_log")
 	defer span.End()
 
 	// wrap original reader in a decorator to keep track of read bytes without buffering
 	cr := &countingReader{r: callLog}
-	objectName := logKey(appID, callID)
+
+	objectName := ""
+	if call.FnID != "" {
+		objectName = logKey(call.FnID, call.ID)
+	} else {
+		objectName = logKey(call.AppID, call.ID)
+	}
+
 	params := &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(objectName),
@@ -315,10 +322,6 @@ func callKey2(fnID, id string) string {
 
 func logKey(appID, callID string) string {
 	return logKeyPrefix + appID + "/" + callID
-}
-
-func logKey2(callID string) string {
-	return logKeyPrefix + callID
 }
 
 // GetCalls1 returns a list of calls that satisfy the given CallFilter. If no
