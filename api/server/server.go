@@ -197,6 +197,7 @@ type Server struct {
 	noHTTTPTriggerEndpoint bool
 	noHybridAPI            bool
 	noFnInvokeEndpoint     bool
+	noCallEndpoints        bool
 	appListeners           *appListeners
 	routeListeners         *routeListeners
 	fnListeners            *fnListeners
@@ -747,6 +748,14 @@ func WithoutHybridAPI() Option {
 	}
 }
 
+// WithoutCallEndpoints unconditionally disables the call resources in the api
+func WithoutCallEndpoints() Option {
+	return func(ctx context.Context, s *Server) error {
+		s.noCallEndpoints = true
+		return nil
+	}
+}
+
 // WithJaeger maps EnvJaegerURL
 func WithJaeger(jaegerURL string) Option {
 	return func(ctx context.Context, s *Server) error {
@@ -1039,6 +1048,10 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	}
 }
 
+func (s *Server) notImplementedResponse(c *gin.Context) {
+	c.Status(http.StatusNotImplemented)
+}
+
 func (s *Server) bindHandlers(ctx context.Context) {
 	engine := s.Router
 	admin := s.AdminRouter
@@ -1082,9 +1095,9 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
 				withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
 				withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
-				withAppCheck.GET("/calls/:call", s.handleCallGet)
+				withAppCheck.GET("/calls/:call", s.handleCallGet1)
 				withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
-				withAppCheck.GET("/calls", s.handleCallList)
+				withAppCheck.GET("/calls", s.handleCallList1)
 			}
 
 			apps.POST("/routes", s.handleRoutesPostPut)
@@ -1113,6 +1126,14 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v2.GET("/triggers/:triggerID", s.handleTriggerGet)
 			v2.PUT("/triggers/:triggerID", s.handleTriggerUpdate)
 			v2.DELETE("/triggers/:triggerID", s.handleTriggerDelete)
+		}
+
+		if !s.noCallEndpoints {
+			v2.GET("/fns/:fnID/calls", s.handleCallList)
+			v2.GET("/fns/:fnID/calls/:callID", s.handleCallGet)
+		} else {
+			v2.GET("/fns/:fnID/calls", s.notImplementedResponse)
+			v2.GET("/fns/:fnID/calls/:callID", s.notImplementedResponse)
 		}
 
 		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers

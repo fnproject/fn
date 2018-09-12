@@ -363,7 +363,6 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnL
 			(filter.Name == "" || filter.Name == f.Name) {
 			funcs = append(funcs, f)
 		}
-
 	}
 
 	var nextCursor string

@@ -3,6 +3,7 @@ package testing
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"io"
 	"strings"
 	"testing"
@@ -18,10 +19,9 @@ var testApp = &models.App{
 	ID:   id.New().String(),
 }
 
-var testRoute = &models.Route{
-	Path:   "/test",
+var testFn = &models.Fn{
+	ID:     id.New().String(),
 	Image:  "fnproject/fn-test-utils",
-	Type:   "sync",
 	Format: "http",
 }
 
@@ -32,7 +32,7 @@ func SetupTestCall(t *testing.T, ctx context.Context, ls models.LogStore) *model
 	call.Status = "success"
 	call.StartedAt = common.DateTime(time.Now())
 	call.CompletedAt = common.DateTime(time.Now())
-	call.Path = testRoute.Path
+	call.FnID = testFn.ID
 	return &call
 }
 
@@ -44,7 +44,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 
 	// test list first, the rest are point lookup tests
 	t.Run("calls-get", func(t *testing.T) {
-		filter := &models.CallFilter{AppID: call.AppID, Path: call.Path, PerPage: 100}
+		filter := &models.CallFilter{FnID: call.FnID, PerPage: 100}
 		now := time.Now()
 		call.CreatedAt = common.DateTime(now)
 		call.ID = id.New().String()
@@ -54,10 +54,10 @@ func Test(t *testing.T, fnl models.LogStore) {
 		}
 		calls, err := fnl.GetCalls(ctx, filter)
 		if err != nil {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls2(ctx, filter): one call, unexpected error `%v`", err)
 		}
-		if len(calls) != 1 {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		if len(calls.Items) != 1 {
+			t.Fatalf("Test GetCalls2(ctx, filter): one call, unexpected length 1 != `%v`", len(calls.Items))
 		}
 
 		c2 := *call
@@ -80,55 +80,47 @@ func Test(t *testing.T, fnl models.LogStore) {
 		}
 
 		// test that no filter works too
-		calls, err = fnl.GetCalls(ctx, &models.CallFilter{AppID: call.AppID, PerPage: 100})
+		calls, err = fnl.GetCalls(ctx, &models.CallFilter{FnID: testFn.ID, PerPage: 100})
 		if err != nil {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls2(ctx, filter): three calls, unexpected error `%v`", err)
 		}
-		if len(calls) != 3 {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		if len(calls.Items) != 3 {
+			t.Fatalf("Test GetCalls2(ctx, filter): three calls, unexpected length 3 != `%v`", len(calls.Items))
 		}
 
 		// test that pagination stuff works. id, descending
 		filter.PerPage = 1
 		calls, err = fnl.GetCalls(ctx, filter)
 		if err != nil {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls(ctx, filter): per page 1, unexpected error `%v`", err)
 		}
-		if len(calls) != 1 {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
-		} else if calls[0].ID != c3.ID {
-			t.Fatalf("Test GetCalls: call ids not in expected order: %v %v", calls[0].ID, c3.ID)
+		if len(calls.Items) != 1 {
+			t.Fatalf("Test GetCalls(ctx, filter):  per page 1, unexpected length 1 != `%v`", len(calls.Items))
+		} else if calls.Items[0].ID != c3.ID {
+			t.Fatalf("Test GetCalls:  per page 1, call ids not in expected order: %v %v", calls.Items[0].ID, c3.ID)
 		}
 
 		filter.PerPage = 100
-		filter.Cursor = calls[0].ID
+		filter.Cursor = base64.RawURLEncoding.EncodeToString([]byte(calls.Items[0].ID))
 		calls, err = fnl.GetCalls(ctx, filter)
 		if err != nil {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls(ctx, filter): cursor set, unexpected error `%v`", err)
 		}
-		if len(calls) != 2 {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
-		} else if calls[0].ID != c2.ID {
-			t.Fatalf("Test GetCalls: call ids not in expected order: %v %v", calls[0].ID, c2.ID)
-		} else if calls[1].ID != call.ID {
-			t.Fatalf("Test GetCalls: call ids not in expected order: %v %v", calls[1].ID, call.ID)
+		if len(calls.Items) != 2 {
+			t.Fatalf("Test GetCalls(ctx, filter): cursor set, unexpected length 2 != `%v`", len(calls.Items))
+		} else if calls.Items[0].ID != c2.ID {
+			t.Fatalf("Test GetCalls: cursor set, call ids not in expected order: %v %v", calls.Items[0].ID, c2.ID)
+		} else if calls.Items[1].ID != call.ID {
+			t.Fatalf("Test GetCalls: cursor set, call ids not in expected order: %v %v", calls.Items[1].ID, call.ID)
 		}
 
 		// test that filters actually applied
-		calls, err = fnl.GetCalls(ctx, &models.CallFilter{AppID: "wrongappname", PerPage: 100})
+		calls, err = fnl.GetCalls(ctx, &models.CallFilter{FnID: "wrongfnID", PerPage: 100})
 		if err != nil {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls(ctx, filter): bad fnID,  unexpected error `%v`", err)
 		}
-		if len(calls) != 0 {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
-		}
-
-		calls, err = fnl.GetCalls(ctx, &models.CallFilter{AppID: call.AppID, Path: "wrongpath", PerPage: 100})
-		if err != nil {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
-		}
-		if len(calls) != 0 {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		if len(calls.Items) != 0 {
+			t.Fatalf("Test GetCalls(ctx, filter): bad fnID, unexpected length `%v`", len(calls.Items))
 		}
 
 		// make sure from_time and to_time work
@@ -136,16 +128,16 @@ func Test(t *testing.T, fnl models.LogStore) {
 			PerPage:  100,
 			FromTime: call.CreatedAt,
 			ToTime:   c3.CreatedAt,
-			AppID:    call.AppID,
+			FnID:     call.FnID,
 		}
 		calls, err = fnl.GetCalls(ctx, filter)
 		if err != nil {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls(ctx, filter): time filter,  unexpected error `%v`", err)
 		}
-		if len(calls) != 1 {
-			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
-		} else if calls[0].ID != c2.ID {
-			t.Fatalf("Test GetCalls: call id not expected %s vs %s", calls[0].ID, c2.ID)
+		if len(calls.Items) != 1 {
+			t.Fatalf("Test GetCalls(ctx, filter): time filter, unexpected length `%v`", len(calls.Items))
+		} else if calls.Items[0].ID != c2.ID {
+			t.Fatalf("Test GetCalls: time filter,  call id not expected %s vs %s", calls.Items[0].ID, c2.ID)
 		}
 	})
 
@@ -181,7 +173,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 	call.StartedAt = common.DateTime(time.Now())
 	call.CompletedAt = common.DateTime(time.Now())
 	call.AppID = testApp.Name
-	call.Path = testRoute.Path
+	call.FnID = testFn.ID
 
 	t.Run("call-insert", func(t *testing.T) {
 		call.ID = id.New().String()
@@ -197,7 +189,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 		if err != nil {
 			t.Fatalf("Test GetCall: unexpected error `%v`", err)
 		}
-		newCall, err := fnl.GetCall(ctx, call.AppID, call.ID)
+		newCall, err := fnl.GetCall(ctx, call.FnID, call.ID)
 		if err != nil {
 			t.Fatalf("Test GetCall: unexpected error `%v`", err)
 		}

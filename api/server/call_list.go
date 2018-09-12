@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleCallList(c *gin.Context) {
+func (s *Server) handleCallList1(c *gin.Context) {
 	ctx := c.Request.Context()
 	var err error
 
@@ -26,7 +26,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 		return
 	}
 
-	calls, err := s.logstore.GetCalls(ctx, &filter)
+	calls, err := s.logstore.GetCalls1(ctx, &filter)
 
 	var nextCursor string
 	if len(calls) > 0 && len(calls) == filter.PerPage {
@@ -39,6 +39,30 @@ func (s *Server) handleCallList(c *gin.Context) {
 		NextCursor: nextCursor,
 		Calls:      calls,
 	})
+}
+
+func (s *Server) handleCallList(c *gin.Context) {
+	ctx := c.Request.Context()
+	var err error
+
+	fnID := c.MustGet(api.ParamFnID).(string)
+	// TODO api.ParamRouteName needs to be escaped probably, since it has '/' a lot
+	filter := models.CallFilter{FnID: fnID}
+	filter.Cursor, filter.PerPage = pageParams(c, false) // ids are url safe
+
+	filter.FromTime, filter.ToTime, err = timeParams(c)
+	if err != nil {
+		handleV1ErrorResponse(c, err)
+		return
+	}
+
+	calls, err := s.logstore.GetCalls(ctx, &filter)
+
+	if err != nil {
+		handleErrorResponse(c, err)
+	}
+
+	c.JSON(http.StatusOK, calls)
 }
 
 // "" gets parsed to a zero time, which is fine (ignored in query)
