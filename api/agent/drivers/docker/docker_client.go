@@ -31,7 +31,7 @@ const (
 type dockerClient interface {
 	// Each of these are github.com/fsouza/go-dockerclient methods
 
-	AttachToContainer(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
+	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	KillContainer(opts docker.KillContainerOptions) error
@@ -252,29 +252,11 @@ func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err err
 	return d.docker.Info()
 }
 
-func (d *dockerWrap) AttachToContainer(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error) {
+func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error) {
 	ctx, closer := makeTracker(ctx, "docker_attach_container")
 	defer closer()
 
-	if opts.Success != nil {
-		logrus.Fatal("BUG: Invalid AttachToContainerOptions, Success channel must not be set")
-	}
-	opts.Success = make(chan struct{})
-
-	// We use non-blocking here since we need the CloseWaiter
-	waiter, err := d.docker.AttachToContainerNonBlocking(opts)
-
-	// Sync up with NB Attacher above before starting the task
-	if err == nil {
-		// WARNING: the I/O below requires docker hijack function to honor
-		// the contract below, specifically if an error is not returned
-		// from AttachToContainerNonBlocking, then max blocking time
-		// here should be what drv.docker dialer/client config was set to.
-		<-opts.Success
-		opts.Success <- struct{}{}
-	}
-
-	return waiter, err
+	return d.docker.AttachToContainerNonBlocking(opts)
 }
 
 func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (code int, err error) {
