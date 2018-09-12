@@ -192,7 +192,7 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
-	if err := da.ls.InsertLog(ctx, mCall.AppID, mCall.ID, stderr); err != nil {
+	if err := da.ls.InsertLog(ctx, mCall.AppID, mCall.FnID, mCall.ID, stderr); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}

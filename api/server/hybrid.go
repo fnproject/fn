@@ -7,12 +7,13 @@ import (
 
 	"errors"
 	"fmt"
+	"net/http"
+	"path"
+
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"path"
 )
 
 func (s *Server) handleRunnerEnqueue(c *gin.Context) {
@@ -171,7 +172,9 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
-	if err := s.logstore.InsertLog(ctx, call.AppID, call.ID, strings.NewReader(body.Log)); err != nil {
+	fmt.Println("Body log: ", body.Log)
+
+	if err := s.logstore.InsertLog(ctx, call.AppID, call.FnID, call.ID, strings.NewReader(body.Log)); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}

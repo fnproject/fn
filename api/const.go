@@ -17,7 +17,7 @@ const (
 	// ParamTriggerID is the url path parameter for trigger id
 	ParamTriggerID string = "triggerID"
 	// ParamCallID is the url path parameter for call id
-	ParamCallID string = "call"
+	ParamCallID string = "callID"
 	// ParamFnID is the url path parameter for fn id
 	ParamFnID string = "fnID"
 	// ParamTriggerSource is the triggers source parameter

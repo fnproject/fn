@@ -47,6 +47,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Name")}
 
+	ErrMissingFnID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn ID")}
+
 	ErrCreatedAtProvided = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger Created At Provided for Create")}

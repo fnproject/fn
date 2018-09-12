@@ -11,13 +11,12 @@ func (s *Server) handleCallGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	callID := c.Param(api.ParamCallID)
-	appID := c.MustGet(api.AppID).(string)
 
-	callObj, err := s.logstore.GetCall(ctx, appID, callID)
+	callObj, err := s.logstore.GetCall(ctx, callID)
 	if err != nil {
-		handleV1ErrorResponse(c, err)
+		handleErrorResponse(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, callResponse{"Successfully loaded call", callObj})
+	c.JSON(http.StatusOK, callObj)
 }
