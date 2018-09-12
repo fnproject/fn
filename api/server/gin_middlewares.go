@@ -155,7 +155,7 @@ func apiMetricsWrap(s *Server) {
 
 	r := s.Router
 	r.Use(measure(r))
-	if s.webListenPort != s.adminListenPort {
+	if s.svcConfigs[WebServer].Addr != s.svcConfigs[AdminServer].Addr {
 		a := s.AdminRouter
 		a.Use(measure(a))
 	}
