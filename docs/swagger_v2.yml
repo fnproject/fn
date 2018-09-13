@@ -453,27 +453,26 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  # Implementing next
-  # /fns/{fnID}/calls/{callID}/log:
-  #   get:
-  #     operationId: "GetCallLogs"
-  #     summary: "Get logs for a call."
-  #     description: "Get logs for a call."
-  #     tags:
-  #       - Call
-  #       - Log
-  #     parameters:
-  #       - $ref: '#/parameters/FnIDQuery'
-  #       - $ref: '#/parameters/CallID'
-  #     responses:
-  #       200:
-  #         description: Log found.
-  #         schema:
-  #           $ref:  '#/definitions/Log'
-  #       404:
-  #         description: Log not found.
-  #         schema:
-  #           $ref: '#/definitions/Error'
+  /fns/{fnID}/calls/{callID}/log:
+    get:
+      operationId: "GetCallLogs"
+      summary: "Get logs for a call."
+      description: "Get logs for a call."
+      tags:
+        - Call
+        - Log
+      parameters:
+        - $ref: '#/parameters/FnID'
+        - $ref: '#/parameters/CallID'
+      responses:
+        200:
+          description: Log found.
+          schema:
+            $ref:  '#/definitions/Log'
+        404:
+          description: Log not found.
+          schema:
+            $ref: '#/definitions/Error'
 
 definitions:
   App:
@@ -661,6 +660,15 @@ definitions:
       fields:
         type: string
         readOnly: true
+
+  Log:
+    type: object
+    properties:
+      call_id:
+        type: string
+        description: Call UUID ID
+      log:
+        type: string # maybe bytes, long logs wouldn't fit into string type
 
   Call:
     type: object

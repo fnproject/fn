@@ -43,6 +43,9 @@ var (
 	ErrMissingAppID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing App ID")}
+	ErrMissingFnID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn ID")}
 	ErrMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Name")}
