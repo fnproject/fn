@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -204,7 +203,6 @@ type Server struct {
 	noFnInvokeEndpoint     bool
 	noCallEndpoints        bool
 	appListeners           *appListeners
-	routeListeners         *routeListeners
 	fnListeners            *fnListeners
 	triggerListeners       *triggerListeners
 	rootMiddlewares        []fnext.Middleware
@@ -703,13 +701,12 @@ func New(ctx context.Context, opts ...Option) *Server {
 	s.bindHandlers(ctx)
 
 	s.appListeners = new(appListeners)
-	s.routeListeners = new(routeListeners)
 	s.fnListeners = new(fnListeners)
 	s.triggerListeners = new(triggerListeners)
 
 	// TODO it's not clear that this is always correct as the read store  won't  get wrapping
 	s.datastore = datastore.Wrap(s.datastore)
-	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners, s.triggerListeners)
+	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.fnListeners, s.triggerListeners)
 	s.logstore = logs.Wrap(s.logstore)
 
 	return s
@@ -1086,38 +1083,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	switch s.nodeType {
 
 	case ServerTypeFull, ServerTypeAPI:
-		clean := engine.Group("/v1")
-		v1 := clean.Group("")
-		v1.Use(setAppNameInCtx)
-		v1.Use(s.apiMiddlewareWrapper())
-		v1.GET("/apps", s.handleV1AppList)
-		v1.POST("/apps", s.handleV1AppCreate)
-
-		{
-			apps := v1.Group("/apps/:appName")
-			apps.Use(appNameCheck)
-
-			{
-				withAppCheck := apps.Group("")
-				withAppCheck.Use(s.checkAppPresenceByName())
-
-				withAppCheck.GET("", s.handleV1AppGetByIdOrName)
-				withAppCheck.PATCH("", s.handleV1AppUpdate)
-				withAppCheck.DELETE("", s.handleV1AppDelete)
-
-				withAppCheck.GET("/routes", s.handleRouteList)
-				withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
-				withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
-				withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
-				withAppCheck.GET("/calls/:call", s.handleCallGet1)
-				withAppCheck.GET("/calls/:call/log", s.handleCallLogGet1)
-				withAppCheck.GET("/calls", s.handleCallList1)
-			}
-
-			apps.POST("/routes", s.handleRoutesPostPut)
-			apps.PUT("/routes/*route", s.handleRoutesPostPut)
-		}
-
 		cleanv2 := engine.Group("/v2")
 		v2 := cleanv2.Group("")
 		v2.Use(s.apiMiddlewareWrapper())
@@ -1165,7 +1130,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runnerAppAPI.Use(setAppIDInCtx)
 			// Both of these are somewhat odd -
 			// Deprecate, remove with routes
-			runnerAppAPI.GET("/routes/*route", s.handleRunnerGetRoute)
 			runnerAppAPI.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
 		}
 	}
@@ -1176,33 +1140,19 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			lbTriggerGroup := engine.Group("/t")
 			lbTriggerGroup.Any("/:appName", s.handleHTTPTriggerCall)
 			lbTriggerGroup.Any("/:appName/*triggerSource", s.handleHTTPTriggerCall)
-
-			// TODO Deprecate with routes
-			lbRouteGroup := engine.Group("/r")
-			lbRouteGroup.Use(s.checkAppPresenceByNameAtLB())
-			lbRouteGroup.Any("/:appName", s.handleV1FunctionCall)
-			lbRouteGroup.Any("/:appName/*route", s.handleV1FunctionCall)
 		}
 
 		if !s.noFnInvokeEndpoint {
 			lbFnInvokeGroup := engine.Group("/invoke")
 			lbFnInvokeGroup.POST("/:fnID", s.handleFnInvokeCall)
 		}
-
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
 		var err error
-		switch {
-		case s.nodeType == ServerTypeAPI && strings.HasPrefix(c.Request.URL.Path, "/r/"):
-			err = models.ErrInvokeNotSupported
-		case s.nodeType == ServerTypeRunner && strings.HasPrefix(c.Request.URL.Path, "/v1/"):
-			err = models.ErrAPINotSupported
-		default:
-			var e models.APIError = models.ErrPathNotFound
-			err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
-		}
-		handleV1ErrorResponse(c, err)
+		var e models.APIError = models.ErrPathNotFound
+		err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
+		handleErrorResponse(c, err)
 	})
 
 }
@@ -1217,26 +1167,7 @@ func (s *Server) Agent() agent.Agent {
 	return s.agent
 }
 
-// returns the unescaped ?cursor and ?perPage values
-// pageParams clamps 0 < ?perPage <= 100 and defaults to 30 if 0
-// ignores parsing errors and falls back to defaults.
-func pageParams(c *gin.Context, base64d bool) (cursor string, perPage int) {
-	cursor = c.Query("cursor")
-	if base64d {
-		cbytes, _ := base64.RawURLEncoding.DecodeString(cursor)
-		cursor = string(cbytes)
-	}
-
-	perPage, _ = strconv.Atoi(c.Query("per_page"))
-	if perPage > 100 {
-		perPage = 100
-	} else if perPage <= 0 {
-		perPage = 30
-	}
-	return cursor, perPage
-}
-
-func pageParamsV2(c *gin.Context) (cursor string, perPage int) {
+func pageParams(c *gin.Context) (cursor string, perPage int) {
 	cursor = c.Query("cursor")
 
 	perPage, _ = strconv.Atoi(c.Query("per_page"))
@@ -1246,38 +1177,4 @@ func pageParamsV2(c *gin.Context) (cursor string, perPage int) {
 		perPage = 30
 	}
 	return cursor, perPage
-}
-
-type appResponse struct {
-	Message string      `json:"message"`
-	App     *models.App `json:"app"`
-}
-
-//TODO deprecate with V1
-type appsV1Response struct {
-	Message    string        `json:"message"`
-	NextCursor string        `json:"next_cursor"`
-	Apps       []*models.App `json:"apps"`
-}
-
-type routeResponse struct {
-	Message string        `json:"message"`
-	Route   *models.Route `json:"route"`
-}
-
-type routesResponse struct {
-	Message    string          `json:"message"`
-	NextCursor string          `json:"next_cursor"`
-	Routes     []*models.Route `json:"routes"`
-}
-
-type callResponse struct {
-	Message string       `json:"message"`
-	Call    *models.Call `json:"call"`
-}
-
-type callsResponse struct {
-	Message    string         `json:"message"`
-	NextCursor string         `json:"next_cursor"`
-	Calls      []*models.Call `json:"calls"`
 }

@@ -52,88 +52,6 @@ const (
 	invokePath = "/invoke"
 )
 
-// FromRequest initialises a call to a route from an HTTP request
-// deprecate with routes
-func FromRequest(app *models.App, route *models.Route, req *http.Request) CallOpt {
-	return func(c *call) error {
-		ctx := req.Context()
-
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				route.Format = models.FormatCloudEvent
-			}
-		}
-
-		if route.Format == "" {
-			route.Format = models.FormatDefault
-		}
-
-		id := id.New().String()
-
-		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
-		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
-		if rw, ok := c.w.(http.ResponseWriter); ok {
-			rw.Header().Add("FN_CALL_ID", id)
-			for k, vs := range route.Headers {
-				for _, v := range vs {
-					// pre-write in these headers to response
-					rw.Header().Add(k, v)
-				}
-			}
-		}
-
-		// this ensures that there is an image, path, timeouts, memory, etc are valid.
-		// NOTE: this means assign any changes above into route's fields
-		err = route.Validate()
-		if err != nil {
-			return err
-		}
-
-		var syslogURL string
-		if app.SyslogURL != nil {
-			syslogURL = *app.SyslogURL
-		}
-
-		c.Call = &models.Call{
-			ID:    id,
-			Path:  route.Path,
-			Image: route.Image,
-			// Delay: 0,
-			Type:   route.Type,
-			Format: route.Format,
-			// Payload: TODO,
-			Priority:    new(int32), // TODO this is crucial, apparently
-			Timeout:     route.Timeout,
-			IdleTimeout: route.IdleTimeout,
-			TmpFsSize:   route.TmpFsSize,
-			Memory:      route.Memory,
-			CPUs:        route.CPUs,
-			Config:      buildConfig(app, route),
-			Annotations: app.Annotations.MergeChange(route.Annotations),
-			Headers:     req.Header,
-			CreatedAt:   common.DateTime(time.Now()),
-			URL:         reqURL(req),
-			Method:      req.Method,
-			AppID:       app.ID,
-			AppName:     app.Name,
-			SyslogURL:   syslogURL,
-		}
-
-		c.req = req
-		return nil
-	}
-}
-
 // Sets up a call from an http trigger request
 func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
 	return func(c *call) error {
@@ -174,7 +92,6 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 
 		c.Call = &models.Call{
 			ID:    id,
-			Path:  trigger.Source,
 			Image: fn.Image,
 			// Delay: 0,
 			Type:   "sync",
@@ -246,7 +163,6 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 
 		c.Call = &models.Call{
 			ID:    id,
-			Path:  invokePath,
 			Image: fn.Image,
 			// Delay: 0,
 			Type:   "sync",
@@ -275,30 +191,6 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 		c.req = req
 		return nil
 	}
-}
-
-func buildConfig(app *models.App, route *models.Route) models.Config {
-	conf := make(models.Config, 8+len(app.Config)+len(route.Config))
-	for k, v := range app.Config {
-		conf[k] = v
-	}
-	for k, v := range route.Config {
-		conf[k] = v
-	}
-
-	conf["FN_FORMAT"] = route.Format
-	conf["FN_APP_NAME"] = app.Name
-	conf["FN_PATH"] = route.Path
-	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
-	conf["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
-	conf["FN_TYPE"] = route.Type
-	conf["FN_TMPSIZE"] = fmt.Sprintf("%d", route.TmpFsSize)
-
-	CPUs := route.CPUs.String()
-	if CPUs != "" {
-		conf["FN_CPUS"] = CPUs
-	}
-	return conf
 }
 
 func buildConfigWithPath(app *models.App, fn *models.Fn, path string) models.Config {
@@ -450,7 +342,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 func setupCtx(c *call) {
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
+		logrus.Fields{"id": c.ID, "app_id": c.AppID, "fn_id": c.FnID})
 	c.req = c.req.WithContext(ctx)
 }
 

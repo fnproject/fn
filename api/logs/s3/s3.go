@@ -143,12 +143,7 @@ func (s *store) InsertLog(ctx context.Context, call *models.Call, callLog io.Rea
 	// wrap original reader in a decorator to keep track of read bytes without buffering
 	cr := &countingReader{r: callLog}
 
-	objectName := ""
-	if call.FnID != "" {
-		objectName = logKey(call.FnID, call.ID)
-	} else {
-		objectName = logKey(call.AppID, call.ID)
-	}
+	objectName := logKey(call.FnID, call.ID)
 
 	params := &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
@@ -203,7 +198,7 @@ func (s *store) InsertCall(ctx context.Context, call *models.Call) error {
 
 	objectName := callKey(call.AppID, call.ID)
 	if call.FnID != "" {
-		objectName = callKey2(call.FnID, call.ID)
+		objectName = callKey(call.FnID, call.ID)
 	}
 	params := &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
@@ -218,40 +213,7 @@ func (s *store) InsertCall(ctx context.Context, call *models.Call) error {
 		return fmt.Errorf("failed to insert call, %v", err)
 	}
 
-	// at this point, they can point lookup the log and it will work. now, we can try to upload
-	// the marker key. if the marker key upload fails, the user will simply not
-	// see this entry when listing only when specifying a route path. (NOTE: this
-	// behavior will go away if we stop listing by route -> triggers)
-
-	if call.FnID == "" {
-		objectName = callMarkerKey(call.AppID, call.Path, call.ID)
-		params = &s3manager.UploadInput{
-			Bucket:      aws.String(s.bucket),
-			Key:         aws.String(objectName),
-			Body:        bytes.NewReader([]byte{}),
-			ContentType: aws.String("text/plain"),
-		}
-
-		logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Uploading call marker")
-		_, err = s.uploader.UploadWithContext(ctx, params)
-		if err != nil {
-			// XXX(reed): we could just log this?
-			return fmt.Errorf("failed to write marker key for log, %v", err)
-		}
-	}
-
 	return nil
-}
-
-// GetCall1 returns a call at a certain id and app name.
-func (s *store) GetCall1(ctx context.Context, appID, callID string) (*models.Call, error) {
-	ctx, span := trace.StartSpan(ctx, "s3_get_call")
-	defer span.End()
-
-	objectName := callKey(appID, callID)
-	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading call")
-
-	return s.getCallByKey(ctx, objectName)
 }
 
 // GetCall returns a call at a certain id
@@ -259,7 +221,7 @@ func (s *store) GetCall(ctx context.Context, fnID, callID string) (*models.Call,
 	ctx, span := trace.StartSpan(ctx, "s3_get_call")
 	defer span.End()
 
-	objectName := callKey2(fnID, callID)
+	objectName := callKey(fnID, callID)
 	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading call")
 
 	return s.getCallByKey(ctx, objectName)
@@ -297,25 +259,11 @@ func flipCursor(oid string) string {
 	return id.EncodeDescending(oid)
 }
 
-func callMarkerKey(app, path, id string) string {
-	id = flipCursor(id)
-	// s3 urls use / and are url, we need to encode this since paths have / in them
-	// NOTE: s3 urls are max of 1024 chars. path is the only non-fixed sized object in here
-	// but it is fixed to 256 chars in sql (by chance, mostly). further validation may be needed if weirdness ensues.
-	path = base64.RawURLEncoding.EncodeToString([]byte(path))
-	return callMarkerPrefix + app + "/" + path + "/" + id
-}
-
-func callKey(app, id string) string {
-	id = flipCursor(id)
-	return callKeyFlipped(app, id)
-}
-
 func callKeyFlipped(app, id string) string {
 	return callKeyPrefix + app + "/" + id
 }
 
-func callKey2(fnID, id string) string {
+func callKey(fnID, id string) string {
 	id = flipCursor(id)
 	return callKeyPrefix + fnID + "/" + id
 }
@@ -326,127 +274,6 @@ func logKey(appID, callID string) string {
 
 // GetCalls1 returns a list of calls that satisfy the given CallFilter. If no
 // calls exist, an empty list and a nil error are returned.
-// NOTE: this relies on call ids being lexicographically sortable and <= 16 byte
-func (s *store) GetCalls1(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
-	ctx, span := trace.StartSpan(ctx, "s3_get_calls")
-	defer span.End()
-
-	if filter.AppID == "" {
-		return nil, errors.New("s3 store does not support listing across all apps")
-	}
-
-	// NOTE:
-	// if filter.Path != ""
-	//   find marker from marker keys, start there, list keys, get next marker from there
-	// else
-	//   use marker for keys
-
-	// NOTE we need marker keys to support (app is REQUIRED):
-	// 1) quick iteration per path
-	// 2) sorted by id across all path
-	// marker key: m : {app} : {path} : {id}
-	// key: s: {app} : {id}
-	//
-	// also s3 api returns sorted in lexicographic order, we need the reverse of this.
-
-	// marker is either a provided marker, or a key we create based on parameters
-	// that contains app_id, may be a marker key if path is provided, and may
-	// have a time guesstimate if to time is provided.
-
-	var marker string
-
-	// filter.Cursor is a call id, translate to our key format. if a path is
-	// provided, we list keys from markers instead.
-	if filter.Cursor != "" {
-		marker = callKey(filter.AppID, filter.Cursor)
-		if filter.Path != "" {
-			marker = callMarkerKey(filter.AppID, filter.Path, filter.Cursor)
-		}
-	} else if t := time.Time(filter.ToTime); !t.IsZero() {
-		// get a fake id that has the most significant bits set to the to_time (first 48 bits)
-		fako := id.NewWithTime(t)
-		//var buf [id.EncodedSize]byte
-		//fakoId.MarshalTextTo(buf)
-		//mid := string(buf[:10])
-		mid := fako.String()
-		marker = callKey(filter.AppID, mid)
-		if filter.Path != "" {
-			marker = callMarkerKey(filter.AppID, filter.Path, mid)
-		}
-	}
-
-	// prefix prevents leaving bounds of app or path marker keys
-	prefix := callKey(filter.AppID, "")
-	if filter.Path != "" {
-		prefix = callMarkerKey(filter.AppID, filter.Path, "")
-	}
-
-	input := &s3.ListObjectsInput{
-		Bucket:  aws.String(s.bucket),
-		MaxKeys: aws.Int64(int64(filter.PerPage)),
-		Marker:  aws.String(marker),
-		Prefix:  aws.String(prefix),
-	}
-
-	result, err := s.client.ListObjects(input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list logs: %v", err)
-	}
-
-	calls := make([]*models.Call, 0, len(result.Contents))
-
-	for _, obj := range result.Contents {
-		if len(calls) == filter.PerPage {
-			break
-		}
-
-		// extract the app and id from the key to lookup the object, this also
-		// validates we aren't reading strangely keyed objects from the bucket.
-		var app, id string
-		if filter.Path != "" {
-			fields := strings.Split(*obj.Key, "/")
-			if len(fields) != 4 {
-				return calls, fmt.Errorf("invalid key in call markers: %v", *obj.Key)
-			}
-			app = fields[1]
-			id = fields[3]
-		} else {
-			fields := strings.Split(*obj.Key, "/")
-			if len(fields) != 3 {
-				return calls, fmt.Errorf("invalid key in calls: %v", *obj.Key)
-			}
-			app = fields[1]
-			id = fields[2]
-		}
-
-		// the id here is already reverse encoded, keep it that way.
-		objectName := callKeyFlipped(app, id)
-
-		// NOTE: s3 doesn't have a way to get multiple objects so just use GetCall
-		// TODO we should reuse the buffer to decode these
-		call, err := s.getCallByKey(ctx, objectName)
-		if err != nil {
-			common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app": app, "id": id}).Error("error filling call object")
-			continue
-		}
-
-		// ensure: from_time < created_at < to_time
-		fromTime := time.Time(filter.FromTime).Truncate(time.Millisecond)
-		if !fromTime.IsZero() && !fromTime.Before(time.Time(call.CreatedAt)) {
-			// NOTE could break, ids and created_at aren't necessarily in perfect order
-			continue
-		}
-
-		toTime := time.Time(filter.ToTime).Truncate(time.Millisecond)
-		if !toTime.IsZero() && !time.Time(call.CreatedAt).Before(toTime) {
-			continue
-		}
-
-		calls = append(calls, call)
-	}
-
-	return calls, nil
-}
 
 // GetCalls returns a list of calls that satisfy the given CallFilter. If no
 // calls exist, an empty list and a nil error are returned.
@@ -478,7 +305,7 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) (*model
 	// filter.Cursor is a call id, translate to our key format. if a path is
 	// provided, we list keys from markers instead.
 	if filter.Cursor != "" {
-		key = callKey2(filter.FnID, filter.Cursor)
+		key = callKey(filter.FnID, filter.Cursor)
 	} else if t := time.Time(filter.ToTime); !t.IsZero() {
 		// get a fake id that has the most significant bits set to the to_time (first 48 bits)
 		fako := id.NewWithTime(t)
@@ -490,7 +317,7 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) (*model
 	}
 
 	// prefix prevents leaving bounds of app or path marker keys
-	prefix := callKey2(filter.FnID, "")
+	prefix := callKey(filter.FnID, "")
 
 	input := &s3.ListObjectsInput{
 		Bucket:  aws.String(s.bucket),

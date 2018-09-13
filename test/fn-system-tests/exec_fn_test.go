@@ -3,9 +3,7 @@ package tests
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -13,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -21,7 +20,20 @@ import (
 func TestCanExecuteFunction(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID:  app.ID,
+		Name:   id.New().String(),
+		Image:  image,
+		Format: format,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
+	}
+	fn = ensureFn(t, fn)
 
 	lb, err := LB()
 	if err != nil {
@@ -31,13 +43,13 @@ func TestCanExecuteFunction(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
 	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callFN(ctx, u.String(), content, output)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -68,7 +80,20 @@ func TestCanExecuteFunction(t *testing.T) {
 func TestCanExecuteBigOutput(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID:  app.ID,
+		Name:   id.New().String(),
+		Image:  image,
+		Format: format,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
+	}
+	fn = ensureFn(t, fn)
 
 	lb, err := LB()
 	if err != nil {
@@ -78,14 +103,14 @@ func TestCanExecuteBigOutput(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
 	// Approx 5.3MB output
 	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true, "trailerRepeat": 410000}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callFN(ctx, u.String(), content, output)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -105,7 +130,20 @@ func TestCanExecuteBigOutput(t *testing.T) {
 func TestCanExecuteTooBigOutput(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID:  app.ID,
+		Name:   id.New().String(),
+		Image:  image,
+		Format: format,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
+	}
+	fn = ensureFn(t, fn)
 
 	lb, err := LB()
 	if err != nil {
@@ -115,19 +153,19 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
 	// > 6MB output
 	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true, "trailerRepeat": 600000}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callFN(ctx, u.String(), content, output)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
 
-	exp := "{\"error\":{\"message\":\"function response too large\"}}\n"
+	exp := "{\"message\":\"function response too large\"}\n"
 	actual := output.String()
 
 	if !strings.Contains(exp, actual) || len(exp) != len(actual) {
@@ -142,7 +180,20 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 func TestCanExecuteEmptyOutput(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID:  app.ID,
+		Name:   id.New().String(),
+		Image:  image,
+		Format: format,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
+	}
+	fn = ensureFn(t, fn)
 
 	lb, err := LB()
 	if err != nil {
@@ -152,14 +203,14 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
 	// empty body output
 	body := `{"sleepTime": 0, "isDebug": true, "isEmptyBody": true}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callFN(ctx, u.String(), content, output)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -178,7 +229,20 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 func TestBasicConcurrentExecution(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	rt := ensureRoute(t)
+
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID:  app.ID,
+		Name:   id.New().String(),
+		Image:  image,
+		Format: format,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
+	}
+	fn = ensureFn(t, fn)
 
 	lb, err := LB()
 	if err != nil {
@@ -188,7 +252,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
 	results := make(chan error)
 	concurrentFuncs := 10
@@ -197,7 +261,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
-			resp, err := callFN(ctx, u.String(), content, output, "POST")
+			resp, err := callFN(ctx, u.String(), content, output)
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return
@@ -222,87 +286,43 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			t.Fatalf("Error in basic concurrency execution test: %v", err)
 		}
 	}
-
 }
 
-func callFN(ctx context.Context, u string, content io.Reader, output io.Writer, method string) (*http.Response, error) {
-	if method == "" {
-		if content == nil {
-			method = "GET"
-		} else {
-			method = "POST"
-		}
-	}
+func TestSaturatedSystem(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
 
-	req, err := http.NewRequest(method, u, content)
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID:  app.ID,
+		Name:   id.New().String(),
+		Image:  "fnproject/fn-test-utils",
+		Format: format,
+		ResourceConfig: models.ResourceConfig{
+			Memory:  300,
+			Timeout: 1,
+		},
+	}
+	fn = ensureFn(t, fn)
+
+	lb, err := LB()
 	if err != nil {
-		return nil, fmt.Errorf("error running route: %s", err)
+		t.Fatalf("Got unexpected error: %v", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(ctx)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error running route: %s", err)
+	u := url.URL{
+		Scheme: "http",
+		Host:   lb,
 	}
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
-	io.Copy(output, resp.Body)
+	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
+	content := bytes.NewBuffer([]byte(body))
+	output := &bytes.Buffer{}
 
-	return resp, nil
-}
-
-func ensureRoute(t *testing.T, rts ...*models.Route) *models.Route {
-	var rt *models.Route
-	if len(rts) > 0 {
-		rt = rts[0]
-	} else {
-		rt = &models.Route{
-			Path:   routeName + "yabbadabbadoo",
-			Image:  image,
-			Format: format,
-			Memory: memory,
-			Type:   typ,
-		}
+	resp, err := callFN(ctx, u.String(), content, output)
+	if resp != nil || err == nil || ctx.Err() == nil {
+		t.Fatalf("Expected response: %v err:%v", resp, err)
 	}
-	var wrapped struct {
-		Route *models.Route `json:"route"`
-	}
-
-	wrapped.Route = rt
-
-	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(wrapped)
-	if err != nil {
-		t.Fatal("error encoding body", err)
-	}
-
-	urlStr := host() + "/v1/apps/" + appName + "/routes" + rt.Path
-	u, err := url.Parse(urlStr)
-	if err != nil {
-		t.Fatal("error creating url", urlStr, err)
-	}
-
-	req, err := http.NewRequest("PUT", u.String(), &buf)
-	if err != nil {
-		t.Fatal("error creating request", err)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal("error creating route", err)
-	}
-
-	buf.Reset()
-	io.Copy(&buf, resp.Body)
-	if resp.StatusCode != 200 {
-		t.Fatal("error creating/updating app or otherwise ensuring it exists:", resp.StatusCode, buf.String())
-	}
-
-	wrapped.Route = nil
-	err = json.NewDecoder(&buf).Decode(&wrapped)
-	if err != nil {
-		t.Fatal("error decoding response")
-	}
-
-	return wrapped.Route
 }

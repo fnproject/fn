@@ -126,7 +126,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 		p := jout.Protocol
 		for k, v := range p.Headers {
 			for _, vv := range v {
-				rw.Header().Add(k, vv) // on top of any specified on the route
+				rw.Header().Add(k, vv) // on top of any specified on the fn
 			}
 		}
 	}

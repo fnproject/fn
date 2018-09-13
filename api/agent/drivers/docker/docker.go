@@ -635,7 +635,7 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 		return drivers.StatusSuccess, nil
 	case 137: // OOM
 		common.Logger(ctx).Error("docker oom")
-		err := errors.New("container out of memory, you may want to raise route.memory for this route (default: 128MB)")
+		err := errors.New("container out of memory, you may want to raise fn.memory for this route (default: 128MB)")
 		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, err)
 	}
 }

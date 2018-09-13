@@ -54,10 +54,10 @@ func Test(t *testing.T, fnl models.LogStore) {
 		}
 		calls, err := fnl.GetCalls(ctx, filter)
 		if err != nil {
-			t.Fatalf("Test GetCalls2(ctx, filter): one call, unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls(ctx, filter): one call, unexpected error `%v`", err)
 		}
 		if len(calls.Items) != 1 {
-			t.Fatalf("Test GetCalls2(ctx, filter): one call, unexpected length 1 != `%v`", len(calls.Items))
+			t.Fatalf("Test GetCalls(ctx, filter): one call, unexpected length 1 != `%v`", len(calls.Items))
 		}
 
 		c2 := *call
@@ -213,9 +213,6 @@ func Test(t *testing.T, fnl models.LogStore) {
 		}
 		if call.AppID != newCall.AppID {
 			t.Fatalf("Test GetCall: fn id mismatch `%v` `%v`", call.FnID, newCall.FnID)
-		}
-		if call.Path != newCall.Path {
-			t.Fatalf("Test GetCall: path mismatch `%v` `%v`", call.Path, newCall.Path)
 		}
 	})
 }

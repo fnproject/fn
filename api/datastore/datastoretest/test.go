@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -39,8 +38,6 @@ type ResourceProvider interface {
 	ValidApp() *models.App
 	// ValidFn returns a valid fn to use for inserts
 	ValidFn(appId string) *models.Fn
-	// ValidFn returns a valid fn to use for inserts
-	ValidRoute(appId string) *models.Route
 	// ValidTrigger returns a valid trigger  to use for inserts
 	ValidTrigger(appId string, fnId string) *models.Trigger
 
@@ -94,21 +91,6 @@ func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Tri
 	return trigger
 }
 
-// Creates a valid route which always has a sequential named
-func (brp *BasicResourceProvider) ValidRoute(appId string) *models.Route {
-	testRoute := &models.Route{
-		AppID:       appId,
-		Path:        fmt.Sprintf("/test_%09d", brp.NextID()),
-		Image:       "fnproject/fn-test-utils",
-		Type:        "sync",
-		Format:      "http",
-		Timeout:     models.DefaultTimeout,
-		IdleTimeout: models.DefaultIdleTimeout,
-		Memory:      models.DefaultMemory,
-	}
-	return testRoute
-}
-
 func (brp *BasicResourceProvider) ValidFn(appId string) *models.Fn {
 	return &models.Fn{
 		AppID:  appId,
@@ -138,15 +120,6 @@ func (h *Harness) GivenAppInDb(app *models.App) *models.App {
 	}
 	h.AppForDeletion(a)
 	return a
-}
-
-func (h *Harness) GivenRouteInDb(rt *models.Route) *models.Route {
-	r, err := h.ds.InsertRoute(h.ctx, rt)
-	if err != nil {
-		h.t.Fatal("failed to create rt", err)
-		return nil
-	}
-	return r
 }
 
 func (h *Harness) Cleanup() {
@@ -207,12 +180,6 @@ type TriggerByName []*models.Trigger
 func (f TriggerByName) Len() int           { return len(f) }
 func (f TriggerByName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 func (f TriggerByName) Less(i, j int) bool { return f[i].Name < f[j].Name }
-
-type RouteByPath []*models.Route
-
-func (f RouteByPath) Len() int           { return len(f) }
-func (f RouteByPath) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
-func (f RouteByPath) Less(i, j int) bool { return f[i].Path < f[j].Path }
 
 func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
@@ -532,343 +499,6 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 	})
 
-}
-
-func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
-
-	ds := dsf(t)
-	ctx := rp.DefaultCtx()
-
-	t.Run("routes", func(t *testing.T) {
-
-		t.Run("empty val", func(t *testing.T) {
-			_, err := ds.InsertRoute(ctx, nil)
-			if err != models.ErrDatastoreEmptyRoute {
-				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyRoute, err)
-			}
-
-		})
-
-		t.Run("Insert with non-existant app ", func(t *testing.T) {
-
-			newTestRoute := rp.ValidRoute("notreal")
-			_, err := ds.InsertRoute(ctx, newTestRoute)
-			if err != models.ErrAppsNotFound {
-				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
-			}
-		})
-
-		t.Run("Insert duplicate route fails", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-			testRoute := rp.ValidRoute(testApp.ID)
-			h.GivenRouteInDb(testRoute)
-
-			_, err := ds.InsertRoute(ctx, testRoute)
-			if err != models.ErrRoutesAlreadyExists {
-				t.Fatalf("expected error to be `%v`, but it was `%v`", models.ErrRoutesAlreadyExists, err)
-			}
-		})
-
-		// Testing get
-		t.Run("get route with empty path", func(t *testing.T) {
-			_, err := ds.GetRoute(ctx, id.New().String(), "")
-			if err != models.ErrRoutesMissingPath {
-				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
-			}
-		})
-
-		t.Run("get route with empty app id", func(t *testing.T) {
-
-			_, err := ds.GetRoute(ctx, "", "a")
-			if err != models.ErrRoutesMissingAppID {
-				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesMissingAppID, err)
-			}
-		})
-		t.Run("get valid route", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-			testRoute := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
-
-			route, err := ds.GetRoute(ctx, testApp.ID, testRoute.Path)
-			if err != nil {
-				t.Fatalf("unexpected error %v", err)
-			}
-			if !route.Equals(testRoute) {
-				t.Fatalf("expected to insert:\n%v\nbut got:\n%v", testRoute, *route)
-			}
-		})
-
-		// Testing update
-		t.Run("update route set headers and config", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-			testRoute := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
-
-			// Update some fields, and add 3 configs and 3 headers.
-			updated, err := ds.UpdateRoute(ctx, &models.Route{
-				AppID:   testApp.ID,
-				Path:    testRoute.Path,
-				Timeout: 2,
-				Config: map[string]string{
-					"FIRST":  "1",
-					"SECOND": "2",
-					"THIRD":  "3",
-				},
-				Headers: models.Headers{
-					"First":  []string{"test"},
-					"Second": []string{"test", "test"},
-					"Third":  []string{"test", "test2"},
-				},
-			})
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			expected := &models.Route{
-				// unchanged
-				AppID:       testApp.ID,
-				Path:        testRoute.Path,
-				Image:       "fnproject/fn-test-utils",
-				Type:        "sync",
-				Format:      "http",
-				IdleTimeout: testRoute.IdleTimeout,
-				Memory:      testRoute.Memory,
-				CPUs:        testRoute.CPUs,
-				// updated
-				Timeout: 2,
-				Config: map[string]string{
-					"FIRST":  "1",
-					"SECOND": "2",
-					"THIRD":  "3",
-				},
-				Headers: models.Headers{
-					"First":  []string{"test"},
-					"Second": []string{"test", "test"},
-					"Third":  []string{"test", "test2"},
-				},
-			}
-			if !updated.Equals(expected) {
-				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
-			}
-		})
-
-		t.Run("update route modify headers and config", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-			testRoute := rp.ValidRoute(testApp.ID)
-			testRoute.Config = map[string]string{
-				"FIRST":  "1",
-				"SECOND": "2",
-				"THIRD":  "3",
-			}
-			testRoute.Headers = models.Headers{
-				"First":  []string{"test"},
-				"Second": []string{"test", "test"},
-				"Third":  []string{"test", "test2"},
-			}
-			testRoute.Timeout = 2
-			h.GivenRouteInDb(testRoute)
-
-			// Update a config var, remove another. Add one Header, remove another.
-			updated, err := ds.UpdateRoute(ctx, &models.Route{
-				AppID: testRoute.AppID,
-				Path:  testRoute.Path,
-				Config: map[string]string{
-					"FIRST":  "first",
-					"SECOND": "",
-					"THIRD":  "3",
-				},
-				Headers: models.Headers{
-					"First":  []string{"test2"},
-					"Second": nil,
-				},
-			})
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			expected := &models.Route{
-				// unchanged
-				AppID:       testRoute.AppID,
-				Path:        testRoute.Path,
-				Image:       "fnproject/fn-test-utils",
-				Type:        "sync",
-				Format:      "http",
-				Timeout:     2,
-				Memory:      testRoute.Memory,
-				CPUs:        testRoute.CPUs,
-				IdleTimeout: testRoute.IdleTimeout,
-				// updated
-				Config: map[string]string{
-					"FIRST": "first",
-					"THIRD": "3",
-				},
-				Headers: models.Headers{
-					"First": []string{"test2"},
-					"Third": []string{"test", "test2"},
-				},
-			}
-			if !updated.Equals(expected) {
-				t.Fatalf("expected updated:\n`%#v`\nbut got:\n`%#v`", expected, updated)
-			}
-		})
-
-		t.Run("simple pagination", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-			testRoute := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
-
-			// Testing list fns
-			routes, err := ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 1})
-			if err != nil {
-				t.Fatalf("unexpected error %v", err)
-			}
-			if len(routes) == 0 {
-				t.Fatal("expected result count to be greater than 0")
-			}
-			if routes[0] == nil {
-				t.Fatalf("expected non-nil route")
-			} else if routes[0].Path != testRoute.Path {
-				t.Fatalf("expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
-			}
-
-			routes, err = ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{Image: testRoute.Image, PerPage: 1})
-			if err != nil {
-				t.Fatalf("unexpected error %v", err)
-			}
-			if len(routes) == 0 {
-				t.Fatal("expected result count to be greater than 0")
-			}
-			if routes[0] == nil {
-				t.Fatalf("expected non-nil route")
-			} else if routes[0].Path != testRoute.Path {
-				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
-			}
-
-		})
-
-		t.Run("pagination on empty app is invalid", func(t *testing.T) {
-			_, err := ds.GetRoutesByApp(ctx, "", &models.RouteFilter{PerPage: 1})
-			if err != models.ErrRoutesMissingAppID {
-				t.Fatalf("Expecting app ID error, got %s", err)
-			}
-		})
-
-		t.Run("pagination on non-existant app returns no routes", func(t *testing.T) {
-			routes, err := ds.GetRoutesByApp(ctx, id.New().String(), &models.RouteFilter{PerPage: 1})
-			if err != nil {
-				t.Fatalf("error: %s", err)
-			}
-			if len(routes) != 0 {
-				t.Fatalf("expected result count to be 0 but got %d", len(routes))
-			}
-		})
-
-		t.Run("pagination on routes return routes in order ", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-
-			r1 := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
-			r2 := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
-			r3 := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
-
-			gendRoutes := []*models.Route{r1, r2, r3}
-			sort.Sort(RouteByPath(gendRoutes))
-
-			routes, err := ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 1})
-			if err != nil {
-				t.Fatalf("error: %s", err)
-			}
-			if len(routes) != 1 {
-				t.Fatalf("expected result count to be 1 but got %d", len(routes))
-			} else if routes[0].Path != gendRoutes[0].Path {
-				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", gendRoutes[0].Path, routes[0].Path)
-			}
-
-			routes, err = ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 2, Cursor: routes[0].Path})
-			if err != nil {
-				t.Fatalf("error: %s", err)
-			}
-
-			if len(routes) != 2 {
-				t.Fatalf("expected result count to be 2 but got %d", len(routes))
-			} else if routes[0].Path != gendRoutes[1].Path {
-				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", gendRoutes[1].Path, routes[0].Path)
-			} else if routes[1].Path != gendRoutes[2].Path {
-				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", gendRoutes[2].Path, routes[1].Path)
-			}
-
-			r4 := rp.ValidRoute(testApp.ID)
-			r4.Path = "/abcdefg" // < /test lexicographically, but not in length
-
-			h.GivenRouteInDb(r4)
-
-			routes, err = ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 100})
-			if err != nil {
-				t.Fatalf("error: %s", err)
-			}
-			if len(routes) != 4 {
-				t.Fatalf("expected result count to be 4 but got %d", len(routes))
-			} else if routes[0].Path != r4.Path {
-				t.Fatalf("expected `route.Path` to be `%s` but it was `%s`", r4.Path, routes[0].Path)
-			}
-		})
-
-		t.Run("remove route with empty app ID", func(t *testing.T) {
-
-			// Testing route delete
-			err := ds.RemoveRoute(ctx, "", "")
-			if err != models.ErrRoutesMissingAppID {
-				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesMissingAppID, err)
-			}
-
-		})
-
-		t.Run("remove route with empty app path", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-
-			err := ds.RemoveRoute(ctx, testApp.ID, "")
-			if err != models.ErrRoutesMissingPath {
-				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
-			}
-		})
-
-		t.Run("remove valid route removes route ", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-			testRoute := h.GivenRouteInDb(rp.ValidRoute(testApp.ID))
-
-			err := ds.RemoveRoute(ctx, testApp.ID, testRoute.Path)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			route, err := ds.GetRoute(ctx, testApp.ID, testRoute.Path)
-			if err != nil && err != models.ErrRoutesNotFound {
-				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
-			}
-			if route != nil {
-				t.Fatalf("failed to remove the route: %v", route)
-			}
-
-			_, err = ds.UpdateRoute(ctx, &models.Route{
-				AppID: testApp.ID,
-				Path:  testRoute.Path,
-				Image: "test",
-			})
-			if err != models.ErrRoutesNotFound {
-				t.Fatalf("expected error to be `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
-			}
-		})
-	})
 }
 
 func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
@@ -1593,7 +1223,6 @@ func RunAllTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	}()
 
 	RunAppsTest(t, dsf, rp)
-	RunRoutesTest(t, dsf, rp)
 	RunFnsTest(t, dsf, rp)
 	RunTriggersTest(t, dsf, rp)
 	RunTriggerBySourceTests(t, dsf, rp)

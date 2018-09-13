@@ -34,18 +34,3 @@ type APIAppHandlerFunc func(w http.ResponseWriter, r *http.Request, app *models.
 func (f APIAppHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App) {
 	f(w, r, app)
 }
-
-// APIRouteHandler may be used to add an http endpoint on the versioned route of fn API,
-// at /:version/apps/:app/routes/:route
-type APIRouteHandler interface {
-	// Handle(ctx context.Context)
-	ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)
-}
-
-// APIRouteHandlerFunc is a convenience for getting an APIRouteHandler.
-type APIRouteHandlerFunc func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)
-
-// ServeHTTP calls f(w, r).
-func (f APIRouteHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route) {
-	f(w, r, app, route)
-}

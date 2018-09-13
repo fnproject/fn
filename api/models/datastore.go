@@ -33,29 +33,6 @@ type Datastore interface {
 	// Returns ErrAppsNotFound if an App is not found.
 	RemoveApp(ctx context.Context, appID string) error
 
-	// GetRoute looks up a matching Route for appName and the literal request route routePath.
-	// Returns ErrDatastoreEmptyAppName when appName is empty, and ErrDatastoreEmptyRoutePath when
-	// routePath is empty.
-	// Returns ErrRoutesNotFound when no matching route is found.
-	GetRoute(ctx context.Context, appID, routePath string) (*Route, error)
-
-	// GetRoutesByApp gets a slice of routes for a appName, optionally filtering on filter (filter.AppName is ignored).
-	// Returns ErrDatastoreEmptyAppName if appName is empty.
-	GetRoutesByApp(ctx context.Context, appID string, filter *RouteFilter) ([]*Route, error)
-
-	// InsertRoute inserts a route. Returns ErrDatastoreEmptyRoute when route is nil, and ErrDatastoreEmptyAppName
-	// or ErrDatastoreEmptyRoutePath for empty AppName or Path.
-	// Returns ErrRoutesAlreadyExists if the exact route.Path already exists
-	InsertRoute(ctx context.Context, route *Route) (*Route, error)
-
-	// UpdateRoute updates route's Config and Header fields. Returns ErrDatastoreEmptyRoute when route is nil, and
-	// ErrDatastoreEmptyAppName or ErrDatastoreEmptyRoutePath for empty AppName or Path.
-	UpdateRoute(ctx context.Context, route *Route) (*Route, error)
-
-	// RemoveRoute removes a route. Returns ErrDatastoreEmptyAppID when appName is empty, and
-	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
-	RemoveRoute(ctx context.Context, appID, routePath string) error
-
 	// InsertFn inserts a new function if one does not exist, applying any defaults necessary,
 	InsertFn(ctx context.Context, fn *Fn) (*Fn, error)
 

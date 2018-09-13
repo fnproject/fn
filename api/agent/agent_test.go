@@ -69,8 +69,6 @@ func checkClose(t *testing.T, a Agent) {
 }
 
 func TestCallConfigurationRequest(t *testing.T) {
-	appName := "myapp"
-	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
 	const idleTimeout = 20
@@ -79,19 +77,19 @@ func TestCallConfigurationRequest(t *testing.T) {
 	format := "default"
 
 	cfg := models.Config{"APP_VAR": "FOO"}
-	rCfg := models.Config{"ROUTE_VAR": "BAR"}
+	rCfg := models.Config{"FN_VAR": "BAR"}
 
-	app := &models.App{ID: "app_id", Name: appName, Config: cfg}
-	route := &models.Route{
-		AppID:       app.ID,
-		Config:      rCfg,
-		Path:        path,
-		Image:       image,
-		Type:        typ,
-		Format:      format,
-		Timeout:     timeout,
-		IdleTimeout: idleTimeout,
-		Memory:      memory,
+	app := &models.App{ID: "app_id", Config: cfg}
+	fn := &models.Fn{
+		ID:     "fn_id",
+		AppID:  app.ID,
+		Config: rCfg,
+		Image:  image,
+		Format: format,
+		ResourceConfig: models.ResourceConfig{Timeout: timeout,
+			IdleTimeout: idleTimeout,
+			Memory:      memory,
+		},
 	}
 
 	ls := logs.NewMock()
@@ -102,7 +100,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + appName + path
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := "payload"
 	contentLength := strconv.Itoa(len(payload))
 	req, err := http.NewRequest(method, url, strings.NewReader(payload))
@@ -113,11 +111,11 @@ func TestCallConfigurationRequest(t *testing.T) {
 	req.Header.Add("MYREALHEADER", "FOOLORD")
 	req.Header.Add("MYREALHEADER", "FOOPEASANT")
 	req.Header.Add("Content-Length", contentLength)
-	req.Header.Add("FN_PATH", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
+	req.Header.Add("FN_PATH", "thewrongfn") // ensures that this doesn't leak out, should be overwritten
 
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(app, route, req),
+		FromHTTPFnRequest(app, fn, req),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -132,14 +130,11 @@ func TestCallConfigurationRequest(t *testing.T) {
 	if model.AppID != app.ID {
 		t.Fatal("app ID mismatch", model.ID, app.ID)
 	}
-	if model.Path != path {
-		t.Fatal("path mismatch", model.Path, path)
-	}
 	if model.Image != image {
 		t.Fatal("image mismatch", model.Image, image)
 	}
 	if model.Type != "sync" {
-		t.Fatal("route type mismatch", model.Type)
+		t.Fatal("fn type mismatch", model.Type)
 	}
 	if model.Priority == nil {
 		t.Fatal("GetCall should make priority non-nil so that async works because for whatever reason some clowns plumbed it all over the mqs even though the user can't specify it gg")
@@ -164,13 +159,11 @@ func TestCallConfigurationRequest(t *testing.T) {
 	}
 
 	expectedConfig := map[string]string{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
+		"FN_FORMAT": format,
+		"FN_MEMORY": strconv.Itoa(memory),
+		"FN_TYPE":   typ,
+		"APP_VAR":   "FOO",
+		"FN_VAR":    "BAR",
 	}
 
 	for k, v := range expectedConfig {
@@ -192,39 +185,34 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	checkExpectedHeaders(t, expectedHeaders, model.Headers)
 
-	// TODO check response writer for route headers
+	// TODO check response writer for fn headers
 }
 
 func TestCallConfigurationModel(t *testing.T) {
-	app := &models.App{Name: "myapp"}
+	fn := &models.Fn{ID: "fn_id"}
 
-	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
 	CPUs := models.MilliCPUs(1000)
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + app.Name + path
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := "payload"
 	typ := "sync"
 	format := "default"
 	cfg := models.Config{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": app.Name,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_CPUS":     CPUs.String(),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
+		"FN_FORMAT": format,
+		"FN_MEMORY": strconv.Itoa(memory),
+		"FN_CPUS":   CPUs.String(),
+		"FN_TYPE":   typ,
+		"APP_VAR":   "FOO",
+		"FN_VAR":    "BAR",
 	}
 
 	cm := &models.Call{
-		AppID:       app.ID,
-		AppName:     app.Name,
+		FnID:        fn.ID,
 		Config:      cfg,
-		Path:        path,
 		Image:       image,
 		Type:        typ,
 		Format:      format,
@@ -259,31 +247,28 @@ func TestCallConfigurationModel(t *testing.T) {
 }
 
 func TestAsyncCallHeaders(t *testing.T) {
-	app := &models.App{ID: "app_id", Name: "myapp"}
+	fn := &models.App{ID: "fn_id"}
 
-	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
 	CPUs := models.MilliCPUs(200)
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + app.Name + path
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := "payload"
 	typ := "async"
 	format := "http"
 	contentType := "suberb_type"
 	contentLength := strconv.FormatInt(int64(len(payload)), 10)
 	config := map[string]string{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": app.Name,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_CPUS":     CPUs.String(),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
-		"DOUBLE_VAR":  "BIZ, BAZ",
+		"FN_FORMAT":  format,
+		"FN_MEMORY":  strconv.Itoa(memory),
+		"FN_CPUS":    CPUs.String(),
+		"FN_TYPE":    typ,
+		"APP_VAR":    "FOO",
+		"FN_VAR":     "BAR",
+		"DOUBLE_VAR": "BIZ, BAZ",
 	}
 	headers := map[string][]string{
 		// FromRequest would insert these from original HTTP request
@@ -292,11 +277,9 @@ func TestAsyncCallHeaders(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		AppID:       app.ID,
-		AppName:     app.Name,
+		FnID:        fn.ID,
 		Config:      config,
 		Headers:     headers,
-		Path:        path,
 		Image:       image,
 		Type:        typ,
 		Format:      format,
@@ -409,36 +392,34 @@ func (l testListener) BeforeCall(context.Context, *models.Call) error {
 }
 
 func TestSubmitError(t *testing.T) {
-	app := &models.App{Name: "myapp"}
+	app := &models.App{ID: "app_id", Name: "myapp"}
+	fn := &models.Fn{ID: "fn_id", AppID: app.ID}
 
-	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
 	CPUs := models.MilliCPUs(200)
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + app.Name + path
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`
 	typ := "sync"
 	format := "default"
 	config := map[string]string{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": app.Name,
-		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_CPUS":     CPUs.String(),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
+		"FN_VAR":      "BAR",
 		"DOUBLE_VAR":  "BIZ, BAZ",
 	}
 
 	cm := &models.Call{
 		AppID:       app.ID,
-		AppName:     app.Name,
+		FnID:        fn.ID,
 		Config:      config,
-		Path:        path,
 		Image:       image,
 		Type:        typ,
 		Format:      format,
@@ -497,22 +478,19 @@ type dummyReader struct {
 func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 	// TODO it may be a good idea to mock out the http server and use a real
 	// response writer with sync, and also test that this works with async + log
-
-	appName := "myapp"
-	path := "/hello"
-	url := "http://127.0.0.1:8080/r/" + appName + path
-
-	app := &models.App{ID: "app_id", Name: appName}
-	route := &models.Route{
-		Path:        path,
-		AppID:       app.ID,
-		Image:       "fnproject/fn-test-utils",
-		Type:        "sync",
-		Format:      "http", // this _is_ the test
-		Timeout:     5,
-		IdleTimeout: 10,
-		Memory:      128,
+	app := &models.App{ID: "app_id"}
+	fn := &models.Fn{
+		ID:     "fn_id",
+		Image:  "fnproject/fn-test-utils",
+		Format: "http", // this _is_ the test
+		ResourceConfig: models.ResourceConfig{
+			Timeout:     5,
+			IdleTimeout: 10,
+			Memory:      128,
+		},
 	}
+
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 
 	ls := logs.NewMock()
 	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
@@ -530,7 +508,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 	// grab a buffer so we can read what gets written to this guy
 	var out bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, route, req), WithWriter(&out))
+	callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -566,8 +544,6 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	call := &models.Call{
 		AppID:       id.New().String(),
-		AppName:     "appName",
-		Path:        "/yoyo",
 		Image:       "fnproject/fn-test-utils",
 		Type:        "sync",
 		Format:      "http",
@@ -590,22 +566,20 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 // Tmp directory should be RW by default.
 //
 func TestTmpFsRW(t *testing.T) {
-	appName := "myapp"
-	path := "/hello"
-	url := "http://127.0.0.1:8080/r/" + appName + path
 
-	app := &models.App{ID: "app_id", Name: appName}
+	app := &models.App{ID: "app_id"}
 
-	route := &models.Route{
-		Path:        path,
-		AppID:       app.ID,
-		Image:       "fnproject/fn-test-utils",
-		Type:        "sync",
-		Format:      "http", // this _is_ the test
-		Timeout:     5,
-		IdleTimeout: 10,
-		Memory:      128,
+	fn := &models.Fn{
+		AppID:  app.ID,
+		Image:  "fnproject/fn-test-utils",
+		Format: "http", // this _is_ the test
+		ResourceConfig: models.ResourceConfig{Timeout: 5,
+			IdleTimeout: 10,
+			Memory:      128,
+		},
 	}
+
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 
 	ls := logs.NewMock()
 	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
@@ -620,7 +594,7 @@ func TestTmpFsRW(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, route, req), WithWriter(&out))
+	callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -680,133 +654,30 @@ func TestTmpFsRW(t *testing.T) {
 	}
 }
 
-func TestTmpFsSize(t *testing.T) {
-	appName := "myapp"
-	path := "/hello"
-	url := "http://127.0.0.1:8080/r/" + appName + path
-
-	app := &models.App{ID: "app_id", Name: appName}
-
-	route := &models.Route{
-		Path:        path,
-		AppID:       app.ID,
-		Image:       "fnproject/fn-test-utils",
-		Type:        "sync",
-		Format:      "http", // this _is_ the test
-		Timeout:     5,
-		IdleTimeout: 10,
-		Memory:      64,
-		TmpFsSize:   1,
-	}
-
-	cfg, err := NewConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cfg.MaxTmpFsInodes = 1024
-
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
-	defer checkClose(t, a)
-
-	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
-	bodOne := `{"readFile":"/proc/mounts", "createFile":"/tmp/salsa", "createFileSize": 4194304, "isDebug": true}`
-
-	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(bodOne)})
-	if err != nil {
-		t.Fatal("unexpected error building request", err)
-	}
-
-	var out bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, route, req), WithWriter(&out))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = a.Submit(callI)
-	if err != nil {
-		t.Error("submit should not error:", err)
-	}
-
-	// we're using http format so this will have written a whole http request
-	res, err := http.ReadResponse(bufio.NewReader(&out), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer res.Body.Close()
-
-	// Let's fetch read output and write results. See fn-test-utils AppResponse struct (data field)
-	var resp struct {
-		R struct {
-			MountsRead string `json:"/proc/mounts.read_output"`
-			CreateFile string `json:"/tmp/salsa.create_error"`
-		} `json:"data"`
-	}
-
-	json.NewDecoder(res.Body).Decode(&resp)
-
-	// Let's check what mounts are on...
-	mounts := strings.Split(resp.R.MountsRead, "\n")
-	isFound := false
-	isRootFound := false
-	for _, mnt := range mounts {
-		tokens := strings.Split(mnt, " ")
-		if len(tokens) < 3 {
-			continue
-		}
-
-		point := tokens[1]
-		opts := tokens[3]
-
-		// rw tmp dir with size and inode limits applied.
-		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1024" {
-			// good
-			isFound = true
-		} else if point == "/" && strings.HasPrefix(opts, "ro,") {
-			// Read-only root, good...
-			isRootFound = true
-		}
-	}
-
-	if !isFound || !isRootFound {
-		t.Fatal(`didn't get proper mounts for  /tmp or /, got /proc/mounts content of:\n`, resp.R.MountsRead)
-	}
-
-	// write file should have failed...
-	if !strings.Contains(resp.R.CreateFile, "no space left on device") {
-		t.Fatal(`limited tmpfs should generate fs full error, but got output: `, resp.R.CreateFile)
-	}
-}
-
 // return a model with all fields filled in with fnproject/fn-test-utils:latest image, change as needed
 func testCall() *models.Call {
-	appName := "myapp"
-	path := "/"
 	image := "fnproject/fn-test-utils:latest"
-	app := &models.App{ID: "app_id", Name: appName}
+	fn := &models.Fn{ID: "fn_id"}
 
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
 	CPUs := models.MilliCPUs(200)
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + appName + path
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := "payload"
 	typ := "sync"
 	format := "http"
 	contentType := "suberb_type"
 	contentLength := strconv.FormatInt(int64(len(payload)), 10)
 	config := map[string]string{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_CPUS":     CPUs.String(),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
-		"DOUBLE_VAR":  "BIZ, BAZ",
+		"FN_FORMAT":  format,
+		"FN_MEMORY":  strconv.Itoa(memory),
+		"FN_CPUS":    CPUs.String(),
+		"FN_TYPE":    typ,
+		"APP_VAR":    "FOO",
+		"FN_VAR":     "BAR",
+		"DOUBLE_VAR": "BIZ, BAZ",
 	}
 	headers := map[string][]string{
 		// FromRequest would insert these from original HTTP request
@@ -815,11 +686,9 @@ func testCall() *models.Call {
 	}
 
 	return &models.Call{
-		AppID:       app.ID,
-		AppName:     app.Name,
+		FnID:        fn.ID,
 		Config:      config,
 		Headers:     headers,
-		Path:        path,
 		Image:       image,
 		Type:        typ,
 		Format:      format,
@@ -859,17 +728,18 @@ func TestPipesAreClear(t *testing.T) {
 	ca.Format = "http"
 	ca.IdleTimeout = 60 // keep this bad boy alive
 	ca.Timeout = 4      // short
-	app := &models.App{Name: "myapp", ID: ca.AppID}
+	app := &models.App{ID: ca.AppID}
 
-	route := &models.Route{
-		Path:        ca.Path,
-		AppID:       ca.AppID,
-		Image:       ca.Image,
-		Type:        ca.Type,
-		Format:      ca.Format,
-		Timeout:     ca.Timeout,
-		IdleTimeout: ca.IdleTimeout,
-		Memory:      ca.Memory,
+	fn := &models.Fn{
+		AppID:  ca.AppID,
+		ID:     ca.FnID,
+		Image:  ca.Image,
+		Format: ca.Format,
+		ResourceConfig: models.ResourceConfig{
+			Timeout:     ca.Timeout,
+			IdleTimeout: ca.IdleTimeout,
+			Memory:      ca.Memory,
+		},
 	}
 
 	ls := logs.NewMock()
@@ -892,7 +762,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodOne)))
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, route, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -926,7 +796,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodTwo)))
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app, route, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1007,15 +877,16 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 
 	app.ID = call.AppID
 
-	route := &models.Route{
-		Path:        call.Path,
-		AppID:       call.AppID,
-		Image:       call.Image,
-		Type:        call.Type,
-		Format:      call.Format,
-		Timeout:     call.Timeout,
-		IdleTimeout: call.IdleTimeout,
-		Memory:      call.Memory,
+	fn := &models.Fn{
+		ID:     "fn_id",
+		AppID:  call.AppID,
+		Image:  call.Image,
+		Format: call.Format,
+		ResourceConfig: models.ResourceConfig{
+			Timeout:     call.Timeout,
+			IdleTimeout: call.IdleTimeout,
+			Memory:      call.Memory,
+		},
 	}
 
 	ls := logs.NewMock()
@@ -1029,7 +900,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, route, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1054,7 +925,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app, route, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1100,15 +971,15 @@ func TestNBIOResourceTracker(t *testing.T) {
 
 	app.ID = call.AppID
 
-	route := &models.Route{
-		Path:        call.Path,
-		AppID:       call.AppID,
-		Image:       call.Image,
-		Type:        call.Type,
-		Format:      call.Format,
-		Timeout:     call.Timeout,
-		IdleTimeout: call.IdleTimeout,
-		Memory:      call.Memory,
+	fn := &models.Fn{
+		AppID:  call.AppID,
+		Image:  call.Image,
+		Format: call.Format,
+		ResourceConfig: models.ResourceConfig{
+			Timeout:     call.Timeout,
+			IdleTimeout: call.IdleTimeout,
+			Memory:      call.Memory,
+		},
 	}
 
 	cfg, err := NewConfig()
@@ -1135,7 +1006,7 @@ func TestNBIOResourceTracker(t *testing.T) {
 			}
 
 			var outOne bytes.Buffer
-			callI, err := a.GetCall(FromRequest(app, route, req), WithWriter(&outOne))
+			callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&outOne))
 			if err != nil {
 				t.Fatal(err)
 			}

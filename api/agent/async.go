@@ -87,13 +87,13 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	pathKey, err := tag.NewKey("fn_path")
+	fnKey, err := tag.NewKey("fn_id")
 	if err != nil {
 		logrus.Fatal(err)
 	}
 	ctx, err = tag.New(ctx,
 		tag.Insert(appKey, model.AppID),
-		tag.Insert(pathKey, model.Path),
+		tag.Insert(fnKey, model.FnID),
 	)
 	if err != nil {
 		logrus.Fatal(err)
