@@ -163,6 +163,7 @@ func (a *slotQueue) isIdle() bool {
 		a.stats.containerStates[ContainerStateWait] == 0 &&
 		a.stats.containerStates[ContainerStateStart] == 0 &&
 		a.stats.containerStates[ContainerStateIdle] == 0 &&
+		a.stats.containerStates[ContainerStatePaused] == 0 &&
 		a.stats.containerStates[ContainerStateBusy] == 0
 
 	a.statsLock.Unlock()
@@ -180,7 +181,7 @@ func (a *slotQueue) getStats() slotQueueStats {
 
 func isNewContainerNeeded(cur *slotQueueStats) bool {
 
-	idleWorkers := cur.containerStates[ContainerStateIdle]
+	idleWorkers := cur.containerStates[ContainerStateIdle] + cur.containerStates[ContainerStatePaused]
 	starters := cur.containerStates[ContainerStateStart]
 	startWaiters := cur.containerStates[ContainerStateWait]
 

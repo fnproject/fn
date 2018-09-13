@@ -47,12 +47,13 @@ const (
 )
 
 const (
-	ContainerStateNone  ContainerStateType = iota // uninitialized
-	ContainerStateWait                            // resource (cpu + mem) waiting
-	ContainerStateStart                           // launching
-	ContainerStateIdle                            // running idle
-	ContainerStateBusy                            // running busy
-	ContainerStateDone                            // exited/failed/done
+	ContainerStateNone   ContainerStateType = iota // uninitialized
+	ContainerStateWait                             // resource (cpu + mem) waiting
+	ContainerStateStart                            // launching
+	ContainerStateIdle                             // running: idle but not paused
+	ContainerStatePaused                           // running: idle but paused
+	ContainerStateBusy                             // running: busy
+	ContainerStateDone                             // exited/failed/done
 	ContainerStateMax
 )
 
@@ -61,14 +62,16 @@ var containerGaugeKeys = [ContainerStateMax]string{
 	"container_wait_total",
 	"container_start_total",
 	"container_idle_total",
+	"container_paused_total",
 	"container_busy_total",
-	"container_done_total",
 }
+
 var containerTimeKeys = [ContainerStateMax]string{
 	"",
 	"container_wait_duration_seconds",
 	"container_start_duration_seconds",
 	"container_idle_duration_seconds",
+	"container_paused_duration_seconds",
 	"container_busy_duration_seconds",
 }
 
@@ -101,6 +104,10 @@ func (c *requestState) UpdateState(ctx context.Context, newState RequestStateTyp
 	}
 }
 
+func isIdleState(state ContainerStateType) bool {
+	return state == ContainerStateIdle || state == ContainerStatePaused
+}
+
 func (c *containerState) UpdateState(ctx context.Context, newState ContainerStateType, slots *slotQueue) {
 
 	var now time.Time
@@ -109,11 +116,15 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 
 	c.lock.Lock()
 
-	// except for 1) switching back to idle from busy (hot containers) or 2)
-	// to waiting from done, otherwise we can only move forward in states
+	// Only the following transitions are allowed:
+	// 1) from busy to idle/paused
+	// 2) from done to waiting
+	// 3) to/from idle from/to paused
+	// otherwise, we can only move forward in states
 	if c.state < newState ||
-		(c.state == ContainerStateBusy && newState == ContainerStateIdle) ||
-		(c.state == ContainerStateDone && newState == ContainerStateIdle) {
+		(c.state != newState && isIdleState(newState) && isIdleState(c.state)) ||
+		(c.state == ContainerStateBusy && isIdleState(newState)) ||
+		(c.state == ContainerStateDone && isIdleState(newState)) {
 
 		now = time.Now()
 		oldState = c.state
