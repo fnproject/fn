@@ -116,15 +116,13 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 
 	c.lock.Lock()
 
-	// Only the following transitions are allowed:
-	// 1) from busy to idle/paused
-	// 2) from done to waiting
-	// 3) to/from idle from/to paused
-	// otherwise, we can only move forward in states
+	// Only the following state transitions are allowed:
+	// 1) any move forward in states as per ContainerStateType order
+	// 2) move back: from paused to idle
+	// 3) move back: from busy to idle/paused
 	if c.state < newState ||
-		(c.state != newState && isIdleState(newState) && isIdleState(c.state)) ||
-		(c.state == ContainerStateBusy && isIdleState(newState)) ||
-		(c.state == ContainerStateDone && isIdleState(newState)) {
+		(c.state == ContainerStatePaused && newState == ContainerStateIdle) ||
+		(c.state == ContainerStateBusy && isIdleState(newState)) {
 
 		now = time.Now()
 		oldState = c.state
