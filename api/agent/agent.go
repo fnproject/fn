@@ -898,12 +898,17 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 			return false
 		}
 		isFrozen = true
+		state.UpdateState(ctx, ContainerStatePaused, call.slots)
 	}
 
 	evictor := a.evictor.GetEvictor(call.ID, call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
-	state.UpdateState(ctx, ContainerStateIdle, call.slots)
+	if !isFrozen {
+		state.UpdateState(ctx, ContainerStateIdle, call.slots)
+	}
 	s := call.slots.queueSlot(slot)
+
+	isEvictEvent := false
 
 	for {
 		select {
@@ -918,10 +923,12 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 					return false
 				}
 				isFrozen = true
+				state.UpdateState(ctx, ContainerStatePaused, call.slots)
 			}
 			continue
 		case <-evictor.C:
 			logger.Debug("attempting hot function eject")
+			isEvictEvent = true
 		case <-ejectTimer.C:
 			// we've been idle too long, now we are ejectable
 			a.evictor.RegisterEvictor(evictor)
@@ -940,6 +947,9 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	// otherwise continue processing the request
 	if call.slots.acquireSlot(s) {
 		slot.Close(ctx)
+		if isEvictEvent {
+			statsContainerEvicted(ctx)
+		}
 		return false
 	}
 

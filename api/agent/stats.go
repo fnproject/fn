@@ -66,6 +66,10 @@ func statsLBAgentRunnerExecLatency(ctx context.Context, dur time.Duration) {
 	stats.Record(ctx, runnerExecLatencyMeasure.M(int64(dur/time.Millisecond)))
 }
 
+func statsContainerEvicted(ctx context.Context) {
+	stats.Record(ctx, containerEvictedMeasure.M(0))
+}
+
 const (
 	// TODO we should probably prefix these with calls_ ?
 	queuedMetricName     = "queued"
@@ -76,6 +80,8 @@ const (
 	timedoutMetricName   = "timeouts"
 	errorsMetricName     = "errors"
 	serverBusyMetricName = "server_busy"
+
+	containerEvictedMetricName = "container_evictions"
 
 	// Reported By LB
 	runnerSchedLatencyMetricName = "lb_runner_sched_latency"
@@ -95,6 +101,8 @@ var (
 	dockerMeasures         = initDockerMeasures()
 	containerGaugeMeasures = initContainerGaugeMeasures()
 	containerTimeMeasures  = initContainerTimeMeasures()
+
+	containerEvictedMeasure = common.MakeMeasure(containerEvictedMetricName, "containers evicted", "")
 
 	// Reported By LB: How long does a runner scheduler wait for a committed call? eg. wait/launch/pull containers
 	runnerSchedLatencyMeasure = common.MakeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
@@ -178,6 +186,13 @@ func RegisterContainerViews(tagKeys []string, latencyDist []float64) {
 		if err := view.Register(v); err != nil {
 			logrus.WithError(err).Fatal("cannot register view")
 		}
+	}
+
+	err := view.Register(
+		common.CreateView(containerEvictedMeasure, view.Count(), tagKeys),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot register view")
 	}
 }
 
