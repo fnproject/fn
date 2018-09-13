@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
@@ -25,7 +24,6 @@ type lbAgent struct {
 	placer        pool.Placer
 	callOverrider CallOverrider
 	shutWg        *common.WaitGroup
-	callEndCount  int64
 }
 
 type LBAgentOption func(*lbAgent) error
@@ -158,11 +156,6 @@ func (a *lbAgent) Submit(callI Call) error {
 
 	statsEnqueue(ctx)
 
-	// first check any excess case of call.End() stacking.
-	if atomic.LoadInt64(&a.callEndCount) >= int64(a.cfg.MaxCallEndStacking) {
-		a.handleCallEnd(ctx, call, context.DeadlineExceeded, false)
-	}
-
 	err := call.Start(ctx)
 	if err != nil {
 		return a.handleCallEnd(ctx, call, err, false)
@@ -242,31 +235,17 @@ func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	return errors.New("Enqueue not implemented")
 }
 
-func (a *lbAgent) scheduleCallEnd(fn func()) {
-	atomic.AddInt64(&a.callEndCount, 1)
-	go func() {
-		fn()
-		atomic.AddInt64(&a.callEndCount, -1)
-		a.shutWg.DoneSession()
-	}()
-}
-
 func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isStarted bool) error {
-	if isStarted {
-		a.scheduleCallEnd(func() {
-			ctx = common.BackgroundContext(ctx)
-			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
-			call.End(ctx, err)
-			cancel()
-		})
 
+	if isStarted {
+		call.End(ctx, err)
 		handleStatsEnd(ctx, err)
-		return transformTimeout(err, false)
+	} else {
+		handleStatsDequeue(ctx, err)
 	}
 
 	a.shutWg.DoneSession()
-	handleStatsDequeue(ctx, err)
-	return transformTimeout(err, true)
+	return transformTimeout(err, !isStarted)
 }
 
 var _ Agent = &lbAgent{}

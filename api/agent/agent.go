@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
@@ -103,7 +102,6 @@ type agent struct {
 	// used to track running calls / safe shutdown
 	shutWg              *common.WaitGroup
 	shutonce            sync.Once
-	callEndCount        int64
 	disableAsyncDequeue bool
 
 	callOverrider CallOverrider
@@ -293,68 +291,28 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	statsDequeueAndStart(ctx)
 
 	// We are about to execute the function, set container Exec Deadline (call.Timeout)
-	ctx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
+	slotCtx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
 	defer cancel()
 
 	// Pass this error (nil or otherwise) to end directly, to store status, etc.
-	err = slot.exec(ctx, call)
+	err = slot.exec(slotCtx, call)
 	return a.handleCallEnd(ctx, call, slot, err, true)
 }
 
-func (a *agent) scheduleCallEnd(fn func()) {
-	atomic.AddInt64(&a.callEndCount, 1)
-	go func() {
-		fn()
-		atomic.AddInt64(&a.callEndCount, -1)
-		a.shutWg.DoneSession()
-	}()
-}
+func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isStarted bool) error {
 
-func (a *agent) finalizeCallEnd(ctx context.Context, err error, isRetriable, isScheduled bool) error {
-	// if scheduled in background, let scheduleCallEnd() handle
-	// the shutWg group, otherwise decrement here.
-	if !isScheduled {
-		a.shutWg.DoneSession()
-	}
-	handleStatsEnd(ctx, err)
-	return transformTimeout(err, isRetriable)
-}
-
-func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isCommitted bool) error {
-
-	// For hot-containers, slot close is a simple channel close... No need
-	// to handle it async. Execute it here ASAP
-	if slot != nil && protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		slot.Close(ctx)
-		slot = nil
-	}
-
-	// This means call was routed (executed), in order to reduce latency here
-	// we perform most of these tasks in go-routine asynchronously.
-	if isCommitted {
-		a.scheduleCallEnd(func() {
-			ctx = common.BackgroundContext(ctx)
-			if slot != nil {
-				slot.Close(ctx) // (no timeout)
-			}
-			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
-			call.End(ctx, err)
-			cancel()
-		})
-		return a.finalizeCallEnd(ctx, err, false, true)
-	}
-
-	// The call did not succeed. And it is retriable. We close the slot
-	// ASAP in the background if we haven't already done so (cold-container case),
-	// in order to keep latency down.
 	if slot != nil {
-		a.scheduleCallEnd(func() {
-			slot.Close(common.BackgroundContext(ctx)) // (no timeout)
-		})
-		return a.finalizeCallEnd(ctx, err, true, true)
+		slot.Close(common.BackgroundContext(ctx))
 	}
 
-	return a.finalizeCallEnd(ctx, err, true, false)
+	// This means call was routed (executed)
+	if isStarted {
+		call.End(ctx, err)
+	}
+
+	handleStatsEnd(ctx, err)
+	a.shutWg.DoneSession()
+	return transformTimeout(err, !isStarted)
 }
 
 func transformTimeout(e error, isRetriable bool) error {
@@ -416,11 +374,6 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 
 	ctx, span := trace.StartSpan(ctx, "agent_get_slot")
 	defer span.End()
-
-	// first check any excess case of call.End() stacking.
-	if atomic.LoadInt64(&a.callEndCount) >= int64(a.cfg.MaxCallEndStacking) {
-		return nil, context.DeadlineExceeded
-	}
 
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
