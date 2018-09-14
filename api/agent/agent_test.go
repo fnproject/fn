@@ -513,6 +513,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	call := &models.Call{
 		AppID:       id.New().String(),
+		FnID:        id.New().String(),
 		Image:       "fnproject/fn-test-utils",
 		Type:        "sync",
 		Format:      "http",
