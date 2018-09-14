@@ -190,7 +190,7 @@ func loggerWrap(c *gin.Context) {
 	}
 
 	if appID := c.Param(api.ParamAppID); appID != "" {
-		c.Set(api.ParamFnID, appID)
+		c.Set(api.ParamAppID, appID)
 		ctx = ContextWithAppID(ctx, appID)
 	}
 
