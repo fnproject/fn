@@ -20,7 +20,7 @@ import (
 
 type Slot interface {
 	exec(ctx context.Context, call *call) error
-	Close(ctx context.Context) error
+	Close() error
 	Error() error
 }
 

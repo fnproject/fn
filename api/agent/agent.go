@@ -311,7 +311,7 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isStarted bool) error {
 
 	if slot != nil {
-		slot.Close(common.BackgroundContext(ctx))
+		slot.Close()
 	}
 
 	// This means call was routed (executed)
@@ -464,7 +464,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	// Non-blocking mode only applies to cpu+mem, and if isNewContainerNeeded decided that we do not
 	// need to start a new container, then waiters will wait.
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, mem, uint64(call.CPUs), isAsync, isNB):
+	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isAsync, isNB):
 		if tok != nil && tok.Error() != nil {
 			// before returning error response, as a last resort, try evicting idle containers.
 			if tok.Error() != CapacityFull || !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) {
@@ -480,6 +480,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 			return
 		}
 		if tok != nil {
+			statsUtilization(ctx, a.resources.GetUtilization())
 			tok.Close()
 		}
 	// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
@@ -517,7 +518,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		case s := <-ch:
 			if call.slots.acquireSlot(s) {
 				if s.slot.Error() != nil {
-					s.slot.Close(ctx)
+					s.slot.Close()
 					return nil, s.slot.Error()
 				}
 				return s.slot, nil
@@ -557,7 +558,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	mem := call.Memory + uint64(call.TmpFsSize)
 
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, mem, uint64(call.CPUs), isAsync, isNB):
+	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isAsync, isNB):
 		if tok.Error() != nil {
 			return nil, tok.Error()
 		}
@@ -571,7 +572,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	select {
 	case s := <-ch:
 		if s.Error() != nil {
-			s.Close(ctx)
+			s.Close()
 			return nil, s.Error()
 		}
 		return s, nil
@@ -584,6 +585,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 type coldSlot struct {
 	cookie   drivers.Cookie
 	tok      ResourceToken
+	closer   func()
 	fatalErr error
 }
 
@@ -613,12 +615,10 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	return ctx.Err()
 }
 
-func (s *coldSlot) Close(ctx context.Context) error {
-	if s.cookie != nil {
-		s.cookie.Close(ctx)
-	}
-	if s.tok != nil {
-		s.tok.Close()
+func (s *coldSlot) Close() error {
+	if s.closer != nil {
+		s.closer()
+		s.closer = nil
 	}
 	return nil
 }
@@ -634,7 +634,7 @@ type hotSlot struct {
 	containerSpan trace.SpanContext
 }
 
-func (s *hotSlot) Close(ctx context.Context) error {
+func (s *hotSlot) Close() error {
 	close(s.done)
 	return nil
 }
@@ -785,6 +785,7 @@ func (s *hotSlot) dispatchOldFormats(ctx context.Context, call *call) chan error
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
 	ctx, span := trace.StartSpan(ctx, "agent_prep_cold")
 	defer span.End()
+	statsUtilization(ctx, a.resources.GetUtilization())
 
 	call.containerState.UpdateState(ctx, ContainerStateStart, call.slots)
 
@@ -832,11 +833,21 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 
 	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
 
-	slot := &coldSlot{cookie, tok, err}
+	closer := func() {
+		if cookie != nil {
+			cookie.Close(ctx)
+		}
+		if tok != nil {
+			tok.Close()
+		}
+		statsUtilization(ctx, a.resources.GetUtilization())
+	}
+
+	slot := &coldSlot{cookie: cookie, tok: tok, closer: closer, fatalErr: err}
 	select {
 	case ch <- slot:
 	case <-ctx.Done():
-		slot.Close(ctx)
+		slot.Close()
 	}
 }
 
@@ -846,6 +857,12 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	ctx = common.BackgroundContext(ctx)
 	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
 	defer span.End()
+
+	statsUtilization(ctx, a.resources.GetUtilization())
+	defer func() {
+		statsUtilization(ctx, a.resources.GetUtilization())
+	}()
+
 	defer tok.Close() // IMPORTANT: this MUST get called
 
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
@@ -1121,7 +1138,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	// abort/shutdown/timeout, attempt to acquire and terminate,
 	// otherwise continue processing the request
 	if call.slots.acquireSlot(s) {
-		slot.Close(ctx)
+		slot.Close()
 		if isEvictEvent {
 			statsContainerEvicted(ctx)
 		}
