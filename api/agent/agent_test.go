@@ -635,7 +635,7 @@ func TestTmpFsRW(t *testing.T) {
 	}
 }
 
-func NOTestTmpFsSize(t *testing.T) {
+func TestTmpFsSize(t *testing.T) {
 	appName := "myapp"
 	app := &models.App{ID: "app_id", Name: appName}
 
@@ -665,7 +665,7 @@ func NOTestTmpFsSize(t *testing.T) {
 	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
 	bodOne := `{"readFile":"/proc/mounts", "createFile":"/tmp/salsa", "createFileSize": 4194304, "isDebug": true}`
 
-	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(bodOne)})
+	req, err := http.NewRequest("POST", url, &dummyReader{Reader: strings.NewReader(bodOne)})
 	if err != nil {
 		t.Fatal("unexpected error building request", err)
 	}

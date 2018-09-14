@@ -95,9 +95,9 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	var tmpFsOption string
 	if c.task.TmpFsSize() != 0 {
 		if c.drv.conf.MaxTmpFsInodes != 0 {
-			tmpFsOption = fmt.Sprintf("size=%dm,nr_inodes=%d", c.task.TmpFsSize(), c.drv.conf.MaxTmpFsInodes)
+			tmpFsOption = fmt.Sprintf("size=%dk,nr_inodes=%d", c.task.TmpFsSize(), c.drv.conf.MaxTmpFsInodes)
 		} else {
-			tmpFsOption = fmt.Sprintf("size=%dm", c.task.TmpFsSize())
+			tmpFsOption = fmt.Sprintf("size=%dk", c.task.TmpFsSize())
 		}
 	}
 
