@@ -162,9 +162,14 @@ type ContainerTask interface {
 	// more specific but it's easier to be lazy.
 	Extensions() map[string]string
 
-	// UDSPath to use to configure the unix domain socket. the drivers
+	// UDSPathLocal to use to configure the unix domain socket. the drivers
+	// This is the mount point relative to the agent
 	// abstractions have leaked so bad at this point it's a monsoon.
-	UDSPath() string
+	UDSPathLocal() string
+
+	// UDSPathHost to use to configure the unix domain socket. the drivers
+	// This is the mount point relative to the docker host
+	UDSPathHost() string
 }
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.

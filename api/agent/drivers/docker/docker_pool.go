@@ -73,7 +73,8 @@ func (c *poolTask) TmpFsSize() uint64                                { return 0 
 func (c *poolTask) Extensions() map[string]string                    { return nil }
 func (c *poolTask) LoggerConfig() drivers.LoggerConfig               { return drivers.LoggerConfig{} }
 func (c *poolTask) WriteStat(ctx context.Context, stat drivers.Stat) {}
-func (c *poolTask) UDSPath() string                                  { return "" }
+func (c *poolTask) UDSPathLocal() string                             { return "" }
+func (c *poolTask) UDSPathHost() string                              { return "" }
 
 type dockerPoolItem struct {
 	id     string

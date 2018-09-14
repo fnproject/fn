@@ -106,7 +106,7 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 }
 
 func (c *cookie) configureIOFs(log logrus.FieldLogger) {
-	path := c.task.UDSPath()
+	path := c.task.UDSPathHost()
 	if path == "" {
 		// TODO this should be required soon-ish
 		return
