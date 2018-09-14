@@ -308,9 +308,9 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	if c.FnID == "" {
-		return nil, errors.New("No Fn ID provided for call")
-	}
+	// if c.FnID == "" {
+	// 	return nil, errors.New("No Fn ID provided for call")
+	// }
 
 	// If overrider is present, let's allow it to modify models.Call
 	// and call extensions
