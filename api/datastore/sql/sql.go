@@ -117,7 +117,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, stats, error FROM calls`
+	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, fn_id, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 
