@@ -91,7 +91,7 @@ func (c *myCall) Extensions() map[string]string       { return nil }
 func (c *myCall) RequestBody() io.ReadCloser          { return nil }
 func (c *myCall) ResponseWriter() http.ResponseWriter { return nil }
 func (c *myCall) StdErr() io.ReadWriteCloser          { return nil }
-func (c *myCall) Model() *models.Call                 { return nil }
+func (c *myCall) Model() *models.Call                 { return &models.Call{FnID: "fn_id"} }
 
 func TestExecuteRunnerStatus(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
