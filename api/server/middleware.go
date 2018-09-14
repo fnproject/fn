@@ -55,13 +55,6 @@ func (s *Server) runMiddleware(c *gin.Context, ms []fnext.Middleware) {
 	last := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// fmt.Println("final handler called")
 		ctx := r.Context()
-		mctx := fnext.GetMiddlewareController(ctx)
-		// check for bypass
-		if mctx.FunctionCalled() {
-			// fmt.Println("func already called, skipping")
-			c.Abort()
-			return
-		}
 		c.Request = r.WithContext(ctx)
 		c.Next()
 	})
