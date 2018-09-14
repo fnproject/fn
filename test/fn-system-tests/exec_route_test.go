@@ -225,39 +225,6 @@ func TestBasicConcurrentExecution(t *testing.T) {
 
 }
 
-func TestSaturatedSystem(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-	defer cancel()
-	rt := &models.Route{
-		Path:    routeName,
-		Timeout: 1,
-		Image:   "fnproject/fn-test-utils",
-		Format:  "json",
-		Memory:  300,
-		Type:    "sync",
-	}
-	rt = ensureRoute(t, rt)
-
-	lb, err := LB()
-	if err != nil {
-		t.Fatalf("Got unexpected error: %v", err)
-	}
-	u := url.URL{
-		Scheme: "http",
-		Host:   lb,
-	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
-
-	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
-	content := bytes.NewBuffer([]byte(body))
-	output := &bytes.Buffer{}
-
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
-	if resp != nil || err == nil || ctx.Err() == nil {
-		t.Fatalf("Expected response: %v err:%v", resp, err)
-	}
-}
-
 func callFN(ctx context.Context, u string, content io.Reader, output io.Writer, method string) (*http.Response, error) {
 	if method == "" {
 		if content == nil {

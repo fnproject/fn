@@ -428,8 +428,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	mem := c.Memory + uint64(c.TmpFsSize)
 	if !a.resources.IsResourcePossible(mem, uint64(c.CPUs), c.Type == models.TypeAsync) {
-		// if we're not going to be able to run this call on this machine, bail here.
-		return nil, models.ErrCallTimeoutServerBusy
+		return nil, models.ErrCallResourceTooBig
 	}
 
 	setupCtx(&c)

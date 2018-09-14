@@ -244,15 +244,17 @@ func (a *agent) Close() error {
 }
 
 func (a *agent) Submit(callI Call) error {
+	call := callI.(*call)
+	ctx, span := trace.StartSpan(call.req.Context(), "agent_submit")
+	defer span.End()
+
+	statsCalls(ctx)
+
 	if !a.shutWg.AddSession(1) {
+		statsTooBusy(ctx)
 		return models.ErrCallTimeoutServerBusy
 	}
-
-	call := callI.(*call)
-
-	ctx := call.req.Context()
-	ctx, span := trace.StartSpan(ctx, "agent_submit")
-	defer span.End()
+	defer a.shutWg.DoneSession()
 
 	err := a.submit(ctx, call)
 	return err
@@ -294,7 +296,8 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 		return a.handleCallEnd(ctx, call, slot, err, false)
 	}
 
-	statsDequeueAndStart(ctx)
+	statsDequeue(ctx)
+	statsStartRun(ctx)
 
 	// We are about to execute the function, set container Exec Deadline (call.Timeout)
 	slotCtx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
@@ -314,52 +317,26 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 	// This means call was routed (executed)
 	if isStarted {
 		call.End(ctx, err)
-	}
-
-	handleStatsEnd(ctx, err)
-	a.shutWg.DoneSession()
-	return transformTimeout(err, !isStarted)
-}
-
-func transformTimeout(e error, isRetriable bool) error {
-	if e == context.DeadlineExceeded {
-		if isRetriable {
+		statsStopRun(ctx)
+		if err == nil {
+			statsComplete(ctx)
+		}
+	} else {
+		if err == CapacityFull || err == context.DeadlineExceeded {
+			statsTooBusy(ctx)
 			return models.ErrCallTimeoutServerBusy
 		}
-		return models.ErrCallTimeout
-	} else if e == CapacityFull {
-		return models.ErrCallTimeoutServerBusy
 	}
-	return e
-}
 
-// handleStatsDequeue handles stats for dequeuing for early exit (getSlot or Start)
-// cases. Only timeouts can be a simple dequeue while other cases are actual errors.
-func handleStatsDequeue(ctx context.Context, err error) {
 	if err == context.DeadlineExceeded {
-		statsDequeue(ctx)
-		statsTooBusy(ctx)
-	} else {
-		statsDequeueAndFail(ctx)
+		statsTimedout(ctx)
+		return models.ErrCallTimeout
+	} else if err == context.Canceled {
+		statsCanceled(ctx)
+	} else if err != nil {
 		statsErrors(ctx)
 	}
-}
-
-// handleStatsEnd handles stats for after a call is ran, depending on error.
-func handleStatsEnd(ctx context.Context, err error) {
-	if err == nil {
-		// decrement running count, increment completed count
-		statsComplete(ctx)
-	} else {
-		// decrement running count, increment failed count
-		statsFailed(ctx)
-		// increment the timeout or errors count, as appropriate
-		if err == context.DeadlineExceeded {
-			statsTimedout(ctx)
-		} else {
-			statsErrors(ctx)
-		}
-	}
+	return err
 }
 
 // getSlot returns a Slot (or error) for the request to run. Depending on hot/cold

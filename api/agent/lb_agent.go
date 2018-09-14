@@ -146,22 +146,19 @@ func (a *lbAgent) Close() error {
 
 // implements Agent
 func (a *lbAgent) Submit(callI Call) error {
-	if !a.shutWg.AddSession(1) {
-		return models.ErrCallTimeoutServerBusy
-	}
-
 	call := callI.(*call)
 	ctx, span := trace.StartSpan(call.req.Context(), "agent_submit")
 	defer span.End()
 
-	statsEnqueue(ctx)
+	statsCalls(ctx)
 
-	err := call.Start(ctx)
-	if err != nil {
-		return a.handleCallEnd(ctx, call, err, false)
+	if !a.shutWg.AddSession(1) {
+		statsTooBusy(ctx)
+		return models.ErrCallTimeoutServerBusy
 	}
+	defer a.shutWg.DoneSession()
 
-	statsDequeueAndStart(ctx)
+	statsEnqueue(ctx)
 
 	// pre-read and buffer request body if already not done based
 	// on GetBody presence.
@@ -169,21 +166,19 @@ func (a *lbAgent) Submit(callI Call) error {
 	if buf != nil {
 		defer bufPool.Put(buf)
 	}
-
 	if err != nil {
-		common.Logger(call.req.Context()).WithError(err).Error("Failed to process call body")
-		return a.handleCallEnd(ctx, call, err, true)
+		return a.handleCallEnd(ctx, call, err, false)
 	}
 
-	// WARNING: isStarted (handleCallEnd) semantics
-	// need some consideration here. Similar to runner/agent
-	// we consider isCommitted true if call.Start() succeeds.
-	// isStarted=true means we will call Call.End().
+	err = call.Start(ctx)
+	if err != nil {
+		return a.handleCallEnd(ctx, call, err, false)
+	}
+
+	statsDequeue(ctx)
+	statsStartRun(ctx)
+
 	err = a.placer.PlaceCall(a.rp, ctx, call)
-	if err != nil {
-		common.Logger(call.req.Context()).WithError(err).Error("Failed to place call")
-	}
-
 	return a.handleCallEnd(ctx, call, err, true)
 }
 
@@ -235,17 +230,33 @@ func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	return errors.New("Enqueue not implemented")
 }
 
-func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isStarted bool) error {
-
-	if isStarted {
+func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isForwarded bool) error {
+	if isForwarded {
 		call.End(ctx, err)
-		handleStatsEnd(ctx, err)
+		statsStopRun(ctx)
+		if err == nil {
+			statsComplete(ctx)
+		}
 	} else {
-		handleStatsDequeue(ctx, err)
+		statsDequeue(ctx)
+		if err == context.DeadlineExceeded {
+			statsTooBusy(ctx)
+			return models.ErrCallTimeoutServerBusy
+		}
 	}
 
-	a.shutWg.DoneSession()
-	return transformTimeout(err, !isStarted)
+	if err == models.ErrCallTimeoutServerBusy {
+		statsTooBusy(ctx)
+		return models.ErrCallTimeoutServerBusy
+	} else if err == context.DeadlineExceeded {
+		statsTimedout(ctx)
+		return models.ErrCallTimeout
+	} else if err == context.Canceled {
+		statsCanceled(ctx)
+	} else if err != nil {
+		statsErrors(ctx)
+	}
+	return err
 }
 
 var _ Agent = &lbAgent{}

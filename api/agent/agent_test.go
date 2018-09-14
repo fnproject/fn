@@ -581,7 +581,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	defer checkClose(t, a)
 
 	_, err := a.GetCall(FromModel(call))
-	if err != models.ErrCallTimeoutServerBusy {
+	if err != models.ErrCallResourceTooBig {
 		t.Fatal("did not get expected err, got: ", err)
 	}
 }
