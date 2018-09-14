@@ -103,7 +103,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			TmpFsSize:   0, // TODO clean up this
 			Memory:      fn.Memory,
 			CPUs:        0, // TODO clean up this
-			Config:      buildConfigWithPath(app, fn, trigger.Source),
+			Config:      buildConfig(app, fn, trigger.Source),
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
 			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
@@ -174,7 +174,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			TmpFsSize:   0, // TODO clean up this
 			Memory:      fn.Memory,
 			CPUs:        0, // TODO clean up this
-			Config:      buildConfigWithPath(app, fn, invokePath),
+			Config:      buildConfig(app, fn, invokePath),
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
 			Annotations: app.Annotations.MergeChange(fn.Annotations),
@@ -193,7 +193,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 	}
 }
 
-func buildConfigWithPath(app *models.App, fn *models.Fn, path string) models.Config {
+func buildConfig(app *models.App, fn *models.Fn, path string) models.Config {
 	conf := make(models.Config, 8+len(app.Config)+len(fn.Config))
 	for k, v := range app.Config {
 		conf[k] = v
