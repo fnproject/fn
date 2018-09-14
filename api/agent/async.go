@@ -83,7 +83,7 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 
 	// since async doesn't come in through the normal request path,
 	// we've gotta add tags here for stats to come out properly.
-	appKey, err := tag.NewKey("fn_appname")
+	appKey, err := tag.NewKey("app_id")
 	if err != nil {
 		logrus.Fatal(err)
 	}

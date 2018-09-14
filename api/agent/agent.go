@@ -837,7 +837,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		logCfg: drivers.LoggerConfig{
 			URL: strings.TrimSpace(call.SyslogURL),
 			Tags: []drivers.LoggerTag{
-				{Name: "app_name", Value: call.AppName},
+				{Name: "app_id", Value: call.AppID},
 				{Name: "fn_id", Value: call.FnID},
 			},
 		},
@@ -1289,10 +1289,11 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		logCfg: drivers.LoggerConfig{
 			URL: strings.TrimSpace(call.SyslogURL),
 			Tags: []drivers.LoggerTag{
-				{Name: "app_name", Value: call.AppName},
+				{Name: "app_id", Value: call.AppID},
 				{Name: "fn_id", Value: call.FnID},
 			},
 		},
+		iofs:   iofs,
 		stdin:  stdin,
 		stdout: stdout,
 		stderr: stderr,
