@@ -243,7 +243,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 }
 
-func NOTestFnIDRequiredOnCall(t *testing.T) {
+func TestFnIDRequiredOnCall(t *testing.T) {
 	cm := &models.Call{}
 
 	// FromModel doesn't need a datastore, for now...
@@ -1033,7 +1033,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 }
 
-func NOTestNBIOResourceTracker(t *testing.T) {
+func TestNBIOResourceTracker(t *testing.T) {
 
 	call := testCall()
 	call.Type = "sync"
@@ -1046,6 +1046,7 @@ func NOTestNBIOResourceTracker(t *testing.T) {
 	app.ID = call.AppID
 
 	fn := &models.Fn{
+		ID:     call.FnID,
 		AppID:  call.AppID,
 		Image:  call.Image,
 		Format: call.Format,
