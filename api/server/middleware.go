@@ -15,9 +15,8 @@ type middlewareController struct {
 	// context.Context
 
 	// separating this out so we can use it and don't have to reimplement context.Context above
-	ginContext     *gin.Context
-	server         *Server
-	functionCalled bool
+	ginContext *gin.Context
+	server     *Server
 }
 
 func (s *Server) apiMiddlewareWrapper() gin.HandlerFunc {

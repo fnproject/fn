@@ -7,22 +7,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"os"
 	"strconv"
 	"testing"
 
 	"github.com/fnproject/fn/api/agent"
 	_ "github.com/fnproject/fn/api/agent/drivers/docker"
-	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/datastore/sql"
 	_ "github.com/fnproject/fn/api/datastore/sql/sqlite"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
-
-var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
 func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType NodeType, opts ...Option) *Server {
 	return New(context.Background(), append(opts,
@@ -93,22 +86,4 @@ func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) *models.Erro
 		t.Error("Test: Expected not empty response body")
 	}
 	return &err
-}
-
-func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.LogStore, func()) {
-	os.Remove(tmpDatastoreTests)
-	uri, err := url.Parse("sqlite3://" + tmpDatastoreTests)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ss, err := sql.New(ctx, uri)
-	if err != nil {
-		t.Fatalf("Error when creating datastore: %s", err)
-	}
-	logDB := logs.Wrap(ss)
-	ds := datastore.Wrap(ss)
-
-	return ds, logDB, func() {
-		os.Remove(tmpDatastoreTests)
-	}
 }

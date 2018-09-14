@@ -13,7 +13,6 @@ import (
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/fnext"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -243,26 +242,6 @@ func AppFromContext(ctx context.Context) string {
 	return r
 }
 
-func (s *Server) checkAppPresenceByNameAtLB() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
-
-		appName := c.Param(api.ParamAppName)
-		if appName != "" {
-			appID, err := s.lbReadAccess.GetAppID(ctx, appName)
-			if err != nil {
-				handleErrorResponse(c, err)
-				c.Abort()
-				return
-			}
-			c.Set(api.AppID, appID)
-		}
-
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-	}
-}
-
 func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
@@ -283,15 +262,6 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 	}
 }
 
-func setAppNameInCtx(c *gin.Context) {
-	// add appName to context
-	appName := c.GetString(api.AppName)
-	if appName != "" {
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), fnext.AppNameKey, appName))
-	}
-	c.Next()
-}
-
 func setAppIDInCtx(c *gin.Context) {
 	// add appName to context
 	appID := c.Param(api.ParamAppID)
@@ -303,10 +273,10 @@ func setAppIDInCtx(c *gin.Context) {
 	c.Next()
 }
 
-func appNameCheck(c *gin.Context) {
-	appName := c.GetString(api.AppName)
-	if appName == "" {
-		handleErrorResponse(c, models.ErrAppsMissingName)
+func appIDCheck(c *gin.Context) {
+	appID := c.GetString(api.ParamAppID)
+	if appID == "" {
+		handleErrorResponse(c, models.ErrAppsMissingID)
 		c.Abort()
 		return
 	}
