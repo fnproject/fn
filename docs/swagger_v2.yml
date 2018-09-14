@@ -433,6 +433,8 @@ paths:
           description: "Calls not found"
           schema:
             $ref: '#/definitions/Error'
+        410:
+          description: Server does not support this operation.
 
   /fns/{fnID}/calls/{callID}:
     get:
@@ -452,6 +454,8 @@ paths:
           description: Call not found.
           schema:
             $ref: '#/definitions/Error'
+        410:
+          description: Server does not support this operation.
 
   /fns/{fnID}/calls/{callID}/log:
     get:
@@ -473,6 +477,8 @@ paths:
           description: Log not found.
           schema:
             $ref: '#/definitions/Error'
+        410:
+          description: Server does not support this operation.
 
 definitions:
   App:
