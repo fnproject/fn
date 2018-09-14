@@ -32,7 +32,7 @@ If `FN_FORMAT` is `http-stream`, then absence of `FN_LISTENER` or "unix:" prefix
 
 Before exiting, FDKs __SHOULD__ remove the UDS file (from `FN_LISTENER` path).
 
-FDKs upon creation of UDS file on disk with bind system call __SHOULD__ be ready to receive and handle traffic. Upon bind call, the UDS file __MUST__ be writable by fn-agent.
+FDKs upon creation of UDS file on disk with bind system call __SHOULD__ be ready to receive and handle traffic. Upon bind call, the UDS file __MUST__ be writable by fn-agent. In order to create a properly permissioned UDS file, FDKs __MUST__ create a file with [at least] permissions of `0666`, if the language provides support for creating this file with the right permissions this may be easily achieved; users may alternatively bind to a file that is not `FN_LISTENER`, modify its permissions to the required setting, and then symlink that file to `FN_LISTENER` (see fdk-go for an example).
 
 Path in `FN_LISTENER` (after "unix:" prefix) cannot be larger than 107 bytes.
 

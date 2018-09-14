@@ -925,19 +925,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
-	// now we wait for the socket to be created before handing out any slots
-	select {
-	case err := <-udsAwait: // XXX(reed): need to leave a note about pairing ctx here?
-		// sends a nil error if all is good, we can proceed...
-		if err != nil {
-			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
-			return
-		}
-	case <-ctx.Done():
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: ctx.Err()})
-		return
-	}
-
 	// container is running
 	state.UpdateState(ctx, ContainerStateIdle, call.slots)
 
@@ -948,6 +935,20 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	defer shutdownContainer() // close this if our waiter returns, to call off slots
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
+
+		// now we wait for the socket to be created before handing out any slots, need this
+		// here in case the container dies before making the sock we need to bail
+		select {
+		case err := <-udsAwait: // XXX(reed): need to leave a note about pairing ctx here?
+			// sends a nil error if all is good, we can proceed...
+			if err != nil {
+				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+				return
+			}
+		case <-ctx.Done():
+			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: ctx.Err()})
+			return
+		}
 
 		for {
 			select { // make sure everything is up before trying to send slot
