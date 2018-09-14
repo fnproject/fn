@@ -33,6 +33,8 @@ type Config struct {
 	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
 	DisableTini             bool          `json:"disable_tini"`
 	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
+	IOFSPath                string        `json:"iofs_path"`
+	IOFSOpts                string        `json:"iofs_opts"`
 }
 
 const (
@@ -83,6 +85,10 @@ const (
 	EnvDisableTini = "FN_DISABLE_TINI"
 	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
 	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
+	// EnvIOFSPath is the path of a directory to configure for unix socket files for each container
+	EnvIOFSPath = "FN_IOFS_PATH"
+	// EnvIOFSOpts are the options to set when mounting the iofs directory for unix socket files
+	EnvIOFSOpts = "FN_IOFS_OPTS"
 
 	// MaxMsDisabled is used to determine whether mr freeze is lying in wait. TODO remove this manuever
 	MaxMsDisabled = time.Duration(math.MaxInt64)
@@ -123,6 +129,8 @@ func NewConfig() (*Config, error) {
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
 	err = setEnvStr(err, EnvDockerLoadFile, &cfg.DockerLoadFile)
 	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)
+	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSPath)
+	err = setEnvStr(err, EnvIOFSOpts, &cfg.IOFSOpts)
 
 	if err != nil {
 		return cfg, err

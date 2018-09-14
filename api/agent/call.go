@@ -311,6 +311,9 @@ func buildConfigWithPath(app *models.App, fn *models.Fn, path string) models.Con
 	}
 
 	conf["FN_FORMAT"] = fn.Format
+	if fn.Format == models.FormatHTTPStream { // TODO should be always soon...
+		conf["FN_LISTENER"] = "unix:/iofs/lsnr.sock" // XXX(reed): hardcoding this is ok right? it's a contract
+	}
 	conf["FN_APP_NAME"] = app.Name
 	conf["FN_PATH"] = path
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
@@ -433,12 +436,15 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.handler = a.da
 	c.ct = a
+	// TODO(reed): is line writer is vulnerable to attack?
 	c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
 		c.w = c.stderr
 	}
+	// NOTE: we need to limit the output size(?) since users may not use fdk we can't limit it there
+	// c.w = common.NewClampWriter(c.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig)
 
 	return &c, nil
 }

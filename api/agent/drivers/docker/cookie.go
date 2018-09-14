@@ -17,6 +17,7 @@ type cookie struct {
 	poolId string
 	// network name from docker networks if applicable
 	netId string
+
 	// docker container create options created by Driver.CreateCookie, required for Driver.Prepare()
 	opts docker.CreateContainerOptions
 	// task associated with this cookie
@@ -104,6 +105,17 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	c.opts.HostConfig.Tmpfs["/tmp"] = tmpFsOption
 }
 
+func (c *cookie) configureIOFs(log logrus.FieldLogger) {
+	path := c.task.UDSPath()
+	if path == "" {
+		// TODO this should be required soon-ish
+		return
+	}
+
+	bind := fmt.Sprintf("%s:/iofs", path)
+	c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, bind)
+}
+
 func (c *cookie) configureVolumes(log logrus.FieldLogger) {
 	if len(c.task.Volumes()) == 0 {
 		return
@@ -176,12 +188,13 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 		return
 	}
 
-	envvars := make([]string, 0, len(c.task.EnvVars()))
-	for name, val := range c.task.EnvVars() {
-		envvars = append(envvars, name+"="+val)
+	if c.opts.Config.Env == nil {
+		c.opts.Config.Env = make([]string, 0, len(c.task.EnvVars()))
 	}
 
-	c.opts.Config.Env = envvars
+	for name, val := range c.task.EnvVars() {
+		c.opts.Config.Env = append(c.opts.Config.Env, name+"="+val)
+	}
 }
 
 // implements Cookie

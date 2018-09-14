@@ -126,6 +126,12 @@
   revision = "1eb29530716f262bad5b83eb9a5b3f7483636949"
 
 [[projects]]
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
+
+[[projects]]
   name = "github.com/fsouza/go-dockerclient"
   packages = [
     ".",
@@ -502,6 +508,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3a999b52438a7f308dfa208212e3c3154f7a310f024d3f288b54334868ab8ef9"
+  inputs-digest = "2f46ba75652e354a0cffe42fa0b49096f42e21861118a7eff0f318c6d54b1507"
   solver-name = "gps-cdcl"
   solver-version = 1

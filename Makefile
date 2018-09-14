@@ -8,8 +8,11 @@ dep-up:
 	dep ensure
 
 .PHONY: build
-build: api/agent/grpc/runner.pb.go
+build:
 	go build -o fnserver ./cmd/fnserver 
+
+.PHONY: generate
+generate: api/agent/grpc/runner.pb.go
 
 .PHONY: install
 install:
@@ -130,4 +133,4 @@ docker-test:
 	-v $(shell docker run --rm -ti -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn')
 
 .PHONY: all
-all: dep build
+all: dep generate build
