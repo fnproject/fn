@@ -161,6 +161,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
+	ErrCallResourceTooBig = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Requested CPU/Memory cannot be allocated"),
+	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call not found"),

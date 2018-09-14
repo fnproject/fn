@@ -12,38 +12,32 @@ import (
 	"go.opencensus.io/stats/view"
 )
 
-// TODO add some suga:
-// * hot containers active
-// * memory used / available
-
-func statsEnqueue(ctx context.Context) {
-	stats.Record(ctx, queuedMeasure.M(1))
+func statsCalls(ctx context.Context) {
 	stats.Record(ctx, callsMeasure.M(1))
 }
 
-// Call when a function has been queued but cannot be started because of an error
+func statsEnqueue(ctx context.Context) {
+	stats.Record(ctx, queuedMeasure.M(1))
+}
+
 func statsDequeue(ctx context.Context) {
 	stats.Record(ctx, queuedMeasure.M(-1))
 }
 
-func statsDequeueAndStart(ctx context.Context) {
-	stats.Record(ctx, queuedMeasure.M(-1))
+func statsStartRun(ctx context.Context) {
 	stats.Record(ctx, runningMeasure.M(1))
 }
 
-func statsComplete(ctx context.Context) {
+func statsStopRun(ctx context.Context) {
 	stats.Record(ctx, runningMeasure.M(-1))
+}
+
+func statsComplete(ctx context.Context) {
 	stats.Record(ctx, completedMeasure.M(1))
 }
 
-func statsFailed(ctx context.Context) {
-	stats.Record(ctx, runningMeasure.M(-1))
-	stats.Record(ctx, failedMeasure.M(1))
-}
-
-func statsDequeueAndFail(ctx context.Context) {
-	stats.Record(ctx, queuedMeasure.M(-1))
-	stats.Record(ctx, failedMeasure.M(1))
+func statsCanceled(ctx context.Context) {
+	stats.Record(ctx, canceledMeasure.M(1))
 }
 
 func statsTimedout(ctx context.Context) {
@@ -71,12 +65,36 @@ func statsContainerEvicted(ctx context.Context) {
 }
 
 const (
-	// TODO we should probably prefix these with calls_ ?
+	//
+	// WARNING: Dual Role Metrics both used in Runner/Agent and LB-Agent
+	//
+	// LB Context:
+	//
+	// calls - call received in Agent Submit
+	// queued - LB is reading request from Client and attempting to validate/start
+	// running - LB is forwarding Call to runners
+	// completed - call completed running successfully
+	// canceled - call canceled (client disconnect)
+	// timeouts - call timed out
+	// errors - call failed
+	// server_busy - server busy responses (retriable)
+	//
+	// Agent/Runner Context:
+	//
+	// calls - calls received in Agent Submit
+	// queued - Reading/validating call from client and waiting for resources/containers to start
+	// running - call is now running
+	// completed - call completed running (success)
+	// canceled - call canceled (client disconnect)
+	// timeouts - call timed out
+	// errors - call failed
+	// server_busy - server busy responses (retriable)
+	//
 	queuedMetricName     = "queued"
-	callsMetricName      = "calls" // TODO this is a dupe of sum {complete,failed} ?
+	callsMetricName      = "calls"
 	runningMetricName    = "running"
 	completedMetricName  = "completed"
-	failedMetricName     = "failed"
+	canceledMetricName   = "canceled"
 	timedoutMetricName   = "timeouts"
 	errorsMetricName     = "errors"
 	serverBusyMetricName = "server_busy"
@@ -89,12 +107,11 @@ const (
 )
 
 var (
-	queuedMeasure = common.MakeMeasure(queuedMetricName, "calls currently queued against agent", "")
-	// TODO this is a dupe of sum {complete,failed} ?
+	queuedMeasure          = common.MakeMeasure(queuedMetricName, "calls currently queued against agent", "")
 	callsMeasure           = common.MakeMeasure(callsMetricName, "calls created in agent", "")
 	runningMeasure         = common.MakeMeasure(runningMetricName, "calls currently running in agent", "")
 	completedMeasure       = common.MakeMeasure(completedMetricName, "calls completed in agent", "")
-	failedMeasure          = common.MakeMeasure(failedMetricName, "calls failed in agent", "")
+	canceledMeasure        = common.MakeMeasure(canceledMetricName, "calls canceled in agent", "")
 	timedoutMeasure        = common.MakeMeasure(timedoutMetricName, "calls timed out in agent", "")
 	errorsMeasure          = common.MakeMeasure(errorsMetricName, "calls errored in agent", "")
 	serverBusyMeasure      = common.MakeMeasure(serverBusyMetricName, "calls where server was too busy in agent", "")
@@ -127,7 +144,7 @@ func RegisterAgentViews(tagKeys []string, latencyDist []float64) {
 		common.CreateView(callsMeasure, view.Sum(), tagKeys),
 		common.CreateView(runningMeasure, view.Sum(), tagKeys),
 		common.CreateView(completedMeasure, view.Sum(), tagKeys),
-		common.CreateView(failedMeasure, view.Sum(), tagKeys),
+		common.CreateView(canceledMeasure, view.Sum(), tagKeys),
 		common.CreateView(timedoutMeasure, view.Sum(), tagKeys),
 		common.CreateView(errorsMeasure, view.Sum(), tagKeys),
 		common.CreateView(serverBusyMeasure, view.Sum(), tagKeys),

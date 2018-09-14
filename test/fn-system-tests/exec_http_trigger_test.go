@@ -299,38 +299,6 @@ func TestBasicTriggerConcurrentExecution(t *testing.T) {
 
 }
 
-func TestTriggerSaturatedSystem(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-	defer cancel()
-
-	app := ensureApp(t, rp.ValidApp())
-	validFn := rp.ValidFn(app.ID)
-	validFn.ResourceConfig.Timeout = 1
-	validFn.ResourceConfig.Memory = 300
-
-	fn := ensureFn(t, validFn)
-	trigger := ensureTrigger(t, rp.ValidTrigger(app.ID, fn.ID))
-
-	lb, err := LB()
-	if err != nil {
-		t.Fatalf("Got unexpected error: %v", err)
-	}
-	u := url.URL{
-		Scheme: "http",
-		Host:   lb,
-	}
-	u.Path = path.Join(u.Path, "t", app.Name, trigger.Source)
-
-	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
-	content := bytes.NewBuffer([]byte(body))
-	output := &bytes.Buffer{}
-
-	resp, err := callTrigger(ctx, u.String(), content, output, "POST")
-	if resp != nil || err == nil || ctx.Err() == nil {
-		t.Fatalf("Expected response: %v err:%v", resp, err)
-	}
-}
-
 func callTrigger(ctx context.Context, u string, content io.Reader, output io.Writer, method string) (*http.Response, error) {
 	if method == "" {
 		if content == nil {
