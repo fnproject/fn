@@ -195,7 +195,6 @@ func TestCallConfigurationModel(t *testing.T) {
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
-	CPUs := models.MilliCPUs(1000)
 	method := "GET"
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := "payload"
@@ -204,7 +203,6 @@ func TestCallConfigurationModel(t *testing.T) {
 	cfg := models.Config{
 		"FN_FORMAT": format,
 		"FN_MEMORY": strconv.Itoa(memory),
-		"FN_CPUS":   CPUs.String(),
 		"FN_TYPE":   typ,
 		"APP_VAR":   "FOO",
 		"FN_VAR":    "BAR",
@@ -219,7 +217,6 @@ func TestCallConfigurationModel(t *testing.T) {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
-		CPUs:        CPUs,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,
@@ -384,7 +381,6 @@ func TestSubmitError(t *testing.T) {
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
-	CPUs := models.MilliCPUs(200)
 	method := "GET"
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`
@@ -394,7 +390,6 @@ func TestSubmitError(t *testing.T) {
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": app.Name,
 		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_CPUS":     CPUs.String(),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
 		"FN_VAR":      "BAR",
@@ -411,7 +406,6 @@ func TestSubmitError(t *testing.T) {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
-		CPUs:        CPUs,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,
@@ -649,7 +643,6 @@ func testCall() *models.Call {
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
-	CPUs := models.MilliCPUs(200)
 	method := "GET"
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := "payload"
@@ -660,7 +653,6 @@ func testCall() *models.Call {
 	config := map[string]string{
 		"FN_FORMAT":  format,
 		"FN_MEMORY":  strconv.Itoa(memory),
-		"FN_CPUS":    CPUs.String(),
 		"FN_TYPE":    typ,
 		"APP_VAR":    "FOO",
 		"FN_VAR":     "BAR",
@@ -682,7 +674,6 @@ func testCall() *models.Call {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
-		CPUs:        CPUs,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,
