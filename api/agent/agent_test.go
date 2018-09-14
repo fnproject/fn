@@ -243,21 +243,6 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 }
 
-func TestFnIDRequiredOnCall(t *testing.T) {
-	cm := &models.Call{}
-
-	// FromModel doesn't need a datastore, for now...
-	ls := logs.NewMock()
-
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
-	defer checkClose(t, a)
-
-	_, err := a.GetCall(FromModel(cm))
-	if err == nil {
-		t.Fatal("FnID should be required")
-	}
-}
-
 func TestGetCallFromModelRoundTripACall(t *testing.T) {
 	payload := "payload"
 	contentType := "suberb_type"
