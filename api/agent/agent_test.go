@@ -246,30 +246,10 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 }
 
-func TestAsyncCallHeaders(t *testing.T) {
-	fn := &models.App{ID: "fn_id"}
-
-	image := "fnproject/fn-test-utils"
-	const timeout = 1
-	const idleTimeout = 20
-	const memory = 256
-	CPUs := models.MilliCPUs(200)
-	method := "GET"
-	url := "http://127.0.0.1:8080/invoke/" + fn.ID
+func TestGetCallFromModelRoundTripACall(t *testing.T) {
 	payload := "payload"
-	typ := "async"
-	format := "http"
 	contentType := "suberb_type"
 	contentLength := strconv.FormatInt(int64(len(payload)), 10)
-	config := map[string]string{
-		"FN_FORMAT":  format,
-		"FN_MEMORY":  strconv.Itoa(memory),
-		"FN_CPUS":    CPUs.String(),
-		"FN_TYPE":    typ,
-		"APP_VAR":    "FOO",
-		"FN_VAR":     "BAR",
-		"DOUBLE_VAR": "BIZ, BAZ",
-	}
 	headers := map[string][]string{
 		// FromRequest would insert these from original HTTP request
 		"Content-Type":   {contentType},
@@ -277,19 +257,8 @@ func TestAsyncCallHeaders(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		FnID:        fn.ID,
-		Config:      config,
-		Headers:     headers,
-		Image:       image,
-		Type:        typ,
-		Format:      format,
-		Timeout:     timeout,
-		IdleTimeout: idleTimeout,
-		Memory:      memory,
-		CPUs:        CPUs,
-		Payload:     payload,
-		URL:         url,
-		Method:      method,
+		Headers: headers,
+		Payload: payload,
 	}
 
 	// FromModel doesn't need a datastore, for now...
