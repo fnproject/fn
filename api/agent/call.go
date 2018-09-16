@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -204,7 +205,7 @@ func buildConfig(app *models.App, fn *models.Fn, path string) models.Config {
 
 	conf["FN_FORMAT"] = fn.Format
 	if fn.Format == models.FormatHTTPStream { // TODO should be always soon...
-		conf["FN_LISTENER"] = "unix:/iofs/lsnr.sock" // XXX(reed): hardcoding this is ok right? it's a contract
+		conf["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
 	}
 	conf["FN_APP_NAME"] = app.Name
 	conf["FN_PATH"] = path

@@ -170,6 +170,10 @@ type ContainerTask interface {
 	// UDSDockerPath to use to configure the unix domain socket. the drivers
 	// This is the mount point relative to the docker host.
 	UDSDockerPath() string
+
+	// UDSDockerDest is the destination mount point for uds path. it is the path
+	// of the directory where the sock file resides inside of the container.
+	UDSDockerDest() string
 }
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.

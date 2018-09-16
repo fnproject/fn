@@ -104,6 +104,14 @@ const (
 
 	// DefaultHotPoll is the default value for EnvHotPoll
 	DefaultHotPoll = 200 * time.Millisecond
+
+	// TODO(reed): none of these consts above or below should be exported yo
+
+	// iofsDockerMountDest is the mount path for inside of the container to use for the iofs path
+	iofsDockerMountDest = "/tmp/iofs"
+
+	// udsFilename is the file name for the uds socket
+	udsFilename = "lsnr.sock"
 )
 
 // NewConfig returns a config set from env vars, plus defaults

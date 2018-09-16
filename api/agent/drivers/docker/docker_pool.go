@@ -75,6 +75,7 @@ func (c *poolTask) LoggerConfig() drivers.LoggerConfig               { return dr
 func (c *poolTask) WriteStat(ctx context.Context, stat drivers.Stat) {}
 func (c *poolTask) UDSAgentPath() string                             { return "" }
 func (c *poolTask) UDSDockerPath() string                            { return "" }
+func (c *poolTask) UDSDockerDest() string                            { return "" }
 
 type dockerPoolItem struct {
 	id     string
