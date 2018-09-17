@@ -222,7 +222,8 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		// XXX(reed): we could stop buffering function responses so that we can stream things?
 		{"/invoke/http_stream_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},
 		{"/invoke/http_stream_fn_id", smalloutput, "POST", http.StatusOK, expStreamHeaders, "", nil},
-		{"/invoke/http_stream_fn_id", oomer, "POST", http.StatusBadGateway, nil, "container out of memory", nil},
+		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
+		{"/invoke/http_stream_fn_id", oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},
 		{"/invoke/http_stream_fn_id", bigbuf, "POST", http.StatusRequestEntityTooLarge, nil, "", nil},
 
 		{"/invoke/http_fn_id", respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
