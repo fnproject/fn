@@ -33,7 +33,8 @@ type Config struct {
 	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
 	DisableTini             bool          `json:"disable_tini"`
 	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
-	IOFSPath                string        `json:"iofs_path"`
+	IOFSAgentPath           string        `json:"iofs_path"`
+	IOFSMountRoot           string        `json:"iofs_mount_root"`
 	IOFSOpts                string        `json:"iofs_opts"`
 }
 
@@ -85,8 +86,12 @@ const (
 	EnvDisableTini = "FN_DISABLE_TINI"
 	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
 	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
-	// EnvIOFSPath is the path of a directory to configure for unix socket files for each container
+
+	// EnvIOFSPath is the path within fn server container of a directory to configure for unix socket files for each container
 	EnvIOFSPath = "FN_IOFS_PATH"
+	// EnvIOFSDockerPath determines the relative location on the docker host where iofs mounts should be prefixed with
+	EnvIOFSDockerPath = "FN_IOFS_DOCKER_PATH"
+
 	// EnvIOFSOpts are the options to set when mounting the iofs directory for unix socket files
 	EnvIOFSOpts = "FN_IOFS_OPTS"
 
@@ -129,7 +134,8 @@ func NewConfig() (*Config, error) {
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
 	err = setEnvStr(err, EnvDockerLoadFile, &cfg.DockerLoadFile)
 	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)
-	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSPath)
+	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSAgentPath)
+	err = setEnvStr(err, EnvIOFSDockerPath, &cfg.IOFSMountRoot)
 	err = setEnvStr(err, EnvIOFSOpts, &cfg.IOFSOpts)
 
 	if err != nil {
@@ -163,6 +169,20 @@ func setEnvStr(err error, name string, dst *string) error {
 	}
 	if tmp, ok := os.LookupEnv(name); ok {
 		*dst = tmp
+	}
+	return nil
+}
+
+func setEnvBool(err error, name string, dst *bool) error {
+	if err != nil {
+		return err
+	}
+	if tmp, ok := os.LookupEnv(name); ok {
+		val, err := strconv.ParseBool(tmp)
+		if err != nil {
+			return err
+		}
+		*dst = val
 	}
 	return nil
 }
