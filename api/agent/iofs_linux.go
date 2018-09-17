@@ -6,10 +6,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func platformSupportsTmpfs() bool {
-	return true
-}
-
 type tmpfsIOFS struct {
 	directoryIOFS
 }

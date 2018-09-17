@@ -1207,7 +1207,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 	var err error
 	if call.Format == models.FormatHTTPStream {
 		// XXX(reed): we should also point stdout to stderr, and not have stdin
-		if platformSupportsTmpfs() && !cfg.IOFSDisableTmpfs {
+		if cfg.IOFSEnableTmpfs {
 			iofs, err = newTmpfsIOFS(cfg)
 		} else {
 			iofs, err = newDirectoryIOFS(cfg)

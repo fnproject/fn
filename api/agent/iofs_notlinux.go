@@ -6,10 +6,6 @@ import (
 	"errors"
 )
 
-func platformSupportsTmpfs() bool {
-	return false
-}
-
 type tmpfsIOFS struct {
 	directoryIOFS
 }
