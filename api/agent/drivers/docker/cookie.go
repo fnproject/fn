@@ -105,7 +105,7 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	c.opts.HostConfig.Tmpfs["/tmp"] = tmpFsOption
 }
 
-func (c *cookie) configureIOFs(log logrus.FieldLogger) {
+func (c *cookie) configureIOFS(log logrus.FieldLogger) {
 	path := c.task.UDSDockerPath()
 	if path == "" {
 		// TODO this should be required soon-ish

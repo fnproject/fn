@@ -33,6 +33,7 @@ type Config struct {
 	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
 	DisableTini             bool          `json:"disable_tini"`
 	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
+	IOFSEnableTmpfs         bool          `json:"iofs_enable_tmpfs"`
 	IOFSAgentPath           string        `json:"iofs_path"`
 	IOFSMountRoot           string        `json:"iofs_mount_root"`
 	IOFSOpts                string        `json:"iofs_opts"`
@@ -87,11 +88,12 @@ const (
 	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
 	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
 
+	// EnvIOFSEnableTmpfs enables creating a per-container tmpfs mount for the IOFS
+	EnvIOFSEnableTmpfs = "FN_IOFS_TMPFS"
 	// EnvIOFSPath is the path within fn server container of a directory to configure for unix socket files for each container
 	EnvIOFSPath = "FN_IOFS_PATH"
 	// EnvIOFSDockerPath determines the relative location on the docker host where iofs mounts should be prefixed with
 	EnvIOFSDockerPath = "FN_IOFS_DOCKER_PATH"
-
 	// EnvIOFSOpts are the options to set when mounting the iofs directory for unix socket files
 	EnvIOFSOpts = "FN_IOFS_OPTS"
 
@@ -137,19 +139,13 @@ func NewConfig() (*Config, error) {
 	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSAgentPath)
 	err = setEnvStr(err, EnvIOFSDockerPath, &cfg.IOFSMountRoot)
 	err = setEnvStr(err, EnvIOFSOpts, &cfg.IOFSOpts)
+	err = setEnvBool(err, EnvIOFSEnableTmpfs, &cfg.IOFSEnableTmpfs)
+	err = setEnvBool(err, EnvEnableNBResourceTracker, &cfg.EnableNBResourceTracker)
+	err = setEnvBool(err, EnvDisableReadOnlyRootFs, &cfg.DisableReadOnlyRootFs)
+	err = setEnvBool(err, EnvDisableDebugUserLogs, &cfg.DisableDebugUserLogs)
 
 	if err != nil {
 		return cfg, err
-	}
-
-	if _, ok := os.LookupEnv(EnvEnableNBResourceTracker); ok {
-		cfg.EnableNBResourceTracker = true
-	}
-	if _, ok := os.LookupEnv(EnvDisableReadOnlyRootFs); ok {
-		cfg.DisableReadOnlyRootFs = true
-	}
-	if _, ok := os.LookupEnv(EnvDisableDebugUserLogs); ok {
-		cfg.DisableDebugUserLogs = true
 	}
 
 	if cfg.EjectIdle == time.Duration(0) {
