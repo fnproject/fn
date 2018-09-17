@@ -33,7 +33,7 @@ type Config struct {
 	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
 	DisableTini             bool          `json:"disable_tini"`
 	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
-	IOFSPath                string        `json:"iofs_path"`
+	IOFSAgentPath           string        `json:"iofs_path"`
 	IOFSMountRoot           string        `json:"iofs_mount_root"`
 	IOFSOpts                string        `json:"iofs_opts"`
 }
@@ -89,8 +89,8 @@ const (
 
 	// EnvIOFSPath is the path within fn server container of a directory to configure for unix socket files for each container
 	EnvIOFSPath = "FN_IOFS_PATH"
-	// EnvIOFSMountRoot determines the relative location on the docker host where iofs mounts should be prefixed with
-	EnvIOFSMountRoot = "FN_IOFS_MOUNT_ROOT"
+	// EnvIOFSDockerPath determines the relative location on the docker host where iofs mounts should be prefixed with
+	EnvIOFSDockerPath = "FN_IOFS_DOCKER_PATH"
 
 	// EnvIOFSOpts are the options to set when mounting the iofs directory for unix socket files
 	EnvIOFSOpts = "FN_IOFS_OPTS"
@@ -134,8 +134,8 @@ func NewConfig() (*Config, error) {
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
 	err = setEnvStr(err, EnvDockerLoadFile, &cfg.DockerLoadFile)
 	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)
-	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSPath)
-	err = setEnvStr(err, EnvIOFSMountRoot, &cfg.IOFSMountRoot)
+	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSAgentPath)
+	err = setEnvStr(err, EnvIOFSDockerPath, &cfg.IOFSMountRoot)
 	err = setEnvStr(err, EnvIOFSOpts, &cfg.IOFSOpts)
 
 	if err != nil {

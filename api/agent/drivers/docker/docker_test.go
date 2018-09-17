@@ -38,8 +38,8 @@ func (f *taskDockerTest) Close()                                  {}
 func (f *taskDockerTest) Input() io.Reader                        { return f.input }
 func (f *taskDockerTest) Extensions() map[string]string           { return nil }
 func (f *taskDockerTest) LoggerConfig() drivers.LoggerConfig      { return drivers.LoggerConfig{} }
-func (f *taskDockerTest) UDSPathLocal() string                    { return "" }
-func (f *taskDockerTest) UDSPathHost() string                     { return "" }
+func (f *taskDockerTest) UDSAgentPath() string                    { return "" }
+func (f *taskDockerTest) UDSDockerPath() string                   { return "" }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})

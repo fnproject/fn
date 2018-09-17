@@ -887,14 +887,14 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	if call.Format == models.FormatHTTPStream {
 		// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
 		// XXX(reed): figure out cleaner way to carry around the directory and expose the lsnr.sock file
-		go inotifyUDS(ctx, container.UDSPathLocal(), udsAwait)
+		go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
 
 		udsClient = http.Client{
 			Transport: &http.Transport{
 				// XXX(reed): other settings ?
 				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 					var d net.Dialer
-					return d.DialContext(ctx, "unix", container.UDSPathLocal()+"/lsnr.sock") // XXX(reed): hardcoded lsnr.sock
+					return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), "lsnr.sock")) // XXX(reed): hardcoded lsnr.sock
 				},
 			},
 		}
@@ -991,14 +991,14 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 
 // Creates an IO directory for  container  sockets  - returns a pair of directories
 // first is the directory relative to the agent (what I watch and talk to), second is a directory relative to docker (what I ask docker to mount)
-// e.g. If IOFSPath is set /data/iofs/ and IOFSMountRoot is set to /my/path/to/iofs/ this will return paths like:
+// e.g. If IOFSAgentPath is set /data/iofs/ and IOFSMountRoot is set to /my/path/to/iofs/ this will return paths like:
 // /data/iofs/iofs829027/  /my/path/to/iofs/iofs829027/ respectively
-// If either IOFSPath is unset it will always return paths relative to /tmp/ on the docker host and
+// If either IOFSAgentPath is unset it will always return paths relative to /tmp/ on the docker host and
 // if only IOFSMountPath is unset it will return the same directory for both
 func createIOFS(cfg *Config) (string, string, error) {
 	// XXX(reed): need to ensure these are cleaned up if any of these ops in here fail...
 
-	dir := cfg.IOFSPath
+	dir := cfg.IOFSAgentPath
 	if dir == "" {
 		// /tmp should be a memory backed filesystem, where we can get user perms
 		// on the socket file (fdks must give write permissions to users on sock).
@@ -1016,14 +1016,14 @@ func createIOFS(cfg *Config) (string, string, error) {
 	if opts == "" {
 		// opts = "size=1k,nr_inodes=8,mode=0777"
 	}
-	if cfg.IOFSPath != "" && cfg.IOFSMountRoot != "" {
+	if cfg.IOFSAgentPath != "" && cfg.IOFSMountRoot != "" {
 		return iofsDir, filepath.Join(cfg.IOFSMountRoot, filepath.Base(iofsDir)), nil
 	}
 	return iofsDir, iofsDir, nil
 
 	// under tmpdir, create tmpfs
 	// TODO uh, yea, idk
-	//if cfg.IOFSPath != "" {
+	//if cfg.IOFSAgentPath != "" {
 	//err = syscall.Mount("tmpfs", iofsDir, "tmpfs", uintptr( [>syscall.MS_NOEXEC|syscall.MS_NOSUID|syscall.MS_NODEV<] 0), opts)
 	//if err != nil {
 	//return "", fmt.Errorf("cannot mount/create tmpfs=%s", iofsDir)
@@ -1179,16 +1179,16 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 // and stderr can be swapped out by new calls in the container.  input and
 // output must be copied in and out.
 type container struct {
-	id         string // contrived
-	image      string
-	env        map[string]string
-	extensions map[string]string
-	memory     uint64
-	cpus       uint64
-	fsSize     uint64
-	tmpFsSize  uint64
-	iofsLocal  string
-	iofsHost   string
+	id             string // contrived
+	image          string
+	env            map[string]string
+	extensions     map[string]string
+	memory         uint64
+	cpus           uint64
+	fsSize         uint64
+	tmpFsSize      uint64
+	iofsAgentPath  string
+	iofsDockerPath string
 
 	timeout time.Duration // cold only (superfluous, but in case)
 	logCfg  drivers.LoggerConfig
@@ -1249,13 +1249,13 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		stderr.Swap(newLineWriterWithBuffer(buf2, sec))
 	}
 
-	var iofsLocal, iofsHost string
+	var iofsAgentPath, iofsDockerPath string
 	var err error
 	closer := func() {} // XXX(reed):
 	if call.Format == models.FormatHTTPStream {
 		// XXX(reed): we should also point stdout to stderr, and not have stdin
 
-		iofsLocal, iofsHost, err = createIOFS(cfg)
+		iofsAgentPath, iofsDockerPath, err = createIOFS(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -1267,7 +1267,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 			//common.Logger(ctx).WithError(err).Error("error unmounting iofs")
 			//}
 
-			err = os.RemoveAll(iofsLocal)
+			err = os.RemoveAll(iofsAgentPath)
 			if err != nil {
 				common.Logger(ctx).WithError(err).Error("error removing iofs")
 			}
@@ -1275,16 +1275,16 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 	}
 
 	return &container{
-		id:         id, // XXX we could just let docker generate ids...
-		image:      call.Image,
-		env:        map[string]string(call.Config),
-		extensions: call.extensions,
-		memory:     call.Memory,
-		cpus:       uint64(call.CPUs),
-		fsSize:     cfg.MaxFsSize,
-		tmpFsSize:  uint64(call.TmpFsSize),
-		iofsLocal:  iofsLocal,
-		iofsHost:   iofsHost,
+		id:             id, // XXX we could just let docker generate ids...
+		image:          call.Image,
+		env:            map[string]string(call.Config),
+		extensions:     call.extensions,
+		memory:         call.Memory,
+		cpus:           uint64(call.CPUs),
+		fsSize:         cfg.MaxFsSize,
+		tmpFsSize:      uint64(call.TmpFsSize),
+		iofsAgentPath:  iofsAgentPath,
+		iofsDockerPath: iofsDockerPath,
 		logCfg: drivers.LoggerConfig{
 			URL: strings.TrimSpace(call.SyslogURL),
 			Tags: []drivers.LoggerTag{
@@ -1344,8 +1344,8 @@ func (c *container) FsSize() uint64                     { return c.fsSize }
 func (c *container) TmpFsSize() uint64                  { return c.tmpFsSize }
 func (c *container) Extensions() map[string]string      { return c.extensions }
 func (c *container) LoggerConfig() drivers.LoggerConfig { return c.logCfg }
-func (c *container) UDSPathLocal() string               { return c.iofsLocal }
-func (c *container) UDSPathHost() string                { return c.iofsHost }
+func (c *container) UDSAgentPath() string               { return c.iofsAgentPath }
+func (c *container) UDSDockerPath() string              { return c.iofsDockerPath }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
