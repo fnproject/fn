@@ -216,7 +216,7 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 
 	// simulate crash
 	if request.IsCrash {
-		panic("Crash requested")
+		log.Fatalln("Crash requested")
 	}
 
 	resp := AppResponse{

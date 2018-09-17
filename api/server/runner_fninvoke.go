@@ -66,6 +66,8 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 }
 
 func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) error {
+	// TODO: we should combine this logic with trigger, which just wraps this block with some headers wizardry
+	// TODO: we should get rid of the buffers, and stream back (saves memory (+splice), faster (splice), allows streaming, don't have to cap resp size)
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	writer := syncResponseWriter{
@@ -101,6 +103,7 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 	}
 
 	// if they don't set a content-type - detect it
+	// TODO: remove this after removing all the formats (too many tests to scrub til then)
 	if writer.Header().Get("Content-Type") == "" {
 		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
 		var contentType string

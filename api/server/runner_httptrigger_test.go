@@ -343,7 +343,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		{"/t/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
 
 		{"/t/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, "", nil},
-		{"/t/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2", nil},
+		{"/t/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 1", nil},
 		{"/t/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/t/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/t/myapp/mydneregistry", ``, "GET", http.StatusInternalServerError, nil, "connection refused", nil},
