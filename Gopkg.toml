@@ -56,7 +56,7 @@ ignored = ["github.com/fnproject/fn/cli",
 
 [[constraint]]
   name = "github.com/fsouza/go-dockerclient"
-  revision = "ddfe58fbc21ae55e43040f0fef017a5fddb8e54f"
+  revision = "1b33efcb40bef3494af8bc6a1f73600f37a3c9d1"
 
 [[constraint]]
   name = "github.com/coreos/go-semver"
