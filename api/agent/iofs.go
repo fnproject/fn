@@ -1,11 +1,14 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/fnproject/fn/api/common"
 )
 
 type iofs interface {
@@ -50,26 +53,24 @@ func (d *directoryIOFS) Close() error {
 	return nil
 }
 
-func newDirectoryIOFS(cfg *Config) (*directoryIOFS, error) {
-	// XXX(reed): need to ensure these are cleaned up if any of these ops in here fail...
-
+func newDirectoryIOFS(ctx context.Context, cfg *Config) (*directoryIOFS, error) {
 	dir := cfg.IOFSAgentPath
-	if dir == "" {
-		// /tmp should be a memory backed filesystem, where we can get user perms
-		// on the socket file (fdks must give write permissions to users on sock).
-		// /var/run is root only, hence this...
-		dir = "/tmp"
-	}
 
 	// create a tmpdir
 	iofsAgentDir, err := ioutil.TempDir(dir, "iofs")
 	if err != nil {
+		if err := os.RemoveAll(iofsAgentDir); err != nil {
+			common.Logger(ctx).WithError(err).Error("failed to clean up iofs dir")
+		}
 		return nil, fmt.Errorf("cannot create tmpdir for iofs: %v", err)
 	}
 
 	if cfg.IOFSMountRoot != "" {
 		iofsRelPath, err := filepath.Rel(dir, iofsAgentDir)
 		if err != nil {
+			if err := os.RemoveAll(iofsAgentDir); err != nil {
+				common.Logger(ctx).WithError(err).Error("failed to clean up iofs dir")
+			}
 			return nil, fmt.Errorf("cannot relativise iofs path: %v", err)
 		}
 		iofsDockerDir := filepath.Join(cfg.IOFSMountRoot, iofsRelPath)

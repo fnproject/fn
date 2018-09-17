@@ -3,6 +3,7 @@
 package agent
 
 import (
+	"context"
 	"errors"
 )
 
@@ -14,7 +15,7 @@ func (t *tmpfsIOFS) Close() error {
 	return t.directoryIOFS.Close()
 }
 
-func newTmpfsIOFS(cfg *Config) (*tmpfsIOFS, error) {
+func newTmpfsIOFS(ctx context.Context, cfg *Config) (*tmpfsIOFS, error) {
 	return nil, errors.New("tmpfs IOFS not supported on macOS")
 }
 
