@@ -26,7 +26,7 @@ func newTmpfsIOFS(cfg *Config) (*tmpfsIOFS, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = unix.Mount("tmpfs", dirIOFS.AgentPath(), "tmpfs", uintptr(unix.MS_NOEXEC|unix.MS_NOSUID|unix.MS_NODEV), "")
+	err = unix.Mount("tmpfs", dirIOFS.AgentPath(), "tmpfs", uintptr(unix.MS_NOEXEC|unix.MS_NOSUID|unix.MS_NODEV), cfg.IOFSOpts)
 	if err != nil {
 		return nil, fmt.Errorf("cannot mount/create tmpfs at %s", dirIOFS.AgentPath())
 	}
