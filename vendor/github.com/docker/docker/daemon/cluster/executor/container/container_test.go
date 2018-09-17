@@ -3,9 +3,9 @@ package container // import "github.com/docker/docker/daemon/cluster/executor/co
 import (
 	"testing"
 
-	container "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/container"
 	swarmapi "github.com/docker/swarmkit/api"
-	"github.com/gotestyourself/gotestyourself/assert"
+	"gotest.tools/assert"
 )
 
 func TestIsolationConversion(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	containertypes "github.com/docker/docker/api/types/container"
+	networktypes "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/go-connections/nat"
 )
@@ -82,4 +83,54 @@ func WithBind(src, target string) func(*TestContainerConfig) {
 	return func(c *TestContainerConfig) {
 		c.HostConfig.Binds = append(c.HostConfig.Binds, fmt.Sprintf("%s:%s", src, target))
 	}
+}
+
+// WithIPv4 sets the specified ip for the specified network of the container
+func WithIPv4(network, ip string) func(*TestContainerConfig) {
+	return func(c *TestContainerConfig) {
+		if c.NetworkingConfig.EndpointsConfig == nil {
+			c.NetworkingConfig.EndpointsConfig = map[string]*networktypes.EndpointSettings{}
+		}
+		if v, ok := c.NetworkingConfig.EndpointsConfig[network]; !ok || v == nil {
+			c.NetworkingConfig.EndpointsConfig[network] = &networktypes.EndpointSettings{}
+		}
+		if c.NetworkingConfig.EndpointsConfig[network].IPAMConfig == nil {
+			c.NetworkingConfig.EndpointsConfig[network].IPAMConfig = &networktypes.EndpointIPAMConfig{}
+		}
+		c.NetworkingConfig.EndpointsConfig[network].IPAMConfig.IPv4Address = ip
+	}
+}
+
+// WithIPv6 sets the specified ip6 for the specified network of the container
+func WithIPv6(network, ip string) func(*TestContainerConfig) {
+	return func(c *TestContainerConfig) {
+		if c.NetworkingConfig.EndpointsConfig == nil {
+			c.NetworkingConfig.EndpointsConfig = map[string]*networktypes.EndpointSettings{}
+		}
+		if v, ok := c.NetworkingConfig.EndpointsConfig[network]; !ok || v == nil {
+			c.NetworkingConfig.EndpointsConfig[network] = &networktypes.EndpointSettings{}
+		}
+		if c.NetworkingConfig.EndpointsConfig[network].IPAMConfig == nil {
+			c.NetworkingConfig.EndpointsConfig[network].IPAMConfig = &networktypes.EndpointIPAMConfig{}
+		}
+		c.NetworkingConfig.EndpointsConfig[network].IPAMConfig.IPv6Address = ip
+	}
+}
+
+// WithLogDriver sets the log driver to use for the container
+func WithLogDriver(driver string) func(*TestContainerConfig) {
+	return func(c *TestContainerConfig) {
+		if c.HostConfig == nil {
+			c.HostConfig = &containertypes.HostConfig{}
+		}
+		c.HostConfig.LogConfig.Type = driver
+	}
+}
+
+// WithAutoRemove sets the container to be removed on exit
+func WithAutoRemove(c *TestContainerConfig) {
+	if c.HostConfig == nil {
+		c.HostConfig = &containertypes.HostConfig{}
+	}
+	c.HostConfig.AutoRemove = true
 }

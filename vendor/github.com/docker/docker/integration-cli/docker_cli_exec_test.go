@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -19,8 +20,7 @@ import (
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/go-check/check"
-	"github.com/gotestyourself/gotestyourself/icmd"
-	"golang.org/x/net/context"
+	"gotest.tools/icmd"
 )
 
 func (s *DockerSuite) TestExec(c *check.C) {
@@ -262,7 +262,7 @@ func (s *DockerSuite) TestExecCgroup(c *check.C) {
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	execCgroups := []sort.StringSlice{}
+	var execCgroups []sort.StringSlice
 	errChan := make(chan error)
 	// exec a few times concurrently to get consistent failure
 	for i := 0; i < 5; i++ {

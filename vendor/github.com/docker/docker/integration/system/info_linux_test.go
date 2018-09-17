@@ -3,14 +3,14 @@
 package system // import "github.com/docker/docker/integration/system"
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
-	req "github.com/docker/docker/integration-cli/request"
-	"github.com/docker/docker/integration/internal/request"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"golang.org/x/net/context"
+	"github.com/docker/docker/internal/test/request"
+	req "github.com/docker/docker/internal/test/request"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestInfoBinaryCommits(t *testing.T) {

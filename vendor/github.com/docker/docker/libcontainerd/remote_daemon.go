@@ -18,7 +18,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/server"
+	"github.com/containerd/containerd/services/server"
 	"github.com/docker/docker/pkg/system"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -221,6 +221,11 @@ func (r *remote) startContainerd() error {
 	}
 
 	args := []string{"--config", configFile}
+
+	if r.Debug.Level != "" {
+		args = append(args, "--log-level", r.Debug.Level)
+	}
+
 	cmd := exec.Command(binaryName, args...)
 	// redirect containerd logs to docker logs
 	cmd.Stdout = os.Stdout
@@ -307,22 +312,21 @@ func (r *remote) monitorConnection(monitor *containerd.Client) {
 			<-time.After(100 * time.Millisecond)
 			system.KillProcess(r.daemonPid)
 		}
-		<-r.daemonWaitCh
+		if r.daemonWaitCh != nil {
+			<-r.daemonWaitCh
+		}
 
-		monitor.Close()
 		os.Remove(r.GRPC.Address)
 		if err := r.startContainerd(); err != nil {
 			r.logger.WithError(err).Error("failed restarting containerd")
 			continue
 		}
 
-		newMonitor, err := containerd.New(r.GRPC.Address)
-		if err != nil {
+		if err := monitor.Reconnect(); err != nil {
 			r.logger.WithError(err).Error("failed connect to containerd")
 			continue
 		}
 
-		monitor = newMonitor
 		var wg sync.WaitGroup
 
 		for _, c := range r.clients {
@@ -331,18 +335,12 @@ func (r *remote) monitorConnection(monitor *containerd.Client) {
 			go func(c *client) {
 				defer wg.Done()
 				c.logger.WithField("namespace", c.namespace).Debug("creating new containerd remote client")
-				c.remote.Close()
-
-				remote, err := containerd.New(r.GRPC.Address, containerd.WithDefaultNamespace(c.namespace))
-				if err != nil {
+				if err := c.reconnect(); err != nil {
 					r.logger.WithError(err).Error("failed to connect to containerd")
 					// TODO: Better way to handle this?
 					// This *shouldn't* happen, but this could wind up where the daemon
 					// is not able to communicate with an eventually up containerd
-					return
 				}
-
-				c.setRemote(remote)
 			}(c)
 
 			wg.Wait()

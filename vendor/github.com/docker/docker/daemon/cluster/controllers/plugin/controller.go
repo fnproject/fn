@@ -1,6 +1,7 @@
 package plugin // import "github.com/docker/docker/daemon/cluster/controllers/plugin"
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,12 +16,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // Controller is the controller for the plugin backend.
 // Plugins are managed as a singleton object with a desired state (different from containers).
-// With the the plugin controller instead of having a strict create->start->stop->remove
+// With the plugin controller instead of having a strict create->start->stop->remove
 // task lifecycle like containers, we manage the desired state of the plugin and let
 // the plugin manager do what it already does and monitor the plugin.
 // We'll also end up with many tasks all pointing to the same plugin ID.
@@ -180,7 +180,7 @@ func (p *Controller) Wait(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case e := <-events:
-			p.logger.Debugf("got event %#T", e)
+			p.logger.Debugf("got event %T", e)
 
 			switch e.(type) {
 			case plugin.EventEnable:

@@ -2,6 +2,7 @@ package fscache // import "github.com/docker/docker/builder/fscache"
 
 import (
 	"archive/tar"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"hash"
@@ -22,7 +23,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fsutil"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -154,8 +154,8 @@ func (fsc *FSCache) SyncFrom(ctx context.Context, id RemoteIdentifier) (builder.
 }
 
 // DiskUsage reports how much data is allocated by the cache
-func (fsc *FSCache) DiskUsage() (int64, error) {
-	return fsc.store.DiskUsage()
+func (fsc *FSCache) DiskUsage(ctx context.Context) (int64, error) {
+	return fsc.store.DiskUsage(ctx)
 }
 
 // Prune allows manually cleaning up the cache
@@ -382,14 +382,14 @@ func (s *fsCacheStore) Get(id string) (*cachedSourceRef, error) {
 }
 
 // DiskUsage reports how much data is allocated by the cache
-func (s *fsCacheStore) DiskUsage() (int64, error) {
+func (s *fsCacheStore) DiskUsage(ctx context.Context) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var size int64
 
 	for _, snap := range s.sources {
 		if len(snap.refs) == 0 {
-			ss, err := snap.getSize()
+			ss, err := snap.getSize(ctx)
 			if err != nil {
 				return 0, err
 			}
@@ -414,7 +414,7 @@ func (s *fsCacheStore) Prune(ctx context.Context) (uint64, error) {
 		default:
 		}
 		if len(snap.refs) == 0 {
-			ss, err := snap.getSize()
+			ss, err := snap.getSize(ctx)
 			if err != nil {
 				return size, err
 			}
@@ -433,6 +433,7 @@ func (s *fsCacheStore) GC() error {
 	defer s.mu.Unlock()
 	var size uint64
 
+	ctx := context.Background()
 	cutoff := time.Now().Add(-s.gcPolicy.MaxKeepDuration)
 	var blacklist []*cachedSource
 
@@ -443,7 +444,7 @@ func (s *fsCacheStore) GC() error {
 					return errors.Wrapf(err, "failed to delete %s", id)
 				}
 			} else {
-				ss, err := snap.getSize()
+				ss, err := snap.getSize(ctx)
 				if err != nil {
 					return err
 				}
@@ -458,7 +459,7 @@ func (s *fsCacheStore) GC() error {
 		if size <= s.gcPolicy.MaxSize {
 			break
 		}
-		ss, err := snap.getSize()
+		ss, err := snap.getSize(ctx)
 		if err != nil {
 			return err
 		}
@@ -521,9 +522,9 @@ func (cs *cachedSource) getRef() *cachedSourceRef {
 }
 
 // hold storage lock before calling
-func (cs *cachedSource) getSize() (int64, error) {
+func (cs *cachedSource) getSize(ctx context.Context) (int64, error) {
 	if cs.sourceMeta.Size < 0 {
-		ss, err := directory.Size(cs.dir)
+		ss, err := directory.Size(ctx, cs.dir)
 		if err != nil {
 			return 0, err
 		}
@@ -614,7 +615,7 @@ func (s sortableCacheSources) Swap(i, j int) {
 }
 
 func newTarsumHash(stat *fsutil.Stat) (hash.Hash, error) {
-	fi := &fsutil.StatInfo{stat}
+	fi := &fsutil.StatInfo{Stat: stat}
 	p := stat.Path
 	if fi.IsDir() {
 		p += string(os.PathSeparator)

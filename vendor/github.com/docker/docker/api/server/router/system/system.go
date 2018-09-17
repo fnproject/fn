@@ -2,25 +2,27 @@ package system // import "github.com/docker/docker/api/server/router/system"
 
 import (
 	"github.com/docker/docker/api/server/router"
+	buildkit "github.com/docker/docker/builder/builder-next"
 	"github.com/docker/docker/builder/fscache"
-	"github.com/docker/docker/daemon/cluster"
 )
 
 // systemRouter provides information about the Docker system overall.
 // It gathers information about host, daemon and container events.
 type systemRouter struct {
 	backend Backend
-	cluster *cluster.Cluster
+	cluster ClusterBackend
 	routes  []router.Route
-	builder *fscache.FSCache
+	fscache *fscache.FSCache // legacy
+	builder *buildkit.Builder
 }
 
 // NewRouter initializes a new system router
-func NewRouter(b Backend, c *cluster.Cluster, fscache *fscache.FSCache) router.Router {
+func NewRouter(b Backend, c ClusterBackend, fscache *fscache.FSCache, builder *buildkit.Builder) router.Router {
 	r := &systemRouter{
 		backend: b,
 		cluster: c,
-		builder: fscache,
+		fscache: fscache,
+		builder: builder,
 	}
 
 	r.routes = []router.Route{

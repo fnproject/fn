@@ -16,18 +16,18 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/docker/docker/builder/dockerfile/command"
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
-	"github.com/docker/docker/integration-cli/cli/build/fakecontext"
-	"github.com/docker/docker/integration-cli/cli/build/fakegit"
-	"github.com/docker/docker/integration-cli/cli/build/fakestorage"
+	"github.com/docker/docker/internal/test/fakecontext"
+	"github.com/docker/docker/internal/test/fakegit"
+	"github.com/docker/docker/internal/test/fakestorage"
 	"github.com/docker/docker/internal/testutil"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/go-check/check"
-	"github.com/gotestyourself/gotestyourself/icmd"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/moby/buildkit/frontend/dockerfile/command"
+	"github.com/opencontainers/go-digest"
+	"gotest.tools/icmd"
 )
 
 func (s *DockerSuite) TestBuildJSONEmptyRun(c *check.C) {
@@ -195,7 +195,7 @@ func (s *DockerSuite) TestBuildEnvironmentReplacementEnv(c *check.C) {
   RUN [ "$foo5" = 'abc\def' ]
   `))
 
-	envResult := []string{}
+	var envResult []string
 	inspectFieldAndUnmarshall(c, name, "Config.Env", &envResult)
 	found := false
 	envCount := 0
@@ -1012,10 +1012,6 @@ func (s *DockerSuite) TestBuildAddBadLinksVolume(c *check.C) {
 		ADD foo.txt /x/`
 		targetFile = "foo.txt"
 	)
-	var (
-		name       = "test-link-absolute-volume"
-		dockerfile = ""
-	)
 
 	tempDir, err := ioutil.TempDir("", "test-link-absolute-volume-temp-")
 	if err != nil {
@@ -1023,7 +1019,7 @@ func (s *DockerSuite) TestBuildAddBadLinksVolume(c *check.C) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	dockerfile = fmt.Sprintf(dockerfileTemplate, tempDir)
+	dockerfile := fmt.Sprintf(dockerfileTemplate, tempDir)
 	nonExistingFile := filepath.Join(tempDir, targetFile)
 
 	ctx := fakecontext.New(c, "", fakecontext.WithDockerfile(dockerfile))
@@ -1040,7 +1036,7 @@ func (s *DockerSuite) TestBuildAddBadLinksVolume(c *check.C) {
 		c.Fatal(err)
 	}
 
-	buildImageSuccessfully(c, name, build.WithExternalBuildContext(ctx))
+	buildImageSuccessfully(c, "test-link-absolute-volume", build.WithExternalBuildContext(ctx))
 	if _, err := os.Stat(nonExistingFile); err == nil || err != nil && !os.IsNotExist(err) {
 		c.Fatalf("%s shouldn't have been written and it shouldn't exist", nonExistingFile)
 	}
@@ -1050,7 +1046,7 @@ func (s *DockerSuite) TestBuildAddBadLinksVolume(c *check.C) {
 // Issue #5270 - ensure we throw a better error than "unexpected EOF"
 // when we can't access files in the context.
 func (s *DockerSuite) TestBuildWithInaccessibleFilesInContext(c *check.C) {
-	testRequires(c, DaemonIsLinux, UnixCli) // test uses chown/chmod: not available on windows
+	testRequires(c, DaemonIsLinux, UnixCli, SameHostDaemon) // test uses chown/chmod: not available on windows
 
 	{
 		name := "testbuildinaccessiblefiles"
@@ -2534,7 +2530,7 @@ func (s *DockerSuite) TestBuildDockerignoringBadExclusion(c *check.C) {
 		build.WithFile(".dockerignore", "!\n"),
 	)).Assert(c, icmd.Expected{
 		ExitCode: 1,
-		Err:      "error checking context: 'illegal exclusion pattern: \"!\"",
+		Err:      `illegal exclusion pattern: "!"`,
 	})
 }
 
@@ -4979,7 +4975,7 @@ func (s *DockerSuite) TestBuildLabelMultiple(c *check.C) {
 		"foo": "bar",
 		"123": "456",
 	}
-	labelArgs := []string{}
+	var labelArgs []string
 	for k, v := range testLabels {
 		labelArgs = append(labelArgs, "--label", k+"="+v)
 	}
@@ -5598,46 +5594,6 @@ func (s *DockerSuite) TestBuildWithExtraHostInvalidFormat(c *check.C) {
 
 }
 
-func (s *DockerSuite) TestBuildSquashParent(c *check.C) {
-	testRequires(c, ExperimentalDaemon)
-	dockerFile := `
-		FROM busybox
-		RUN echo hello > /hello
-		RUN echo world >> /hello
-		RUN echo hello > /remove_me
-		ENV HELLO world
-		RUN rm /remove_me
-		`
-	// build and get the ID that we can use later for history comparison
-	name := "test"
-	buildImageSuccessfully(c, name, build.WithDockerfile(dockerFile))
-	origID := getIDByName(c, name)
-
-	// build with squash
-	buildImageSuccessfully(c, name, cli.WithFlags("--squash"), build.WithDockerfile(dockerFile))
-	id := getIDByName(c, name)
-
-	out, _ := dockerCmd(c, "run", "--rm", id, "/bin/sh", "-c", "cat /hello")
-	c.Assert(strings.TrimSpace(out), checker.Equals, "hello\nworld")
-
-	dockerCmd(c, "run", "--rm", id, "/bin/sh", "-c", "[ ! -f /remove_me ]")
-	dockerCmd(c, "run", "--rm", id, "/bin/sh", "-c", `[ "$(echo $HELLO)" == "world" ]`)
-
-	// make sure the ID produced is the ID of the tag we specified
-	inspectID := inspectImage(c, "test", ".ID")
-	c.Assert(inspectID, checker.Equals, id)
-
-	origHistory, _ := dockerCmd(c, "history", origID)
-	testHistory, _ := dockerCmd(c, "history", "test")
-
-	splitOrigHistory := strings.Split(strings.TrimSpace(origHistory), "\n")
-	splitTestHistory := strings.Split(strings.TrimSpace(testHistory), "\n")
-	c.Assert(len(splitTestHistory), checker.Equals, len(splitOrigHistory)+1)
-
-	out = inspectImage(c, id, "len .RootFS.Layers")
-	c.Assert(strings.TrimSpace(out), checker.Equals, "2")
-}
-
 func (s *DockerSuite) TestBuildContChar(c *check.C) {
 	name := "testbuildcontchar"
 
@@ -5993,6 +5949,10 @@ func (s *DockerSuite) TestBuildMulitStageResetScratch(c *check.C) {
 }
 
 func (s *DockerSuite) TestBuildIntermediateTarget(c *check.C) {
+	//todo: need to be removed after 18.06 release
+	if strings.Contains(testEnv.DaemonInfo.ServerVersion, "18.05.0") {
+		c.Skip(fmt.Sprintf("Bug fixed in 18.06 or higher.Skipping it for %s", testEnv.DaemonInfo.ServerVersion))
+	}
 	dockerfile := `
 		FROM busybox AS build-env
 		CMD ["/dev"]
@@ -6005,8 +5965,14 @@ func (s *DockerSuite) TestBuildIntermediateTarget(c *check.C) {
 	cli.BuildCmd(c, "build1", build.WithExternalBuildContext(ctx),
 		cli.WithFlags("--target", "build-env"))
 
-	//res := inspectFieldJSON(c, "build1", "Config.Cmd")
 	res := cli.InspectCmd(c, "build1", cli.Format("json .Config.Cmd")).Combined()
+	c.Assert(strings.TrimSpace(res), checker.Equals, `["/dev"]`)
+
+	// Stage name is case-insensitive by design
+	cli.BuildCmd(c, "build1", build.WithExternalBuildContext(ctx),
+		cli.WithFlags("--target", "BUIld-EnV"))
+
+	res = cli.InspectCmd(c, "build1", cli.Format("json .Config.Cmd")).Combined()
 	c.Assert(strings.TrimSpace(res), checker.Equals, `["/dev"]`)
 
 	result := cli.Docker(cli.Build("build1"), build.WithExternalBuildContext(ctx),
@@ -6236,34 +6202,4 @@ func (s *DockerSuite) TestBuildIidFileCleanupOnFail(c *check.C) {
 	_, err = os.Stat(tmpIidFile)
 	c.Assert(err, check.NotNil)
 	c.Assert(os.IsNotExist(err), check.Equals, true)
-}
-
-// FIXME(vdemeester) should migrate to docker/cli tests
-func (s *DockerSuite) TestBuildIidFileSquash(c *check.C) {
-	testRequires(c, ExperimentalDaemon)
-	tmpDir, err := ioutil.TempDir("", "TestBuildIidFileSquash")
-	if err != nil {
-		c.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-	tmpIidFile := filepath.Join(tmpDir, "iidsquash")
-
-	name := "testbuildiidfilesquash"
-	// Use a Dockerfile with multiple stages to ensure we get the last one
-	cli.BuildCmd(c, name,
-		// This could be minimalBaseImage except
-		// https://github.com/moby/moby/issues/33823 requires
-		// `touch` to workaround.
-		build.WithDockerfile(`FROM busybox
-ENV FOO FOO
-ENV BAR BAR
-RUN touch /foop
-`),
-		cli.WithFlags("--iidfile", tmpIidFile, "--squash"))
-
-	id, err := ioutil.ReadFile(tmpIidFile)
-	c.Assert(err, check.IsNil)
-	d, err := digest.Parse(string(id))
-	c.Assert(err, check.IsNil)
-	c.Assert(d.String(), checker.Equals, getIDByName(c, name))
 }

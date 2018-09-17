@@ -10,8 +10,8 @@ import (
 	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/docker/plugin"
-	metrics "github.com/docker/go-metrics"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/docker/go-metrics"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -49,8 +49,12 @@ func registerMetricsPluginCallback(store *plugin.Store, sockPath string) {
 			return
 		}
 
-		if err := pluginStartMetricsCollection(p); err != nil {
-			logrus.WithError(err).WithField("name", name).Error("error while initializing metrics plugin")
+		adapter, err := makePluginAdapter(p)
+		if err != nil {
+			logrus.WithError(err).WithField("plugin", p.Name()).Error("Error creating plugin adapater")
+		}
+		if err := adapter.StartMetrics(); err != nil {
+			logrus.WithError(err).WithField("plugin", p.Name()).Error("Error starting metrics collector plugin")
 		}
 	})
 }

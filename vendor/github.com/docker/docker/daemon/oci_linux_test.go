@@ -1,6 +1,7 @@
 package daemon // import "github.com/docker/docker/daemon"
 
 import (
+	"os"
 	"testing"
 
 	containertypes "github.com/docker/docker/api/types/container"
@@ -8,8 +9,8 @@ import (
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/oci"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 // TestTmpfsDevShmNoDupMount checks that a user-specified /dev/shm tmpfs
@@ -20,7 +21,7 @@ func TestTmpfsDevShmNoDupMount(t *testing.T) {
 	d := Daemon{
 		// some empty structs to avoid getting a panic
 		// caused by a null pointer dereference
-		idMappings:  &idtools.IDMappings{},
+		idMapping:   &idtools.IdentityMapping{},
 		configStore: &config.Config{},
 	}
 	c := &container.Container{
@@ -57,7 +58,7 @@ func TestIpcPrivateVsReadonly(t *testing.T) {
 	d := Daemon{
 		// some empty structs to avoid getting a panic
 		// caused by a null pointer dereference
-		idMappings:  &idtools.IDMappings{},
+		idMapping:   &idtools.IdentityMapping{},
 		configStore: &config.Config{},
 	}
 	c := &container.Container{
@@ -85,4 +86,17 @@ func TestIpcPrivateVsReadonly(t *testing.T) {
 		}
 		assert.Check(t, is.Equal(false, inSlice(m.Options, "ro")))
 	}
+}
+
+func TestGetSourceMount(t *testing.T) {
+	// must be able to find source mount for /
+	mnt, _, err := getSourceMount("/")
+	assert.NilError(t, err)
+	assert.Equal(t, mnt, "/")
+
+	// must be able to find source mount for current directory
+	cwd, err := os.Getwd()
+	assert.NilError(t, err)
+	_, _, err = getSourceMount(cwd)
+	assert.NilError(t, err)
 }

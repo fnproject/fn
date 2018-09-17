@@ -9,10 +9,10 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/integration/internal/container"
-	"github.com/docker/docker/integration/internal/request"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"github.com/gotestyourself/gotestyourself/skip"
+	"github.com/docker/docker/internal/test/request"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/skip"
 )
 
 func TestLinksEtcHostsContentMatch(t *testing.T) {
@@ -41,15 +41,17 @@ func TestLinksContainerNames(t *testing.T) {
 	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
-	container.Run(t, ctx, client, container.WithName("first"))
-	container.Run(t, ctx, client, container.WithName("second"), container.WithLinks("first:first"))
+	containerA := "first_" + t.Name()
+	containerB := "second_" + t.Name()
+	container.Run(t, ctx, client, container.WithName(containerA))
+	container.Run(t, ctx, client, container.WithName(containerB), container.WithLinks(containerA+":"+containerA))
 
-	f := filters.NewArgs(filters.Arg("name", "first"))
+	f := filters.NewArgs(filters.Arg("name", containerA))
 
 	containers, err := client.ContainerList(ctx, types.ContainerListOptions{
 		Filters: f,
 	})
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal(1, len(containers)))
-	assert.Check(t, is.DeepEqual([]string{"/first", "/second/first"}, containers[0].Names))
+	assert.Check(t, is.DeepEqual([]string{"/" + containerA, "/" + containerB + "/" + containerA}, containers[0].Names))
 }

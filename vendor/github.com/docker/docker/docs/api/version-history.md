@@ -13,9 +13,18 @@ keywords: "API, Docker, rcli, REST, documentation"
      will be rejected.
 -->
 
+## V1.38 API changes
+
+[Docker Engine API v1.38](https://docs.docker.com/engine/api/v1.38/) documentation
+
+
+* `GET /tasks` and `GET /tasks/{id}` now return a `NetworkAttachmentSpec` field,
+  containing the `ContainerID` for non-service containers connected to "attachable"
+  swarm-scoped networks.
+
 ## v1.37 API changes
 
-[Docker Engine API v1.37](https://docs.docker.com/engine/api/v1.36/) documentation
+[Docker Engine API v1.37](https://docs.docker.com/engine/api/v1.37/) documentation
 
 * `POST /containers/create` and `POST /services/create` now supports exposing SCTP ports.
 * `POST /configs/create` and `POST /configs/{id}/create` now accept a `Templating` driver.

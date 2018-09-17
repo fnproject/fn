@@ -13,9 +13,10 @@ import (
 	"testing"
 
 	"github.com/docker/docker/pkg/system"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
 	"golang.org/x/sys/unix"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/skip"
 )
 
 func TestCanonicalTarNameForPath(t *testing.T) {
@@ -25,10 +26,8 @@ func TestCanonicalTarNameForPath(t *testing.T) {
 		{"foo/dir/", "foo/dir/"},
 	}
 	for _, v := range cases {
-		if out, err := CanonicalTarNameForPath(v.in); err != nil {
-			t.Fatalf("cannot get canonical name for path: %s: %v", v.in, err)
-		} else if out != v.expected {
-			t.Fatalf("wrong canonical tar name. expected:%s got:%s", v.expected, out)
+		if CanonicalTarNameForPath(v.in) != v.expected {
+			t.Fatalf("wrong canonical tar name. expected:%s got:%s", v.expected, CanonicalTarNameForPath(v.in))
 		}
 	}
 }
@@ -45,10 +44,8 @@ func TestCanonicalTarName(t *testing.T) {
 		{"foo/bar", true, "foo/bar/"},
 	}
 	for _, v := range cases {
-		if out, err := canonicalTarName(v.in, v.isDir); err != nil {
-			t.Fatalf("cannot get canonical name for path: %s: %v", v.in, err)
-		} else if out != v.expected {
-			t.Fatalf("wrong canonical tar name. expected:%s got:%s", v.expected, out)
+		if canonicalTarName(v.in, v.isDir) != v.expected {
+			t.Fatalf("wrong canonical tar name. expected:%s got:%s", v.expected, canonicalTarName(v.in, v.isDir))
 		}
 	}
 }
@@ -183,6 +180,7 @@ func getInode(path string) (uint64, error) {
 }
 
 func TestTarWithBlockCharFifo(t *testing.T) {
+	skip.If(t, os.Getuid() != 0, "skipping test that requires root")
 	origin, err := ioutil.TempDir("", "docker-test-tar-hardlink")
 	assert.NilError(t, err)
 
@@ -223,6 +221,7 @@ func TestTarWithBlockCharFifo(t *testing.T) {
 
 // TestTarUntarWithXattr is Unix as Lsetxattr is not supported on Windows
 func TestTarUntarWithXattr(t *testing.T) {
+	skip.If(t, os.Getuid() != 0, "skipping test that requires root")
 	origin, err := ioutil.TempDir("", "docker-test-untar-origin")
 	assert.NilError(t, err)
 	defer os.RemoveAll(origin)

@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
 	networktypes "github.com/docker/docker/api/types/network"
@@ -16,10 +14,10 @@ import (
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/runconfig"
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -157,13 +155,14 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 	}
 
 	// Set RWLayer for container after mount labels have been set
-	rwLayer, err := daemon.imageService.CreateLayer(container, setupInitLayer(daemon.idMappings))
+	rwLayer, err := daemon.imageService.CreateLayer(container, setupInitLayer(daemon.idMapping))
 	if err != nil {
 		return nil, errdefs.System(err)
 	}
 	container.RWLayer = rwLayer
 
-	rootIDs := daemon.idMappings.RootPair()
+	rootIDs := daemon.idMapping.RootPair()
+
 	if err := idtools.MkdirAndChown(container.Root, 0700, rootIDs); err != nil {
 		return nil, err
 	}
@@ -253,24 +252,6 @@ func (daemon *Daemon) generateSecurityOpt(hostConfig *containertypes.HostConfig)
 		return toHostConfigSelinuxLabels(pidLabel), nil
 	}
 	return nil, nil
-}
-
-// VolumeCreate creates a volume with the specified name, driver, and opts
-// This is called directly from the Engine API
-func (daemon *Daemon) VolumeCreate(name, driverName string, opts, labels map[string]string) (*types.Volume, error) {
-	if name == "" {
-		name = stringid.GenerateNonCryptoID()
-	}
-
-	v, err := daemon.volumes.Create(name, driverName, opts, labels)
-	if err != nil {
-		return nil, err
-	}
-
-	daemon.LogVolumeEvent(v.Name(), "create", map[string]string{"driver": v.DriverName()})
-	apiV := volumeToAPIType(v)
-	apiV.Mountpoint = v.Path()
-	return apiV, nil
 }
 
 func (daemon *Daemon) mergeAndVerifyConfig(config *containertypes.Config, img *image.Image) error {

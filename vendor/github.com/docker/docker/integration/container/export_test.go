@@ -7,16 +7,15 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	containerTypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/integration-cli/daemon"
 	"github.com/docker/docker/integration/internal/container"
-	"github.com/docker/docker/integration/internal/request"
+	"github.com/docker/docker/internal/test/daemon"
+	"github.com/docker/docker/internal/test/request"
 	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"github.com/gotestyourself/gotestyourself/poll"
-	"github.com/gotestyourself/gotestyourself/skip"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/poll"
+	"gotest.tools/skip"
 )
 
 // export an image and try to import it into a new one
@@ -62,7 +61,7 @@ func TestExportContainerAfterDaemonRestart(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType != "linux")
 	skip.If(t, testEnv.IsRemoteDaemon())
 
-	d := daemon.New(t, "", "dockerd", daemon.Config{})
+	d := daemon.New(t)
 	client, err := d.NewClient()
 	assert.NilError(t, err)
 
@@ -70,15 +69,10 @@ func TestExportContainerAfterDaemonRestart(t *testing.T) {
 	defer d.Stop(t)
 
 	ctx := context.Background()
-	cfg := containerTypes.Config{
-		Image: "busybox",
-		Cmd:   []string{"top"},
-	}
-	ctr, err := client.ContainerCreate(ctx, &cfg, nil, nil, "")
-	assert.NilError(t, err)
+	ctrID := container.Create(t, ctx, client)
 
 	d.Restart(t)
 
-	_, err = client.ContainerExport(ctx, ctr.ID)
+	_, err = client.ContainerExport(ctx, ctrID)
 	assert.NilError(t, err)
 }

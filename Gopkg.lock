@@ -94,7 +94,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:c808b81bcc8d162ec4a2fd62ee281042155fec3d75c56e36aa864c36a915665f"
+  digest = "1:e7ca7e1ac742af27da6148103c36a846d93ab8994a1aa24d850b32dd5614ccb9"
   name = "github.com/docker/docker"
   packages = [
     "api/types",
@@ -108,6 +108,7 @@
     "api/types/swarm",
     "api/types/swarm/runtime",
     "api/types/versions",
+    "errdefs",
     "opts",
     "pkg/fileutils",
     "pkg/homedir",
@@ -120,7 +121,7 @@
     "pkg/system",
   ]
   pruneopts = ""
-  revision = "29fc64b590badcb1c3f5beff7563ffd31eb58974"
+  revision = "763d8392612942ff5c32a35f8bdafd7ae93d3321"
 
 [[projects]]
   digest = "1:a5ecc2e70260a87aa263811281465a5effcfae8a54bac319cee87c4625f04d63"
@@ -137,6 +138,14 @@
   pruneopts = ""
   revision = "47565b4f722fb6ceae66b95f853feed578a4a51c"
   version = "v0.3.3"
+
+[[projects]]
+  digest = "1:62885c723fa2ce49564d77d9ae4f07270a0137ada7c453aab3f629dbe8295aa3"
+  name = "github.com/docker/libnetwork"
+  packages = ["ipamutils"]
+  pruneopts = ""
+  revision = "6d23f11e681f24ee31802939e243fe8be41a75eb"
+  version = "v0.8.0-dev.2"
 
 [[projects]]
   branch = "master"

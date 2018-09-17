@@ -19,7 +19,6 @@ import (
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/volume"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 // VolumeDataPathName is the name of the directory where the volume data is stored.
@@ -47,28 +46,23 @@ type activeMount struct {
 // New instantiates a new Root instance with the provided scope. Scope
 // is the base path that the Root instance uses to store its
 // volumes. The base path is created here if it does not exist.
-func New(scope string, rootIDs idtools.IDPair) (*Root, error) {
+func New(scope string, rootIdentity idtools.Identity) (*Root, error) {
 	rootDirectory := filepath.Join(scope, volumesPathName)
 
-	if err := idtools.MkdirAllAndChown(rootDirectory, 0700, rootIDs); err != nil {
+	if err := idtools.MkdirAllAndChown(rootDirectory, 0700, rootIdentity); err != nil {
 		return nil, err
 	}
 
 	r := &Root{
-		scope:   scope,
-		path:    rootDirectory,
-		volumes: make(map[string]*localVolume),
-		rootIDs: rootIDs,
+		scope:        scope,
+		path:         rootDirectory,
+		volumes:      make(map[string]*localVolume),
+		rootIdentity: rootIdentity,
 	}
 
 	dirs, err := ioutil.ReadDir(rootDirectory)
 	if err != nil {
 		return nil, err
-	}
-
-	mountInfos, err := mount.GetMounts()
-	if err != nil {
-		logrus.Debugf("error looking up mounts for local volume cleanup: %v", err)
 	}
 
 	for _, d := range dirs {
@@ -96,12 +90,7 @@ func New(scope string, rootIDs idtools.IDPair) (*Root, error) {
 			}
 
 			// unmount anything that may still be mounted (for example, from an unclean shutdown)
-			for _, info := range mountInfos {
-				if info.Mountpoint == v.path {
-					mount.Unmount(v.path)
-					break
-				}
-			}
+			mount.Unmount(v.path)
 		}
 	}
 
@@ -112,11 +101,11 @@ func New(scope string, rootIDs idtools.IDPair) (*Root, error) {
 // manages the creation/removal of volumes. It uses only standard vfs
 // commands to create/remove dirs within its provided scope.
 type Root struct {
-	m       sync.Mutex
-	scope   string
-	path    string
-	volumes map[string]*localVolume
-	rootIDs idtools.IDPair
+	m            sync.Mutex
+	scope        string
+	path         string
+	volumes      map[string]*localVolume
+	rootIdentity idtools.Identity
 }
 
 // List lists all the volumes
@@ -157,7 +146,7 @@ func (r *Root) Create(name string, opts map[string]string) (volume.Volume, error
 	}
 
 	path := r.DataPath(name)
-	if err := idtools.MkdirAllAndChown(path, 0755, r.rootIDs); err != nil {
+	if err := idtools.MkdirAllAndChown(path, 0755, r.rootIdentity); err != nil {
 		return nil, errors.Wrapf(errdefs.System(err), "error while creating volume path '%s'", path)
 	}
 
@@ -222,7 +211,7 @@ func (r *Root) Remove(v volume.Volume) error {
 	}
 
 	if !r.scopedPath(realPath) {
-		return errdefs.System(errors.Errorf("Unable to remove a directory of out the Docker root %s: %s", r.scope, realPath))
+		return errdefs.System(errors.Errorf("Unable to remove a directory outside of the local volume root %s: %s", r.scope, realPath))
 	}
 
 	if err := removePath(realPath); err != nil {
@@ -381,7 +370,7 @@ func getAddress(opts string) string {
 	optsList := strings.Split(opts, ",")
 	for i := 0; i < len(optsList); i++ {
 		if strings.HasPrefix(optsList[i], "addr=") {
-			addr := (strings.SplitN(optsList[i], "=", 2)[1])
+			addr := strings.SplitN(optsList[i], "=", 2)[1]
 			return addr
 		}
 	}

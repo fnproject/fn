@@ -42,6 +42,7 @@ For example, to list running containers (the equivalent of "docker ps"):
 package client // import "github.com/docker/docker/client"
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -57,7 +58,6 @@ import (
 	"github.com/docker/go-connections/sockets"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 // ErrRedirect is the error returned by checkRedirect when the request is non-GET.
@@ -173,10 +173,17 @@ func WithTLSClientConfig(cacertPath, certPath, keyPath string) func(*Client) err
 
 // WithDialer applies the dialer.DialContext to the client transport. This can be
 // used to set the Timeout and KeepAlive settings of the client.
+// Deprecated: use WithDialContext
 func WithDialer(dialer *net.Dialer) func(*Client) error {
+	return WithDialContext(dialer.DialContext)
+}
+
+// WithDialContext applies the dialer to the client transport. This can be
+// used to set the Timeout and KeepAlive settings of the client.
+func WithDialContext(dialContext func(ctx context.Context, network, addr string) (net.Conn, error)) func(*Client) error {
 	return func(c *Client) error {
 		if transport, ok := c.client.Transport.(*http.Transport); ok {
-			transport.DialContext = dialer.DialContext
+			transport.DialContext = dialContext
 			return nil
 		}
 		return errors.Errorf("cannot apply dialer to transport: %T", c.client.Transport)
@@ -356,6 +363,11 @@ func (cli *Client) DaemonHost() string {
 	return cli.host
 }
 
+// HTTPClient returns a copy of the HTTP client bound to the server
+func (cli *Client) HTTPClient() *http.Client {
+	return &*cli.client
+}
+
 // ParseHostURL parses a url string, validates the string is a host url, and
 // returns the parsed URL
 func ParseHostURL(host string) (*url.URL, error) {
@@ -394,4 +406,17 @@ func (cli *Client) CustomHTTPHeaders() map[string]string {
 // Deprecated: use WithHTTPHeaders when creating the client.
 func (cli *Client) SetCustomHTTPHeaders(headers map[string]string) {
 	cli.customHTTPHeaders = headers
+}
+
+// Dialer returns a dialer for a raw stream connection, with HTTP/1.1 header, that can be used for proxying the daemon connection.
+// Used by `docker dial-stdio` (docker/cli#889).
+func (cli *Client) Dialer() func(context.Context) (net.Conn, error) {
+	return func(ctx context.Context) (net.Conn, error) {
+		if transport, ok := cli.client.Transport.(*http.Transport); ok {
+			if transport.DialContext != nil {
+				return transport.DialContext(ctx, cli.proto, cli.addr)
+			}
+		}
+		return fallbackDial(cli.proto, cli.addr, resolveTLSConfig(cli.client.Transport))
+	}
 }

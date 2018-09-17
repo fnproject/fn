@@ -24,6 +24,7 @@ import (
 	"github.com/docker/docker/pkg/streamformatter"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/pkg/urlutil"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 )
 
@@ -72,7 +73,7 @@ type copier struct {
 	source      builder.Source
 	pathCache   pathCache
 	download    sourceDownloader
-	platform    string
+	platform    *specs.Platform
 	// for cleanup. TODO: having copier.cleanup() is error prone and hard to
 	// follow. Code calling performCopy should manage the lifecycle of its params.
 	// Copier should take override source as input, not imageMount.
@@ -86,7 +87,7 @@ func copierFromDispatchRequest(req dispatchRequest, download sourceDownloader, i
 		pathCache:   req.builder.pathCache,
 		download:    download,
 		imageSource: imageSource,
-		platform:    req.builder.options.Platform,
+		platform:    req.builder.platform,
 	}
 }
 
@@ -95,8 +96,14 @@ func (o *copier) createCopyInstruction(args []string, cmdName string) (copyInstr
 	last := len(args) - 1
 
 	// Work in platform-specific filepath semantics
-	inst.dest = fromSlash(args[last], o.platform)
-	separator := string(separator(o.platform))
+	// TODO: This OS switch for paths is NOT correct and should not be supported.
+	// Maintained for backwards compatibility
+	pathOS := runtime.GOOS
+	if o.platform != nil {
+		pathOS = o.platform.OS
+	}
+	inst.dest = fromSlash(args[last], pathOS)
+	separator := string(separator(pathOS))
 	infos, err := o.getCopyInfosForSourcePaths(args[0:last], inst.dest)
 	if err != nil {
 		return inst, errors.Wrapf(err, "%s failed", cmdName)
@@ -172,7 +179,9 @@ func (o *copier) calcCopyInfo(origPath string, allowWildcards bool) ([]copyInfo,
 	// TODO: do this when creating copier. Requires validateCopySourcePath
 	// (and other below) to be aware of the difference sources. Why is it only
 	// done on image Source?
-	if imageSource != nil {
+	if imageSource != nil && o.activeLayer == nil {
+		// this needs to be protected against repeated calls as wildcard copy
+		// will call it multiple times for a single COPY
 		var err error
 		rwLayer, err := imageSource.NewRWLayer()
 		if err != nil {
@@ -442,7 +451,7 @@ func downloadSource(output io.Writer, stdout io.Writer, srcURL string) (remote b
 
 type copyFileOptions struct {
 	decompress bool
-	chownPair  idtools.IDPair
+	identity   idtools.Identity
 	archiver   Archiver
 }
 
@@ -472,7 +481,7 @@ func performCopyForInfo(dest copyInfo, source copyInfo, options copyFileOptions)
 		return errors.Wrapf(err, "source path not found")
 	}
 	if src.IsDir() {
-		return copyDirectory(archiver, srcEndpoint, destEndpoint, options.chownPair)
+		return copyDirectory(archiver, srcEndpoint, destEndpoint, options.identity)
 	}
 	if options.decompress && isArchivePath(source.root, srcPath) && !source.noDecompress {
 		return archiver.UntarPath(srcPath, destPath)
@@ -490,7 +499,7 @@ func performCopyForInfo(dest copyInfo, source copyInfo, options copyFileOptions)
 		destPath = dest.root.Join(destPath, source.root.Base(source.path))
 		destEndpoint = &copyEndpoint{driver: dest.root, path: destPath}
 	}
-	return copyFile(archiver, srcEndpoint, destEndpoint, options.chownPair)
+	return copyFile(archiver, srcEndpoint, destEndpoint, options.identity)
 }
 
 func isArchivePath(driver containerfs.ContainerFS, path string) bool {
@@ -508,7 +517,7 @@ func isArchivePath(driver containerfs.ContainerFS, path string) bool {
 	return err == nil
 }
 
-func copyDirectory(archiver Archiver, source, dest *copyEndpoint, chownPair idtools.IDPair) error {
+func copyDirectory(archiver Archiver, source, dest *copyEndpoint, identity idtools.Identity) error {
 	destExists, err := isExistingDirectory(dest)
 	if err != nil {
 		return errors.Wrapf(err, "failed to query destination path")
@@ -518,17 +527,17 @@ func copyDirectory(archiver Archiver, source, dest *copyEndpoint, chownPair idto
 		return errors.Wrapf(err, "failed to copy directory")
 	}
 	// TODO: @gupta-ak. Investigate how LCOW permission mappings will work.
-	return fixPermissions(source.path, dest.path, chownPair, !destExists)
+	return fixPermissions(source.path, dest.path, identity, !destExists)
 }
 
-func copyFile(archiver Archiver, source, dest *copyEndpoint, chownPair idtools.IDPair) error {
+func copyFile(archiver Archiver, source, dest *copyEndpoint, identity idtools.Identity) error {
 	if runtime.GOOS == "windows" && dest.driver.OS() == "linux" {
 		// LCOW
 		if err := dest.driver.MkdirAll(dest.driver.Dir(dest.path), 0755); err != nil {
 			return errors.Wrapf(err, "failed to create new directory")
 		}
 	} else {
-		if err := idtools.MkdirAllAndChownNew(filepath.Dir(dest.path), 0755, chownPair); err != nil {
+		if err := idtools.MkdirAllAndChownNew(filepath.Dir(dest.path), 0755, identity); err != nil {
 			// Normal containers
 			return errors.Wrapf(err, "failed to create new directory")
 		}
@@ -538,7 +547,7 @@ func copyFile(archiver Archiver, source, dest *copyEndpoint, chownPair idtools.I
 		return errors.Wrapf(err, "failed to copy file")
 	}
 	// TODO: @gupta-ak. Investigate how LCOW permission mappings will work.
-	return fixPermissions(source.path, dest.path, chownPair, false)
+	return fixPermissions(source.path, dest.path, identity, false)
 }
 
 func endsInSlash(driver containerfs.Driver, path string) bool {

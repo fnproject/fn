@@ -1,4 +1,4 @@
-package volumedrivers // import "github.com/docker/docker/volume/drivers"
+package drivers // import "github.com/docker/docker/volume/drivers"
 
 import (
 	"errors"
@@ -17,7 +17,7 @@ type volumeDriverAdapter struct {
 	name         string
 	scopePath    func(s string) string
 	capabilities *volume.Capability
-	proxy        *volumeDriverProxy
+	proxy        volumeDriver
 }
 
 func (a *volumeDriverAdapter) Name() string {
@@ -94,7 +94,7 @@ func (a *volumeDriverAdapter) getCapabilities() volume.Capability {
 	if err != nil {
 		// `GetCapabilities` is a not a required endpoint.
 		// On error assume it's a local-only driver
-		logrus.Warnf("Volume driver %s returned an error while trying to query its capabilities, using default capabilities: %v", a.name, err)
+		logrus.WithError(err).WithField("driver", a.name).Debug("Volume driver returned an error while trying to query its capabilities, using default capabilities")
 		return volume.Capability{Scope: volume.LocalScope}
 	}
 
@@ -105,7 +105,7 @@ func (a *volumeDriverAdapter) getCapabilities() volume.Capability {
 
 	cap.Scope = strings.ToLower(cap.Scope)
 	if cap.Scope != volume.LocalScope && cap.Scope != volume.GlobalScope {
-		logrus.Warnf("Volume driver %q returned an invalid scope: %q", a.Name(), cap.Scope)
+		logrus.WithField("driver", a.Name()).WithField("scope", a.Scope).Warn("Volume driver returned an invalid scope")
 		cap.Scope = volume.LocalScope
 	}
 
@@ -114,7 +114,7 @@ func (a *volumeDriverAdapter) getCapabilities() volume.Capability {
 }
 
 type volumeAdapter struct {
-	proxy      *volumeDriverProxy
+	proxy      volumeDriver
 	name       string
 	scopePath  func(string) string
 	driverName string

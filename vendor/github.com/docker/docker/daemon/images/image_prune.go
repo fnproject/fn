@@ -1,6 +1,7 @@
 package images // import "github.com/docker/docker/daemon/images"
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -12,9 +13,9 @@ import (
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/go-digest"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 var imagesAcceptedFilters = map[string]bool{
@@ -26,7 +27,7 @@ var imagesAcceptedFilters = map[string]bool{
 
 // errPruneRunning is returned when a prune request is received while
 // one is in progress
-var errPruneRunning = fmt.Errorf("a prune operation is already running")
+var errPruneRunning = errdefs.Conflict(errors.New("a prune operation is already running"))
 
 // ImagesPrune removes unused images
 func (i *ImageService) ImagesPrune(ctx context.Context, pruneFilters filters.Args) (*types.ImagesPruneReport, error) {

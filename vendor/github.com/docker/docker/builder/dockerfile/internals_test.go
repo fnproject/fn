@@ -2,6 +2,7 @@ package dockerfile // import "github.com/docker/docker/builder/dockerfile"
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"testing"
 
@@ -12,8 +13,9 @@ import (
 	"github.com/docker/docker/builder/remotecontext"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/go-connections/nat"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/skip"
 )
 
 func TestEmptyDockerfile(t *testing.T) {
@@ -59,6 +61,7 @@ func TestNonExistingDockerfile(t *testing.T) {
 }
 
 func readAndCheckDockerfile(t *testing.T, testName, contextDir, dockerfilePath, expectedError string) {
+	skip.If(t, os.Getuid() != 0, "skipping test that requires root")
 	tarStream, err := archive.Tar(contextDir, archive.Uncompressed)
 	assert.NilError(t, err)
 

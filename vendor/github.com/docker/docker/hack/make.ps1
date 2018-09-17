@@ -251,10 +251,10 @@ Function Validate-PkgImports($headCommit, $upstreamCommit) {
         if ($LASTEXITCODE -ne 0) { Throw "Failed go list for dependencies on $file" }
         $imports = $imports -Replace "\[" -Replace "\]", "" -Split(" ") | Sort-Object | Get-Unique
         # Filter out what we are looking for
-        $imports = $imports -NotMatch "^github.com/docker/docker/pkg/" `
-                            -NotMatch "^github.com/docker/docker/vendor" `
-                            -Match "^github.com/docker/docker" `
-                            -Replace "`n", ""
+        $imports = @() + $imports -NotMatch "^github.com/docker/docker/pkg/" `
+                                  -NotMatch "^github.com/docker/docker/vendor" `
+                                  -Match "^github.com/docker/docker" `
+                                  -Replace "`n", ""
         $imports | % { $badFiles+="$file imports $_`n" }
     }
     if ($badFiles.Length -eq 0) {
@@ -365,7 +365,7 @@ Try {
     # Run autogen if building binaries or running unit tests.
     if ($Client -or $Daemon -or $TestUnit) {
         Write-Host "INFO: Invoking autogen..."
-        Try { .\hack\make\.go-autogen.ps1 -CommitString $gitCommit -DockerVersion $dockerVersion -Platform "$env:PLATFORM" }
+        Try { .\hack\make\.go-autogen.ps1 -CommitString $gitCommit -DockerVersion $dockerVersion -Platform "$env:PLATFORM" -Product "$env:PRODUCT" }
         Catch [Exception] { Throw $_ }
     }
 

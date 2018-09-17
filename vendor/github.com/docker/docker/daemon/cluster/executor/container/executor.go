@@ -1,6 +1,7 @@
 package container // import "github.com/docker/docker/daemon/cluster/executor/container"
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -21,24 +22,25 @@ import (
 	"github.com/docker/swarmkit/api/naming"
 	"github.com/docker/swarmkit/template"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 type executor struct {
 	backend       executorpkg.Backend
 	imageBackend  executorpkg.ImageBackend
 	pluginBackend plugin.Backend
+	volumeBackend executorpkg.VolumeBackend
 	dependencies  exec.DependencyManager
 	mutex         sync.Mutex // This mutex protects the following node field
 	node          *api.NodeDescription
 }
 
 // NewExecutor returns an executor from the docker client.
-func NewExecutor(b executorpkg.Backend, p plugin.Backend, i executorpkg.ImageBackend) exec.Executor {
+func NewExecutor(b executorpkg.Backend, p plugin.Backend, i executorpkg.ImageBackend, v executorpkg.VolumeBackend) exec.Executor {
 	return &executor{
 		backend:       b,
 		pluginBackend: p,
 		imageBackend:  i,
+		volumeBackend: v,
 		dependencies:  agent.NewDependencyManager(),
 	}
 }
@@ -143,13 +145,22 @@ func (e *executor) Configure(ctx context.Context, node *api.Node) error {
 	attachments := make(map[string]string)
 
 	for _, na := range node.Attachments {
+		if na == nil || na.Network == nil || len(na.Addresses) == 0 {
+			// this should not happen, but we got a panic here and don't have a
+			// good idea about what the underlying data structure looks like.
+			logrus.WithField("NetworkAttachment", fmt.Sprintf("%#v", na)).
+				Warnf("skipping nil or malformed node network attachment entry")
+			continue
+		}
+
 		if na.Network.Spec.Ingress {
 			ingressNA = na
 		}
+
 		attachments[na.Network.ID] = na.Addresses[0]
 	}
 
-	if (ingressNA == nil) && (node.Attachment != nil) {
+	if (ingressNA == nil) && (node.Attachment != nil) && (len(node.Attachment.Addresses) > 0) {
 		ingressNA = node.Attachment
 		attachments[ingressNA.Network.ID] = ingressNA.Addresses[0]
 	}
@@ -202,7 +213,7 @@ func (e *executor) Controller(t *api.Task) (exec.Controller, error) {
 	e.mutex.Unlock()
 
 	if t.Spec.GetAttachment() != nil {
-		return newNetworkAttacherController(e.backend, e.imageBackend, t, nodeDescription, dependencyGetter)
+		return newNetworkAttacherController(e.backend, e.imageBackend, e.volumeBackend, t, nodeDescription, dependencyGetter)
 	}
 
 	var ctlr exec.Controller
@@ -231,7 +242,7 @@ func (e *executor) Controller(t *api.Task) (exec.Controller, error) {
 			return ctlr, fmt.Errorf("unsupported runtime type: %q", runtimeKind)
 		}
 	case *api.TaskSpec_Container:
-		c, err := newController(e.backend, e.imageBackend, t, nodeDescription, dependencyGetter)
+		c, err := newController(e.backend, e.imageBackend, e.volumeBackend, t, nodeDescription, dependencyGetter)
 		if err != nil {
 			return ctlr, err
 		}

@@ -1,20 +1,20 @@
 package client // import "github.com/docker/docker/client"
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"golang.org/x/net/context"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 // TestPingFail tests that when a server sends a non-successful response that we
 // can still grab API details, when set.
-// Some of this is just excercising the code paths to make sure there are no
+// Some of this is just exercising the code paths to make sure there are no
 // panics.
 func TestPingFail(t *testing.T) {
 	var withHeader bool

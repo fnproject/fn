@@ -186,7 +186,7 @@ func (daemon *Daemon) reloadClusterDiscovery(conf *config.Config, attributes map
 	}
 	netOptions, err := daemon.networkOptions(daemon.configStore, daemon.PluginStore, nil)
 	if err != nil {
-		logrus.WithError(err).Warnf("failed to get options with network controller")
+		logrus.WithError(err).Warn("failed to get options with network controller")
 		return nil
 	}
 	err = daemon.netController.ReloadConfiguration(netOptions...)
@@ -316,7 +316,7 @@ func (daemon *Daemon) reloadNetworkDiagnosticPort(conf *config.Config, attribute
 		}
 		return nil
 	}
-	// Enable the network diagnostic if the flag is set with a valid port withing the range
+	// Enable the network diagnostic if the flag is set with a valid port within the range
 	logrus.WithFields(logrus.Fields{"port": conf.NetworkDiagnosticPort, "ip": "127.0.0.1"}).Warn("Starting network diagnostic server")
 	daemon.netController.StartDiagnostic(conf.NetworkDiagnosticPort)
 

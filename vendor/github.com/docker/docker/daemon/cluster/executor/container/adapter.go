@@ -1,13 +1,12 @@
 package container // import "github.com/docker/docker/daemon/cluster/executor/container"
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -21,14 +20,15 @@ import (
 	"github.com/docker/docker/daemon"
 	"github.com/docker/docker/daemon/cluster/convert"
 	executorpkg "github.com/docker/docker/daemon/cluster/executor"
+	volumeopts "github.com/docker/docker/volume/service/opts"
 	"github.com/docker/libnetwork"
 	"github.com/docker/swarmkit/agent/exec"
 	"github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/log"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/opencontainers/go-digest"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 )
 
@@ -36,23 +36,25 @@ import (
 // are mostly naked calls to the client API, seeded with information from
 // containerConfig.
 type containerAdapter struct {
-	backend      executorpkg.Backend
-	imageBackend executorpkg.ImageBackend
-	container    *containerConfig
-	dependencies exec.DependencyGetter
+	backend       executorpkg.Backend
+	imageBackend  executorpkg.ImageBackend
+	volumeBackend executorpkg.VolumeBackend
+	container     *containerConfig
+	dependencies  exec.DependencyGetter
 }
 
-func newContainerAdapter(b executorpkg.Backend, i executorpkg.ImageBackend, task *api.Task, node *api.NodeDescription, dependencies exec.DependencyGetter) (*containerAdapter, error) {
+func newContainerAdapter(b executorpkg.Backend, i executorpkg.ImageBackend, v executorpkg.VolumeBackend, task *api.Task, node *api.NodeDescription, dependencies exec.DependencyGetter) (*containerAdapter, error) {
 	ctnr, err := newContainerConfig(task, node)
 	if err != nil {
 		return nil, err
 	}
 
 	return &containerAdapter{
-		container:    ctnr,
-		backend:      b,
-		imageBackend: i,
-		dependencies: dependencies,
+		container:     ctnr,
+		backend:       b,
+		imageBackend:  i,
+		volumeBackend: v,
+		dependencies:  dependencies,
 	}, nil
 }
 
@@ -94,8 +96,7 @@ func (c *containerAdapter) pullImage(ctx context.Context) error {
 	go func() {
 		// TODO @jhowardmsft LCOW Support: This will need revisiting as
 		// the stack is built up to include LCOW support for swarm.
-		platform := runtime.GOOS
-		err := c.imageBackend.PullImage(ctx, c.container.image(), "", platform, metaHeaders, authConfig, pw)
+		err := c.imageBackend.PullImage(ctx, c.container.image(), "", nil, metaHeaders, authConfig, pw)
 		pw.CloseWithError(err)
 	}()
 
@@ -171,7 +172,7 @@ func (c *containerAdapter) createNetworks(ctx context.Context) error {
 func (c *containerAdapter) removeNetworks(ctx context.Context) error {
 	for name, v := range c.container.networksAttachments {
 		if err := c.backend.DeleteManagedNetwork(v.Network.ID); err != nil {
-			switch err.(type) {
+			switch errors.Cause(err).(type) {
 			case *libnetwork.ActiveEndpointsError:
 				continue
 			case libnetwork.ErrNoSuchNetwork:
@@ -388,7 +389,10 @@ func (c *containerAdapter) createVolumes(ctx context.Context) error {
 		req := c.container.volumeCreateRequest(&mount)
 
 		// Check if this volume exists on the engine
-		if _, err := c.backend.VolumeCreate(req.Name, req.Driver, req.DriverOpts, req.Labels); err != nil {
+		if _, err := c.volumeBackend.Create(ctx, req.Name, req.Driver,
+			volumeopts.WithCreateOptions(req.DriverOpts),
+			volumeopts.WithCreateLabels(req.Labels),
+		); err != nil {
 			// TODO(amitshukla): Today, volume create through the engine api does not return an error
 			// when the named volume with the same parameters already exists.
 			// It returns an error if the driver name is different - that is a valid error

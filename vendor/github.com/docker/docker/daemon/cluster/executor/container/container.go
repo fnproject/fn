@@ -172,6 +172,14 @@ func (c *containerConfig) isolation() enginecontainer.Isolation {
 	return convert.IsolationFromGRPC(c.spec().Isolation)
 }
 
+func (c *containerConfig) init() *bool {
+	if c.spec().Init == nil {
+		return nil
+	}
+	init := c.spec().Init.GetValue()
+	return &init
+}
+
 func (c *containerConfig) exposedPorts() map[nat.Port]struct{} {
 	exposedPorts := make(map[nat.Port]struct{})
 	if c.task.Endpoint == nil {
@@ -355,6 +363,7 @@ func (c *containerConfig) hostConfig() *enginecontainer.HostConfig {
 		Mounts:         c.mounts(),
 		ReadonlyRootfs: c.spec().ReadOnly,
 		Isolation:      c.isolation(),
+		Init:           c.init(),
 	}
 
 	if c.spec().DNSConfig != nil {
@@ -398,7 +407,7 @@ func (c *containerConfig) hostConfig() *enginecontainer.HostConfig {
 }
 
 // This handles the case of volumes that are defined inside a service Mount
-func (c *containerConfig) volumeCreateRequest(mount *api.Mount) *volumetypes.VolumesCreateBody {
+func (c *containerConfig) volumeCreateRequest(mount *api.Mount) *volumetypes.VolumeCreateBody {
 	var (
 		driverName string
 		driverOpts map[string]string
@@ -412,7 +421,7 @@ func (c *containerConfig) volumeCreateRequest(mount *api.Mount) *volumetypes.Vol
 	}
 
 	if mount.VolumeOptions != nil {
-		return &volumetypes.VolumesCreateBody{
+		return &volumetypes.VolumeCreateBody{
 			Name:       mount.Source,
 			Driver:     driverName,
 			DriverOpts: driverOpts,

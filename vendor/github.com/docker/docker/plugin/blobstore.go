@@ -1,6 +1,7 @@
 package plugin // import "github.com/docker/docker/plugin"
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +19,6 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 type blobstore interface {
@@ -145,6 +145,7 @@ func (dm *downloadManager) Download(ctx context.Context, initialRootFS image.Roo
 		if err != nil {
 			return initialRootFS, nil, err
 		}
+		defer inflatedLayerData.Close()
 		digester := digest.Canonical.Digester()
 		if _, err := chrootarchive.ApplyLayer(dm.tmpDir, io.TeeReader(inflatedLayerData, digester.Hash())); err != nil {
 			return initialRootFS, nil, err

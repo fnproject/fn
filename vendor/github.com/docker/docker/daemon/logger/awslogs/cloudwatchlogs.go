@@ -29,6 +29,7 @@ import (
 const (
 	name                   = "awslogs"
 	regionKey              = "awslogs-region"
+	endpointKey            = "awslogs-endpoint"
 	regionEnvKey           = "AWS_REGION"
 	logGroupKey            = "awslogs-group"
 	logStreamKey           = "awslogs-stream"
@@ -61,6 +62,7 @@ type logStream struct {
 	logStreamName    string
 	logGroupName     string
 	logCreateGroup   bool
+	logNonBlocking   bool
 	multilinePattern *regexp.Regexp
 	client           api
 	messages         chan *logger.Message
@@ -110,11 +112,11 @@ type eventBatch struct {
 
 // New creates an awslogs logger using the configuration passed in on the
 // context.  Supported context configuration variables are awslogs-region,
-// awslogs-group, awslogs-stream, awslogs-create-group, awslogs-multiline-pattern
-// and awslogs-datetime-format.  When available, configuration is
-// also taken from environment variables AWS_REGION, AWS_ACCESS_KEY_ID,
-// AWS_SECRET_ACCESS_KEY, the shared credentials file (~/.aws/credentials), and
-// the EC2 Instance Metadata Service.
+// awslogs-endpoint, awslogs-group, awslogs-stream, awslogs-create-group,
+// awslogs-multiline-pattern and awslogs-datetime-format.
+// When available, configuration is also taken from environment variables
+// AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, the shared credentials
+// file (~/.aws/credentials), and the EC2 Instance Metadata Service.
 func New(info logger.Info) (logger.Logger, error) {
 	logGroupName := info.Config[logGroupKey]
 	logStreamName, err := loggerutils.ParseLogTag(info, "{{.FullID}}")
@@ -129,6 +131,8 @@ func New(info logger.Info) (logger.Logger, error) {
 		}
 	}
 
+	logNonBlocking := info.Config["mode"] == "non-blocking"
+
 	if info.Config[logStreamKey] != "" {
 		logStreamName = info.Config[logStreamKey]
 	}
@@ -142,19 +146,54 @@ func New(info logger.Info) (logger.Logger, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	containerStream := &logStream{
 		logStreamName:    logStreamName,
 		logGroupName:     logGroupName,
 		logCreateGroup:   logCreateGroup,
+		logNonBlocking:   logNonBlocking,
 		multilinePattern: multilinePattern,
 		client:           client,
 		messages:         make(chan *logger.Message, 4096),
 	}
-	err = containerStream.create()
-	if err != nil {
-		return nil, err
+
+	creationDone := make(chan bool)
+	if logNonBlocking {
+		go func() {
+			backoff := 1
+			maxBackoff := 32
+			for {
+				// If logger is closed we are done
+				containerStream.lock.RLock()
+				if containerStream.closed {
+					containerStream.lock.RUnlock()
+					break
+				}
+				containerStream.lock.RUnlock()
+				err := containerStream.create()
+				if err == nil {
+					break
+				}
+
+				time.Sleep(time.Duration(backoff) * time.Second)
+				if backoff < maxBackoff {
+					backoff *= 2
+				}
+				logrus.
+					WithError(err).
+					WithField("container-id", info.ContainerID).
+					WithField("container-name", info.ContainerName).
+					Error("Error while trying to initialize awslogs. Retrying in: ", backoff, " seconds")
+			}
+			close(creationDone)
+		}()
+	} else {
+		if err = containerStream.create(); err != nil {
+			return nil, err
+		}
+		close(creationDone)
 	}
-	go containerStream.collectBatch()
+	go containerStream.collectBatch(creationDone)
 
 	return containerStream, nil
 }
@@ -224,12 +263,15 @@ var newSDKEndpoint = credentialsEndpoint
 // User-Agent string and automatic region detection using the EC2 Instance
 // Metadata Service when region is otherwise unspecified.
 func newAWSLogsClient(info logger.Info) (api, error) {
-	var region *string
+	var region, endpoint *string
 	if os.Getenv(regionEnvKey) != "" {
 		region = aws.String(os.Getenv(regionEnvKey))
 	}
 	if info.Config[regionKey] != "" {
 		region = aws.String(info.Config[regionKey])
+	}
+	if info.Config[endpointKey] != "" {
+		endpoint = aws.String(info.Config[endpointKey])
 	}
 	if region == nil || *region == "" {
 		logrus.Info("Trying to get region from EC2 Metadata")
@@ -251,6 +293,11 @@ func newAWSLogsClient(info logger.Info) (api, error) {
 
 	// attach region to cloudwatchlogs config
 	sess.Config.Region = region
+
+	// attach endpoint to cloudwatchlogs config
+	if endpoint != nil {
+		sess.Config.Endpoint = endpoint
+	}
 
 	if uri, ok := info.Config[credentialsEndpointKey]; ok {
 		logrus.Debugf("Trying to get credentials from awslogs-credentials-endpoint")
@@ -296,9 +343,18 @@ func (l *logStream) BufSize() int {
 func (l *logStream) Log(msg *logger.Message) error {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
-	if !l.closed {
-		l.messages <- msg
+	if l.closed {
+		return errors.New("awslogs is closed")
 	}
+	if l.logNonBlocking {
+		select {
+		case l.messages <- msg:
+			return nil
+		default:
+			return errors.New("awslogs buffer is full")
+		}
+	}
+	l.messages <- msg
 	return nil
 }
 
@@ -324,7 +380,9 @@ func (l *logStream) create() error {
 				return l.createLogStream()
 			}
 		}
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -401,7 +459,9 @@ var newTicker = func(freq time.Duration) *time.Ticker {
 // seconds.  When events are ready to be processed for submission to CloudWatch
 // Logs, the processEvents method is called.  If a multiline pattern is not
 // configured, log events are submitted to the processEvents method immediately.
-func (l *logStream) collectBatch() {
+func (l *logStream) collectBatch(created chan bool) {
+	// Wait for the logstream/group to be created
+	<-created
 	ticker := newTicker(batchPublishFrequency)
 	var eventBuffer []byte
 	var eventBufferTimestamp int64
@@ -555,7 +615,7 @@ func (l *logStream) putLogEvents(events []*cloudwatchlogs.InputLogEvent, sequenc
 	return resp.NextSequenceToken, nil
 }
 
-// ValidateLogOpt looks for awslogs-specific log options awslogs-region,
+// ValidateLogOpt looks for awslogs-specific log options awslogs-region, awslogs-endpoint
 // awslogs-group, awslogs-stream, awslogs-create-group, awslogs-datetime-format,
 // awslogs-multiline-pattern
 func ValidateLogOpt(cfg map[string]string) error {
@@ -565,6 +625,7 @@ func ValidateLogOpt(cfg map[string]string) error {
 		case logStreamKey:
 		case logCreateGroupKey:
 		case regionKey:
+		case endpointKey:
 		case tagKey:
 		case datetimeFormatKey:
 		case multilinePatternKey:

@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/docker/docker/internal/testutil"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestNormalizeDest(t *testing.T) {
@@ -48,7 +47,7 @@ func TestNormalizeDest(t *testing.T) {
 			}
 			assert.Check(t, is.Equal(testcase.expected, actual), msg)
 		} else {
-			testutil.ErrorContains(t, err, testcase.etext)
+			assert.Check(t, is.ErrorContains(err, testcase.etext))
 		}
 	}
 }
