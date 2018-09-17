@@ -23,7 +23,7 @@ func up21(ctx context.Context, tx *sqlx.Tx) error {
 	fn_id varchar(256),
 	stats text,
 	error text,
-	PRIMARY KEY (id);`
+	PRIMARY KEY (id));`
 	_, err = tx.ExecContext(ctx, newTable)
 	if err != nil {
 		return err
