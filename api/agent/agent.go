@@ -1247,6 +1247,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 			for _, b := range bufs {
 				bufPool.Put(b)
 			}
+			// iofs.Close MUST be called here or we will leak directories and/or tmpfs mounts!
 			if err = iofs.Close(); err != nil {
 				// Note: This is logged with the context of the container creation
 				common.Logger(ctx).WithError(err).Error("Error closing IOFS")
