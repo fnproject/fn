@@ -3,25 +3,24 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"strings"
+	"testing"
+
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
-	"net/http"
-	"strings"
-	"testing"
 )
 
 func TestHybridEndpoints(t *testing.T) {
 	buf := setLogBuffer()
 	app := &models.App{ID: "app_id", Name: "myapp"}
+	fn := &models.Fn{ID: "fn_id", AppID: app.ID}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Route{{
-			AppID: app.ID,
-			Path:  "yodawg",
-		}},
+		[]*models.Fn{fn},
 	)
 
 	logDB := logs.NewMock()
@@ -30,10 +29,8 @@ func TestHybridEndpoints(t *testing.T) {
 
 	newCallBody := func() string {
 		call := &models.Call{
-			AppID: app.ID,
-			ID:    id.New().String(),
-			Path:  "yodawg",
-			// TODO ?
+			FnID: fn.ID,
+			ID:   id.New().String(),
 		}
 		var b bytes.Buffer
 		json.NewEncoder(&b).Encode(&call)

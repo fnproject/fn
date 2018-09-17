@@ -46,7 +46,7 @@ func setupLogger(ctx context.Context, maxSize uint64, debug bool, c *models.Call
 
 	if debug {
 		// accumulate all line writers, wrap in same line writer (to re-use buffer)
-		stderrLogger := common.Logger(ctx).WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "path": c.Path, "image": c.Image, "call_id": c.ID})
+		stderrLogger := common.Logger(ctx).WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "fn_id": c.FnID, "image": c.Image, "call_id": c.ID})
 		loggo := &nopCloser{&logWriter{stderrLogger}}
 
 		// we don't need to limit the log writer(s), but we do need it to dispense lines

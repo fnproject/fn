@@ -17,7 +17,6 @@ import (
 
 type mock struct {
 	Apps     []*models.App
-	Routes   []*models.Route
 	Fns      []*models.Fn
 	Triggers []*models.Trigger
 
@@ -47,8 +46,6 @@ func NewMockInit(args ...interface{}) models.Datastore {
 		switch x := a.(type) {
 		case []*models.App:
 			mocker.Apps = x
-		case []*models.Route:
-			mocker.Routes = x
 		case []*models.Fn:
 			mocker.Fns = x
 		case []*models.Trigger:
@@ -167,8 +164,6 @@ func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, err
 }
 
 func (m *mock) RemoveApp(ctx context.Context, appID string) error {
-	m.batchDeleteRoutes(ctx, appID)
-
 	for i, a := range m.Apps {
 		if a.ID == appID {
 			var newFns []*models.Fn
@@ -196,95 +191,6 @@ func (m *mock) RemoveApp(ctx context.Context, appID string) error {
 	}
 
 	return models.ErrAppsNotFound
-}
-
-func (m *mock) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
-	for _, r := range m.Routes {
-		if r.AppID == appID && r.Path == routePath {
-			return r.Clone(), nil
-		}
-	}
-	return nil, models.ErrRoutesNotFound
-}
-
-type sortR []*models.Route
-
-func (s sortR) Len() int           { return len(s) }
-func (s sortR) Less(i, j int) bool { return strings.Compare(s[i].Path, s[j].Path) < 0 }
-func (s sortR) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-func (m *mock) GetRoutesByApp(ctx context.Context, appID string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
-	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
-	sort.Sort(sortR(m.Routes))
-
-	for _, r := range m.Routes {
-		if len(routes) == routeFilter.PerPage {
-			break
-		}
-
-		if r.AppID == appID &&
-			//strings.HasPrefix(r.Path, routeFilter.PathPrefix) && // TODO
-			(routeFilter.Image == "" || routeFilter.Image == r.Image) &&
-			strings.Compare(routeFilter.Cursor, r.Path) < 0 {
-
-			routes = append(routes, r.Clone())
-		}
-	}
-	return
-}
-
-func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-
-	c := route.Clone()
-	c.SetDefaults()
-	c.CreatedAt = common.DateTime(time.Now())
-	c.UpdatedAt = c.CreatedAt
-
-	if _, err := m.GetAppByID(ctx, route.AppID); err != nil {
-		return nil, err
-	}
-
-	if r, _ := m.GetRoute(ctx, route.AppID, route.Path); r != nil {
-		return nil, models.ErrRoutesAlreadyExists
-	}
-	m.Routes = append(m.Routes, c)
-	return c.Clone(), nil
-}
-
-func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	r, err := m.GetRoute(ctx, route.AppID, route.Path)
-	if err != nil {
-		return nil, err
-	}
-	clone := r.Clone()
-	clone.Update(route)
-	err = clone.Validate()
-	if err != nil {
-		return nil, err
-	}
-	r.Update(route) // only if validate works (pointer)
-	return clone, nil
-}
-
-func (m *mock) RemoveRoute(ctx context.Context, appID, routePath string) error {
-	for i, r := range m.Routes {
-		if r.AppID == appID && r.Path == routePath {
-			m.Routes = append(m.Routes[:i], m.Routes[i+1:]...)
-			return nil
-		}
-	}
-	return models.ErrRoutesNotFound
-}
-
-func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
-	var newRoutes []*models.Route
-	for _, c := range m.Routes {
-		if c.AppID != appID {
-			newRoutes = append(newRoutes, c)
-		}
-	}
-	m.Routes = newRoutes
-	return nil
 }
 
 func (m *mock) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {

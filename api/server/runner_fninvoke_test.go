@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -163,7 +165,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	rnr, cancelrnr := testRunner(t, ds, ls)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull, LimitRequestBody(32256))
 
 	expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
@@ -182,6 +184,10 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
 	multiLog := `{"echoContent": "_TRX_ID_", "sleepTime": 1000, "isDebug": true}`
+	//over sized request
+	var bigbufa [32257]byte
+	rand.Read(bigbufa[:])
+	bigbuf := base64.StdEncoding.EncodeToString(bigbufa[:])                            // this will be > bigbufa, but json compatible
 	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
 	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1}`  // 1 trailer < 2K
 
@@ -222,6 +228,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/http_fn_id", smalloutput, "POST", http.StatusOK, nil, "", nil},
 		{"/invoke/default_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "", nil},
 		{"/invoke/default_fn_id", smalloutput, "POST", http.StatusOK, nil, "", nil},
+		{"/invoke/http_fn_id", bigbuf, "POST", http.StatusRequestEntityTooLarge, nil, "", nil},
 	}
 
 	callIds := make([]string, len(testCases))
@@ -294,8 +301,8 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 		}
 	}()
 
-	models.RouteMaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
-	hugeMem := uint64(models.RouteMaxMemory - 1)
+	models.MaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
+	hugeMem := uint64(models.MaxMemory - 1)
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	coldFn := &models.Fn{ID: "cold", Name: "cold", AppID: app.ID, Format: "", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}

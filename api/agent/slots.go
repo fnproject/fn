@@ -274,8 +274,8 @@ func (a *slotQueueMgr) deleteSlotQueue(slots *slotQueue) bool {
 
 var shapool = &sync.Pool{New: func() interface{} { return sha256.New() }}
 
-// TODO do better; once we have app+route versions this function
-// can be simply app+route names & version
+// TODO do better; once we have app+fn versions this function
+// can be simply app+fn ids & version
 func getSlotQueueKey(call *call) string {
 	// return a sha256 hash of a (hopefully) unique string of all the config
 	// values, to make map lookups quicker [than the giant unique string]
@@ -288,7 +288,7 @@ func getSlotQueueKey(call *call) string {
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.SyslogURL))
 	hash.Write(unsafeBytes("\x00"))
-	hash.Write(unsafeBytes(call.Path))
+	hash.Write(unsafeBytes(call.FnID))
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.Image))
 	hash.Write(unsafeBytes("\x00"))

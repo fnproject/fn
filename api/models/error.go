@@ -77,61 +77,9 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid payload"),
 	}
-	ErrDatastoreEmptyRoute = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route"),
-	}
-	ErrRoutesAlreadyExists = err{
-		code:  http.StatusConflict,
-		error: errors.New("Route already exists"),
-	}
-	ErrRoutesMissingNew = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing new route"),
-	}
-	ErrRoutesNotFound = err{
-		code:  http.StatusNotFound,
-		error: errors.New("Route not found"),
-	}
-	ErrRoutesPathImmutable = err{
-		code:  http.StatusConflict,
-		error: errors.New("Could not update - path is immutable"),
-	}
 	ErrFoundDynamicURL = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Dynamic URL is not allowed"),
-	}
-	ErrRoutesInvalidPath = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invalid route path format"),
-	}
-	ErrRoutesInvalidType = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invalid route Type"),
-	}
-	ErrRoutesInvalidFormat = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invalid route Format"),
-	}
-	ErrRoutesMissingAppID = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route AppName"),
-	}
-	ErrRoutesMissingImage = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route Image"),
-	}
-	ErrRoutesInvalidImage = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invalid route Image"),
-	}
-	ErrRoutesMissingName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route Name"),
-	}
-	ErrRoutesMissingPath = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route Path"),
 	}
 	ErrPathMalformed = err{
 		code:  http.StatusBadRequest,
@@ -145,21 +93,9 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("from_time is not an epoch time"),
 	}
-	ErrRoutesInvalidTimeout = err{
-		code:  http.StatusBadRequest,
-		error: fmt.Errorf("timeout value is out of range. Sync should be between 0 and %d, async should be between 0 and %d", MaxSyncTimeout, MaxAsyncTimeout),
-	}
-	ErrRoutesInvalidIdleTimeout = err{
-		code:  http.StatusBadRequest,
-		error: fmt.Errorf("idle_timeout value is out of range. It should be between 0 and %d", MaxIdleTimeout),
-	}
-	ErrRoutesInvalidMemory = err{
-		code:  http.StatusBadRequest,
-		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
-	}
 	ErrInvalidMemory = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
+		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", MaxMemory),
 	}
 	ErrCallResourceTooBig = err{
 		code:  http.StatusBadRequest,
@@ -177,14 +113,6 @@ var (
 	ErrCallLogNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call log not found"),
-	}
-	ErrInvokeNotSupported = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invoking routes /r/ is not supported on nodes configured as type API"),
-	}
-	ErrAPINotSupported = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invoking api /v1/ requests is not supported on nodes configured as type Runner"),
 	}
 	ErrPathNotFound = err{
 		code:  http.StatusNotFound,

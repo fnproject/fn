@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
@@ -187,20 +186,6 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	//}
 
 	c.String(http.StatusNoContent, "")
-}
-
-// This is a sort of interim route  that is V2 API style but due for deprectation
-func (s *Server) handleRunnerGetRoute(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	routePath := path.Clean("/" + c.MustGet(api.Path).(string))
-	route, err := s.datastore.GetRoute(ctx, c.MustGet(api.AppID).(string), routePath)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, route)
 }
 
 func (s *Server) handleRunnerGetTriggerBySource(c *gin.Context) {

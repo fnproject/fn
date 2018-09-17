@@ -581,7 +581,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	// Status image is reserved for internal Status checks.
 	// We need to make sure normal functions calls cannot call it.
 	if pr.status.imageName != "" && c.Image == pr.status.imageName {
-		err = models.ErrRoutesInvalidImage
+		err = models.ErrFnsInvalidImage
 		state.enqueueCallResponse(err)
 		return err
 	}
@@ -699,7 +699,6 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	// Most of these arguments are baked in. We might want to make this
 	// more configurable.
 	c.ID = id.New().String()
-	c.Path = "/"
 	c.Image = pr.status.imageName
 	c.Type = "sync"
 	c.Format = "json"

@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -10,9 +11,30 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runnerpool"
 )
+
+func callFN(ctx context.Context, u string, content io.Reader, output io.Writer) (*http.Response, error) {
+	method := "POST"
+
+	req, err := http.NewRequest(method, u, content)
+	if err != nil {
+		return nil, fmt.Errorf("error running fn: %s", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(ctx)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error running fn: %s", err)
+	}
+
+	io.Copy(output, resp.Body)
+
+	return resp, nil
+}
 
 // We should not be able to invoke a StatusImage
 func TestCannotExecuteStatusImage(t *testing.T) {
@@ -23,15 +45,19 @@ func TestCannotExecuteStatusImage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	rt := &models.Route{
-		Path:   routeName + "yogurt",
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID:  app.ID,
+		Name:   id.New().String(),
 		Image:  StatusImage,
 		Format: format,
-		Memory: memory,
-		Type:   typ,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
 	}
-
-	rt = ensureRoute(t, rt)
+	fn = ensureFn(t, fn)
 
 	lb, err := LB()
 	if err != nil {
@@ -41,12 +67,12 @@ func TestCannotExecuteStatusImage(t *testing.T) {
 		Scheme: "http",
 		Host:   lb,
 	}
-	u.Path = path.Join(u.Path, "r", appName, rt.Path)
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
 	content := bytes.NewBuffer([]byte(`status`))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, "POST")
+	resp, err := callFN(ctx, u.String(), content, output)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}

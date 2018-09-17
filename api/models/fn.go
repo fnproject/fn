@@ -18,6 +18,13 @@ var (
 	MaxTimeout     int32  = 300      // 5m
 	MaxIdleTimeout int32  = 3600     // 1h
 
+	DefaultTimeout     int32  = 30  // seconds
+	DefaultIdleTimeout int32  = 30  // seconds
+	DefaultMemory      uint64 = 128 // MB
+
+	MaxSyncTimeout  = 120  // 2 minutes
+	MaxAsyncTimeout = 3600 // 1 hour
+
 	ErrFnsIDMismatch = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Fn ID in path does not match that in body"),
@@ -49,6 +56,10 @@ var (
 	ErrFnsMissingImage = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing image on Fn"),
+	}
+	ErrFnsInvalidImage = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid Fn image"),
 	}
 	ErrFnsInvalidFormat = err{
 		code:  http.StatusBadRequest,

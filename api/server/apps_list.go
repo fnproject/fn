@@ -12,7 +12,7 @@ func (s *Server) handleAppList(c *gin.Context) {
 
 	filter := &models.AppFilter{}
 
-	filter.Cursor, filter.PerPage = pageParamsV2(c)
+	filter.Cursor, filter.PerPage = pageParams(c)
 
 	filter.Name = c.Query("name")
 

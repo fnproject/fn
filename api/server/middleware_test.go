@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"fmt"
+
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -78,12 +79,10 @@ func TestRootMiddleware(t *testing.T) {
 	app2 := &models.App{ID: "app_id_2", Name: "myapp2", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app1, app2},
-		[]*models.Route{
-			{Path: "/", AppID: app1.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppID: app1.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/app2func", AppID: app2.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
-				Config: map[string]string{"NAME": "johnny"},
-			},
+		[]*models.Fn{
+			{ID: "fn_id1", AppID: app1.ID, Image: "fnproject/hello"},
+			{ID: "fn_id2", AppID: app1.ID, Image: "fnproject/hello"},
+			{ID: "fn_id3", AppID: app2.ID, Image: "fnproject/hello"},
 		},
 	)
 
@@ -97,11 +96,7 @@ func TestRootMiddleware(t *testing.T) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("funcit") != "" {
 				t.Log("breaker breaker!")
-				ctx := r.Context()
-				ctx = ContextWithApp(ctx, "myapp2")
-				ctx = ContextWithPath(ctx, "/app2func")
-				mctx := fnext.GetMiddlewareController(ctx)
-				mctx.CallFunction(w, r.WithContext(ctx))
+				w.Write([]byte("Rerooted"))
 				return
 			}
 			// If any context changes, user should use this: next.ServeHTTP(w, r.WithContext(ctx))
@@ -132,9 +127,9 @@ func TestRootMiddleware(t *testing.T) {
 		expectedCode   int
 		expectedInBody string
 	}{
-		{"/r/myapp", `{"isDebug": true}`, "GET", map[string][]string{}, http.StatusOK, "middle"},
-		{"/r/myapp/myroute", `{"isDebug": true}`, "GET", map[string][]string{}, http.StatusOK, "middle"},
-		{"/v1/apps", `{"isDebug": true}`, "GET", map[string][]string{"funcit": {"Test"}}, http.StatusOK, "johnny"},
+		{"/invoke/fn_id1", `{"isDebug": true}`, "POST", map[string][]string{}, http.StatusOK, "middle"},
+		{"/v2/apps/app_id_1/fns/fn_id1", `{"isDebug": true}`, "POST", map[string][]string{}, http.StatusOK, "middle"},
+		{"/v2/apps", `{"isDebug": true}`, "POST", map[string][]string{"funcit": {"Test"}}, http.StatusOK, "Rerooted"},
 	} {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			body := strings.NewReader(test.body)
@@ -163,7 +158,7 @@ func TestRootMiddleware(t *testing.T) {
 
 	}
 
-	req, err := http.NewRequest("POST", "http://127.0.0.1:8080/v1/apps", strings.NewReader("{\"app\": {\"name\": \"myapp3\"}}"))
+	req, err := http.NewRequest("POST", "http://127.0.0.1:8080/v2/apps", strings.NewReader("{\"name\": \"myapp3\"}"))
 	if err != nil {
 		t.Fatalf("Test: Could not create create app request")
 	}

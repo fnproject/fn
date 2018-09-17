@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"strings"
 
+	"strconv"
+	"time"
+
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/fnext"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -18,8 +20,6 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
-	"strconv"
-	"time"
 )
 
 var (
@@ -67,13 +67,18 @@ func traceWrap(c *gin.Context) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	pathKey, err := tag.NewKey("fn_path")
+	appIDKey, err := tag.NewKey("fn_app_id")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	fnKey, err := tag.NewKey("fn_fn_id")
 	if err != nil {
 		logrus.Fatal(err)
 	}
 	ctx, err := tag.New(c.Request.Context(),
 		tag.Insert(appKey, c.Param(api.ParamAppName)),
-		tag.Insert(pathKey, c.Param(api.ParamRouteName)),
+		tag.Insert(appIDKey, c.Param(api.ParamAppID)),
+		tag.Insert(fnKey, c.Param(api.ParamFnID)),
 	)
 	if err != nil {
 		logrus.Fatal(err)
@@ -169,7 +174,7 @@ func panicWrap(c *gin.Context) {
 			if !ok {
 				err = fmt.Errorf("fn: %v", rec)
 			}
-			handleV1ErrorResponse(c, err)
+			handleErrorResponse(c, err)
 			c.Abort()
 		}
 	}(c)
@@ -184,27 +189,41 @@ func loggerWrap(c *gin.Context) {
 		ctx = ContextWithApp(ctx, appName)
 	}
 
-	if routePath := c.Param(api.ParamRouteName); routePath != "" {
-		c.Set(api.Path, routePath)
-		ctx = ContextWithPath(ctx, routePath)
+	if appID := c.Param(api.ParamAppID); appID != "" {
+		c.Set(api.ParamAppID, appID)
+		ctx = ContextWithAppID(ctx, appID)
+	}
+
+	if fnID := c.Param(api.ParamFnID); fnID != "" {
+		c.Set(api.ParamFnID, fnID)
+		ctx = ContextWithFnID(ctx, fnID)
 	}
 
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
 }
 
-type ctxPathKey string
+type ctxFnIDKey string
 
-// ContextWithPath sets the routePath value on a context, it may be retrieved
-// using PathFromContext.
-// TODO this is also used as a gin.Key -- stop one of these two things.
-func ContextWithPath(ctx context.Context, routePath string) context.Context {
-	return context.WithValue(ctx, ctxPathKey(api.Path), routePath)
+func ContextWithFnID(ctx context.Context, fnID string) context.Context {
+	return context.WithValue(ctx, ctxFnIDKey(api.ParamFnID), fnID)
 }
 
-// PathFromContext returns the path from a context, if set.
-func PathFromContext(ctx context.Context) string {
-	r, _ := ctx.Value(ctxPathKey(api.Path)).(string)
+// FnIDFromContext returns the app from a context, if set.
+func FnIDFromContext(ctx context.Context) string {
+	r, _ := ctx.Value(ctxFnIDKey(api.ParamFnID)).(string)
+	return r
+}
+
+type ctxAppIDKey string
+
+func ContextWithAppID(ctx context.Context, appID string) context.Context {
+	return context.WithValue(ctx, ctxAppIDKey(api.ParamAppID), appID)
+}
+
+// AppIDFromContext returns the app from a context, if set.
+func AppIDFromContext(ctx context.Context) string {
+	r, _ := ctx.Value(ctxAppIDKey(api.ParamAppID)).(string)
 	return r
 }
 
@@ -223,26 +242,6 @@ func AppFromContext(ctx context.Context) string {
 	return r
 }
 
-func (s *Server) checkAppPresenceByNameAtLB() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
-
-		appName := c.Param(api.ParamAppName)
-		if appName != "" {
-			appID, err := s.lbReadAccess.GetAppID(ctx, appName)
-			if err != nil {
-				handleV1ErrorResponse(c, err)
-				c.Abort()
-				return
-			}
-			c.Set(api.AppID, appID)
-		}
-
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-	}
-}
-
 func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
@@ -251,7 +250,7 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 		if appName != "" {
 			appID, err := s.datastore.GetAppID(ctx, appName)
 			if err != nil {
-				handleV1ErrorResponse(c, err)
+				handleErrorResponse(c, err)
 				c.Abort()
 				return
 			}
@@ -261,15 +260,6 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
-}
-
-func setAppNameInCtx(c *gin.Context) {
-	// add appName to context
-	appName := c.GetString(api.AppName)
-	if appName != "" {
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), fnext.AppNameKey, appName))
-	}
-	c.Next()
 }
 
 func setAppIDInCtx(c *gin.Context) {
@@ -283,10 +273,10 @@ func setAppIDInCtx(c *gin.Context) {
 	c.Next()
 }
 
-func appNameCheck(c *gin.Context) {
-	appName := c.GetString(api.AppName)
-	if appName == "" {
-		handleV1ErrorResponse(c, models.ErrAppsMissingName)
+func appIDCheck(c *gin.Context) {
+	appID := c.GetString(api.ParamAppID)
+	if appID == "" {
+		handleErrorResponse(c, models.ErrAppsMissingID)
 		c.Abort()
 		return
 	}

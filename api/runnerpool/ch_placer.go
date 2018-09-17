@@ -31,8 +31,7 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 	state := NewPlacerTracker(ctx, &p.cfg)
 	defer state.HandleDone()
 
-	// The key is just the path in this case
-	key := call.Model().Path
+	key := call.Model().FnID
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
 
 	for {

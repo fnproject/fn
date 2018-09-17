@@ -16,7 +16,7 @@ type LogStore interface {
 
 	// TODO we should probably allow deletion of a range of logs (also calls)?
 	// common cases for deletion will be:
-	// * route gets nuked
+	// * fn gets nuked
 	// * app gets nuked
 	// * call+logs getting cleaned up periodically
 
@@ -24,15 +24,8 @@ type LogStore interface {
 	// exists.
 	InsertCall(ctx context.Context, call *Call) error
 
-	// GetCall returns a call at a certain id and app name.
-	GetCall1(ctx context.Context, appId, callID string) (*Call, error)
-
 	// GetCall2 returns a call at a certain id
 	GetCall(ctx context.Context, fnID, callID string) (*Call, error)
-
-	// GetCalls returns a list of calls that satisfy the given CallFilter. If no
-	// calls exist, an empty list and a nil error are returned.
-	GetCalls1(ctx context.Context, filter *CallFilter) ([]*Call, error)
 
 	// GetCalls returns a list of calls that satisfy the given CallFilter. If no
 	// calls exist, an empty list and a nil error are returned.

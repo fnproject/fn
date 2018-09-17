@@ -11,48 +11,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleCallList1(c *gin.Context) {
-	ctx := c.Request.Context()
-	var err error
-
-	appID := c.MustGet(api.AppID).(string)
-	// TODO api.ParamRouteName needs to be escaped probably, since it has '/' a lot
-	filter := models.CallFilter{AppID: appID, Path: c.Query("path")}
-	filter.Cursor, filter.PerPage = pageParams(c, false) // ids are url safe
-
-	filter.FromTime, filter.ToTime, err = timeParams(c)
-	if err != nil {
-		handleV1ErrorResponse(c, err)
-		return
-	}
-
-	calls, err := s.logstore.GetCalls1(ctx, &filter)
-
-	var nextCursor string
-	if len(calls) > 0 && len(calls) == filter.PerPage {
-		nextCursor = calls[len(calls)-1].ID
-		// don't base64, IDs are url safe
-	}
-
-	c.JSON(http.StatusOK, callsResponse{
-		Message:    "Successfully listed calls",
-		NextCursor: nextCursor,
-		Calls:      calls,
-	})
-}
-
 func (s *Server) handleCallList(c *gin.Context) {
 	ctx := c.Request.Context()
 	var err error
 
-	fnID := c.MustGet(api.ParamFnID).(string)
-	// TODO api.ParamRouteName needs to be escaped probably, since it has '/' a lot
+	fnID := c.Param(api.ParamFnID)
+
+	if fnID == "" {
+		handleErrorResponse(c, models.ErrFnsMissingID)
+		return
+	}
+
+	_, err = s.datastore.GetFnByID(ctx, c.Param(api.ParamFnID))
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
 	filter := models.CallFilter{FnID: fnID}
-	filter.Cursor, filter.PerPage = pageParams(c, false) // ids are url safe
+	filter.Cursor, filter.PerPage = pageParams(c)
 
 	filter.FromTime, filter.ToTime, err = timeParams(c)
 	if err != nil {
-		handleV1ErrorResponse(c, err)
+		handleErrorResponse(c, err)
 		return
 	}
 

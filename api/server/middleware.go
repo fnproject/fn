@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
@@ -16,38 +15,8 @@ type middlewareController struct {
 	// context.Context
 
 	// separating this out so we can use it and don't have to reimplement context.Context above
-	ginContext     *gin.Context
-	server         *Server
-	functionCalled bool
-}
-
-// CallFunction bypasses any further gin routing and calls the function directly
-func (c *middlewareController) CallFunction(w http.ResponseWriter, r *http.Request) {
-	c.functionCalled = true
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, fnext.MiddlewareControllerKey, c)
-	r = r.WithContext(ctx)
-	c.ginContext.Request = r
-
-	// since we added middleware that checks the app ID
-	// we need to ensure that we set it as soon as possible
-	appName := AppFromContext(ctx)
-	if appName != "" {
-		appID, err := c.server.datastore.GetAppID(ctx, appName)
-		if err != nil {
-			handleV1ErrorResponse(c.ginContext, err)
-			c.ginContext.Abort()
-			return
-		}
-		c.ginContext.Set(api.AppID, appID)
-	}
-
-	c.server.handleV1FunctionCall(c.ginContext)
-	c.ginContext.Abort()
-}
-func (c *middlewareController) FunctionCalled() bool {
-	return c.functionCalled
+	ginContext *gin.Context
+	server     *Server
 }
 
 func (s *Server) apiMiddlewareWrapper() gin.HandlerFunc {
@@ -78,7 +47,7 @@ func (s *Server) runMiddleware(c *gin.Context, ms []fnext.Middleware) {
 		err := recover()
 		if err != nil {
 			common.Logger(c.Request.Context()).WithField("MiddleWarePanicRecovery:", err).Errorln("A panic occurred during middleware.")
-			handleV1ErrorResponse(c, ErrInternalServerError)
+			handleErrorResponse(c, ErrInternalServerError)
 		}
 	}()
 
@@ -86,13 +55,6 @@ func (s *Server) runMiddleware(c *gin.Context, ms []fnext.Middleware) {
 	last := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// fmt.Println("final handler called")
 		ctx := r.Context()
-		mctx := fnext.GetMiddlewareController(ctx)
-		// check for bypass
-		if mctx.FunctionCalled() {
-			// fmt.Println("func already called, skipping")
-			c.Abort()
-			return
-		}
 		c.Request = r.WithContext(ctx)
 		c.Next()
 	})

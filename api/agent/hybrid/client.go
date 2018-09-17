@@ -146,16 +146,6 @@ func (cl *client) GetAppByID(ctx context.Context, appID string) (*models.App, er
 	return &a, err
 }
 
-func (cl *client) GetRoute(ctx context.Context, appID, route string) (*models.Route, error) {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_route")
-	defer span.End()
-
-	// TODO trim prefix is pretty odd here eh?
-	var r = models.Route{}
-	err := cl.do(ctx, nil, &r, "GET", noQuery, "runner", "apps", appID, "routes", strings.TrimPrefix(route, "/"))
-	return &r, err
-}
-
 func (cl *client) GetTriggerBySource(ctx context.Context, appID string, triggerType, source string) (*models.Trigger, error) {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_trigger_by_source")
 	defer span.End()

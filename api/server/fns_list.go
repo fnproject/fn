@@ -12,7 +12,7 @@ func (s *Server) handleFnList(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var filter models.FnFilter
-	filter.Cursor, filter.PerPage = pageParamsV2(c)
+	filter.Cursor, filter.PerPage = pageParams(c)
 	filter.AppID = c.Query("app_id")
 	filter.Name = c.Query("name")
 
