@@ -32,30 +32,11 @@ import (
 //
 // currently tested and working are postgres, mysql and sqlite3.
 
-// TODO routes.created_at should be varchar(256), mysql will store 'text'
 // fields not contiguous with other fields and this field is a fixed size,
 // we'll get better locality with varchar. it's not terribly easy to do this
 // with migrations (sadly, need complex transaction)
 
-var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
-	app_id varchar(256) NOT NULL,
-	path varchar(256) NOT NULL,
-	image varchar(256) NOT NULL,
-	format varchar(16) NOT NULL,
-	memory int NOT NULL,
-	cpus int,
-	timeout int NOT NULL,
-	idle_timeout int NOT NULL,
-	tmpfs_size int,
-	type varchar(16) NOT NULL,
-	headers text NOT NULL,
-	config text NOT NULL,
-	annotations text NOT NULL,
-	created_at text,
-	updated_at varchar(256),
-	PRIMARY KEY (app_id, path)
-);`,
-
+var tables = [...]string{
 	`CREATE TABLE IF NOT EXISTS apps (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL UNIQUE,
@@ -475,7 +456,6 @@ func (ds *SQLStore) RemoveApp(ctx context.Context, appID string) error {
 		deletes := []string{
 			`DELETE FROM logs WHERE app_id=?`,
 			`DELETE FROM calls WHERE app_id=?`,
-			`DELETE FROM routes WHERE app_id=?`,
 			`DELETE FROM fns WHERE app_id=?`,
 			`DELETE FROM triggers WHERE app_id=?`,
 		}
