@@ -641,7 +641,7 @@ func TestTmpFsSize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg.MaxTmpFsInodes = 1024
+	cfg.MaxTmpFsInodes = 1025
 
 	ls := logs.NewMock()
 	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
@@ -657,6 +657,8 @@ func TestTmpFsSize(t *testing.T) {
 
 	var out bytes.Buffer
 	callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&out))
+
+	callI.Model().TmpFsSize = 1
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -697,7 +699,7 @@ func TestTmpFsSize(t *testing.T) {
 		opts := tokens[3]
 
 		// rw tmp dir with size and inode limits applied.
-		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1024" {
+		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1025" {
 			// good
 			isFound = true
 		} else if point == "/" && strings.HasPrefix(opts, "ro,") {

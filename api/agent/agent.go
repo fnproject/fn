@@ -1283,7 +1283,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		memory:         call.Memory,
 		cpus:           uint64(call.CPUs),
 		fsSize:         cfg.MaxFsSize,
-		tmpFsSize:      uint64(cfg.MaxTmpFsInodes),
+		tmpFsSize:      uint64(call.TmpFsSize),
 		iofsAgentPath:  iofsAgentPath,
 		iofsDockerPath: iofsDockerPath,
 		logCfg: drivers.LoggerConfig{
