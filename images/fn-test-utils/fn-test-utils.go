@@ -155,6 +155,7 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		log.Printf("Received format %v", format)
 		log.Printf("Received request %#v", request)
 		log.Printf("Received headers %v", fnctx.Header)
+		log.Printf("Received http headers %v", fnctx.HTTPHeader)
 		log.Printf("Received config %v", fnctx.Config)
 	}
 
@@ -222,7 +223,7 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 	resp := AppResponse{
 		Data:    data,
 		Request: request,
-		Headers: fnctx.Header,
+		Headers: fnctx.HTTPHeader,
 		Config:  fnctx.Config,
 		Trailer: make([]string, 0, request.TrailerRepeat),
 	}

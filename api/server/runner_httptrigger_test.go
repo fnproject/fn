@@ -273,10 +273,11 @@ func TestTriggerRunnerExecution(t *testing.T) {
 	httpDneRegistryFn := &models.Fn{ID: "http_dnereg_fn_id", Name: "http_dnereg_fn", AppID: app.ID, Image: rImgBs2, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	jsonFn := &models.Fn{ID: "json_fn_id", Name: "json_fn", AppID: app.ID, Image: rImg, Format: "json", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	oomFn := &models.Fn{ID: "http_oom_fn_id", Name: "http_fn", AppID: app.ID, Image: rImg, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 8, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+	httpStreamFn := &models.Fn{ID: "http_stream_fn_id", Name: "http_stream_fn", AppID: app.ID, Image: rImg, Format: "http-stream", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{defaultFn, defaultDneFn, httpDneRegistryFn, oomFn, httpFn, jsonFn, httpDneFn},
+		[]*models.Fn{defaultFn, defaultDneFn, httpDneRegistryFn, oomFn, httpFn, jsonFn, httpDneFn, httpStreamFn},
 		[]*models.Trigger{
 			{ID: "1", Name: "1", Source: "/", Type: "http", AppID: app.ID, FnID: defaultFn.ID},
 			{ID: "2", Name: "2", Source: "/myhot", Type: "http", AppID: app.ID, FnID: httpFn.ID},
@@ -290,6 +291,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 			{ID: "10", Name: "10", Source: "/mybigoutputcold", Type: "http", AppID: app.ID, FnID: defaultFn.ID},
 			{ID: "11", Name: "11", Source: "/mybigoutputhttp", Type: "http", AppID: app.ID, FnID: httpFn.ID},
 			{ID: "12", Name: "12", Source: "/mybigoutputjson", Type: "http", AppID: app.ID, FnID: jsonFn.ID},
+			{ID: "13", Name: "13", Source: "/httpstream", Type: "http", AppID: app.ID, FnID: httpStreamFn.ID},
 		},
 	)
 	ls := logs.NewMock()
@@ -319,8 +321,11 @@ func TestTriggerRunnerExecution(t *testing.T) {
 	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
 	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1}`  // 1 trailer < 2K
 
+	statusChecker := `{"echoContent": "_TRX_ID_", "isDebug": true, "responseCode":202}`
+
 	testCases := []struct {
 		path               string
+		headers            map[string][]string
 		body               string
 		method             string
 		expectedCode       int
@@ -328,34 +333,46 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		expectedErrSubStr  string
 		expectedLogsSubStr []string
 	}{
-		{"/t/myapp/", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/t/myapp/", nil, ok, "GET", http.StatusOK, expHeaders, "", nil},
 
-		{"/t/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
+		{"/t/myapp/myhot", nil, badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
 		// hot container now back to normal:
-		{"/t/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/t/myapp/myhot", nil, ok, "GET", http.StatusOK, expHeaders, "", nil},
 
-		{"/t/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
+		{"/t/myapp/myhotjason", nil, badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
 		// hot container now back to normal:
-		{"/t/myapp/myhotjason", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/t/myapp/myhotjason", nil, ok, "GET", http.StatusOK, expHeaders, "", nil},
 
-		{"/t/myapp/myhot", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
-		{"/t/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
-		{"/t/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
+		{"/t/myapp/myhot", nil, respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
+		{"/t/myapp/myhotjason", nil, respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
+		{"/t/myapp/myhotjason", nil, respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
 
-		{"/t/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, "", nil},
-		{"/t/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 1", nil},
-		{"/t/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
-		{"/t/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
-		{"/t/myapp/mydneregistry", ``, "GET", http.StatusInternalServerError, nil, "connection refused", nil},
-		{"/t/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
-		{"/t/myapp/myhot", multiLog, "GET", http.StatusOK, nil, "", multiLogExpectHot},
-		{"/t/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpectCold},
-		{"/t/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
-		{"/t/myapp/mybigoutputjson", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/t/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
-		{"/t/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/t/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
-		{"/t/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
+		// XXX(reed): we test all this stuff in invoke, we really only need to test headers / status code here dude...
+		{"/t/myapp/httpstream", nil, ok, "POST", http.StatusOK, expHeaders, "", nil},
+		{"/t/myapp/httpstream", nil, statusChecker, "POST", 202, expHeaders, "", nil},
+		// NOTE: we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
+		{"/t/myapp/httpstream", nil, respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
+		//{"/t/myapp/httpstream", nil, crasher, "POST", http.StatusBadGateway, expHeaders, "error receiving function response", nil},
+		//// XXX(reed): we could stop buffering function responses so that we can stream things?
+		//{"/t/myapp/httpstream", nil, bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},
+		//{"/t/myapp/httpstream", nil, smalloutput, "POST", http.StatusOK, expHeaders, "", nil},
+		//// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
+		//{"/t/myapp/httpstream", nil, oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},
+
+		{"/t/myapp/myroute", nil, ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/t/myapp/myerror", nil, crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 1", nil},
+		{"/t/myapp/mydne", nil, ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
+		{"/t/myapp/mydnehot", nil, ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
+		{"/t/myapp/mydneregistry", nil, ``, "GET", http.StatusInternalServerError, nil, "connection refused", nil},
+		{"/t/myapp/myoom", nil, oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
+		{"/t/myapp/myhot", nil, multiLog, "GET", http.StatusOK, nil, "", multiLogExpectHot},
+		{"/t/myapp/", nil, multiLog, "GET", http.StatusOK, nil, "", multiLogExpectCold},
+		{"/t/myapp/mybigoutputjson", nil, bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
+		{"/t/myapp/mybigoutputjson", nil, smalloutput, "GET", http.StatusOK, nil, "", nil},
+		{"/t/myapp/mybigoutputhttp", nil, bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
+		{"/t/myapp/mybigoutputhttp", nil, smalloutput, "GET", http.StatusOK, nil, "", nil},
+		{"/t/myapp/mybigoutputcold", nil, bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
+		{"/t/myapp/mybigoutputcold", nil, smalloutput, "GET", http.StatusOK, nil, "", nil},
 	}
 
 	callIds := make([]string, len(testCases))
