@@ -13,9 +13,10 @@ import (
 	"strings"
 	"sync"
 
-	"go.opencensus.io/trace"
+	"github.com/fnproject/fn/api/models"
 
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 )
 
 const (
@@ -27,6 +28,17 @@ const (
 )
 
 var CapacityFull = errors.New("max capacity reached")
+
+type ResourceUtilization struct {
+	// CPU in use
+	CpuUsed models.MilliCPUs
+	// CPU available
+	CpuAvail models.MilliCPUs
+	// Memory in use in bytes
+	MemUsed uint64
+	// Memory available in bytes
+	MemAvail uint64
+}
 
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: add cpu, disk, network IO for future
@@ -42,12 +54,15 @@ type ResourceTracker interface {
 	// if isNB is set, resource check is done and error token is returned without blocking.
 	// if isAsync is set, resource allocation specific for async requests is considered. (eg. always allow
 	// a sync only reserve area) Memory is expected to be provided in MB units.
-	GetResourceToken(ctx context.Context, memory, cpuQuota uint64, isAsync, isNB bool) <-chan ResourceToken
+	GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isAsync, isNB bool) <-chan ResourceToken
 
 	// IsResourcePossible returns whether it's possible to fulfill the requested resources on this
 	// machine. It must be called before GetResourceToken or GetResourceToken may hang.
 	// Memory is expected to be provided in MB units.
-	IsResourcePossible(memory, cpuQuota uint64, isAsync bool) bool
+	IsResourcePossible(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) bool
+
+	// Retrieve current stats/usage
+	GetUtilization() ResourceUtilization
 }
 
 type resourceTracker struct {
@@ -105,12 +120,14 @@ func (t *resourceToken) Error() error {
 
 func (t *resourceToken) Close() error {
 	t.once.Do(func() {
-		t.decrement()
+		if t.decrement != nil {
+			t.decrement()
+		}
 	})
 	return nil
 }
 
-func (a *resourceTracker) isResourceAvailableLocked(memory uint64, cpuQuota uint64, isAsync bool) bool {
+func (a *resourceTracker) isResourceAvailableLocked(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) bool {
 
 	asyncAvailMem := a.ramAsyncTotal - a.ramAsyncUsed
 	syncAvailMem := a.ramSyncTotal - a.ramSyncUsed
@@ -120,24 +137,40 @@ func (a *resourceTracker) isResourceAvailableLocked(memory uint64, cpuQuota uint
 
 	// For sync functions, we can steal from async pool. For async, we restrict it to sync pool
 	if isAsync {
-		return asyncAvailMem >= memory && asyncAvailCPU >= cpuQuota
+		return asyncAvailMem >= memory && asyncAvailCPU >= uint64(cpuQuota)
 	} else {
-		return asyncAvailMem+syncAvailMem >= memory && asyncAvailCPU+syncAvailCPU >= cpuQuota
+		return asyncAvailMem+syncAvailMem >= memory && asyncAvailCPU+syncAvailCPU >= uint64(cpuQuota)
 	}
+}
+
+func (a *resourceTracker) GetUtilization() ResourceUtilization {
+	var util ResourceUtilization
+
+	a.cond.L.Lock()
+
+	util.CpuUsed = models.MilliCPUs(a.cpuAsyncUsed + a.cpuSyncUsed)
+	util.MemUsed = a.ramAsyncUsed + a.ramSyncUsed
+
+	a.cond.L.Unlock()
+
+	util.CpuAvail = models.MilliCPUs(a.cpuAsyncTotal+a.cpuSyncTotal) - util.CpuUsed
+	util.MemAvail = a.ramAsyncTotal + a.ramSyncTotal - util.MemUsed
+
+	return util
 }
 
 // is this request possible to meet? If no, fail quick
-func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota uint64, isAsync bool) bool {
+func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) bool {
 	memory = memory * Mem1MB
 
 	if isAsync {
-		return memory <= a.ramAsyncTotal && cpuQuota <= a.cpuAsyncTotal
+		return memory <= a.ramAsyncTotal && uint64(cpuQuota) <= a.cpuAsyncTotal
 	} else {
-		return memory <= a.ramSyncTotal+a.ramAsyncTotal && cpuQuota <= a.cpuSyncTotal+a.cpuAsyncTotal
+		return memory <= a.ramSyncTotal+a.ramAsyncTotal && uint64(cpuQuota) <= a.cpuSyncTotal+a.cpuAsyncTotal
 	}
 }
 
-func (a *resourceTracker) allocResourcesLocked(memory, cpuQuota uint64, isAsync bool) ResourceToken {
+func (a *resourceTracker) allocResourcesLocked(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) ResourceToken {
 
 	var asyncMem, syncMem uint64
 	var asyncCPU, syncCPU uint64
@@ -145,14 +178,14 @@ func (a *resourceTracker) allocResourcesLocked(memory, cpuQuota uint64, isAsync 
 	if isAsync {
 		// async uses async pool only
 		asyncMem = memory
-		asyncCPU = cpuQuota
+		asyncCPU = uint64(cpuQuota)
 	} else {
 		// if sync fits async + sync pool
 		syncMem = minUint64(a.ramSyncTotal-a.ramSyncUsed, memory)
-		syncCPU = minUint64(a.cpuSyncTotal-a.cpuSyncUsed, cpuQuota)
+		syncCPU = minUint64(a.cpuSyncTotal-a.cpuSyncUsed, uint64(cpuQuota))
 
 		asyncMem = memory - syncMem
-		asyncCPU = cpuQuota - syncCPU
+		asyncCPU = uint64(cpuQuota) - syncCPU
 	}
 
 	a.ramAsyncUsed += asyncMem
@@ -176,9 +209,9 @@ func (a *resourceTracker) allocResourcesLocked(memory, cpuQuota uint64, isAsync 
 	}}
 }
 
-func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota uint64, isAsync bool) ResourceToken {
+func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) ResourceToken {
 	if !a.IsResourcePossible(memory, cpuQuota, isAsync) {
-		return &resourceToken{decrement: func() {}, err: CapacityFull}
+		return &resourceToken{err: CapacityFull}
 	}
 	memory = memory * Mem1MB
 
@@ -187,7 +220,7 @@ func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota uint64, isA
 	a.cond.L.Lock()
 
 	if !a.isResourceAvailableLocked(memory, cpuQuota, isAsync) {
-		t = &resourceToken{decrement: func() {}, err: CapacityFull}
+		t = &resourceToken{err: CapacityFull}
 	} else {
 		t = a.allocResourcesLocked(memory, cpuQuota, isAsync)
 	}
@@ -196,7 +229,7 @@ func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota uint64, isA
 	return t
 }
 
-func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken {
+func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isAsync bool) <-chan ResourceToken {
 	ctx, span := trace.StartSpan(ctx, "agent_get_resource_token_nbio_chan")
 
 	ch := make(chan ResourceToken)
@@ -217,7 +250,7 @@ func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uin
 
 // the received token should be passed directly to launch (unconditionally), launch
 // will close this token (i.e. the receiver should not call Close)
-func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota uint64, isAsync, isNB bool) <-chan ResourceToken {
+func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isAsync, isNB bool) <-chan ResourceToken {
 	if isNB {
 		return a.getResourceTokenNBChan(ctx, memory, cpuQuota, isAsync)
 	}

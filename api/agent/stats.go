@@ -64,6 +64,13 @@ func statsContainerEvicted(ctx context.Context) {
 	stats.Record(ctx, containerEvictedMeasure.M(0))
 }
 
+func statsUtilization(ctx context.Context, util ResourceUtilization) {
+	stats.Record(ctx, utilCpuUsedMeasure.M(int64(util.CpuUsed)))
+	stats.Record(ctx, utilCpuAvailMeasure.M(int64(util.CpuAvail)))
+	stats.Record(ctx, utilMemUsedMeasure.M(int64(util.MemUsed)))
+	stats.Record(ctx, utilMemAvailMeasure.M(int64(util.MemAvail)))
+}
+
 const (
 	//
 	// WARNING: Dual Role Metrics both used in Runner/Agent and LB-Agent
@@ -101,6 +108,11 @@ const (
 
 	containerEvictedMetricName = "container_evictions"
 
+	utilCpuUsedMetricName  = "util_cpu_used"
+	utilCpuAvailMetricName = "util_cpu_avail"
+	utilMemUsedMetricName  = "util_mem_used"
+	utilMemAvailMetricName = "util_mem_avail"
+
 	// Reported By LB
 	runnerSchedLatencyMetricName = "lb_runner_sched_latency"
 	runnerExecLatencyMetricName  = "lb_runner_exec_latency"
@@ -118,6 +130,11 @@ var (
 	dockerMeasures         = initDockerMeasures()
 	containerGaugeMeasures = initContainerGaugeMeasures()
 	containerTimeMeasures  = initContainerTimeMeasures()
+
+	utilCpuUsedMeasure  = common.MakeMeasure(utilCpuUsedMetricName, "agent cpu in use", "")
+	utilCpuAvailMeasure = common.MakeMeasure(utilCpuAvailMetricName, "agent cpu available", "")
+	utilMemUsedMeasure  = common.MakeMeasure(utilMemUsedMetricName, "agent memory in use", "By")
+	utilMemAvailMeasure = common.MakeMeasure(utilMemAvailMetricName, "agent memory available", "By")
 
 	containerEvictedMeasure = common.MakeMeasure(containerEvictedMetricName, "containers evicted", "")
 
@@ -148,6 +165,10 @@ func RegisterAgentViews(tagKeys []string, latencyDist []float64) {
 		common.CreateView(timedoutMeasure, view.Sum(), tagKeys),
 		common.CreateView(errorsMeasure, view.Sum(), tagKeys),
 		common.CreateView(serverBusyMeasure, view.Sum(), tagKeys),
+		common.CreateView(utilCpuUsedMeasure, view.LastValue(), tagKeys),
+		common.CreateView(utilCpuAvailMeasure, view.LastValue(), tagKeys),
+		common.CreateView(utilMemUsedMeasure, view.LastValue(), tagKeys),
+		common.CreateView(utilMemAvailMeasure, view.LastValue(), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")

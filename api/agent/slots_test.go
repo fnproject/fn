@@ -22,7 +22,7 @@ func (a *testSlot) exec(ctx context.Context, call *call) error {
 	return nil
 }
 
-func (a *testSlot) Close(ctx context.Context) error {
+func (a *testSlot) Close() error {
 	if a.isClosed {
 		panic(fmt.Errorf("id=%d already closed %v", a.id, a))
 	}
@@ -55,7 +55,7 @@ func checkGetTokenId(t *testing.T, a *slotQueue, dur time.Duration, id uint64) e
 				continue
 			}
 
-			z.slot.Close(ctx)
+			z.slot.Close()
 
 			if z.id != id {
 				return fmt.Errorf("Bad slotToken received: %#v expected: %d", z, id)
