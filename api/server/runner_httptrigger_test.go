@@ -323,6 +323,21 @@ func TestTriggerRunnerExecution(t *testing.T) {
 
 	statusChecker := `{"echoContent": "_TRX_ID_", "isDebug": true, "responseCode":202, "responseContentType": "application/json; charset=utf-8"}`
 
+	fooHeader := map[string][]string{"Content-Type": {"application/hateson"}, "Test-Header": {"foo"}}
+	expFooHeaders := map[string][]string{"Content-Type": {"application/hateson"}, "Test-Header": {"foo"}}
+	expFooHeadersBody := `{"echoContent": "_TRX_ID_",
+		"expectHeaders": {
+			"Content-Type":["application/hateson"],
+			"Fn-Http-H-Test-Header":["foo"],
+			"Fn-Http-Method":["POST"],
+			"Fn-Http-Request-Url":["http://127.0.0.1:8080/t/myapp/httpstream"]
+		},
+		"returnHeaders": {
+			"Test-Header":["foo"]
+		},
+		"responseContentType":"application/hateson",
+		"isDebug": true}`
+
 	testCases := []struct {
 		path               string
 		headers            map[string][]string
@@ -347,9 +362,10 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		{"/t/myapp/myhotjason", nil, respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
 		{"/t/myapp/myhotjason", nil, respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
 
-		// XXX(reed): we test all this stuff in invoke, we really only need to test headers / status code here dude...
+		// XXX(reed): we test a lot of stuff in invoke, we really only need to test headers / status code here dude...
 		{"/t/myapp/httpstream", nil, ok, "POST", http.StatusOK, expHeaders, "", nil},
 		{"/t/myapp/httpstream", nil, statusChecker, "POST", 202, expHeaders, "", nil},
+		{"/t/myapp/httpstream", fooHeader, expFooHeadersBody, "POST", http.StatusOK, expFooHeaders, "", nil},
 		// NOTE: we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
 		{"/t/myapp/httpstream", nil, respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
 		//{"/t/myapp/httpstream", nil, crasher, "POST", http.StatusBadGateway, expHeaders, "error receiving function response", nil},
@@ -381,7 +397,11 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		t.Run(fmt.Sprintf("Test_%d_%s", i, strings.Replace(test.path, "/", "_", -1)), func(t *testing.T) {
 			trx := fmt.Sprintf("_trx_%d_", i)
 			body := strings.NewReader(strings.Replace(test.body, "_TRX_ID_", trx, 1))
-			_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+			req := createRequest(t, test.method, test.path, body)
+			if test.headers != nil {
+				req.Header = test.headers
+			}
+			_, rec := routerRequest2(t, srv.Router, req)
 			respBytes, _ := ioutil.ReadAll(rec.Body)
 			respBody := string(respBytes)
 			maxBody := len(respBody)

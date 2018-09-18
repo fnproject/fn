@@ -147,7 +147,7 @@ func reqURL(req *http.Request) string {
 	return req.URL.String()
 }
 
-//ServeHTTPTr	igger serves an HTTP trigger for a given app/fn/trigger  based on the current request
+// ServeHTTPTrigger serves an HTTP trigger for a given app/fn/trigger based on the current request
 // This is exported to allow extensions to handle their own trigger naming and publishing
 func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
 	// transpose trigger headers into the request
