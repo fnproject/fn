@@ -56,7 +56,7 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "app", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "annotations" : { "key":"" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationValue},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "app", "syslog_url":"yo"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo"`)},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "syslog_url":"yo://sup.com:1"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo://sup.com:1"`)},
+		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "syslog_url":"yo://sup.com:1"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo://sup.com:1" invalid scheme, only [tcp, udp, unix, unixgram, tcp+tls] are supported`)},
 		// success
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "teste"  }`, http.StatusOK, nil},
 		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{  "name": "teste" , "annotations": {"k1":"v1", "k2":[]}}`, http.StatusOK, nil},
