@@ -322,6 +322,7 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 			statsComplete(ctx)
 		}
 	} else {
+		statsDequeue(ctx)
 		if err == CapacityFull || err == context.DeadlineExceeded {
 			statsTooBusy(ctx)
 			return models.ErrCallTimeoutServerBusy
