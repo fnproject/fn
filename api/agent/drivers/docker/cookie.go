@@ -112,7 +112,7 @@ func (c *cookie) configureIOFS(log logrus.FieldLogger) {
 		return
 	}
 
-	bind := fmt.Sprintf("%s:/iofs", path)
+	bind := fmt.Sprintf("%s:%s", path, c.task.UDSDockerDest())
 	c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, bind)
 }
 

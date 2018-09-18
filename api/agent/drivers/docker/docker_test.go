@@ -40,6 +40,7 @@ func (f *taskDockerTest) Extensions() map[string]string           { return nil }
 func (f *taskDockerTest) LoggerConfig() drivers.LoggerConfig      { return drivers.LoggerConfig{} }
 func (f *taskDockerTest) UDSAgentPath() string                    { return "" }
 func (f *taskDockerTest) UDSDockerPath() string                   { return "" }
+func (f *taskDockerTest) UDSDockerDest() string                   { return "" }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})

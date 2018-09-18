@@ -904,7 +904,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	udsAwait := make(chan error)
 	if call.Format == models.FormatHTTPStream {
 		// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
-		// XXX(reed): figure out cleaner way to carry around the directory and expose the lsnr.sock file
 		go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
 
 		udsClient = http.Client{
@@ -912,7 +911,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				// XXX(reed): other settings ?
 				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 					var d net.Dialer
-					return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), "lsnr.sock")) // XXX(reed): hardcoded lsnr.sock
+					return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), udsFilename))
 				},
 			},
 		}
@@ -1040,8 +1039,7 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 			return fmt.Errorf("error watching for iofs: %v", err)
 		case event := <-fsWatcher.Events:
 			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == iofsDir+"/lsnr.sock" {
-				// XXX(reed): hardcoded /lsnr.sock path
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
 				// wait until the socket file is created by the container
 				return nil
 			}
@@ -1314,6 +1312,7 @@ func (c *container) Extensions() map[string]string      { return c.extensions }
 func (c *container) LoggerConfig() drivers.LoggerConfig { return c.logCfg }
 func (c *container) UDSAgentPath() string               { return c.iofs.AgentPath() }
 func (c *container) UDSDockerPath() string              { return c.iofs.DockerPath() }
+func (c *container) UDSDockerDest() string              { return iofsDockerMountDest }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
