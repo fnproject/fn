@@ -14,7 +14,6 @@ type Config struct {
 	DockerNetworks          string        `json:"docker_networks"`
 	DockerLoadFile          string        `json:"docker_load_file"`
 	FreezeIdle              time.Duration `json:"freeze_idle_msecs"`
-	EjectIdle               time.Duration `json:"eject_idle_msecs"`
 	HotPoll                 time.Duration `json:"hot_poll_msecs"`
 	HotLauncherTimeout      time.Duration `json:"hot_launcher_timeout_msecs"`
 	AsyncChewPoll           time.Duration `json:"async_chew_poll_msecs"`
@@ -46,9 +45,6 @@ const (
 	EnvDockerLoadFile = "FN_DOCKER_LOAD_FILE"
 	// EnvFreezeIdle is the delay between a container being last used and being frozen
 	EnvFreezeIdle = "FN_FREEZE_IDLE_MSECS"
-	// EnvEjectIdle is the delay before allowing an idle container to be evictable if another container
-	// requests the space for itself
-	EnvEjectIdle = "FN_EJECT_IDLE_MSECS"
 	// EnvHotPoll is the interval to ping for a slot manager thread to check if a container should be
 	// launched for a given function
 	EnvHotPoll = "FN_HOT_POLL_MSECS"
@@ -127,7 +123,6 @@ func NewConfig() (*Config, error) {
 	var err error
 
 	err = setEnvMsecs(err, EnvFreezeIdle, &cfg.FreezeIdle, 50*time.Millisecond)
-	err = setEnvMsecs(err, EnvEjectIdle, &cfg.EjectIdle, 1000*time.Millisecond)
 	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, DefaultHotPoll)
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
@@ -156,9 +151,6 @@ func NewConfig() (*Config, error) {
 		return cfg, err
 	}
 
-	if cfg.EjectIdle == time.Duration(0) {
-		return cfg, fmt.Errorf("error %s cannot be zero", EnvEjectIdle)
-	}
 	if cfg.MaxLogSize > math.MaxInt64 {
 		// for safety during uint64 to int conversions in Write()/Read(), etc.
 		return cfg, fmt.Errorf("error invalid %s %v > %v", EnvMaxLogSize, cfg.MaxLogSize, math.MaxInt64)

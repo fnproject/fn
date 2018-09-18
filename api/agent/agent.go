@@ -1058,11 +1058,9 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
-	ejectTimer := time.NewTimer(a.cfg.EjectIdle)
 
 	defer freezeTimer.Stop()
 	defer idleTimer.Stop()
-	defer ejectTimer.Stop()
 
 	// log if any error is encountered
 	defer func() {
@@ -1070,6 +1068,8 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 			logger.WithError(err).Error("hot function failure")
 		}
 	}()
+
+	evictor := a.evictor.GetEvictor(call.ID, call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
 	// if an immediate freeze is requested, freeze first before enqueuing at all.
 	if a.cfg.FreezeIdle == time.Duration(0) && !isFrozen {
@@ -1079,9 +1079,11 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		}
 		isFrozen = true
 		state.UpdateState(ctx, ContainerStatePaused, call.slots)
+		if !isEvictable {
+			isEvictable = true
+			a.evictor.RegisterEvictor(evictor)
+		}
 	}
-
-	evictor := a.evictor.GetEvictor(call.ID, call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
 	if !isFrozen {
 		state.UpdateState(ctx, ContainerStateIdle, call.slots)
@@ -1104,16 +1106,15 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 				}
 				isFrozen = true
 				state.UpdateState(ctx, ContainerStatePaused, call.slots)
+				if !isEvictable {
+					isEvictable = true
+					a.evictor.RegisterEvictor(evictor)
+				}
 			}
 			continue
 		case <-evictor.C:
-			logger.Debug("attempting hot function eject")
+			logger.Debug("attempting hot function eviction")
 			isEvictEvent = true
-		case <-ejectTimer.C:
-			// we've been idle too long, now we are ejectable
-			a.evictor.RegisterEvictor(evictor)
-			isEvictable = true
-			continue
 		}
 		break
 	}
