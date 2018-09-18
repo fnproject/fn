@@ -42,7 +42,7 @@ func setupPlugin(t *testing.T, name string, mux *http.ServeMux) func() {
 
 	server := httptest.NewServer(mux)
 	if server == nil {
-		t.Fatal("Failed to start a HTTP Server")
+		t.Fatal("Failed to start an HTTP Server")
 	}
 
 	if err := ioutil.WriteFile(fmt.Sprintf("/etc/docker/plugins/%s.spec", name), []byte(server.URL), 0644); err != nil {
@@ -79,14 +79,14 @@ func TestGetCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newAllocator(plugin, p.Client)
+	d := newAllocator(plugin, p.Client())
 
 	caps, err := d.(*allocator).getCapabilities()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !caps.RequiresMACAddress {
+	if !caps.RequiresMACAddress || caps.RequiresRequestReplay {
 		t.Fatalf("Unexpected capability: %v", caps)
 	}
 }
@@ -102,7 +102,7 @@ func TestGetCapabilitiesFromLegacyDriver(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newAllocator(plugin, p.Client)
+	d := newAllocator(plugin, p.Client())
 
 	if _, err := d.(*allocator).getCapabilities(); err == nil {
 		t.Fatalf("Expected error, but got Success %v", err)
@@ -127,7 +127,7 @@ func TestGetDefaultAddressSpaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newAllocator(plugin, p.Client)
+	d := newAllocator(plugin, p.Client())
 
 	l, g, err := d.(*allocator).GetDefaultAddressSpaces()
 	if err != nil {
@@ -179,14 +179,14 @@ func TestRemoteDriver(t *testing.T) {
 
 	handle(t, mux, "ReleasePool", func(msg map[string]interface{}) interface{} {
 		if _, ok := msg["PoolID"]; !ok {
-			t.Fatalf("Missing PoolID in Release request")
+			t.Fatal("Missing PoolID in Release request")
 		}
 		return map[string]interface{}{}
 	})
 
 	handle(t, mux, "RequestAddress", func(msg map[string]interface{}) interface{} {
 		if _, ok := msg["PoolID"]; !ok {
-			t.Fatalf("Missing PoolID in address request")
+			t.Fatal("Missing PoolID in address request")
 		}
 		prefAddr := ""
 		if v, ok := msg["Address"]; ok {
@@ -204,10 +204,10 @@ func TestRemoteDriver(t *testing.T) {
 
 	handle(t, mux, "ReleaseAddress", func(msg map[string]interface{}) interface{} {
 		if _, ok := msg["PoolID"]; !ok {
-			t.Fatalf("Missing PoolID in address request")
+			t.Fatal("Missing PoolID in address request")
 		}
 		if _, ok := msg["Address"]; !ok {
-			t.Fatalf("Missing Address in release address request")
+			t.Fatal("Missing Address in release address request")
 		}
 		return map[string]interface{}{}
 	})
@@ -217,7 +217,7 @@ func TestRemoteDriver(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newAllocator(plugin, p.Client)
+	d := newAllocator(plugin, p.Client())
 
 	l, g, err := d.(*allocator).GetDefaultAddressSpaces()
 	if err != nil {
@@ -251,7 +251,7 @@ func TestRemoteDriver(t *testing.T) {
 		t.Fatalf("Unexpected pool: %s", pool2)
 	}
 	if dns, ok := ops["DNS"]; !ok || dns != "8.8.8.8" {
-		t.Fatalf("Missing options")
+		t.Fatal("Missing options")
 	}
 
 	// Request specific pool and subpool

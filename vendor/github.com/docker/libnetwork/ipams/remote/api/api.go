@@ -9,7 +9,7 @@ type Response struct {
 	Error string
 }
 
-// IsSuccess returns wheter the plugin response is successful
+// IsSuccess returns whether the plugin response is successful
 func (r *Response) IsSuccess() bool {
 	return r.Error == ""
 }
@@ -22,12 +22,16 @@ func (r *Response) GetError() string {
 // GetCapabilityResponse is the response of GetCapability request
 type GetCapabilityResponse struct {
 	Response
-	RequiresMACAddress bool
+	RequiresMACAddress    bool
+	RequiresRequestReplay bool
 }
 
-// ToCapability converts the capability response into the internal ipam driver capaility structure
+// ToCapability converts the capability response into the internal ipam driver capability structure
 func (capRes GetCapabilityResponse) ToCapability() *ipamapi.Capability {
-	return &ipamapi.Capability{RequiresMACAddress: capRes.RequiresMACAddress}
+	return &ipamapi.Capability{
+		RequiresMACAddress:    capRes.RequiresMACAddress,
+		RequiresRequestReplay: capRes.RequiresRequestReplay,
+	}
 }
 
 // GetAddressSpacesResponse is the response to the ``get default address spaces`` request message

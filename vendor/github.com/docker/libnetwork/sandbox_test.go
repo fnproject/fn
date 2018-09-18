@@ -1,6 +1,7 @@
 package libnetwork
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/docker/libnetwork/config"
@@ -10,11 +11,7 @@ import (
 	"github.com/docker/libnetwork/testutils"
 )
 
-func createEmptyCtrlr() *controller {
-	return &controller{sandboxes: sandboxTable{}}
-}
-
-func getTestEnv(t *testing.T) (NetworkController, Network, Network) {
+func getTestEnv(t *testing.T, numNetworks int) (NetworkController, []Network) {
 	netType := "bridge"
 
 	option := options.Generic{
@@ -32,33 +29,32 @@ func getTestEnv(t *testing.T) (NetworkController, Network, Network) {
 		t.Fatal(err)
 	}
 
-	name1 := "test_nw_1"
-	netOption1 := options.Generic{
-		netlabel.GenericData: options.Generic{
-			"BridgeName": name1,
-		},
-	}
-	n1, err := c.NewNetwork(netType, name1, "", NetworkOptionGeneric(netOption1))
-	if err != nil {
-		t.Fatal(err)
+	if numNetworks == 0 {
+		return c, nil
 	}
 
-	name2 := "test_nw_2"
-	netOption2 := options.Generic{
-		netlabel.GenericData: options.Generic{
-			"BridgeName": name2,
-		},
-	}
-	n2, err := c.NewNetwork(netType, name2, "", NetworkOptionGeneric(netOption2))
-	if err != nil {
-		t.Fatal(err)
+	nwList := make([]Network, 0, numNetworks)
+	for i := 0; i < numNetworks; i++ {
+		name := fmt.Sprintf("test_nw_%d", i)
+		netOption := options.Generic{
+			netlabel.GenericData: options.Generic{
+				"BridgeName": name,
+			},
+		}
+		n, err := c.NewNetwork(netType, name, "", NetworkOptionGeneric(netOption))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		nwList = append(nwList, n)
 	}
 
-	return c, n1, n2
+	return c, nwList
 }
 
 func TestSandboxAddEmpty(t *testing.T) {
-	ctrlr := createEmptyCtrlr()
+	c, _ := getTestEnv(t, 0)
+	ctrlr := c.(*controller)
 
 	sbx, err := ctrlr.NewSandbox("sandbox0")
 	if err != nil {
@@ -81,7 +77,7 @@ func TestSandboxAddMultiPrio(t *testing.T) {
 		defer testutils.SetupTestOSContext(t)()
 	}
 
-	c, nw, _ := getTestEnv(t)
+	c, nws := getTestEnv(t, 3)
 	ctrlr := c.(*controller)
 
 	sbx, err := ctrlr.NewSandbox("sandbox1")
@@ -90,15 +86,15 @@ func TestSandboxAddMultiPrio(t *testing.T) {
 	}
 	sid := sbx.ID()
 
-	ep1, err := nw.CreateEndpoint("ep1")
+	ep1, err := nws[0].CreateEndpoint("ep1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ep2, err := nw.CreateEndpoint("ep2")
+	ep2, err := nws[1].CreateEndpoint("ep2")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ep3, err := nw.CreateEndpoint("ep3")
+	ep3, err := nws[2].CreateEndpoint("ep3")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +158,7 @@ func TestSandboxAddSamePrio(t *testing.T) {
 		defer testutils.SetupTestOSContext(t)()
 	}
 
-	c, nw1, nw2 := getTestEnv(t)
+	c, nws := getTestEnv(t, 2)
 
 	ctrlr := c.(*controller)
 
@@ -172,11 +168,11 @@ func TestSandboxAddSamePrio(t *testing.T) {
 	}
 	sid := sbx.ID()
 
-	ep1, err := nw1.CreateEndpoint("ep1")
+	ep1, err := nws[0].CreateEndpoint("ep1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ep2, err := nw2.CreateEndpoint("ep2")
+	ep2, err := nws[1].CreateEndpoint("ep2")
 	if err != nil {
 		t.Fatal(err)
 	}

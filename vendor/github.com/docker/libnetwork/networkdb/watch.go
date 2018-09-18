@@ -1,6 +1,10 @@
 package networkdb
 
-import "github.com/docker/go-events"
+import (
+	"net"
+
+	"github.com/docker/go-events"
+)
 
 type opType uint8
 
@@ -17,6 +21,14 @@ type event struct {
 	Value     []byte
 }
 
+// NodeTable represents table event for node join and leave
+const NodeTable = "NodeTable"
+
+// NodeAddr represents the value carried for node event in NodeTable
+type NodeAddr struct {
+	Addr net.IP
+}
+
 // CreateEvent generates a table entry create event to the watchers
 type CreateEvent event
 
@@ -31,7 +43,7 @@ type DeleteEvent event
 // filter is an empty string it acts as a wildcard for that
 // field. Watch returns a channel of events, where the events will be
 // sent.
-func (nDB *NetworkDB) Watch(tname, nid, key string) (chan events.Event, func()) {
+func (nDB *NetworkDB) Watch(tname, nid, key string) (*events.Channel, func()) {
 	var matcher events.Matcher
 
 	if tname != "" || nid != "" || key != "" {
@@ -70,7 +82,7 @@ func (nDB *NetworkDB) Watch(tname, nid, key string) (chan events.Event, func()) 
 	}
 
 	nDB.broadcaster.Add(sink)
-	return ch.C, func() {
+	return ch, func() {
 		nDB.broadcaster.Remove(sink)
 		ch.Close()
 		sink.Close()

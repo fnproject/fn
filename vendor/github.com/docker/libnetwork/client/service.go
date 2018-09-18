@@ -3,14 +3,15 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/docker/docker/opts"
-	flag "github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/pkg/stringid"
+	flag "github.com/docker/libnetwork/client/mflag"
 	"github.com/docker/libnetwork/netutils"
 )
 
@@ -111,9 +112,9 @@ func lookupContainerID(cli *NetworkCli, cnNameID string) (string, error) {
 		if id, ok := iid.(string); ok {
 			return id, nil
 		}
-		return "", fmt.Errorf("Unexpected data type for container ID in json response")
+		return "", errors.New("Unexpected data type for container ID in json response")
 	}
-	return "", fmt.Errorf("Cannot find container ID in json response")
+	return "", errors.New("Cannot find container ID in json response")
 }
 
 func lookupSandboxID(cli *NetworkCli, containerID string) (string, error) {

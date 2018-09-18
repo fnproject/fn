@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
@@ -20,14 +21,16 @@ type bridgeInterface struct {
 	bridgeIPv6  *net.IPNet
 	gatewayIPv4 net.IP
 	gatewayIPv6 net.IP
+	nlh         *netlink.Handle
 }
 
 // newInterface creates a new bridge interface structure. It attempts to find
 // an already existing device identified by the configuration BridgeName field,
-// or the default bridge name when unspecified), but doesn't attempt to create
+// or the default bridge name when unspecified, but doesn't attempt to create
 // one when missing
-func newInterface(config *networkConfiguration) *bridgeInterface {
-	i := &bridgeInterface{}
+func newInterface(nlh *netlink.Handle, config *networkConfiguration) (*bridgeInterface, error) {
+	var err error
+	i := &bridgeInterface{nlh: nlh}
 
 	// Initialize the bridge name to the default if unspecified.
 	if config.BridgeName == "" {
@@ -35,8 +38,13 @@ func newInterface(config *networkConfiguration) *bridgeInterface {
 	}
 
 	// Attempt to find an existing bridge named with the specified name.
-	i.Link, _ = netlink.LinkByName(config.BridgeName)
-	return i
+	i.Link, err = nlh.LinkByName(config.BridgeName)
+	if err != nil {
+		logrus.Debugf("Did not find any interface with name %s: %v", config.BridgeName, err)
+	} else if _, ok := i.Link.(*netlink.Bridge); !ok {
+		return nil, fmt.Errorf("existing interface %s is not a bridge", i.Link.Attrs().Name)
+	}
+	return i, nil
 }
 
 // exists indicates if the existing bridge interface exists on the system.
@@ -44,23 +52,22 @@ func (i *bridgeInterface) exists() bool {
 	return i.Link != nil
 }
 
-// addresses returns a single IPv4 address and all IPv6 addresses for the
-// bridge interface.
-func (i *bridgeInterface) addresses() (netlink.Addr, []netlink.Addr, error) {
-	v4addr, err := netlink.AddrList(i.Link, netlink.FAMILY_V4)
+// addresses returns all IPv4 addresses and all IPv6 addresses for the bridge interface.
+func (i *bridgeInterface) addresses() ([]netlink.Addr, []netlink.Addr, error) {
+	v4addr, err := i.nlh.AddrList(i.Link, netlink.FAMILY_V4)
 	if err != nil {
-		return netlink.Addr{}, nil, err
+		return nil, nil, fmt.Errorf("Failed to retrieve V4 addresses: %v", err)
 	}
 
-	v6addr, err := netlink.AddrList(i.Link, netlink.FAMILY_V6)
+	v6addr, err := i.nlh.AddrList(i.Link, netlink.FAMILY_V6)
 	if err != nil {
-		return netlink.Addr{}, nil, err
+		return nil, nil, fmt.Errorf("Failed to retrieve V6 addresses: %v", err)
 	}
 
 	if len(v4addr) == 0 {
-		return netlink.Addr{}, v6addr, nil
+		return nil, v6addr, nil
 	}
-	return v4addr[0], v6addr, nil
+	return v4addr, v6addr, nil
 }
 
 func (i *bridgeInterface) programIPv6Address() error {
@@ -72,7 +79,7 @@ func (i *bridgeInterface) programIPv6Address() error {
 	if findIPv6Address(nlAddr, nlAddressList) {
 		return nil
 	}
-	if err := netlink.AddrAdd(i.Link, &nlAddr); err != nil {
+	if err := i.nlh.AddrAdd(i.Link, &nlAddr); err != nil {
 		return &IPv6AddrAddError{IP: i.bridgeIPv6, Err: err}
 	}
 	return nil

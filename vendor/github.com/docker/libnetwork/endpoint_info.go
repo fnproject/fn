@@ -31,6 +31,9 @@ type EndpointInfo interface {
 
 	// Sandbox returns the attached sandbox if there, nil otherwise.
 	Sandbox() Sandbox
+
+	// LoadBalancer returns whether the endpoint is the load balancer endpoint for the network.
+	LoadBalancer() bool
 }
 
 // InterfaceInfo provides an interface to retrieve interface addresses bound to the endpoint.
@@ -43,12 +46,16 @@ type InterfaceInfo interface {
 
 	// AddressIPv6 returns the IPv6 address assigned to the endpoint.
 	AddressIPv6() *net.IPNet
+
+	// LinkLocalAddresses returns the list of link-local (IPv4/IPv6) addresses assigned to the endpoint.
+	LinkLocalAddresses() []*net.IPNet
 }
 
 type endpointInterface struct {
 	mac       net.HardwareAddr
 	addr      *net.IPNet
 	addrv6    *net.IPNet
+	llAddrs   []*net.IPNet
 	srcName   string
 	dstPrefix string
 	routes    []*net.IPNet
@@ -66,6 +73,13 @@ func (epi *endpointInterface) MarshalJSON() ([]byte, error) {
 	}
 	if epi.addrv6 != nil {
 		epMap["addrv6"] = epi.addrv6.String()
+	}
+	if len(epi.llAddrs) != 0 {
+		list := make([]string, 0, len(epi.llAddrs))
+		for _, ll := range epi.llAddrs {
+			list = append(list, ll.String())
+		}
+		epMap["llAddrs"] = list
 	}
 	epMap["srcName"] = epi.srcName
 	epMap["dstPrefix"] = epi.dstPrefix
@@ -102,7 +116,17 @@ func (epi *endpointInterface) UnmarshalJSON(b []byte) error {
 			return types.InternalErrorf("failed to decode endpoint interface ipv6 address after json unmarshal: %v", err)
 		}
 	}
-
+	if v, ok := epMap["llAddrs"]; ok {
+		list := v.([]interface{})
+		epi.llAddrs = make([]*net.IPNet, 0, len(list))
+		for _, llS := range list {
+			ll, err := types.ParseCIDR(llS.(string))
+			if err != nil {
+				return types.InternalErrorf("failed to decode endpoint interface link-local address (%v) after json unmarshal: %v", llS, err)
+			}
+			epi.llAddrs = append(epi.llAddrs, ll)
+		}
+	}
 	epi.srcName = epMap["srcName"].(string)
 	epi.dstPrefix = epMap["dstPrefix"].(string)
 
@@ -131,6 +155,10 @@ func (epi *endpointInterface) CopyTo(dstEpi *endpointInterface) error {
 	dstEpi.dstPrefix = epi.dstPrefix
 	dstEpi.v4PoolID = epi.v4PoolID
 	dstEpi.v6PoolID = epi.v6PoolID
+	if len(epi.llAddrs) != 0 {
+		dstEpi.llAddrs = make([]*net.IPNet, 0, len(epi.llAddrs))
+		dstEpi.llAddrs = append(dstEpi.llAddrs, epi.llAddrs...)
+	}
 
 	for _, route := range epi.routes {
 		dstEpi.routes = append(dstEpi.routes, types.GetIPNetCopy(route))
@@ -154,6 +182,9 @@ type tableEntry struct {
 }
 
 func (ep *endpoint) Info() EndpointInfo {
+	if ep.sandboxID != "" {
+		return ep
+	}
 	n, err := ep.getNetworkFromStore()
 	if err != nil {
 		return nil
@@ -171,36 +202,7 @@ func (ep *endpoint) Info() EndpointInfo {
 		return ep
 	}
 
-	if epi := sb.getEndpoint(ep.ID()); epi != nil {
-		return epi
-	}
-
-	return nil
-}
-
-func (ep *endpoint) DriverInfo() (map[string]interface{}, error) {
-	ep, err := ep.retrieveFromStore()
-	if err != nil {
-		return nil, err
-	}
-
-	if sb, ok := ep.getSandbox(); ok {
-		if gwep := sb.getEndpointInGWNetwork(); gwep != nil && gwep.ID() != ep.ID() {
-			return gwep.DriverInfo()
-		}
-	}
-
-	n, err := ep.getNetworkFromStore()
-	if err != nil {
-		return nil, fmt.Errorf("could not find network in store for driver info: %v", err)
-	}
-
-	driver, err := n.driver(true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get driver info: %v", err)
-	}
-
-	return driver.EndpointOperInfo(n.ID(), ep.ID())
+	return sb.getEndpoint(ep.ID())
 }
 
 func (ep *endpoint) Iface() InterfaceInfo {
@@ -266,6 +268,10 @@ func (epi *endpointInterface) AddressIPv6() *net.IPNet {
 	return types.GetIPNetCopy(epi.addrv6)
 }
 
+func (epi *endpointInterface) LinkLocalAddresses() []*net.IPNet {
+	return epi.llAddrs
+}
+
 func (epi *endpointInterface) SetNames(srcName string, dstPrefix string) error {
 	epi.srcName = srcName
 	epi.dstPrefix = dstPrefix
@@ -318,6 +324,12 @@ func (ep *endpoint) Sandbox() Sandbox {
 		return nil
 	}
 	return cnt
+}
+
+func (ep *endpoint) LoadBalancer() bool {
+	ep.Lock()
+	defer ep.Unlock()
+	return ep.loadBalancer
 }
 
 func (ep *endpoint) StaticRoutes() []*types.StaticRoute {
@@ -382,4 +394,59 @@ func (ep *endpoint) DisableGatewayService() {
 	defer ep.Unlock()
 
 	ep.joinInfo.disableGatewayService = true
+}
+
+func (epj *endpointJoinInfo) MarshalJSON() ([]byte, error) {
+	epMap := make(map[string]interface{})
+	if epj.gw != nil {
+		epMap["gw"] = epj.gw.String()
+	}
+	if epj.gw6 != nil {
+		epMap["gw6"] = epj.gw6.String()
+	}
+	epMap["disableGatewayService"] = epj.disableGatewayService
+	epMap["StaticRoutes"] = epj.StaticRoutes
+	return json.Marshal(epMap)
+}
+
+func (epj *endpointJoinInfo) UnmarshalJSON(b []byte) error {
+	var (
+		err   error
+		epMap map[string]interface{}
+	)
+	if err = json.Unmarshal(b, &epMap); err != nil {
+		return err
+	}
+	if v, ok := epMap["gw"]; ok {
+		epj.gw = net.ParseIP(v.(string))
+	}
+	if v, ok := epMap["gw6"]; ok {
+		epj.gw6 = net.ParseIP(v.(string))
+	}
+	epj.disableGatewayService = epMap["disableGatewayService"].(bool)
+
+	var tStaticRoute []types.StaticRoute
+	if v, ok := epMap["StaticRoutes"]; ok {
+		tb, _ := json.Marshal(v)
+		var tStaticRoute []types.StaticRoute
+		json.Unmarshal(tb, &tStaticRoute)
+	}
+	var StaticRoutes []*types.StaticRoute
+	for _, r := range tStaticRoute {
+		StaticRoutes = append(StaticRoutes, &r)
+	}
+	epj.StaticRoutes = StaticRoutes
+
+	return nil
+}
+
+func (epj *endpointJoinInfo) CopyTo(dstEpj *endpointJoinInfo) error {
+	dstEpj.disableGatewayService = epj.disableGatewayService
+	dstEpj.StaticRoutes = make([]*types.StaticRoute, len(epj.StaticRoutes))
+	copy(dstEpj.StaticRoutes, epj.StaticRoutes)
+	dstEpj.driverTableEntries = make([]*tableEntry, len(epj.driverTableEntries))
+	copy(dstEpj.driverTableEntries, epj.driverTableEntries)
+	dstEpj.gw = types.GetIPCopy(epj.gw)
+	dstEpj.gw6 = types.GetIPCopy(epj.gw6)
+	return nil
 }

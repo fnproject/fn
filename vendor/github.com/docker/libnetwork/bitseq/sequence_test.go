@@ -145,10 +145,10 @@ func TestSequenceCopy(t *testing.T) {
 	s := getTestSequence()
 	n := s.getCopy()
 	if !s.equal(n) {
-		t.Fatalf("copy of s failed")
+		t.Fatal("copy of s failed")
 	}
 	if n == s {
-		t.Fatalf("not true copy of s")
+		t.Fatal("not true copy of s")
 	}
 }
 
@@ -157,42 +157,45 @@ func TestGetFirstAvailable(t *testing.T) {
 		mask    *sequence
 		bytePos uint64
 		bitPos  uint64
+		start   uint64
 	}{
-		{&sequence{block: 0xffffffff, count: 2048}, invalidPos, invalidPos},
-		{&sequence{block: 0x0, count: 8}, 0, 0},
-		{&sequence{block: 0x80000000, count: 8}, 0, 1},
-		{&sequence{block: 0xC0000000, count: 8}, 0, 2},
-		{&sequence{block: 0xE0000000, count: 8}, 0, 3},
-		{&sequence{block: 0xF0000000, count: 8}, 0, 4},
-		{&sequence{block: 0xF8000000, count: 8}, 0, 5},
-		{&sequence{block: 0xFC000000, count: 8}, 0, 6},
-		{&sequence{block: 0xFE000000, count: 8}, 0, 7},
+		{&sequence{block: 0xffffffff, count: 2048}, invalidPos, invalidPos, 0},
+		{&sequence{block: 0x0, count: 8}, 0, 0, 0},
+		{&sequence{block: 0x80000000, count: 8}, 0, 1, 0},
+		{&sequence{block: 0xC0000000, count: 8}, 0, 2, 0},
+		{&sequence{block: 0xE0000000, count: 8}, 0, 3, 0},
+		{&sequence{block: 0xF0000000, count: 8}, 0, 4, 0},
+		{&sequence{block: 0xF8000000, count: 8}, 0, 5, 0},
+		{&sequence{block: 0xFC000000, count: 8}, 0, 6, 0},
+		{&sequence{block: 0xFE000000, count: 8}, 0, 7, 0},
+		{&sequence{block: 0xFE000000, count: 8}, 3, 0, 24},
 
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0x00000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 0},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0x80000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 1},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xC0000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 2},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xE0000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 3},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xF0000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 4},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xF8000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 5},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFC000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 6},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFE000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 7},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0x00000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 0, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0x80000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 1, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xC0000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 2, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xE0000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 3, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xF0000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 4, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xF8000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 5, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFC000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 6, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFE000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 7, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0x0E000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 4, 0, 16},
 
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFF000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 0},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFF800000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 1},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFC00000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 2},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFE00000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 3},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFF00000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 4},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFF80000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 5},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFFC0000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 6},
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFFE0000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 7},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFF000000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 0, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFF800000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 1, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFC00000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 2, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFE00000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 3, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFF00000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 4, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFF80000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 5, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFFC0000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 6, 0},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xFFFE0000, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 5, 7, 0},
 
-		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xfffffffe, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 7, 7},
+		{&sequence{block: 0xffffffff, count: 1, next: &sequence{block: 0xfffffffe, count: 1, next: &sequence{block: 0xffffffff, count: 6}}}, 7, 7, 0},
 
-		{&sequence{block: 0xffffffff, count: 2, next: &sequence{block: 0x0, count: 6}}, 8, 0},
+		{&sequence{block: 0xffffffff, count: 2, next: &sequence{block: 0x0, count: 6}}, 8, 0, 0},
 	}
 
 	for n, i := range input {
-		bytePos, bitPos, _ := getFirstAvailable(i.mask, 0)
+		bytePos, bitPos, _ := getFirstAvailable(i.mask, i.start)
 		if bytePos != i.bytePos || bitPos != i.bitPos {
 			t.Fatalf("Error in (%d) getFirstAvailable(). Expected (%d, %d). Got (%d, %d)", n, i.bytePos, i.bitPos, bytePos, bitPos)
 		}
@@ -556,10 +559,10 @@ func TestSet(t *testing.T) {
 	}
 
 	if err := hnd.Set(0); err == nil {
-		t.Fatalf("Expected failure, but succeeded")
+		t.Fatal("Expected failure, but succeeded")
 	}
 
-	os, err := hnd.SetAny()
+	os, err := hnd.SetAny(false)
 	if err != nil {
 		t.Fatalf("Unexpected failure: %v", err)
 	}
@@ -583,7 +586,7 @@ func TestSet(t *testing.T) {
 	}
 
 	if err := hnd.Set(last); err == nil {
-		t.Fatalf("Expected failure, but succeeded")
+		t.Fatal("Expected failure, but succeeded")
 	}
 }
 
@@ -595,23 +598,23 @@ func TestSetUnset(t *testing.T) {
 	}
 
 	if err := hnd.Set(uint64(32 * blockLen)); err == nil {
-		t.Fatalf("Expected failure, but succeeded")
+		t.Fatal("Expected failure, but succeeded")
 	}
 	if err := hnd.Unset(uint64(32 * blockLen)); err == nil {
-		t.Fatalf("Expected failure, but succeeded")
+		t.Fatal("Expected failure, but succeeded")
 	}
 
 	// set and unset all one by one
 	for hnd.Unselected() > 0 {
-		if _, err := hnd.SetAny(); err != nil {
+		if _, err := hnd.SetAny(false); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := hnd.SetAny(); err != ErrNoBitAvailable {
-		t.Fatalf("Expected error. Got success")
+	if _, err := hnd.SetAny(false); err != ErrNoBitAvailable {
+		t.Fatal("Expected error. Got success")
 	}
-	if _, err := hnd.SetAnyInRange(10, 20); err != ErrNoBitAvailable {
-		t.Fatalf("Expected error. Got success")
+	if _, err := hnd.SetAnyInRange(10, 20, false); err != ErrNoBitAvailable {
+		t.Fatal("Expected error. Got success")
 	}
 	if err := hnd.Set(50); err != ErrBitAllocated {
 		t.Fatalf("Expected error. Got %v: %s", err, hnd)
@@ -625,6 +628,43 @@ func TestSetUnset(t *testing.T) {
 	}
 }
 
+func TestOffsetSetUnset(t *testing.T) {
+	numBits := uint64(32 * blockLen)
+	var o uint64
+	hnd, err := NewHandle("", nil, "", numBits)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// set and unset all one by one
+	for hnd.Unselected() > 0 {
+		if _, err := hnd.SetAny(false); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if _, err := hnd.SetAny(false); err != ErrNoBitAvailable {
+		t.Fatal("Expected error. Got success")
+	}
+
+	if _, err := hnd.SetAnyInRange(10, 20, false); err != ErrNoBitAvailable {
+		t.Fatal("Expected error. Got success")
+	}
+
+	if err := hnd.Unset(288); err != nil {
+		t.Fatal(err)
+	}
+
+	//At this point sequence is (0xffffffff, 9)->(0x7fffffff, 1)->(0xffffffff, 22)->end
+	if o, err = hnd.SetAnyInRange(32, 500, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if o != 288 {
+		t.Fatalf("Expected ordinal not received, Received:%d", o)
+	}
+}
+
 func TestSetInRange(t *testing.T) {
 	numBits := uint64(1024 * blockLen)
 	hnd, err := NewHandle("", nil, "", numBits)
@@ -635,19 +675,15 @@ func TestSetInRange(t *testing.T) {
 
 	firstAv := uint64(100*blockLen + blockLen - 1)
 
-	if o, err := hnd.SetAnyInRange(4, 3); err == nil {
+	if o, err := hnd.SetAnyInRange(4, 3, false); err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
 
-	if o, err := hnd.SetAnyInRange(5, 5); err == nil {
+	if o, err := hnd.SetAnyInRange(0, numBits, false); err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
 
-	if o, err := hnd.SetAnyInRange(0, numBits); err == nil {
-		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
-	}
-
-	o, err := hnd.SetAnyInRange(100*uint64(blockLen), 101*uint64(blockLen))
+	o, err := hnd.SetAnyInRange(100*uint64(blockLen), 101*uint64(blockLen), false)
 	if err != nil {
 		t.Fatalf("Unexpected failure: (%d, %v)", o, err)
 	}
@@ -655,19 +691,19 @@ func TestSetInRange(t *testing.T) {
 		t.Fatalf("Unexpected ordinal: %d", o)
 	}
 
-	if o, err := hnd.SetAnyInRange(0, uint64(blockLen)); err == nil {
+	if o, err := hnd.SetAnyInRange(0, uint64(blockLen), false); err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
 
-	if o, err := hnd.SetAnyInRange(0, firstAv-1); err == nil {
+	if o, err := hnd.SetAnyInRange(0, firstAv-1, false); err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
 
-	if o, err := hnd.SetAnyInRange(111*uint64(blockLen), 161*uint64(blockLen)); err == nil {
+	if o, err := hnd.SetAnyInRange(111*uint64(blockLen), 161*uint64(blockLen), false); err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
 
-	o, err = hnd.SetAnyInRange(161*uint64(blockLen), 162*uint64(blockLen))
+	o, err = hnd.SetAnyInRange(161*uint64(blockLen), 162*uint64(blockLen), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -675,7 +711,7 @@ func TestSetInRange(t *testing.T) {
 		t.Fatalf("Unexpected ordinal: %d", o)
 	}
 
-	o, err = hnd.SetAnyInRange(161*uint64(blockLen), 162*uint64(blockLen))
+	o, err = hnd.SetAnyInRange(161*uint64(blockLen), 162*uint64(blockLen), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -683,13 +719,18 @@ func TestSetInRange(t *testing.T) {
 		t.Fatalf("Unexpected ordinal: %d", o)
 	}
 
-	o, err = hnd.SetAnyInRange(161*uint64(blockLen), 162*uint64(blockLen))
+	o, err = hnd.SetAnyInRange(161*uint64(blockLen), 162*uint64(blockLen), false)
 	if err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
 
-	if _, err := hnd.SetAnyInRange(0, numBits-1); err != nil {
+	if _, err := hnd.SetAnyInRange(0, numBits-1, false); err != nil {
 		t.Fatalf("Unexpected failure: %v", err)
+	}
+
+	// set one bit using the set range with 1 bit size range
+	if _, err := hnd.SetAnyInRange(uint64(163*blockLen-1), uint64(163*blockLen-1), false); err != nil {
+		t.Fatal(err)
 	}
 
 	// create a non multiple of 32 mask
@@ -700,12 +741,12 @@ func TestSetInRange(t *testing.T) {
 
 	// set all bit in the first range
 	for hnd.Unselected() > 22 {
-		if o, err := hnd.SetAnyInRange(0, 7); err != nil {
+		if o, err := hnd.SetAnyInRange(0, 7, false); err != nil {
 			t.Fatalf("Unexpected failure: (%d, %v)", o, err)
 		}
 	}
 	// try one more set, which should fail
-	o, err = hnd.SetAnyInRange(0, 7)
+	o, err = hnd.SetAnyInRange(0, 7, false)
 	if err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
@@ -715,13 +756,13 @@ func TestSetInRange(t *testing.T) {
 
 	// set all bit in a second range
 	for hnd.Unselected() > 14 {
-		if o, err := hnd.SetAnyInRange(8, 15); err != nil {
+		if o, err := hnd.SetAnyInRange(8, 15, false); err != nil {
 			t.Fatalf("Unexpected failure: (%d, %v)", o, err)
 		}
 	}
 
 	// try one more set, which should fail
-	o, err = hnd.SetAnyInRange(0, 15)
+	o, err = hnd.SetAnyInRange(0, 15, false)
 	if err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
@@ -731,11 +772,11 @@ func TestSetInRange(t *testing.T) {
 
 	// set all bit in a range which includes the last bit
 	for hnd.Unselected() > 12 {
-		if o, err := hnd.SetAnyInRange(28, 29); err != nil {
+		if o, err := hnd.SetAnyInRange(28, 29, false); err != nil {
 			t.Fatalf("Unexpected failure: (%d, %v)", o, err)
 		}
 	}
-	o, err = hnd.SetAnyInRange(28, 29)
+	o, err = hnd.SetAnyInRange(28, 29, false)
 	if err == nil {
 		t.Fatalf("Expected failure. Got success with ordinal:%d", o)
 	}
@@ -765,7 +806,7 @@ func TestSetAnyInRange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	o, err := hnd.SetAnyInRange(128, 255)
+	o, err := hnd.SetAnyInRange(128, 255, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -773,7 +814,7 @@ func TestSetAnyInRange(t *testing.T) {
 		t.Fatalf("Unexpected ordinal: %d", o)
 	}
 
-	o, err = hnd.SetAnyInRange(128, 255)
+	o, err = hnd.SetAnyInRange(128, 255, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -782,7 +823,7 @@ func TestSetAnyInRange(t *testing.T) {
 		t.Fatalf("Unexpected ordinal: %d", o)
 	}
 
-	o, err = hnd.SetAnyInRange(246, 255)
+	o, err = hnd.SetAnyInRange(246, 255, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -790,7 +831,7 @@ func TestSetAnyInRange(t *testing.T) {
 		t.Fatalf("Unexpected ordinal: %d", o)
 	}
 
-	o, err = hnd.SetAnyInRange(246, 255)
+	o, err = hnd.SetAnyInRange(246, 255, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -820,7 +861,7 @@ func TestMethods(t *testing.T) {
 	}
 
 	for i := 0; i < 192; i++ {
-		_, err := hnd.SetAny()
+		_, err := hnd.SetAny(false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -900,7 +941,7 @@ func TestAllocateRandomDeallocate(t *testing.T) {
 
 	// Allocate first half of the bits
 	for i := 0; i < numBits/2; i++ {
-		_, err := hnd.SetAny()
+		_, err := hnd.SetAny(false)
 		if err != nil {
 			t.Fatalf("Unexpected failure on allocation %d: %v\n%s", i, err, hnd)
 		}
@@ -930,7 +971,7 @@ func TestAllocateRandomDeallocate(t *testing.T) {
 
 	// Request a quarter of bits
 	for i := 0; i < numBits/4; i++ {
-		_, err := hnd.SetAny()
+		_, err := hnd.SetAny(false)
 		if err != nil {
 			t.Fatalf("Unexpected failure on allocation %d: %v\nSeed: %d\n%s", i, err, seed, hnd)
 		}
@@ -940,6 +981,69 @@ func TestAllocateRandomDeallocate(t *testing.T) {
 	}
 	if !hnd.head.equal(expected) {
 		t.Fatalf("Unexpected sequence. Got:\n%s", hnd)
+	}
+
+	err = hnd.Destroy()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAllocateRandomDeallocateSerialize(t *testing.T) {
+	ds, err := randomLocalStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	numBlocks := uint32(8)
+	numBits := int(numBlocks * blockLen)
+	hnd, err := NewHandle("bitseq-test/data/", ds, "test1", uint64(numBits))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := &sequence{block: 0xffffffff, count: uint64(numBlocks / 2), next: &sequence{block: 0x0, count: uint64(numBlocks / 2)}}
+
+	// Allocate first half of the bits
+	for i := 0; i < numBits/2; i++ {
+		_, err := hnd.SetAny(true)
+		if err != nil {
+			t.Fatalf("Unexpected failure on allocation %d: %v\n%s", i, err, hnd)
+		}
+	}
+
+	if hnd.Unselected() != uint64(numBits/2) {
+		t.Fatalf("Expected full sequence. Instead found %d free bits. %s", hnd.unselected, hnd)
+	}
+	if !hnd.head.equal(expected) {
+		t.Fatalf("Unexpected sequence. Got:\n%s", hnd)
+	}
+
+	seed := time.Now().Unix()
+	rand.Seed(seed)
+
+	// Deallocate half of the allocated bits following a random pattern
+	pattern := rand.Perm(numBits / 2)
+	for i := 0; i < numBits/4; i++ {
+		bit := pattern[i]
+		err := hnd.Unset(uint64(bit))
+		if err != nil {
+			t.Fatalf("Unexpected failure on deallocation of %d: %v.\nSeed: %d.\n%s", bit, err, seed, hnd)
+		}
+	}
+	if hnd.Unselected() != uint64(3*numBits/4) {
+		t.Fatalf("Expected full sequence. Instead found %d free bits.\nSeed: %d.\n%s", hnd.unselected, seed, hnd)
+	}
+
+	// Request a quarter of bits
+	for i := 0; i < numBits/4; i++ {
+		_, err := hnd.SetAny(true)
+		if err != nil {
+			t.Fatalf("Unexpected failure on allocation %d: %v\nSeed: %d\n%s", i, err, seed, hnd)
+		}
+	}
+	if hnd.Unselected() != uint64(numBits/2) {
+		t.Fatalf("Expected half sequence. Instead found %d free bits.\nSeed: %d\n%s", hnd.unselected, seed, hnd)
 	}
 
 	err = hnd.Destroy()
@@ -962,7 +1066,7 @@ func TestRetrieveFromStore(t *testing.T) {
 
 	// Allocate first half of the bits
 	for i := 0; i < numBits/2; i++ {
-		_, err := hnd.SetAny()
+		_, err := hnd.SetAny(false)
 		if err != nil {
 			t.Fatalf("Unexpected failure on allocation %d: %v\n%s", i, err, hnd)
 		}
@@ -1131,5 +1235,78 @@ func TestIsCorrupted(t *testing.T) {
 		if hnd.runConsistencyCheck() {
 			t.Fatalf("Sequence still marked corrupted (%d): %s", idx, hnd)
 		}
+	}
+}
+
+func TestSetRollover(t *testing.T) {
+	ds, err := randomLocalStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	numBlocks := uint32(8)
+	numBits := int(numBlocks * blockLen)
+	hnd, err := NewHandle("bitseq-test/data/", ds, "test1", uint64(numBits))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Allocate first half of the bits
+	for i := 0; i < numBits/2; i++ {
+		_, err := hnd.SetAny(true)
+		if err != nil {
+			t.Fatalf("Unexpected failure on allocation %d: %v\n%s", i, err, hnd)
+		}
+	}
+
+	if hnd.Unselected() != uint64(numBits/2) {
+		t.Fatalf("Expected full sequence. Instead found %d free bits. %s", hnd.unselected, hnd)
+	}
+
+	seed := time.Now().Unix()
+	rand.Seed(seed)
+
+	// Deallocate half of the allocated bits following a random pattern
+	pattern := rand.Perm(numBits / 2)
+	for i := 0; i < numBits/4; i++ {
+		bit := pattern[i]
+		err := hnd.Unset(uint64(bit))
+		if err != nil {
+			t.Fatalf("Unexpected failure on deallocation of %d: %v.\nSeed: %d.\n%s", bit, err, seed, hnd)
+		}
+	}
+	if hnd.Unselected() != uint64(3*numBits/4) {
+		t.Fatalf("Expected full sequence. Instead found %d free bits.\nSeed: %d.\n%s", hnd.unselected, seed, hnd)
+	}
+
+	//request to allocate for remaining half of the bits
+	for i := 0; i < numBits/2; i++ {
+		_, err := hnd.SetAny(true)
+		if err != nil {
+			t.Fatalf("Unexpected failure on allocation %d: %v\nSeed: %d\n%s", i, err, seed, hnd)
+		}
+	}
+
+	//At this point all the bits must be allocated except the randomly unallocated bits
+	//which were unallocated in the first half of the bit sequence
+	if hnd.Unselected() != uint64(numBits/4) {
+		t.Fatalf("Unexpected number of unselected bits %d, Expected %d", hnd.Unselected(), numBits/4)
+	}
+
+	for i := 0; i < numBits/4; i++ {
+		_, err := hnd.SetAny(true)
+		if err != nil {
+			t.Fatalf("Unexpected failure on allocation %d: %v\nSeed: %d\n%s", i, err, seed, hnd)
+		}
+	}
+	//Now requesting to allocate the unallocated random bits (qurter of the number of bits) should
+	//leave no more bits that can be allocated.
+	if hnd.Unselected() != 0 {
+		t.Fatalf("Unexpected number of unselected bits %d, Expected %d", hnd.Unselected(), numBits/4)
+	}
+
+	err = hnd.Destroy()
+	if err != nil {
+		t.Fatal(err)
 	}
 }

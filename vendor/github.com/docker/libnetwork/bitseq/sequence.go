@@ -1,17 +1,18 @@
 // Package bitseq provides a structure and utilities for representing long bitmask
-// as sequence of run-lenght encoded blocks. It operates direclty on the encoded
+// as sequence of run-length encoded blocks. It operates directly on the encoded
 // representation, it does not decode/encode.
 package bitseq
 
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/types"
+	"github.com/sirupsen/logrus"
 )
 
 // block sequence constants
@@ -26,9 +27,9 @@ const (
 
 var (
 	// ErrNoBitAvailable is returned when no more bits are available to set
-	ErrNoBitAvailable = fmt.Errorf("no bit available")
+	ErrNoBitAvailable = errors.New("no bit available")
 	// ErrBitAllocated is returned when the specific bit requested is already set
-	ErrBitAllocated = fmt.Errorf("requested bit is already allocated")
+	ErrBitAllocated = errors.New("requested bit is already allocated")
 )
 
 // Handle contains the sequece representing the bitmask and its identifier
@@ -40,6 +41,7 @@ type Handle struct {
 	id         string
 	dbIndex    uint64
 	dbExists   bool
+	curr       uint64
 	store      datastore.DataStore
 	sync.Mutex
 }
@@ -192,26 +194,27 @@ func (h *Handle) getCopy() *Handle {
 		dbIndex:    h.dbIndex,
 		dbExists:   h.dbExists,
 		store:      h.store,
+		curr:       h.curr,
 	}
 }
 
 // SetAnyInRange atomically sets the first unset bit in the specified range in the sequence and returns the corresponding ordinal
-func (h *Handle) SetAnyInRange(start, end uint64) (uint64, error) {
-	if end-start <= 0 || end >= h.bits {
+func (h *Handle) SetAnyInRange(start, end uint64, serial bool) (uint64, error) {
+	if end < start || end >= h.bits {
 		return invalidPos, fmt.Errorf("invalid bit range [%d, %d]", start, end)
 	}
 	if h.Unselected() == 0 {
 		return invalidPos, ErrNoBitAvailable
 	}
-	return h.set(0, start, end, true, false)
+	return h.set(0, start, end, true, false, serial)
 }
 
 // SetAny atomically sets the first unset bit in the sequence and returns the corresponding ordinal
-func (h *Handle) SetAny() (uint64, error) {
+func (h *Handle) SetAny(serial bool) (uint64, error) {
 	if h.Unselected() == 0 {
 		return invalidPos, ErrNoBitAvailable
 	}
-	return h.set(0, 0, h.bits-1, true, false)
+	return h.set(0, 0, h.bits-1, true, false, serial)
 }
 
 // Set atomically sets the corresponding bit in the sequence
@@ -219,7 +222,7 @@ func (h *Handle) Set(ordinal uint64) error {
 	if err := h.validateOrdinal(ordinal); err != nil {
 		return err
 	}
-	_, err := h.set(ordinal, 0, 0, false, false)
+	_, err := h.set(ordinal, 0, 0, false, false, false)
 	return err
 }
 
@@ -228,7 +231,7 @@ func (h *Handle) Unset(ordinal uint64) error {
 	if err := h.validateOrdinal(ordinal); err != nil {
 		return err
 	}
-	_, err := h.set(ordinal, 0, 0, false, true)
+	_, err := h.set(ordinal, 0, 0, false, true, false)
 	return err
 }
 
@@ -286,7 +289,7 @@ func (h *Handle) CheckConsistency() error {
 			continue
 		}
 
-		log.Infof("Fixed inconsistent bit sequence in datastore:\n%s\n%s", h, nh)
+		logrus.Infof("Fixed inconsistent bit sequence in datastore:\n%s\n%s", h, nh)
 
 		h.Lock()
 		h.head = nh.head
@@ -297,7 +300,7 @@ func (h *Handle) CheckConsistency() error {
 }
 
 // set/reset the bit
-func (h *Handle) set(ordinal, start, end uint64, any bool, release bool) (uint64, error) {
+func (h *Handle) set(ordinal, start, end uint64, any bool, release bool, serial bool) (uint64, error) {
 	var (
 		bitPos  uint64
 		bytePos uint64
@@ -307,6 +310,7 @@ func (h *Handle) set(ordinal, start, end uint64, any bool, release bool) (uint64
 
 	for {
 		var store datastore.DataStore
+		curr := uint64(0)
 		h.Lock()
 		store = h.store
 		h.Unlock()
@@ -317,15 +321,18 @@ func (h *Handle) set(ordinal, start, end uint64, any bool, release bool) (uint64
 		}
 
 		h.Lock()
+		if serial {
+			curr = h.curr
+		}
 		// Get position if available
 		if release {
 			bytePos, bitPos = ordinalToPos(ordinal)
 		} else {
 			if any {
-				bytePos, bitPos, err = getFirstAvailable(h.head, start)
+				bytePos, bitPos, err = getAvailableFromCurrent(h.head, start, curr, end)
 				ret = posToOrdinal(bytePos, bitPos)
-				if end < ret {
-					err = ErrNoBitAvailable
+				if err == nil {
+					h.curr = ret + 1
 				}
 			} else {
 				bytePos, bitPos, err = checkIfAvailable(h.head, ordinal)
@@ -373,7 +380,7 @@ func (h *Handle) validateOrdinal(ordinal uint64) error {
 	h.Lock()
 	defer h.Unlock()
 	if ordinal >= h.bits {
-		return fmt.Errorf("bit does not belong to the sequence")
+		return errors.New("bit does not belong to the sequence")
 	}
 	return nil
 }
@@ -418,7 +425,7 @@ func (h *Handle) ToByteArray() ([]byte, error) {
 // FromByteArray reads his handle's data from a byte array
 func (h *Handle) FromByteArray(ba []byte) error {
 	if ba == nil {
-		return fmt.Errorf("nil byte array")
+		return errors.New("nil byte array")
 	}
 
 	nh := &sequence{}
@@ -496,7 +503,10 @@ func getFirstAvailable(head *sequence, start uint64) (uint64, uint64, error) {
 	// Derive the this sequence offsets
 	byteOffset := byteStart - inBlockBytePos
 	bitOffset := inBlockBytePos*8 + bitStart
-
+	var firstOffset uint64
+	if current == head {
+		firstOffset = byteOffset
+	}
 	for current != nil {
 		if current.block != blockMAX {
 			bytePos, bitPos, err := current.getAvailableBit(bitOffset)
@@ -504,10 +514,34 @@ func getFirstAvailable(head *sequence, start uint64) (uint64, uint64, error) {
 		}
 		// Moving to next block: Reset bit offset.
 		bitOffset = 0
-		byteOffset += current.count * blockBytes
+		byteOffset += (current.count * blockBytes) - firstOffset
+		firstOffset = 0
 		current = current.next
 	}
 	return invalidPos, invalidPos, ErrNoBitAvailable
+}
+
+// getAvailableFromCurrent will look for available ordinal from the current ordinal.
+// If none found then it will loop back to the start to check of the available bit.
+// This can be further optimized to check from start till curr in case of a rollover
+func getAvailableFromCurrent(head *sequence, start, curr, end uint64) (uint64, uint64, error) {
+	var bytePos, bitPos uint64
+	if curr != 0 && curr > start {
+		bytePos, bitPos, _ = getFirstAvailable(head, curr)
+		ret := posToOrdinal(bytePos, bitPos)
+		if end < ret {
+			goto begin
+		}
+		return bytePos, bitPos, nil
+	}
+
+begin:
+	bytePos, bitPos, _ = getFirstAvailable(head, start)
+	ret := posToOrdinal(bytePos, bitPos)
+	if end < ret {
+		return invalidPos, invalidPos, ErrNoBitAvailable
+	}
+	return bytePos, bitPos, nil
 }
 
 // checkIfAvailable checks if the bit correspondent to the specified ordinal is unset

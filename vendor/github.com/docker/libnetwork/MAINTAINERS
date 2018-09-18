@@ -14,10 +14,10 @@
 			"aboch",
 			"LK4D4",
 			"icecrime",
-			"mrjana",
 			"mavenugo",
-                        "sanimej",
-                        "chenchun",
+			"sanimej",
+			"chenchun",
+                        "fcrisciani",
 		]
 
 [people]
@@ -43,15 +43,15 @@
 	Email = "ramichen@tencent.com"
 	GitHub = "chenchun"
 
+	[people.fcrisciani]
+	Name = "Flavio Crisciani"
+	Email = "flavio.crisciani@docker.com"
+	GitHub = "fcrisciani"
+
 	[people.icecrime]
 	Name = "Arnaud Porterie"
 	Email = "arnaud@docker.com"
 	GitHub = "icecrime"
-
-	[people.mrjana]
-	Name = "Jana Radhakrishnan"
-	Email = "mrjana@docker.com"
-	GitHub = "mrjana"
 
 	[people.mavenugo]
 	Name = "Madhu Venugopal"

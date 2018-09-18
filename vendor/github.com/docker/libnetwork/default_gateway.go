@@ -2,19 +2,21 @@ package libnetwork
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/types"
+	"github.com/sirupsen/logrus"
 )
 
 const (
-	libnGWNetwork = "docker_gwbridge"
-	gwEPlen       = 12
+	gwEPlen = 12
 )
 
 var procGwNetwork = make(chan (bool), 1)
 
 /*
-   libnetwork creates a bridge network "docker_gw_bridge" for provding
+   libnetwork creates a bridge network "docker_gw_bridge" for providing
    default gateway for the containers if none of the container's endpoints
    have GW set by the driver. ICC is set to false for the GW_bridge network.
 
@@ -29,7 +31,7 @@ var procGwNetwork = make(chan (bool), 1)
 
 func (sb *sandbox) setupDefaultGW() error {
 
-	// check if the conitainer already has a GW endpoint
+	// check if the container already has a GW endpoint
 	if ep := sb.getEndpointInGWNetwork(); ep != nil {
 		return nil
 	}
@@ -52,13 +54,38 @@ func (sb *sandbox) setupDefaultGW() error {
 		eplen = len(sb.containerID)
 	}
 
+	sbLabels := sb.Labels()
+
+	if sbLabels[netlabel.PortMap] != nil {
+		createOptions = append(createOptions, CreateOptionPortMapping(sbLabels[netlabel.PortMap].([]types.PortBinding)))
+	}
+
+	if sbLabels[netlabel.ExposedPorts] != nil {
+		createOptions = append(createOptions, CreateOptionExposedPorts(sbLabels[netlabel.ExposedPorts].([]types.TransportPort)))
+	}
+
+	epOption := getPlatformOption()
+	if epOption != nil {
+		createOptions = append(createOptions, epOption)
+	}
+
 	newEp, err := n.CreateEndpoint("gateway_"+sb.containerID[0:eplen], createOptions...)
 	if err != nil {
 		return fmt.Errorf("container %s: endpoint create on GW Network failed: %v", sb.containerID, err)
 	}
+
+	defer func() {
+		if err != nil {
+			if err2 := newEp.Delete(true); err2 != nil {
+				logrus.Warnf("Failed to remove gw endpoint for container %s after failing to join the gateway network: %v",
+					sb.containerID, err2)
+			}
+		}
+	}()
+
 	epLocal := newEp.(*endpoint)
 
-	if err := epLocal.sbJoin(sb); err != nil {
+	if err = epLocal.sbJoin(sb); err != nil {
 		return fmt.Errorf("container %s: endpoint join on GW Network failed: %v", sb.containerID, err)
 	}
 
@@ -107,7 +134,7 @@ func (sb *sandbox) needDefaultGW() bool {
 			return false
 		}
 		for _, r := range ep.StaticRoutes() {
-			if r.Destination.String() == "0.0.0.0/0" {
+			if r.Destination != nil && r.Destination.String() == "0.0.0.0/0" {
 				return false
 			}
 		}
@@ -119,7 +146,7 @@ func (sb *sandbox) needDefaultGW() bool {
 
 func (sb *sandbox) getEndpointInGWNetwork() *endpoint {
 	for _, ep := range sb.getConnectedEndpoints() {
-		if ep.getNetwork().name == libnGWNetwork {
+		if ep.getNetwork().name == libnGWNetwork && strings.HasPrefix(ep.Name(), "gateway_") {
 			return ep
 		}
 	}
@@ -127,7 +154,7 @@ func (sb *sandbox) getEndpointInGWNetwork() *endpoint {
 }
 
 func (ep *endpoint) endpointInGWNetwork() bool {
-	if ep.getNetwork().name == libnGWNetwork {
+	if ep.getNetwork().name == libnGWNetwork && strings.HasPrefix(ep.Name(), "gateway_") {
 		return true
 	}
 	return false

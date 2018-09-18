@@ -1,17 +1,15 @@
 package drvregistry
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
+	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/ipamapi"
 	"github.com/docker/libnetwork/types"
-
-	builtinIpam "github.com/docker/libnetwork/ipams/builtin"
-	nullIpam "github.com/docker/libnetwork/ipams/null"
-	remoteIpam "github.com/docker/libnetwork/ipams/remote"
 )
 
 type driverData struct {
@@ -32,10 +30,11 @@ type ipamTable map[string]*ipamData
 // DrvRegistry holds the registry of all network drivers and IPAM drivers that it knows about.
 type DrvRegistry struct {
 	sync.Mutex
-	drivers     driverTable
-	ipamDrivers ipamTable
-	dfn         DriverNotifyFunc
-	ifn         IPAMNotifyFunc
+	drivers      driverTable
+	ipamDrivers  ipamTable
+	dfn          DriverNotifyFunc
+	ifn          IPAMNotifyFunc
+	pluginGetter plugingetter.PluginGetter
 }
 
 // Functors definition
@@ -56,16 +55,13 @@ type IPAMNotifyFunc func(name string, driver ipamapi.Ipam, cap *ipamapi.Capabili
 type DriverNotifyFunc func(name string, driver driverapi.Driver, capability driverapi.Capability) error
 
 // New retruns a new driver registry handle.
-func New(lDs, gDs interface{}, dfn DriverNotifyFunc, ifn IPAMNotifyFunc) (*DrvRegistry, error) {
+func New(lDs, gDs interface{}, dfn DriverNotifyFunc, ifn IPAMNotifyFunc, pg plugingetter.PluginGetter) (*DrvRegistry, error) {
 	r := &DrvRegistry{
-		drivers:     make(driverTable),
-		ipamDrivers: make(ipamTable),
-		dfn:         dfn,
-		ifn:         ifn,
-	}
-
-	if err := r.initIPAMs(lDs, gDs); err != nil {
-		return nil, err
+		drivers:      make(driverTable),
+		ipamDrivers:  make(ipamTable),
+		dfn:          dfn,
+		ifn:          ifn,
+		pluginGetter: pg,
 	}
 
 	return r, nil
@@ -157,31 +153,22 @@ func (r *DrvRegistry) IPAMDefaultAddressSpaces(name string) (string, string, err
 	return i.defaultLocalAddressSpace, i.defaultGlobalAddressSpace, nil
 }
 
-func (r *DrvRegistry) initIPAMs(lDs, gDs interface{}) error {
-	for _, fn := range [](func(ipamapi.Callback, interface{}, interface{}) error){
-		builtinIpam.Init,
-		remoteIpam.Init,
-		nullIpam.Init,
-	} {
-		if err := fn(r, lDs, gDs); err != nil {
-			return err
-		}
-	}
-
-	return nil
+// GetPluginGetter returns the plugingetter
+func (r *DrvRegistry) GetPluginGetter() plugingetter.PluginGetter {
+	return r.pluginGetter
 }
 
 // RegisterDriver registers the network driver when it gets discovered.
 func (r *DrvRegistry) RegisterDriver(ntype string, driver driverapi.Driver, capability driverapi.Capability) error {
 	if strings.TrimSpace(ntype) == "" {
-		return fmt.Errorf("network type string cannot be empty")
+		return errors.New("network type string cannot be empty")
 	}
 
 	r.Lock()
-	_, ok := r.drivers[ntype]
+	dd, ok := r.drivers[ntype]
 	r.Unlock()
 
-	if ok {
+	if ok && dd.driver.IsBuiltIn() {
 		return driverapi.ErrActiveRegistration(ntype)
 	}
 
@@ -202,13 +189,13 @@ func (r *DrvRegistry) RegisterDriver(ntype string, driver driverapi.Driver, capa
 
 func (r *DrvRegistry) registerIpamDriver(name string, driver ipamapi.Ipam, caps *ipamapi.Capability) error {
 	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("ipam driver name string cannot be empty")
+		return errors.New("ipam driver name string cannot be empty")
 	}
 
 	r.Lock()
-	_, ok := r.ipamDrivers[name]
+	dd, ok := r.ipamDrivers[name]
 	r.Unlock()
-	if ok {
+	if ok && dd.driver.IsBuiltIn() {
 		return types.ForbiddenErrorf("ipam driver %q already registered", name)
 	}
 

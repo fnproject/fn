@@ -17,14 +17,14 @@ func TestSetupIPForwarding(t *testing.T) {
 	}
 
 	// Set IP Forwarding
-	if err := setupIPForwarding(); err != nil {
+	if err := setupIPForwarding(true); err != nil {
 		t.Fatalf("Failed to setup IP forwarding: %v", err)
 	}
 
 	// Read new setting
 	procSetting = readCurrentIPForwardingSetting(t)
 	if bytes.Compare(procSetting, []byte("1\n")) != 0 {
-		t.Fatalf("Failed to effectively setup IP forwarding")
+		t.Fatal("Failed to effectively setup IP forwarding")
 	}
 }
 

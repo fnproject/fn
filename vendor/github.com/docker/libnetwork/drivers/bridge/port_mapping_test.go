@@ -44,7 +44,7 @@ func TestPortMappingConfig(t *testing.T) {
 	netOptions := make(map[string]interface{})
 	netOptions[netlabel.GenericData] = netConfig
 
-	ipdList := getIPv4Data(t)
+	ipdList := getIPv4Data(t, "")
 	err := d.CreateNetwork("dummy", netOptions, nil, ipdList, nil)
 	if err != nil {
 		t.Fatalf("Failed to create bridge: %v", err)
@@ -74,11 +74,11 @@ func TestPortMappingConfig(t *testing.T) {
 	}
 	if ep.portMapping[0].Proto != binding1.Proto || ep.portMapping[0].Port != binding1.Port ||
 		ep.portMapping[1].Proto != binding2.Proto || ep.portMapping[1].Port != binding2.Port {
-		t.Fatalf("bridgeEndpoint has incorrect port mapping values")
+		t.Fatal("bridgeEndpoint has incorrect port mapping values")
 	}
 	if ep.portMapping[0].HostIP == nil || ep.portMapping[0].HostPort == 0 ||
 		ep.portMapping[1].HostIP == nil || ep.portMapping[1].HostPort == 0 {
-		t.Fatalf("operational port mapping data not found on bridgeEndpoint")
+		t.Fatal("operational port mapping data not found on bridgeEndpoint")
 	}
 
 	// release host mapped ports

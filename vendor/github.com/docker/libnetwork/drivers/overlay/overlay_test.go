@@ -1,16 +1,22 @@
 package overlay
 
 import (
+	"context"
+	"fmt"
 	"net"
+	"os"
+	"syscall"
 	"testing"
 	"time"
 
+	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/libkv/store/consul"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/discoverapi"
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/netlabel"
 	_ "github.com/docker/libnetwork/testutils"
+	"github.com/vishvananda/netlink/nl"
 )
 
 func init() {
@@ -65,6 +71,10 @@ func cleanupDriver(t *testing.T, dt *driverTester) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("test timed out because Fini() did not return on time")
 	}
+}
+
+func (dt *driverTester) GetPluginGetter() plugingetter.PluginGetter {
+	return nil
 }
 
 func (dt *driverTester) RegisterDriver(name string, drv driverapi.Driver,
@@ -128,5 +138,38 @@ func TestOverlayType(t *testing.T) {
 	if dt.d.Type() != testNetworkType {
 		t.Fatalf("Expected Type() to return %q. Instead got %q", testNetworkType,
 			dt.d.Type())
+	}
+}
+
+// Test that the netlink socket close unblock the watchMiss to avoid deadlock
+func TestNetlinkSocket(t *testing.T) {
+	// This is the same code used by the overlay driver to create the netlink interface
+	// for the watch miss
+	nlSock, err := nl.Subscribe(syscall.NETLINK_ROUTE, syscall.RTNLGRP_NEIGH)
+	if err != nil {
+		t.Fatal()
+	}
+	// set the receive timeout to not remain stuck on the RecvFrom if the fd gets closed
+	tv := syscall.NsecToTimeval(soTimeout.Nanoseconds())
+	err = nlSock.SetReceiveTimeout(&tv)
+	if err != nil {
+		t.Fatal()
+	}
+	n := &network{id: "testnetid"}
+	ch := make(chan error)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	go func() {
+		n.watchMiss(nlSock, fmt.Sprintf("/proc/%d/task/%d/ns/net", os.Getpid(), syscall.Gettid()))
+		ch <- nil
+	}()
+	time.Sleep(5 * time.Second)
+	nlSock.Close()
+	select {
+	case <-ch:
+	case <-ctx.Done():
+		{
+			t.Fatalf("Timeout expired")
+		}
 	}
 }

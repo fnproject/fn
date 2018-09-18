@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
+	"github.com/docker/libnetwork/common"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/discoverapi"
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/ipamapi"
 	"github.com/docker/libnetwork/netlabel"
+	"github.com/docker/libnetwork/netutils"
 	"github.com/docker/libnetwork/testutils"
 	"github.com/docker/libnetwork/types"
 )
@@ -24,6 +27,8 @@ func TestNetworkMarshalling(t *testing.T) {
 		networkType: "bridge",
 		enableIPv6:  true,
 		persist:     true,
+		configOnly:  true,
+		configFrom:  "configOnlyX",
 		ipamOptions: map[string]string{
 			netlabel.MacAddress: "a:b:c:d:e:f",
 			"primary":           "",
@@ -114,6 +119,7 @@ func TestNetworkMarshalling(t *testing.T) {
 			"color":        "blue",
 			"superimposed": "",
 		},
+		created: time.Now(),
 	}
 
 	b, err := json.Marshal(n)
@@ -133,7 +139,9 @@ func TestNetworkMarshalling(t *testing.T) {
 		!compareIpamInfoList(n.ipamV4Info, nn.ipamV4Info) || !compareIpamConfList(n.ipamV6Config, nn.ipamV6Config) ||
 		!compareIpamInfoList(n.ipamV6Info, nn.ipamV6Info) ||
 		!compareStringMaps(n.ipamOptions, nn.ipamOptions) ||
-		!compareStringMaps(n.labels, nn.labels) {
+		!compareStringMaps(n.labels, nn.labels) ||
+		!n.created.Equal(nn.created) ||
+		n.configOnly != nn.configOnly || n.configFrom != nn.configFrom {
 		t.Fatalf("JSON marsh/unmarsh failed."+
 			"\nOriginal:\n%#v\nDecoded:\n%#v"+
 			"\nOriginal ipamV4Conf: %#v\n\nDecoded ipamV4Conf: %#v"+
@@ -172,6 +180,12 @@ func TestEndpointMarshalling(t *testing.T) {
 	}
 	nw6.IP = ip
 
+	var lla []*net.IPNet
+	for _, nw := range []string{"169.254.0.1/16", "169.254.1.1/16", "169.254.2.2/16"} {
+		ll, _ := types.ParseCIDR(nw)
+		lla = append(lla, ll)
+	}
+
 	e := &endpoint{
 		name:      "Bau",
 		id:        "efghijklmno",
@@ -188,6 +202,7 @@ func TestEndpointMarshalling(t *testing.T) {
 			dstPrefix: "eth",
 			v4PoolID:  "poolpool",
 			v6PoolID:  "poolv6",
+			llAddrs:   lla,
 		},
 	}
 
@@ -215,7 +230,7 @@ func compareEndpointInterface(a, b *endpointInterface) bool {
 		return false
 	}
 	return a.srcName == b.srcName && a.dstPrefix == b.dstPrefix && a.v4PoolID == b.v4PoolID && a.v6PoolID == b.v6PoolID &&
-		types.CompareIPNet(a.addr, b.addr) && types.CompareIPNet(a.addrv6, b.addrv6)
+		types.CompareIPNet(a.addr, b.addr) && types.CompareIPNet(a.addrv6, b.addrv6) && compareNwLists(a.llAddrs, b.llAddrs)
 }
 
 func compareIpamConfList(listA, listB []*IpamConf) bool {
@@ -282,6 +297,18 @@ func compareAddresses(a, b map[string]*net.IPNet) bool {
 	return true
 }
 
+func compareNwLists(a, b []*net.IPNet) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if !types.CompareIPNet(a[k], b[k]) {
+			return false
+		}
+	}
+	return true
+}
+
 func TestAuxAddresses(t *testing.T) {
 	c, err := New()
 	if err != nil {
@@ -318,12 +345,224 @@ func TestAuxAddresses(t *testing.T) {
 	}
 }
 
+func TestSRVServiceQuery(t *testing.T) {
+	c, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Stop()
+
+	n, err := c.NewNetwork("bridge", "net1", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := n.Delete(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	ep, err := n.CreateEndpoint("testep")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sb, err := c.NewSandbox("c1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := sb.Delete(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	err = ep.Join(sb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sr := svcInfo{
+		svcMap:     common.NewSetMatrix(),
+		svcIPv6Map: common.NewSetMatrix(),
+		ipMap:      common.NewSetMatrix(),
+		service:    make(map[string][]servicePorts),
+	}
+	// backing container for the service
+	cTarget := serviceTarget{
+		name: "task1.web.swarm",
+		ip:   net.ParseIP("192.168.10.2"),
+		port: 80,
+	}
+	// backing host for the service
+	hTarget := serviceTarget{
+		name: "node1.docker-cluster",
+		ip:   net.ParseIP("10.10.10.2"),
+		port: 45321,
+	}
+	httpPort := servicePorts{
+		portName: "_http",
+		proto:    "_tcp",
+		target:   []serviceTarget{cTarget},
+	}
+
+	extHTTPPort := servicePorts{
+		portName: "_host_http",
+		proto:    "_tcp",
+		target:   []serviceTarget{hTarget},
+	}
+	sr.service["web.swarm"] = append(sr.service["web.swarm"], httpPort)
+	sr.service["web.swarm"] = append(sr.service["web.swarm"], extHTTPPort)
+
+	c.(*controller).svcRecords[n.ID()] = sr
+
+	_, ip := ep.Info().Sandbox().ResolveService("_http._tcp.web.swarm")
+
+	if len(ip) == 0 {
+		t.Fatal(err)
+	}
+	if ip[0].String() != "192.168.10.2" {
+		t.Fatal(err)
+	}
+
+	_, ip = ep.Info().Sandbox().ResolveService("_host_http._tcp.web.swarm")
+
+	if len(ip) == 0 {
+		t.Fatal(err)
+	}
+	if ip[0].String() != "10.10.10.2" {
+		t.Fatal(err)
+	}
+
+	// Service name with invalid protocol name. Should fail without error
+	_, ip = ep.Info().Sandbox().ResolveService("_http._icmp.web.swarm")
+	if len(ip) != 0 {
+		t.Fatal("Valid response for invalid service name")
+	}
+}
+
+func TestServiceVIPReuse(t *testing.T) {
+	c, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Stop()
+
+	n, err := c.NewNetwork("bridge", "net1", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := n.Delete(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	ep, err := n.CreateEndpoint("testep")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sb, err := c.NewSandbox("c1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := sb.Delete(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	err = ep.Join(sb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add 2 services with same name but different service ID to share the same VIP
+	n.(*network).addSvcRecords("ep1", "service_test", "serviceID1", net.ParseIP("192.168.0.1"), net.IP{}, true, "test")
+	n.(*network).addSvcRecords("ep2", "service_test", "serviceID2", net.ParseIP("192.168.0.1"), net.IP{}, true, "test")
+
+	ipToResolve := netutils.ReverseIP("192.168.0.1")
+
+	ipList, _ := n.(*network).ResolveName("service_test", types.IPv4)
+	if len(ipList) == 0 {
+		t.Fatal("There must be the VIP")
+	}
+	if len(ipList) != 1 {
+		t.Fatal("It must return only 1 VIP")
+	}
+	if ipList[0].String() != "192.168.0.1" {
+		t.Fatal("The service VIP is 192.168.0.1")
+	}
+	name := n.(*network).ResolveIP(ipToResolve)
+	if name == "" {
+		t.Fatal("It must return a name")
+	}
+	if name != "service_test.net1" {
+		t.Fatalf("It must return the service_test.net1 != %s", name)
+	}
+
+	// Delete service record for one of the services, the IP should remain because one service is still associated with it
+	n.(*network).deleteSvcRecords("ep1", "service_test", "serviceID1", net.ParseIP("192.168.0.1"), net.IP{}, true, "test")
+	ipList, _ = n.(*network).ResolveName("service_test", types.IPv4)
+	if len(ipList) == 0 {
+		t.Fatal("There must be the VIP")
+	}
+	if len(ipList) != 1 {
+		t.Fatal("It must return only 1 VIP")
+	}
+	if ipList[0].String() != "192.168.0.1" {
+		t.Fatal("The service VIP is 192.168.0.1")
+	}
+	name = n.(*network).ResolveIP(ipToResolve)
+	if name == "" {
+		t.Fatal("It must return a name")
+	}
+	if name != "service_test.net1" {
+		t.Fatalf("It must return the service_test.net1 != %s", name)
+	}
+
+	// Delete again the service using the previous service ID, nothing should happen
+	n.(*network).deleteSvcRecords("ep2", "service_test", "serviceID1", net.ParseIP("192.168.0.1"), net.IP{}, true, "test")
+	ipList, _ = n.(*network).ResolveName("service_test", types.IPv4)
+	if len(ipList) == 0 {
+		t.Fatal("There must be the VIP")
+	}
+	if len(ipList) != 1 {
+		t.Fatal("It must return only 1 VIP")
+	}
+	if ipList[0].String() != "192.168.0.1" {
+		t.Fatal("The service VIP is 192.168.0.1")
+	}
+	name = n.(*network).ResolveIP(ipToResolve)
+	if name == "" {
+		t.Fatal("It must return a name")
+	}
+	if name != "service_test.net1" {
+		t.Fatalf("It must return the service_test.net1 != %s", name)
+	}
+
+	// Delete now using the second service ID, now all the entries should be gone
+	n.(*network).deleteSvcRecords("ep2", "service_test", "serviceID2", net.ParseIP("192.168.0.1"), net.IP{}, true, "test")
+	ipList, _ = n.(*network).ResolveName("service_test", types.IPv4)
+	if len(ipList) != 0 {
+		t.Fatal("All the VIPs should be gone now")
+	}
+	name = n.(*network).ResolveIP(ipToResolve)
+	if name != "" {
+		t.Fatalf("It must return empty no more services associated, instead:%s", name)
+	}
+}
+
 func TestIpamReleaseOnNetDriverFailures(t *testing.T) {
 	if !testutils.IsRunningInContainer() {
 		defer testutils.SetupTestOSContext(t)()
 	}
 
 	cfgOptions, err := OptionBoltdbWithRandomDBFile()
+	if err != nil {
+		t.Fatal(err)
+	}
 	c, err := New(cfgOptions...)
 	if err != nil {
 		t.Fatal(err)
@@ -426,6 +665,9 @@ func (b *badDriver) DiscoverDelete(dType discoverapi.DiscoveryType, data interfa
 func (b *badDriver) Type() string {
 	return badDriverName
 }
+func (b *badDriver) IsBuiltIn() bool {
+	return false
+}
 func (b *badDriver) ProgramExternalConnectivity(nid, eid string, options map[string]interface{}) error {
 	return nil
 }
@@ -442,4 +684,8 @@ func (b *badDriver) NetworkFree(id string) error {
 }
 
 func (b *badDriver) EventNotify(etype driverapi.EventType, nid, tableName, key string, value []byte) {
+}
+
+func (b *badDriver) DecodeTableEntry(tablename string, key string, value []byte) (string, map[string]string) {
+	return "", nil
 }

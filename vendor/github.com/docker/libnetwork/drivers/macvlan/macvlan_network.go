@@ -3,14 +3,15 @@ package macvlan
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/netlabel"
+	"github.com/docker/libnetwork/ns"
 	"github.com/docker/libnetwork/options"
 	"github.com/docker/libnetwork/osl"
 	"github.com/docker/libnetwork/types"
+	"github.com/sirupsen/logrus"
 )
 
 // CreateNetwork the network for the specified driver type
@@ -44,8 +45,8 @@ func (d *driver) CreateNetwork(nid string, option map[string]interface{}, nInfo 
 	case "", modeBridge:
 		// default to macvlan bridge mode if -o macvlan_mode is empty
 		config.MacvlanMode = modeBridge
-	case modeOpt:
-		config.MacvlanMode = modeOpt
+	case modePrivate:
+		config.MacvlanMode = modePrivate
 	case modePassthru:
 		config.MacvlanMode = modePassthru
 	case modeVepa:
@@ -123,7 +124,7 @@ func (d *driver) createNetwork(config *configuration) error {
 	return nil
 }
 
-// DeleteNetwork the network for the specified driver type
+// DeleteNetwork deletes the network for the specified driver type
 func (d *driver) DeleteNetwork(nid string) error {
 	defer osl.InitOSContext()()
 	n := d.network(nid)
@@ -151,6 +152,15 @@ func (d *driver) DeleteNetwork(nid string) error {
 			}
 		}
 	}
+	for _, ep := range n.endpoints {
+		if link, err := ns.NlHandle().LinkByName(ep.srcName); err == nil {
+			ns.NlHandle().LinkDel(link)
+		}
+
+		if err := d.storeDelete(ep); err != nil {
+			logrus.Warnf("Failed to remove macvlan endpoint %s from store: %v", ep.id[0:7], err)
+		}
+	}
 	// delete the *network
 	d.deleteNetwork(nid)
 	// delete the network record from persistent cache
@@ -161,7 +171,7 @@ func (d *driver) DeleteNetwork(nid string) error {
 	return nil
 }
 
-// parseNetworkOptions parse docker network options
+// parseNetworkOptions parses docker network options
 func parseNetworkOptions(id string, option options.Generic) (*configuration, error) {
 	var (
 		err    error
@@ -183,7 +193,7 @@ func parseNetworkOptions(id string, option options.Generic) (*configuration, err
 	return config, nil
 }
 
-// parseNetworkGenericOptions parse generic driver docker network options
+// parseNetworkGenericOptions parses generic driver docker network options
 func parseNetworkGenericOptions(data interface{}) (*configuration, error) {
 	var (
 		err    error

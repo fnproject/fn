@@ -10,12 +10,12 @@ import (
 	"net"
 	"os"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/types"
 	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/sirupsen/logrus"
 )
 
-const udsBase = "/var/lib/docker/network/files/"
+const udsBase = "/run/docker/libnetwork/"
 const success = "success"
 
 // processSetKeyReexec is a private function that must be called only on an reexec path
@@ -52,7 +52,6 @@ func processSetKeyReexec() {
 	controllerID := os.Args[2]
 
 	err = SetExternalKey(controllerID, containerID, fmt.Sprintf("/proc/%d/ns/net", state.Pid))
-	return
 }
 
 // SetExternalKey provides a convenient way to set an External key to a sandbox
@@ -135,6 +134,8 @@ func (c *controller) acceptClientConnections(sock string, l net.Listener) {
 			continue
 		}
 		go func() {
+			defer conn.Close()
+
 			err := c.processExternalKey(conn)
 			ret := success
 			if err != nil {

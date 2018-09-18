@@ -16,15 +16,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/codegangsta/cli"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/discovery"
 	"github.com/docker/docker/pkg/reexec"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/term"
 	"github.com/docker/libnetwork"
 	"github.com/docker/libnetwork/api"
+	"github.com/docker/libnetwork/cluster"
 	"github.com/docker/libnetwork/config"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/driverapi"
@@ -33,6 +35,8 @@ import (
 	"github.com/docker/libnetwork/options"
 	"github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -64,12 +68,30 @@ func main() {
 	}
 }
 
-func parseConfig(cfgFile string) (*config.Config, error) {
+// ParseConfig parses the libnetwork configuration file
+func (d *dnetConnection) parseOrchestrationConfig(tomlCfgFile string) error {
+	dummy := &dnetConnection{}
+
+	if _, err := toml.DecodeFile(tomlCfgFile, dummy); err != nil {
+		return err
+	}
+
+	if dummy.Orchestration != nil {
+		d.Orchestration = dummy.Orchestration
+	}
+	return nil
+}
+
+func (d *dnetConnection) parseConfig(cfgFile string) (*config.Config, error) {
 	if strings.Trim(cfgFile, " ") == "" {
 		cfgFile = os.Getenv(cfgFileEnv)
 		if strings.Trim(cfgFile, " ") == "" {
 			cfgFile = defaultCfgFile
 		}
+	}
+
+	if err := d.parseOrchestrationConfig(cfgFile); err != nil {
+		return nil, err
 	}
 	return config.ParseConfig(cfgFile)
 }
@@ -91,15 +113,6 @@ func processConfig(cfg *config.Config) []config.Option {
 		dd = cfg.Daemon.DefaultDriver
 	}
 	options = append(options, config.OptionDefaultDriver(dd))
-	if cfg.Daemon.IsAgent {
-		options = append(options, config.OptionAgent())
-	}
-
-	if cfg.Daemon.Bind != "" {
-		options = append(options, config.OptionBind(cfg.Daemon.Bind))
-	}
-
-	options = append(options, config.OptionNeighbors(cfg.Daemon.Neighbors))
 
 	if cfg.Daemon.Labels != nil {
 		options = append(options, config.OptionLabels(cfg.Daemon.Labels))
@@ -122,14 +135,14 @@ func processConfig(cfg *config.Config) []config.Option {
 
 func startDiscovery(cfg *config.ClusterCfg) ([]config.Option, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("discovery requires a valid configuration")
+		return nil, errors.New("discovery requires a valid configuration")
 	}
 
 	hb := time.Duration(cfg.Heartbeat) * time.Second
 	if hb == 0 {
 		hb = defaultHeartbeat
 	}
-	logrus.Infof("discovery : %s $s", cfg.Discovery, hb.String())
+	logrus.Infof("discovery : %s %s", cfg.Discovery, hb.String())
 	d, err := discovery.New(cfg.Discovery, hb, ttlFactor*hb, map[string]string{})
 	if err != nil {
 		return nil, err
@@ -220,18 +233,30 @@ type dnetConnection struct {
 	// proto holds the client protocol i.e. unix.
 	proto string
 	// addr holds the client address.
-	addr string
+	addr          string
+	Orchestration *NetworkOrchestration
+	configEvent   chan cluster.ConfigEventType
+}
+
+// NetworkOrchestration exported
+type NetworkOrchestration struct {
+	Agent   bool
+	Manager bool
+	Bind    string
+	Peer    string
 }
 
 func (d *dnetConnection) dnetDaemon(cfgFile string) error {
 	if err := startTestDriver(); err != nil {
-		return fmt.Errorf("failed to start test driver: %v\n", err)
+		return fmt.Errorf("failed to start test driver: %v", err)
 	}
 
-	cfg, err := parseConfig(cfgFile)
+	cfg, err := d.parseConfig(cfgFile)
 	var cOptions []config.Option
 	if err == nil {
 		cOptions = processConfig(cfg)
+	} else {
+		logrus.Errorf("Error parsing config %v", err)
 	}
 
 	bridgeConfig := options.Generic{
@@ -247,6 +272,11 @@ func (d *dnetConnection) dnetDaemon(cfgFile string) error {
 	if err != nil {
 		fmt.Println("Error starting dnetDaemon :", err)
 		return err
+	}
+	controller.SetClusterProvider(d)
+
+	if d.Orchestration.Agent || d.Orchestration.Manager {
+		d.configEvent <- cluster.EventNodeReady
 	}
 
 	createDefaultNetwork(controller)
@@ -271,6 +301,54 @@ func (d *dnetConnection) dnetDaemon(cfgFile string) error {
 	return http.ListenAndServe(d.addr, r)
 }
 
+func (d *dnetConnection) IsManager() bool {
+	return d.Orchestration.Manager
+}
+
+func (d *dnetConnection) IsAgent() bool {
+	return d.Orchestration.Agent
+}
+
+func (d *dnetConnection) GetAdvertiseAddress() string {
+	return d.Orchestration.Bind
+}
+
+func (d *dnetConnection) GetDataPathAddress() string {
+	return d.Orchestration.Bind
+}
+
+func (d *dnetConnection) GetLocalAddress() string {
+	return d.Orchestration.Bind
+}
+
+func (d *dnetConnection) GetListenAddress() string {
+	return d.Orchestration.Bind
+}
+
+func (d *dnetConnection) GetRemoteAddressList() []string {
+	return []string{d.Orchestration.Peer}
+}
+
+func (d *dnetConnection) ListenClusterEvents() <-chan cluster.ConfigEventType {
+	return d.configEvent
+}
+
+func (d *dnetConnection) AttachNetwork(string, string, []string) (*network.NetworkingConfig, error) {
+	return nil, nil
+}
+
+func (d *dnetConnection) DetachNetwork(string, string) error {
+	return nil
+}
+
+func (d *dnetConnection) UpdateAttachment(string, string, *network.NetworkingConfig) error {
+	return nil
+}
+
+func (d *dnetConnection) WaitForDetachment(context.Context, string, string, string, string) error {
+	return nil
+}
+
 func handleSignals(controller libnetwork.NetworkController) {
 	c := make(chan os.Signal, 1)
 	signals := []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT}
@@ -287,7 +365,7 @@ func startTestDriver() error {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
 	if server == nil {
-		return fmt.Errorf("Failed to start a HTTP Server")
+		return errors.New("Failed to start an HTTP Server")
 	}
 
 	mux.HandleFunc("/Plugin.Activate", func(w http.ResponseWriter, r *http.Request) {
@@ -297,48 +375,44 @@ func startTestDriver() error {
 
 	mux.HandleFunc(fmt.Sprintf("/%s.GetCapabilities", driverapi.NetworkPluginEndpointType), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.docker.plugins.v1+json")
-		fmt.Fprintf(w, `{"Scope":"global"}`)
+		fmt.Fprint(w, `{"Scope":"global"}`)
 	})
 
 	mux.HandleFunc(fmt.Sprintf("/%s.CreateNetwork", driverapi.NetworkPluginEndpointType), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.docker.plugins.v1+json")
-		fmt.Fprintf(w, "null")
+		fmt.Fprint(w, "null")
 	})
 
 	mux.HandleFunc(fmt.Sprintf("/%s.DeleteNetwork", driverapi.NetworkPluginEndpointType), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.docker.plugins.v1+json")
-		fmt.Fprintf(w, "null")
+		fmt.Fprint(w, "null")
 	})
 
 	mux.HandleFunc(fmt.Sprintf("/%s.CreateEndpoint", driverapi.NetworkPluginEndpointType), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.docker.plugins.v1+json")
-		fmt.Fprintf(w, "null")
+		fmt.Fprint(w, "null")
 	})
 
 	mux.HandleFunc(fmt.Sprintf("/%s.DeleteEndpoint", driverapi.NetworkPluginEndpointType), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.docker.plugins.v1+json")
-		fmt.Fprintf(w, "null")
+		fmt.Fprint(w, "null")
 	})
 
 	mux.HandleFunc(fmt.Sprintf("/%s.Join", driverapi.NetworkPluginEndpointType), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.docker.plugins.v1+json")
-		fmt.Fprintf(w, "null")
+		fmt.Fprint(w, "null")
 	})
 
 	mux.HandleFunc(fmt.Sprintf("/%s.Leave", driverapi.NetworkPluginEndpointType), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.docker.plugins.v1+json")
-		fmt.Fprintf(w, "null")
+		fmt.Fprint(w, "null")
 	})
 
 	if err := os.MkdirAll("/etc/docker/plugins", 0755); err != nil {
 		return err
 	}
 
-	if err := ioutil.WriteFile("/etc/docker/plugins/test.spec", []byte(server.URL), 0644); err != nil {
-		return err
-	}
-
-	return nil
+	return ioutil.WriteFile("/etc/docker/plugins/test.spec", []byte(server.URL), 0644)
 }
 
 func newDnetConnection(val string) (*dnetConnection, error) {
@@ -348,13 +422,13 @@ func newDnetConnection(val string) (*dnetConnection, error) {
 	}
 	protoAddrParts := strings.SplitN(url, "://", 2)
 	if len(protoAddrParts) != 2 {
-		return nil, fmt.Errorf("bad format, expected tcp://ADDR")
+		return nil, errors.New("bad format, expected tcp://ADDR")
 	}
 	if strings.ToLower(protoAddrParts[0]) != "tcp" {
-		return nil, fmt.Errorf("dnet currently only supports tcp transport")
+		return nil, errors.New("dnet currently only supports tcp transport")
 	}
 
-	return &dnetConnection{protoAddrParts[0], protoAddrParts[1]}, nil
+	return &dnetConnection{protoAddrParts[0], protoAddrParts[1], &NetworkOrchestration{}, make(chan cluster.ConfigEventType, 10)}, nil
 }
 
 func (d *dnetConnection) httpCall(method, path string, data interface{}, headers map[string][]string) (io.ReadCloser, http.Header, int, error) {
@@ -427,11 +501,11 @@ func encodeData(data interface{}) (*bytes.Buffer, error) {
 }
 
 func ipamOption(bridgeName string) libnetwork.NetworkOption {
-	if nw, _, err := netutils.ElectInterfaceAddresses(bridgeName); err == nil {
-		ipamV4Conf := &libnetwork.IpamConf{PreferredPool: nw.String()}
-		hip, _ := types.GetHostPartIP(nw.IP, nw.Mask)
+	if nws, _, err := netutils.ElectInterfaceAddresses(bridgeName); err == nil {
+		ipamV4Conf := &libnetwork.IpamConf{PreferredPool: nws[0].String()}
+		hip, _ := types.GetHostPartIP(nws[0].IP, nws[0].Mask)
 		if hip.IsGlobalUnicast() {
-			ipamV4Conf.Gateway = nw.IP.String()
+			ipamV4Conf.Gateway = nws[0].IP.String()
 		}
 		return libnetwork.NetworkOptionIpam("default", "", []*libnetwork.IpamConf{ipamV4Conf}, nil, nil)
 	}

@@ -2,13 +2,14 @@ package libnetwork
 
 import (
 	"fmt"
+	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libkv/store/boltdb"
 	"github.com/docker/libkv/store/consul"
 	"github.com/docker/libkv/store/etcd"
 	"github.com/docker/libkv/store/zookeeper"
 	"github.com/docker/libnetwork/datastore"
+	"github.com/sirupsen/logrus"
 )
 
 func registerKVStores() {
@@ -85,7 +86,7 @@ func (c *controller) getNetworkFromStore(nid string) (*network, error) {
 		// Continue searching in the next store if the key is not found in this store
 		if err != nil {
 			if err != datastore.ErrKeyNotFound {
-				log.Debugf("could not find network %s: %v", nid, err)
+				logrus.Debugf("could not find network %s: %v", nid, err)
 			}
 			continue
 		}
@@ -97,7 +98,9 @@ func (c *controller) getNetworkFromStore(nid string) (*network, error) {
 		}
 
 		n.epCnt = ec
-		n.scope = store.Scope()
+		if n.scope == "" {
+			n.scope = store.Scope()
+		}
 		return n, nil
 	}
 
@@ -126,12 +129,14 @@ func (c *controller) getNetworksForScope(scope string) ([]*network, error) {
 		ec := &endpointCnt{n: n}
 		err = store.GetObject(datastore.Key(ec.Key()...), ec)
 		if err != nil && !n.inDelete {
-			log.Warnf("Could not find endpoint count key %s for network %s while listing: %v", datastore.Key(ec.Key()...), n.Name(), err)
+			logrus.Warnf("Could not find endpoint count key %s for network %s while listing: %v", datastore.Key(ec.Key()...), n.Name(), err)
 			continue
 		}
 
 		n.epCnt = ec
-		n.scope = scope
+		if n.scope == "" {
+			n.scope = scope
+		}
 		nl = append(nl, n)
 	}
 
@@ -147,27 +152,32 @@ func (c *controller) getNetworksFromStore() ([]*network, error) {
 		// Continue searching in the next store if no keys found in this store
 		if err != nil {
 			if err != datastore.ErrKeyNotFound {
-				log.Debugf("failed to get networks for scope %s: %v", store.Scope(), err)
+				logrus.Debugf("failed to get networks for scope %s: %v", store.Scope(), err)
 			}
 			continue
+		}
+
+		kvep, err := store.Map(datastore.Key(epCntKeyPrefix), &endpointCnt{})
+		if err != nil {
+			if err != datastore.ErrKeyNotFound {
+				logrus.Warnf("failed to get endpoint_count map for scope %s: %v", store.Scope(), err)
+			}
 		}
 
 		for _, kvo := range kvol {
 			n := kvo.(*network)
 			n.Lock()
 			n.ctrlr = c
-			n.Unlock()
-
 			ec := &endpointCnt{n: n}
-			err = store.GetObject(datastore.Key(ec.Key()...), ec)
-			if err != nil && !n.inDelete {
-				log.Warnf("could not find endpoint count key %s for network %s while listing: %v", datastore.Key(ec.Key()...), n.Name(), err)
-				continue
+			// Trim the leading & trailing "/" to make it consistent across all stores
+			if val, ok := kvep[strings.Trim(datastore.Key(ec.Key()...), "/")]; ok {
+				ec = val.(*endpointCnt)
+				ec.n = n
+				n.epCnt = ec
 			}
-
-			n.Lock()
-			n.epCnt = ec
-			n.scope = store.Scope()
+			if n.scope == "" {
+				n.scope = store.Scope()
+			}
 			n.Unlock()
 			nl = append(nl, n)
 		}
@@ -185,7 +195,7 @@ func (n *network) getEndpointFromStore(eid string) (*endpoint, error) {
 		if err != nil {
 			if err != datastore.ErrKeyNotFound {
 				errors = append(errors, fmt.Sprintf("{%s:%v}, ", store.Scope(), err))
-				log.Debugf("could not find endpoint %s in %s: %v", eid, store.Scope(), err)
+				logrus.Debugf("could not find endpoint %s in %s: %v", eid, store.Scope(), err)
 			}
 			continue
 		}
@@ -203,7 +213,7 @@ func (n *network) getEndpointsFromStore() ([]*endpoint, error) {
 		// Continue searching in the next store if no keys found in this store
 		if err != nil {
 			if err != datastore.ErrKeyNotFound {
-				log.Debugf("failed to get endpoints for network %s scope %s: %v",
+				logrus.Debugf("failed to get endpoints for network %s scope %s: %v",
 					n.Name(), store.Scope(), err)
 			}
 			continue
@@ -221,8 +231,7 @@ func (n *network) getEndpointsFromStore() ([]*endpoint, error) {
 func (c *controller) updateToStore(kvObject datastore.KVObject) error {
 	cs := c.getStore(kvObject.DataScope())
 	if cs == nil {
-		log.Warnf("datastore for scope %s not initialized. kv object %s is not added to the store", kvObject.DataScope(), datastore.Key(kvObject.Key()...))
-		return nil
+		return ErrDataStoreNotInitialized(kvObject.DataScope())
 	}
 
 	if err := cs.PutObjectAtomic(kvObject); err != nil {
@@ -238,8 +247,7 @@ func (c *controller) updateToStore(kvObject datastore.KVObject) error {
 func (c *controller) deleteFromStore(kvObject datastore.KVObject) error {
 	cs := c.getStore(kvObject.DataScope())
 	if cs == nil {
-		log.Debugf("datastore for scope %s not initialized. kv object %s is not deleted from datastore", kvObject.DataScope(), datastore.Key(kvObject.Key()...))
-		return nil
+		return ErrDataStoreNotInitialized(kvObject.DataScope())
 	}
 
 retry:
@@ -248,6 +256,7 @@ retry:
 			if err := cs.GetObject(datastore.Key(kvObject.Key()...), kvObject); err != nil {
 				return fmt.Errorf("could not update the kvobject to latest when trying to delete: %v", err)
 			}
+			logrus.Warnf("Error (%v) deleting object %v, retrying....", err, kvObject.Key())
 			goto retry
 		}
 		return err
@@ -348,13 +357,18 @@ func (c *controller) networkWatchLoop(nw *netWatch, ep *endpoint, ecCh <-chan da
 }
 
 func (c *controller) processEndpointCreate(nmap map[string]*netWatch, ep *endpoint) {
+	n := ep.getNetwork()
+	if !c.isDistributedControl() && n.Scope() == datastore.SwarmScope && n.driverIsMultihost() {
+		return
+	}
+
 	c.Lock()
-	nw, ok := nmap[ep.getNetwork().ID()]
+	nw, ok := nmap[n.ID()]
 	c.Unlock()
 
 	if ok {
 		// Update the svc db for the local endpoint join right away
-		ep.getNetwork().updateSvcRecord(ep, c.getLocalEps(nw), true)
+		n.updateSvcRecord(ep, c.getLocalEps(nw), true)
 
 		c.Lock()
 		nw.localEps[ep.ID()] = ep
@@ -375,15 +389,15 @@ func (c *controller) processEndpointCreate(nmap map[string]*netWatch, ep *endpoi
 	// Update the svc db for the local endpoint join right away
 	// Do this before adding this ep to localEps so that we don't
 	// try to update this ep's container's svc records
-	ep.getNetwork().updateSvcRecord(ep, c.getLocalEps(nw), true)
+	n.updateSvcRecord(ep, c.getLocalEps(nw), true)
 
 	c.Lock()
 	nw.localEps[ep.ID()] = ep
-	nmap[ep.getNetwork().ID()] = nw
+	nmap[n.ID()] = nw
 	nw.stopCh = make(chan struct{})
 	c.Unlock()
 
-	store := c.getStore(ep.getNetwork().DataScope())
+	store := c.getStore(n.DataScope())
 	if store == nil {
 		return
 	}
@@ -392,9 +406,9 @@ func (c *controller) processEndpointCreate(nmap map[string]*netWatch, ep *endpoi
 		return
 	}
 
-	ch, err := store.Watch(ep.getNetwork().getEpCnt(), nw.stopCh)
+	ch, err := store.Watch(n.getEpCnt(), nw.stopCh)
 	if err != nil {
-		log.Warnf("Error creating watch for network: %v", err)
+		logrus.Warnf("Error creating watch for network: %v", err)
 		return
 	}
 
@@ -402,8 +416,13 @@ func (c *controller) processEndpointCreate(nmap map[string]*netWatch, ep *endpoi
 }
 
 func (c *controller) processEndpointDelete(nmap map[string]*netWatch, ep *endpoint) {
+	n := ep.getNetwork()
+	if !c.isDistributedControl() && n.Scope() == datastore.SwarmScope && n.driverIsMultihost() {
+		return
+	}
+
 	c.Lock()
-	nw, ok := nmap[ep.getNetwork().ID()]
+	nw, ok := nmap[n.ID()]
 
 	if ok {
 		delete(nw.localEps, ep.ID())
@@ -412,7 +431,7 @@ func (c *controller) processEndpointDelete(nmap map[string]*netWatch, ep *endpoi
 		// Update the svc db about local endpoint leave right away
 		// Do this after we remove this ep from localEps so that we
 		// don't try to remove this svc record from this ep's container.
-		ep.getNetwork().updateSvcRecord(ep, c.getLocalEps(nw), false)
+		n.updateSvcRecord(ep, c.getLocalEps(nw), false)
 
 		c.Lock()
 		if len(nw.localEps) == 0 {
@@ -420,9 +439,9 @@ func (c *controller) processEndpointDelete(nmap map[string]*netWatch, ep *endpoi
 
 			// This is the last container going away for the network. Destroy
 			// this network's svc db entry
-			delete(c.svcDb, ep.getNetwork().ID())
+			delete(c.svcRecords, n.ID())
 
-			delete(nmap, ep.getNetwork().ID())
+			delete(nmap, n.ID())
 		}
 	}
 	c.Unlock()
@@ -453,16 +472,25 @@ func (c *controller) startWatch() {
 func (c *controller) networkCleanup() {
 	networks, err := c.getNetworksFromStore()
 	if err != nil {
-		log.Warnf("Could not retrieve networks from store(s) during network cleanup: %v", err)
+		logrus.Warnf("Could not retrieve networks from store(s) during network cleanup: %v", err)
 		return
 	}
 
 	for _, n := range networks {
 		if n.inDelete {
-			log.Infof("Removing stale network %s (%s)", n.Name(), n.ID())
+			logrus.Infof("Removing stale network %s (%s)", n.Name(), n.ID())
 			if err := n.delete(true); err != nil {
-				log.Debugf("Error while removing stale network: %v", err)
+				logrus.Debugf("Error while removing stale network: %v", err)
 			}
 		}
 	}
+}
+
+var populateSpecial NetworkWalker = func(nw Network) bool {
+	if n := nw.(*network); n.hasSpecialDriver() && !n.ConfigOnly() {
+		if err := n.getController().addNetwork(n); err != nil {
+			logrus.Warnf("Failed to populate network %q with driver %q", nw.Name(), nw.Type())
+		}
+	}
+	return false
 }

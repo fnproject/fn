@@ -3,9 +3,9 @@ package macvlan
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/osl"
 	"github.com/docker/libnetwork/types"
+	"github.com/sirupsen/logrus"
 )
 
 func (d *driver) network(nid string) *network {
@@ -31,7 +31,7 @@ func (d *driver) deleteNetwork(nid string) {
 	d.Unlock()
 }
 
-// getNetworks Safely returns a slice of existng networks
+// getNetworks Safely returns a slice of existing networks
 func (d *driver) getNetworks() []*network {
 	d.Lock()
 	defer d.Unlock()

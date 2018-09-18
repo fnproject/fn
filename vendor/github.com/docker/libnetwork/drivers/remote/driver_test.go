@@ -3,6 +3,7 @@ package remote
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -46,7 +47,7 @@ func setupPlugin(t *testing.T, name string, mux *http.ServeMux) func() {
 
 	server := httptest.NewServer(mux)
 	if server == nil {
-		t.Fatal("Failed to start a HTTP Server")
+		t.Fatal("Failed to start an HTTP Server")
 	}
 
 	if err := ioutil.WriteFile(fmt.Sprintf("/etc/docker/plugins/%s.spec", name), []byte(server.URL), 0644); err != nil {
@@ -218,7 +219,7 @@ func TestGetEmptyCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newDriver(plugin, p.Client)
+	d := newDriver(plugin, p.Client())
 	if d.Type() != plugin {
 		t.Fatal("Driver type does not match that given")
 	}
@@ -237,8 +238,9 @@ func TestGetExtraCapabilities(t *testing.T) {
 
 	handle(t, mux, "GetCapabilities", func(msg map[string]interface{}) interface{} {
 		return map[string]interface{}{
-			"Scope": "local",
-			"foo":   "bar",
+			"Scope":             "local",
+			"foo":               "bar",
+			"ConnectivityScope": "global",
 		}
 	})
 
@@ -247,7 +249,7 @@ func TestGetExtraCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newDriver(plugin, p.Client)
+	d := newDriver(plugin, p.Client())
 	if d.Type() != plugin {
 		t.Fatal("Driver type does not match that given")
 	}
@@ -257,6 +259,8 @@ func TestGetExtraCapabilities(t *testing.T) {
 		t.Fatal(err)
 	} else if c.DataScope != datastore.LocalScope {
 		t.Fatalf("get capability '%s', expecting 'local'", c.DataScope)
+	} else if c.ConnectivityScope != datastore.GlobalScope {
+		t.Fatalf("get capability '%s', expecting %q", c.ConnectivityScope, datastore.GlobalScope)
 	}
 }
 
@@ -277,7 +281,7 @@ func TestGetInvalidCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newDriver(plugin, p.Client)
+	d := newDriver(plugin, p.Client())
 	if d.Type() != plugin {
 		t.Fatal("Driver type does not match that given")
 	}
@@ -391,7 +395,7 @@ func TestRemoteDriver(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newDriver(plugin, p.Client)
+	d := newDriver(plugin, p.Client())
 	if d.Type() != plugin {
 		t.Fatal("Driver type does not match that given")
 	}
@@ -469,10 +473,10 @@ func TestDriverError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	driver := newDriver(plugin, p.Client)
+	driver := newDriver(plugin, p.Client())
 
 	if err := driver.CreateEndpoint("dummy", "dummy", &testEndpoint{t: t}, map[string]interface{}{}); err == nil {
-		t.Fatalf("Expected error from driver")
+		t.Fatal("Expected error from driver")
 	}
 }
 
@@ -501,7 +505,7 @@ func TestMissingValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	driver := newDriver(plugin, p.Client)
+	driver := newDriver(plugin, p.Client())
 
 	if err := driver.CreateEndpoint("dummy", "dummy", ep, map[string]interface{}{}); err != nil {
 		t.Fatal(err)
@@ -528,11 +532,11 @@ func (r *rollbackEndpoint) AddressIPv6() *net.IPNet {
 }
 
 func (r *rollbackEndpoint) SetMacAddress(mac net.HardwareAddr) error {
-	return fmt.Errorf("invalid mac")
+	return errors.New("invalid mac")
 }
 
 func (r *rollbackEndpoint) SetIPAddress(ip *net.IPNet) error {
-	return fmt.Errorf("invalid ip")
+	return errors.New("invalid ip")
 }
 
 func TestRollback(t *testing.T) {
@@ -562,14 +566,14 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	driver := newDriver(plugin, p.Client)
+	driver := newDriver(plugin, p.Client())
 
 	ep := &rollbackEndpoint{}
 
 	if err := driver.CreateEndpoint("dummy", "dummy", ep.Interface(), map[string]interface{}{}); err == nil {
-		t.Fatalf("Expected error from driver")
+		t.Fatal("Expected error from driver")
 	}
 	if !rolledback {
-		t.Fatalf("Expected to have had DeleteEndpoint called")
+		t.Fatal("Expected to have had DeleteEndpoint called")
 	}
 }

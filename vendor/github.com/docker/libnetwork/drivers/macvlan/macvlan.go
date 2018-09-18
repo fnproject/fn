@@ -38,11 +38,14 @@ type driver struct {
 }
 
 type endpoint struct {
-	id      string
-	mac     net.HardwareAddr
-	addr    *net.IPNet
-	addrv6  *net.IPNet
-	srcName string
+	id       string
+	nid      string
+	mac      net.HardwareAddr
+	addr     *net.IPNet
+	addrv6   *net.IPNet
+	srcName  string
+	dbIndex  uint64
+	dbExists bool
 }
 
 type network struct {
@@ -57,7 +60,8 @@ type network struct {
 // Init initializes and registers the libnetwork macvlan driver
 func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
 	c := driverapi.Capability{
-		DataScope: datastore.LocalScope,
+		DataScope:         datastore.LocalScope,
+		ConnectivityScope: datastore.GlobalScope,
 	}
 	d := &driver{
 		networks: networkTable{},
@@ -83,6 +87,10 @@ func (d *driver) Type() string {
 	return macvlanType
 }
 
+func (d *driver) IsBuiltIn() bool {
+	return true
+}
+
 func (d *driver) ProgramExternalConnectivity(nid, eid string, options map[string]interface{}) error {
 	return nil
 }
@@ -102,4 +110,8 @@ func (d *driver) DiscoverDelete(dType discoverapi.DiscoveryType, data interface{
 }
 
 func (d *driver) EventNotify(etype driverapi.EventType, nid, tableName, key string, value []byte) {
+}
+
+func (d *driver) DecodeTableEntry(tablename string, key string, value []byte) (string, map[string]string) {
+	return "", nil
 }

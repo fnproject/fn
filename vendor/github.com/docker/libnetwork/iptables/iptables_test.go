@@ -22,12 +22,18 @@ func TestNewChain(t *testing.T) {
 
 	bridgeName = "lo"
 	natChain, err = NewChain(chainName, Nat, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = ProgramChain(natChain, bridgeName, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	filterChain, err = NewChain(chainName, Filter, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = ProgramChain(filterChain, bridgeName, false, true)
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +63,7 @@ func TestForward(t *testing.T) {
 	}
 
 	if !Exists(natChain.Table, natChain.Name, dnatRule...) {
-		t.Fatalf("DNAT rule does not exist")
+		t.Fatal("DNAT rule does not exist")
 	}
 
 	filterRule := []string{
@@ -70,7 +76,7 @@ func TestForward(t *testing.T) {
 	}
 
 	if !Exists(filterChain.Table, filterChain.Name, filterRule...) {
-		t.Fatalf("filter rule does not exist")
+		t.Fatal("filter rule does not exist")
 	}
 
 	masqRule := []string{
@@ -82,7 +88,7 @@ func TestForward(t *testing.T) {
 	}
 
 	if !Exists(natChain.Table, "POSTROUTING", masqRule...) {
-		t.Fatalf("MASQUERADE rule does not exist")
+		t.Fatal("MASQUERADE rule does not exist")
 	}
 }
 
@@ -110,7 +116,7 @@ func TestLink(t *testing.T) {
 		"-j", "ACCEPT"}
 
 	if !Exists(filterChain.Table, filterChain.Name, rule1...) {
-		t.Fatalf("rule1 does not exist")
+		t.Fatal("rule1 does not exist")
 	}
 
 	rule2 := []string{
@@ -123,7 +129,7 @@ func TestLink(t *testing.T) {
 		"-j", "ACCEPT"}
 
 	if !Exists(filterChain.Table, filterChain.Name, rule2...) {
-		t.Fatalf("rule2 does not exist")
+		t.Fatal("rule2 does not exist")
 	}
 }
 
@@ -138,7 +144,7 @@ func TestPrerouting(t *testing.T) {
 	}
 
 	if !Exists(natChain.Table, "PREROUTING", args...) {
-		t.Fatalf("rule does not exist")
+		t.Fatal("rule does not exist")
 	}
 
 	delRule := append([]string{"-D", "PREROUTING", "-t", string(Nat)}, args...)
@@ -158,7 +164,7 @@ func TestOutput(t *testing.T) {
 	}
 
 	if !Exists(natChain.Table, "OUTPUT", args...) {
-		t.Fatalf("rule does not exist")
+		t.Fatal("rule does not exist")
 	}
 
 	delRule := append([]string{"-D", "OUTPUT", "-t",
@@ -285,7 +291,7 @@ func TestExistsRaw(t *testing.T) {
 func TestGetVersion(t *testing.T) {
 	mj, mn, mc := parseVersionNumbers("iptables v1.4.19.1-alpha")
 	if mj != 1 || mn != 4 || mc != 19 {
-		t.Fatalf("Failed to parse version numbers")
+		t.Fatal("Failed to parse version numbers")
 	}
 }
 

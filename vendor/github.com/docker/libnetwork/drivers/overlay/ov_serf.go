@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/hashicorp/serf/serf"
+	"github.com/sirupsen/logrus"
 )
 
 type ovNotify struct {
@@ -40,7 +40,7 @@ func (d *driver) serfInit() error {
 
 	config := serf.DefaultConfig()
 	config.Init()
-	config.MemberlistConfig.BindAddr = d.bindAddress
+	config.MemberlistConfig.BindAddr = d.advertiseAddress
 
 	d.eventCh = make(chan serf.Event, 4)
 	config.EventCh = d.eventCh
@@ -73,7 +73,7 @@ func (d *driver) serfJoin(neighIP string) error {
 	if neighIP == "" {
 		return fmt.Errorf("no neighbor to join")
 	}
-	if _, err := d.serfInstance.Join([]string{neighIP}, false); err != nil {
+	if _, err := d.serfInstance.Join([]string{neighIP}, true); err != nil {
 		return fmt.Errorf("Failed to join the cluster at neigh IP %s: %v",
 			neighIP, err)
 	}
@@ -94,8 +94,8 @@ func (d *driver) notifyEvent(event ovNotify) {
 }
 
 func (d *driver) processEvent(u serf.UserEvent) {
-	logrus.Debugf("Received user event name:%s, payload:%s\n", u.Name,
-		string(u.Payload))
+	logrus.Debugf("Received user event name:%s, payload:%s LTime:%d \n", u.Name,
+		string(u.Payload), uint64(u.LTime))
 
 	var dummy, action, vtepStr, nid, eid, ipStr, maskStr, macStr string
 	if _, err := fmt.Sscan(u.Name, &dummy, &vtepStr, &nid, &eid); err != nil {
@@ -120,15 +120,9 @@ func (d *driver) processEvent(u serf.UserEvent) {
 
 	switch action {
 	case "join":
-		if err := d.peerAdd(nid, eid, net.ParseIP(ipStr), net.IPMask(net.ParseIP(maskStr).To4()), mac,
-			net.ParseIP(vtepStr), true); err != nil {
-			logrus.Errorf("Peer add failed in the driver: %v\n", err)
-		}
+		d.peerAdd(nid, eid, net.ParseIP(ipStr), net.IPMask(net.ParseIP(maskStr).To4()), mac, net.ParseIP(vtepStr), false, false, false)
 	case "leave":
-		if err := d.peerDelete(nid, eid, net.ParseIP(ipStr), net.IPMask(net.ParseIP(maskStr).To4()), mac,
-			net.ParseIP(vtepStr), true); err != nil {
-			logrus.Errorf("Peer delete failed in the driver: %v\n", err)
-		}
+		d.peerDelete(nid, eid, net.ParseIP(ipStr), net.IPMask(net.ParseIP(maskStr).To4()), mac, net.ParseIP(vtepStr), false)
 	}
 }
 
@@ -141,12 +135,13 @@ func (d *driver) processQuery(q *serf.Query) {
 		fmt.Printf("Failed to scan query payload string: %v\n", err)
 	}
 
-	peerMac, peerIPMask, vtep, err := d.peerDbSearch(nid, net.ParseIP(ipStr))
+	pKey, pEntry, err := d.peerDbSearch(nid, net.ParseIP(ipStr))
 	if err != nil {
 		return
 	}
 
-	q.Respond([]byte(fmt.Sprintf("%s %s %s", peerMac.String(), net.IP(peerIPMask).String(), vtep.String())))
+	logrus.Debugf("Sending peer query resp mac %v, mask %s, vtep %s", pKey.peerMac, net.IP(pEntry.peerIPMask).String(), pEntry.vtep)
+	q.Respond([]byte(fmt.Sprintf("%s %s %s", pKey.peerMac.String(), net.IP(pEntry.peerIPMask).String(), pEntry.vtep.String())))
 }
 
 func (d *driver) resolvePeer(nid string, peerIP net.IP) (net.HardwareAddr, net.IPMask, net.IP, error) {
@@ -173,6 +168,7 @@ func (d *driver) resolvePeer(nid string, peerIP net.IP) (net.HardwareAddr, net.I
 			return nil, nil, nil, fmt.Errorf("failed to parse mac: %v", err)
 		}
 
+		logrus.Debugf("Received peer query response, mac %s, vtep %s, mask %s", macStr, vtepStr, maskStr)
 		return mac, net.IPMask(net.ParseIP(maskStr).To4()), net.ParseIP(vtepStr), nil
 
 	case <-time.After(time.Second):

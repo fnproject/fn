@@ -161,7 +161,7 @@ function start_dnet() {
 	read discovery provider address < <(parse_discovery_str consul://${bridge_ip}:8500/custom_prefix)
     else
 	if [ "$nip" != "" ]; then
-	    neighbors="neighbors = [\"${nip}:7946\"]"
+	    neighbors=${nip}
 	fi
 
 	discovery=""
@@ -190,16 +190,17 @@ title = "LibNetwork Configuration file for ${name}"
 
 [daemon]
   debug = false
-  isagent = true
+[orchestration]
+  agent = true
   bind = "eth0"
-  ${neighbors}
+  peer = "${neighbors}"
 EOF
     fi
 
     cat ${tomlfile}
     docker run \
 	   -d \
-	   --hostname=${name} \
+	   --hostname=$(echo ${name} | sed s/_/-/g) \
 	   --name=${name}  \
 	   --privileged \
 	   -p ${hport}:${cport} \
@@ -254,7 +255,7 @@ function dnet_cmd() {
 }
 
 function dnet_exec() {
-    docker exec -it ${1} bash -c "$2"
+    docker exec -it ${1} bash -c "trap \"echo SIGHUP\" SIGHUP; $2"
 }
 
 function runc() {

@@ -61,7 +61,7 @@ func TestKVObjectFlatKey(t *testing.T) {
 	var n dummyObject
 	json.Unmarshal(data.Value, &n)
 	if n.Name != expected.Name {
-		t.Fatalf("Dummy object doesn't match the expected object")
+		t.Fatal("Dummy object doesn't match the expected object")
 	}
 }
 
@@ -101,6 +101,9 @@ func TestAtomicKVObjectFlatKey(t *testing.T) {
 	// Get the Object using GetObject, then set again.
 	newObj := dummyObject{}
 	err = store.GetObject(Key(expected.Key()...), &newObj)
+	if err != nil {
+		t.Fatal(err)
+	}
 	assert.True(t, newObj.Exists())
 	err = store.PutObjectAtomic(&n)
 	if err != nil {

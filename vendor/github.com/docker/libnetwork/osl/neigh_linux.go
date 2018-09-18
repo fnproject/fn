@@ -5,8 +5,20 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+// NeighborSearchError indicates that the neighbor is already present
+type NeighborSearchError struct {
+	ip      net.IP
+	mac     net.HardwareAddr
+	present bool
+}
+
+func (n NeighborSearchError) Error() string {
+	return fmt.Sprintf("Search neighbor failed for IP %v, mac %v, present in db:%t", n.ip, n.mac, n.present)
+}
 
 // NeighOption is a function option type to set interface options
 type NeighOption func(nh *neigh)
@@ -32,18 +44,24 @@ func (n *networkNamespace) findNeighbor(dstIP net.IP, dstMac net.HardwareAddr) *
 	return nil
 }
 
-func (n *networkNamespace) DeleteNeighbor(dstIP net.IP, dstMac net.HardwareAddr) error {
+func (n *networkNamespace) DeleteNeighbor(dstIP net.IP, dstMac net.HardwareAddr, osDelete bool) error {
+	var (
+		iface netlink.Link
+		err   error
+	)
+
 	nh := n.findNeighbor(dstIP, dstMac)
 	if nh == nil {
-		return fmt.Errorf("could not find the neighbor entry to delete")
+		return NeighborSearchError{dstIP, dstMac, false}
 	}
 
-	return nsInvoke(n.nsPath(), func(nsFD int) error { return nil }, func(callerFD int) error {
-		var iface netlink.Link
+	if osDelete {
+		n.Lock()
+		nlh := n.nlHandle
+		n.Unlock()
 
 		if nh.linkDst != "" {
-			var err error
-			iface, err = netlink.LinkByName(nh.linkDst)
+			iface, err = nlh.LinkByName(nh.linkDst)
 			if err != nil {
 				return fmt.Errorf("could not find interface with destination name %s: %v",
 					nh.linkDst, err)
@@ -65,25 +83,58 @@ func (n *networkNamespace) DeleteNeighbor(dstIP net.IP, dstMac net.HardwareAddr)
 			nlnh.LinkIndex = iface.Attrs().Index
 		}
 
-		if err := netlink.NeighDel(nlnh); err != nil {
-			return fmt.Errorf("could not delete neighbor entry: %v", err)
+		// If the kernel deletion fails for the neighbor entry still remote it
+		// from the namespace cache. Otherwise if the neighbor moves back to the
+		// same host again, kernel update can fail.
+		if err := nlh.NeighDel(nlnh); err != nil {
+			logrus.Warnf("Deleting neighbor IP %s, mac %s failed, %v", dstIP, dstMac, err)
 		}
 
-		for i, nh := range n.neighbors {
-			if nh.dstIP.Equal(dstIP) && bytes.Equal(nh.dstMac, dstMac) {
-				n.neighbors = append(n.neighbors[:i], n.neighbors[i+1:]...)
+		// Delete the dynamic entry in the bridge
+		if nlnh.Family > 0 {
+			nlnh := &netlink.Neigh{
+				IP:     dstIP,
+				Family: nh.family,
 			}
-		}
 
-		return nil
-	})
+			nlnh.HardwareAddr = dstMac
+			nlnh.Flags = netlink.NTF_MASTER
+			if nh.linkDst != "" {
+				nlnh.LinkIndex = iface.Attrs().Index
+			}
+			nlh.NeighDel(nlnh)
+		}
+	}
+
+	n.Lock()
+	for i, nh := range n.neighbors {
+		if nh.dstIP.Equal(dstIP) && bytes.Equal(nh.dstMac, dstMac) {
+			n.neighbors = append(n.neighbors[:i], n.neighbors[i+1:]...)
+			break
+		}
+	}
+	n.Unlock()
+	logrus.Debugf("Neighbor entry deleted for IP %v, mac %v osDelete:%t", dstIP, dstMac, osDelete)
+
+	return nil
 }
 
-func (n *networkNamespace) AddNeighbor(dstIP net.IP, dstMac net.HardwareAddr, options ...NeighOption) error {
+func (n *networkNamespace) AddNeighbor(dstIP net.IP, dstMac net.HardwareAddr, force bool, options ...NeighOption) error {
+	var (
+		iface                  netlink.Link
+		err                    error
+		neighborAlreadyPresent bool
+	)
+
+	// If the namespace already has the neighbor entry but the AddNeighbor is called
+	// because of a miss notification (force flag) program the kernel anyway.
 	nh := n.findNeighbor(dstIP, dstMac)
 	if nh != nil {
-		// If it exists silently return
-		return nil
+		neighborAlreadyPresent = true
+		logrus.Warnf("Neighbor entry already present for IP %v, mac %v neighbor:%+v forceUpdate:%t", dstIP, dstMac, nh, force)
+		if !force {
+			return NeighborSearchError{dstIP, dstMac, true}
+		}
 	}
 
 	nh = &neigh{
@@ -100,39 +151,44 @@ func (n *networkNamespace) AddNeighbor(dstIP net.IP, dstMac net.HardwareAddr, op
 		}
 	}
 
-	return nsInvoke(n.nsPath(), func(nsFD int) error { return nil }, func(callerFD int) error {
-		var iface netlink.Link
+	n.Lock()
+	nlh := n.nlHandle
+	n.Unlock()
 
-		if nh.linkDst != "" {
-			var err error
-			iface, err = netlink.LinkByName(nh.linkDst)
-			if err != nil {
-				return fmt.Errorf("could not find interface with destination name %s: %v",
-					nh.linkDst, err)
-			}
+	if nh.linkDst != "" {
+		iface, err = nlh.LinkByName(nh.linkDst)
+		if err != nil {
+			return fmt.Errorf("could not find interface with destination name %s: %v", nh.linkDst, err)
 		}
+	}
 
-		nlnh := &netlink.Neigh{
-			IP:           dstIP,
-			HardwareAddr: dstMac,
-			State:        netlink.NUD_PERMANENT,
-			Family:       nh.family,
-		}
+	nlnh := &netlink.Neigh{
+		IP:           dstIP,
+		HardwareAddr: dstMac,
+		State:        netlink.NUD_PERMANENT,
+		Family:       nh.family,
+	}
 
-		if nlnh.Family > 0 {
-			nlnh.Flags = netlink.NTF_SELF
-		}
+	if nlnh.Family > 0 {
+		nlnh.Flags = netlink.NTF_SELF
+	}
 
-		if nh.linkDst != "" {
-			nlnh.LinkIndex = iface.Attrs().Index
-		}
+	if nh.linkDst != "" {
+		nlnh.LinkIndex = iface.Attrs().Index
+	}
 
-		if err := netlink.NeighSet(nlnh); err != nil {
-			return fmt.Errorf("could not add neighbor entry: %v", err)
-		}
+	if err := nlh.NeighSet(nlnh); err != nil {
+		return fmt.Errorf("could not add neighbor entry:%+v error:%v", nlnh, err)
+	}
 
-		n.neighbors = append(n.neighbors, nh)
-
+	if neighborAlreadyPresent {
 		return nil
-	})
+	}
+
+	n.Lock()
+	n.neighbors = append(n.neighbors, nh)
+	n.Unlock()
+	logrus.Debugf("Neighbor entry added for IP:%v, mac:%v on ifc:%s", dstIP, dstMac, nh.linkName)
+
+	return nil
 }

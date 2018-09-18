@@ -1,15 +1,9 @@
-// +build experimental
-
 package libnetwork
 
-import (
-	"github.com/docker/libnetwork/drivers/ipvlan"
-	"github.com/docker/libnetwork/drivers/macvlan"
-)
+import "github.com/docker/libnetwork/drivers/ipvlan"
 
 func additionalDrivers() []initializer {
 	return []initializer{
-		{macvlan.Init, "macvlan"},
 		{ipvlan.Init, "ipvlan"},
 	}
 }

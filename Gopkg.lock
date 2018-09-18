@@ -140,12 +140,11 @@
   version = "v0.3.3"
 
 [[projects]]
-  digest = "1:62885c723fa2ce49564d77d9ae4f07270a0137ada7c453aab3f629dbe8295aa3"
+  digest = "1:6a9b61ab4f59a90724b309215446a880a1f29c327f67bd54de5101e1125fe6dc"
   name = "github.com/docker/libnetwork"
   packages = ["ipamutils"]
   pruneopts = ""
-  revision = "6d23f11e681f24ee31802939e243fe8be41a75eb"
-  version = "v0.8.0-dev.2"
+  revision = "0ae9b6f38f24f65567d4b46602502b33c95cf57a"
 
 [[projects]]
   branch = "master"
@@ -673,6 +672,7 @@
     "go.opencensus.io/trace",
     "golang.org/x/net/context",
     "golang.org/x/net/trace",
+    "golang.org/x/sys/unix",
     "golang.org/x/time/rate",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",

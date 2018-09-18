@@ -27,6 +27,9 @@ const (
 	// ExposedPorts constant represents the container's Exposed Ports
 	ExposedPorts = Prefix + ".endpoint.exposedports"
 
+	// DNSServers A list of DNS servers associated with the endpoint
+	DNSServers = Prefix + ".endpoint.dnsservers"
+
 	//EnableIPv6 constant represents enabling IPV6 at network level
 	EnableIPv6 = Prefix + ".enable_ipv6"
 
@@ -47,6 +50,9 @@ const (
 
 	// Internal constant represents that the network is internal which disables default gateway service
 	Internal = Prefix + ".internal"
+
+	// ContainerIfacePrefix can be used to override the interface prefix used inside the container
+	ContainerIfacePrefix = Prefix + ".container_iface_prefix"
 )
 
 var (

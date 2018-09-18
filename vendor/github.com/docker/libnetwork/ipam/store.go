@@ -3,9 +3,9 @@ package ipam
 import (
 	"encoding/json"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/types"
+	"github.com/sirupsen/logrus"
 )
 
 // Key provides the Key to be used in KV Store
@@ -26,7 +26,7 @@ func (aSpace *addrSpace) KeyPrefix() []string {
 func (aSpace *addrSpace) Value() []byte {
 	b, err := json.Marshal(aSpace)
 	if err != nil {
-		log.Warnf("Failed to marshal ipam configured pools: %v", err)
+		logrus.Warnf("Failed to marshal ipam configured pools: %v", err)
 		return nil
 	}
 	return b

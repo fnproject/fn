@@ -4,13 +4,20 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/iptables"
+	"github.com/sirupsen/logrus"
 )
 
 const globalChain = "DOCKER-OVERLAY"
 
 var filterOnce sync.Once
+
+var filterChan = make(chan struct{}, 1)
+
+func filterWait() func() {
+	filterChan <- struct{}{}
+	return func() { <-filterChan }
+}
 
 func chainExists(cname string) bool {
 	if _, err := iptables.Raw("-L", cname); err != nil {
@@ -69,10 +76,14 @@ func setNetworkChain(cname string, remove bool) error {
 }
 
 func addNetworkChain(cname string) error {
+	defer filterWait()()
+
 	return setNetworkChain(cname, false)
 }
 
 func removeNetworkChain(cname string) error {
+	defer filterWait()()
+
 	return setNetworkChain(cname, true)
 }
 
@@ -119,9 +130,13 @@ func setFilters(cname, brName string, remove bool) error {
 }
 
 func addFilters(cname, brName string) error {
+	defer filterWait()()
+
 	return setFilters(cname, brName, false)
 }
 
 func removeFilters(cname, brName string) error {
+	defer filterWait()()
+
 	return setFilters(cname, brName, true)
 }
