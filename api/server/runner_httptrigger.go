@@ -127,9 +127,7 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 //ServeHTTPTr	igger serves an HTTP trigger for a given app/fn/trigger  based on the current request
 // This is exported to allow extensions to handle their own trigger naming and publishing
 func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
-	// TODO modify all the headers here to add Fn-Http-H & method & req url
-
-	// transpose trigger headers into HTTP
+	// transpose trigger headers into the request
 	req := c.Request
 	headers := make(http.Header, len(req.Header))
 	for k, vs := range req.Header {
@@ -138,10 +136,10 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 		if skipTriggerHeaders[k] {
 			continue
 		}
-		rewriteKey := fmt.Sprintf("Fn-Http-H-%s", k)
-		for _, v := range vs {
-			headers.Add(rewriteKey, v)
+		if k != "Content-Type" {
+			k = fmt.Sprintf("Fn-Http-H-%s", k)
 		}
+		headers[k] = vs
 	}
 	requestURL := reqURL(req)
 
