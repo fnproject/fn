@@ -743,6 +743,10 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
 	defer span.End()
 
+	// TODO it's possible we can get rid of this (after getting rid of logs API) - may need for call id/debug mode still
+	swapBack := s.container.swap(nil, call.stderr, call.stderr, &call.Stats)
+	defer swapBack() // NOTE: it's important this runs before the pipes are closed.
+
 	// TODO we can't trust that resp.Write doesn't timeout, even if the http
 	// client should respect the request context (right?) so we still need this (right?)
 	errApp := make(chan error, 1)
