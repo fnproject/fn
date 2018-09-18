@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
@@ -31,9 +30,10 @@ type syncResponseWriter struct {
 	*bytes.Buffer
 }
 
+var _ http.ResponseWriter = new(syncResponseWriter) // nice compiler errors
+
 func (s *syncResponseWriter) Header() http.Header  { return s.headers }
 func (s *syncResponseWriter) WriteHeader(code int) { s.status = code }
-func (s *syncResponseWriter) Status() int          { return s.status }
 
 // handleFnInvokeCall executes the function, for router handlers
 func (s *Server) handleFnInvokeCall(c *gin.Context) {
@@ -65,23 +65,26 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 }
 
 func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) error {
-	return s.fnInvoke(c, app, fn, nil)
+	return s.fnInvoke(c.Writer, c.Request, app, fn, nil)
 }
 
-func (s *Server) fnInvoke(c *gin.Context, app *models.App, fn *models.Fn, trig *models.Trigger) error {
+func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *models.App, fn *models.Fn, trig *models.Trigger) error {
 	// TODO: we should get rid of the buffers, and stream back (saves memory (+splice), faster (splice), allows streaming, don't have to cap resp size)
 	// buffer the response before writing it out to client to prevent partials from trying to stream
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	writer := syncResponseWriter{
-		headers: c.Writer.Header(),
+	bufWriter := syncResponseWriter{
+		headers: resp.Header(),
 		status:  200,
 		Buffer:  buf,
 	}
 
+	var writer http.ResponseWriter = &bufWriter
+	writer = &jsonContentTypeTrapper{ResponseWriter: writer}
+
 	opts := []agent.CallOpt{
-		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromHTTPFnRequest(app, fn, c.Request),
+		agent.WithWriter(writer), // XXX (reed): order matters [for now]
+		agent.FromHTTPFnRequest(app, fn, req),
 	}
 	if trig != nil {
 		opts = append(opts, agent.WithTrigger(trig))
@@ -92,48 +95,54 @@ func (s *Server) fnInvoke(c *gin.Context, app *models.App, fn *models.Fn, trig *
 		return err
 	}
 
-	model := call.Model()
-	{ // scope this, to disallow ctx use outside of this scope. add id for handleV1ErrorResponse logger
-		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
-		c.Request = c.Request.WithContext(ctx)
-	}
-
 	err = s.agent.Submit(call)
 	if err != nil {
-		// NOTE if they cancel the request then it will stop the call (kind of cool),
-		// we could filter that error out here too as right now it yells a little
-		if err == models.ErrCallTimeoutServerBusy || err == models.ErrCallTimeout {
-			// TODO we aren't using this anymore?
-			// add this, since it means that start may not have been called [and it's relevant]
-			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
-		}
 		return err
 	}
 
-	defer bufPool.Put(buf) // at this point, submit returned without timing out, so we can re-use this one
+	// because we can...
+	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
 
-	// if they don't set a content-type - detect it
-	// TODO: remove this after removing all the formats (too many tests to scrub til then)
-	if writer.Header().Get("Content-Type") == "" {
+	// buffered response writer traps status (so we can add headers), we need to write it still
+	if bufWriter.status > 0 {
+		resp.WriteHeader(bufWriter.status)
+	}
+
+	io.Copy(resp, buf)
+	bufPool.Put(buf) // at this point, submit returned without timing out, so we can re-use this one
+	return nil
+}
+
+// TODO kill this thing after removing tests for http/json/default formats
+type jsonContentTypeTrapper struct {
+	http.ResponseWriter
+	committed bool
+}
+
+var _ http.ResponseWriter = new(jsonContentTypeTrapper) // nice compiler errors
+
+func (j *jsonContentTypeTrapper) Write(b []byte) (int, error) {
+	if !j.committed {
+		// override default content type detection behavior to add json
+		j.detectContentType(b)
+	}
+	j.committed = true
+
+	// write inner
+	return j.ResponseWriter.Write(b)
+}
+
+func (j *jsonContentTypeTrapper) detectContentType(b []byte) {
+	if j.Header().Get("Content-Type") == "" {
 		// see http.DetectContentType
 		var contentType string
 		jsonPrefix := [1]byte{'{'} // stack allocated
-		if bytes.HasPrefix(buf.Bytes(), jsonPrefix[:]) {
+		if bytes.HasPrefix(b, jsonPrefix[:]) {
 			// try to detect json, since DetectContentType isn't a hipster.
 			contentType = "application/json; charset=utf-8"
 		} else {
-			contentType = http.DetectContentType(buf.Bytes())
+			contentType = http.DetectContentType(b)
 		}
-		writer.Header().Set("Content-Type", contentType)
+		j.Header().Set("Content-Type", contentType)
 	}
-
-	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
-
-	if writer.Status() > 0 {
-		c.Writer.WriteHeader(writer.Status())
-	}
-
-	io.Copy(c.Writer, writer)
-
-	return nil
 }

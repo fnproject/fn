@@ -82,32 +82,43 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 	}
 	trw.committed = true
 
-	for k, vs := range trw.Header() {
-		if strings.HasPrefix(k, "Fn-Http-H-") {
-			// TODO strip out content-length and stuff here.
-			realHeader := strings.TrimPrefix(k, "Fn-Http-H-")
-			if realHeader != "" { // case where header is exactly the prefix
-				for _, v := range vs {
-					trw.Header().Del(k)
-					trw.Header().Add(realHeader, v)
+	var fnStatus int
+	realHeaders := trw.Header()
+	gwHeaders := make(http.Header, len(realHeaders))
+	for k, vs := range realHeaders {
+		switch {
+		case strings.HasPrefix(k, "Fn-Http-H-"):
+			gwHeader := strings.TrimPrefix(k, "Fn-Http-H-")
+			if gwHeader != "" { // case where header is exactly the prefix
+				gwHeaders[gwHeader] = vs
+			}
+		case k == "Fn-Http-Status":
+			if len(vs) > 0 {
+				statusInt, err := strconv.Atoi(vs[0])
+				if err == nil {
+					fnStatus = statusInt
 				}
 			}
+		case k == "Content-Type":
+			gwHeaders[k] = vs
 		}
 	}
 
-	gatewayStatus := 200
+	// XXX(reed): this is O(3n)... yes sorry for making it work without making it perfect first
+	for k := range realHeaders {
+		realHeaders.Del(k)
+	}
+	for k, vs := range gwHeaders {
+		realHeaders[k] = vs
+	}
 
+	// XXX(reed): simplify / add tests for these behaviors...
+	gatewayStatus := 200
 	if statusCode >= 400 {
 		gatewayStatus = 502
 	}
-
-	status := trw.Header().Get("Fn-Http-Status")
-	if status != "" {
-		statusInt, err := strconv.Atoi(status)
-		if err == nil {
-			gatewayStatus = statusInt
-		}
-		trw.Header().Del("Fn-Http-Status")
+	if fnStatus > 0 {
+		gatewayStatus = fnStatus
 	}
 
 	trw.inner.WriteHeader(gatewayStatus)
@@ -132,16 +143,17 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 			headers.Add(rewriteKey, v)
 		}
 	}
-	requestUrl := reqURL(req)
+	requestURL := reqURL(req)
 
 	headers.Set("Fn-Http-Method", req.Method)
-	headers.Set("Fn-Http-Request-Url", requestUrl)
+	headers.Set("Fn-Http-Request-Url", requestURL)
 	headers.Set("Fn-Intent", "httprequest")
 	req.Header = headers
 
-	c.Writer = &triggerResponseWriter{inner: c.Writer}
+	// trap the headers and rewrite them for http trigger
+	rw := &triggerResponseWriter{inner: c.Writer}
 
-	return s.fnInvoke(c, app, fn, trigger)
+	return s.fnInvoke(rw, req, app, fn, trigger)
 }
 
 var skipTriggerHeaders = map[string]bool{
