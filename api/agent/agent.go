@@ -761,7 +761,7 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 			errApp <- models.NewAPIError(http.StatusBadGateway, errors.New("error receiving function response"))
 			return
 		}
-		common.Logger(ctx).WithField("status", resp.StatusCode).Debug("Got resp from UDS socket")
+		common.Logger(ctx).WithField("resp", resp).Debug("Got resp from UDS socket")
 
 		defer resp.Body.Close()
 

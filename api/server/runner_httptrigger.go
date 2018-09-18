@@ -1,13 +1,14 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
+	"net/textproto"
 	"strconv"
 
 	"strings"
 
 	"github.com/fnproject/fn/api"
-	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
@@ -60,21 +61,19 @@ func (s *Server) handleTriggerHTTPFunctionCall2(c *gin.Context) error {
 }
 
 type triggerResponseWriter struct {
-	syncResponseWriter
+	inner     http.ResponseWriter
 	committed bool
 }
 
-var _ ResponseBufferingWriter = new(triggerResponseWriter)
-
 func (trw *triggerResponseWriter) Header() http.Header {
-	return trw.headers
+	return trw.inner.Header()
 }
 
 func (trw *triggerResponseWriter) Write(b []byte) (int, error) {
 	if !trw.committed {
 		trw.WriteHeader(http.StatusOK)
 	}
-	return trw.GetBuffer().Write(b)
+	return trw.inner.Write(b)
 }
 
 func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
@@ -108,31 +107,62 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 		if err == nil {
 			gatewayStatus = statusInt
 		}
+		trw.Header().Del("Fn-Http-Status")
 	}
 
-	trw.WriteHeader(gatewayStatus)
+	trw.inner.WriteHeader(gatewayStatus)
 }
 
 //ServeHTTPTr	igger serves an HTTP trigger for a given app/fn/trigger  based on the current request
 // This is exported to allow extensions to handle their own trigger naming and publishing
 func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
-	triggerWriter := &triggerResponseWriter{
-		syncResponseWriter{
-			headers: c.Writer.Header()},
-		false,
+	// TODO modify all the headers here to add Fn-Http-H & method & req url
+
+	// transpose trigger headers into HTTP
+	req := c.Request
+	headers := make(http.Header, len(req.Header))
+	for k, vs := range req.Header {
+		// should be generally unnecessary but to be doubly sure.
+		k = textproto.CanonicalMIMEHeaderKey(k)
+		if skipTriggerHeaders[k] {
+			continue
+		}
+		rewriteKey := fmt.Sprintf("Fn-Http-H-%s", k)
+		for _, v := range vs {
+			headers.Add(rewriteKey, v)
+		}
 	}
-	// GetCall can mod headers, assign an id, look up the route/app (cached),
-	// strip params, etc.
-	// this should happen ASAP to turn app name to app ID
+	requestUrl := reqURL(req)
 
-	// GetCall can mod headers, assign an id, look up the route/app (cached),
-	// strip params, etc.
+	headers.Set("Fn-Http-Method", req.Method)
+	headers.Set("Fn-Http-Request-Url", requestUrl)
+	headers.Set("Fn-Intent", "httprequest")
+	req.Header = headers
 
-	call, err := s.agent.GetCall(agent.WithWriter(triggerWriter), // XXX (reed): order matters [for now]
-		agent.FromHTTPTriggerRequest(app, fn, trigger, c.Request))
+	c.Writer = &triggerResponseWriter{inner: c.Writer}
 
-	if err != nil {
-		return err
+	return s.fnInvoke(c, app, fn, trigger)
+}
+
+var skipTriggerHeaders = map[string]bool{
+	"Connection":        true,
+	"Keep-Alive":        true,
+	"Trailer":           true,
+	"Transfer-Encoding": true,
+	"TE":                true,
+	"Upgrade":           true,
+}
+
+func reqURL(req *http.Request) string {
+	if req.URL.Scheme == "" {
+		if req.TLS == nil {
+			req.URL.Scheme = "http"
+		} else {
+			req.URL.Scheme = "https"
+		}
 	}
-	return s.fnInvoke(c, app, fn, triggerWriter, call)
+	if req.URL.Host == "" {
+		req.URL.Host = req.Host
+	}
+	return req.URL.String()
 }
