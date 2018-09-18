@@ -99,7 +99,7 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 					fnStatus = statusInt
 				}
 			}
-		case k == "Content-Type":
+		case k == "Content-Type", k == "Fn-Call-Id":
 			gwHeaders[k] = vs
 		}
 	}
@@ -124,36 +124,6 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 	trw.inner.WriteHeader(gatewayStatus)
 }
 
-//ServeHTTPTr	igger serves an HTTP trigger for a given app/fn/trigger  based on the current request
-// This is exported to allow extensions to handle their own trigger naming and publishing
-func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
-	// transpose trigger headers into the request
-	req := c.Request
-	headers := make(http.Header, len(req.Header))
-	for k, vs := range req.Header {
-		// should be generally unnecessary but to be doubly sure.
-		k = textproto.CanonicalMIMEHeaderKey(k)
-		if skipTriggerHeaders[k] {
-			continue
-		}
-		if k != "Content-Type" {
-			k = fmt.Sprintf("Fn-Http-H-%s", k)
-		}
-		headers[k] = vs
-	}
-	requestURL := reqURL(req)
-
-	headers.Set("Fn-Http-Method", req.Method)
-	headers.Set("Fn-Http-Request-Url", requestURL)
-	headers.Set("Fn-Intent", "httprequest")
-	req.Header = headers
-
-	// trap the headers and rewrite them for http trigger
-	rw := &triggerResponseWriter{inner: c.Writer}
-
-	return s.fnInvoke(rw, req, app, fn, trigger)
-}
-
 var skipTriggerHeaders = map[string]bool{
 	"Connection":        true,
 	"Keep-Alive":        true,
@@ -175,4 +145,36 @@ func reqURL(req *http.Request) string {
 		req.URL.Host = req.Host
 	}
 	return req.URL.String()
+}
+
+//ServeHTTPTr	igger serves an HTTP trigger for a given app/fn/trigger  based on the current request
+// This is exported to allow extensions to handle their own trigger naming and publishing
+func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
+	// transpose trigger headers into the request
+	req := c.Request
+	headers := make(http.Header, len(req.Header))
+	for k, vs := range req.Header {
+		// should be generally unnecessary but to be doubly sure.
+		k = textproto.CanonicalMIMEHeaderKey(k)
+		if skipTriggerHeaders[k] {
+			continue
+		}
+		switch k {
+		case "Content-Type":
+		default:
+			k = fmt.Sprintf("Fn-Http-H-%s", k)
+		}
+		headers[k] = vs
+	}
+	requestURL := reqURL(req)
+
+	headers.Set("Fn-Http-Method", req.Method)
+	headers.Set("Fn-Http-Request-Url", requestURL)
+	headers.Set("Fn-Intent", "httprequest")
+	req.Header = headers
+
+	// trap the headers and rewrite them for http trigger
+	rw := &triggerResponseWriter{inner: c.Writer}
+
+	return s.fnInvoke(rw, req, app, fn, trigger)
 }

@@ -389,7 +389,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 				maxBody = 1024
 			}
 
-			callIds[i] = rec.Header().Get("Fn_call_id")
+			callIds[i] = rec.Header().Get("Fn-Call-Id")
 
 			if rec.Code != test.expectedCode {
 				isFailure = true

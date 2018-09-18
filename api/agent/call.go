@@ -299,7 +299,6 @@ type call struct {
 	requestState   RequestState
 	containerState ContainerState
 	slotHashId     string
-	isLB           bool
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
@@ -346,12 +345,6 @@ func (c *call) Start(ctx context.Context) error {
 
 	c.StartedAt = common.DateTime(time.Now())
 	c.Status = "running"
-
-	if !c.isLB {
-		if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
-			rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
-		}
-	}
 
 	if c.Type == models.TypeAsync {
 		// XXX (reed): make sure MQ reservation is lengthy. to skirt MQ semantics,

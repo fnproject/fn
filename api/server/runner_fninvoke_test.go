@@ -261,7 +261,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 				maxBody = 1024
 			}
 
-			callIds[i] = rec.Header().Get("Fn_call_id")
+			callIds[i] = rec.Header().Get("Fn-Call-Id")
 			cid := callIds[i]
 
 			if rec.Code != test.expectedCode {
