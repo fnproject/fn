@@ -24,6 +24,7 @@ func (f HandlerFunc) Serve(ctx context.Context, in io.Reader, out io.Writer) {
 func Context(ctx context.Context) *Ctx {
 	utilsCtx := utils.Context(ctx)
 	return &Ctx{
+		HTTPHeader: utilsCtx.HTTPHeader,
 		Header:     utilsCtx.Header,
 		Config:     utilsCtx.Config,
 		RequestURL: utilsCtx.RequestURL,
@@ -33,6 +34,7 @@ func Context(ctx context.Context) *Ctx {
 
 func WithContext(ctx context.Context, fnctx *Ctx) context.Context {
 	utilsCtx := &utils.Ctx{
+		HTTPHeader: fnctx.HTTPHeader,
 		Header:     fnctx.Header,
 		Config:     fnctx.Config,
 		RequestURL: fnctx.RequestURL,
@@ -43,7 +45,12 @@ func WithContext(ctx context.Context, fnctx *Ctx) context.Context {
 
 // Ctx provides access to Config and Headers from fn.
 type Ctx struct {
-	Header     http.Header
+	// Header are the unmodified headers as sent to the container, see
+	// HTTPHeader for specific trigger headers
+	Header http.Header
+	// HTTPHeader are the request headers as they appear on the original HTTP request,
+	// for an http trigger.
+	HTTPHeader http.Header
 	Config     map[string]string
 	RequestURL string
 	Method     string
@@ -78,5 +85,12 @@ func WriteStatus(out io.Writer, status int) {
 // function and fn server via any of the supported formats.
 func Handle(handler Handler) {
 	format, _ := os.LookupEnv("FN_FORMAT")
+
+	path := os.Getenv("FN_LISTENER")
+	if path != "" {
+		utils.StartHTTPServer(handler, path, format)
+		return
+	}
+
 	utils.Do(handler, format, os.Stdin, os.Stdout)
 }
