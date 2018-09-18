@@ -13,6 +13,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 
 // handleHTTPTriggerCall executes the function, for router handlers
@@ -62,17 +63,77 @@ func (s *Server) handleTriggerHTTPFunctionCall2(c *gin.Context) error {
 	return s.ServeHTTPTrigger(c, app, fn, trigger)
 }
 
-//ServeHTTPTrigger serves an HTTP trigger for a given app/fn/trigger  based on the current request
+type triggerResponseWriter struct {
+	w         http.ResponseWriter
+	headers   http.Header
+	committed bool
+}
+
+func (trw *triggerResponseWriter) Header() http.Header {
+	return trw.headers
+}
+
+func (trw *triggerResponseWriter) Write(b []byte) (int, error) {
+	if !trw.committed {
+		trw.WriteHeader(http.StatusOK)
+	}
+	return trw.w.Write(b)
+}
+
+func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
+
+	if trw.committed {
+		return
+	}
+	trw.committed = true
+	gatewayStatus := 200
+
+	if statusCode >= 400 {
+		gatewayStatus = 502
+	}
+
+	status := trw.headers.Get("Fn-Http-Status")
+	if status != "" {
+		statusInt, err := strconv.Atoi(status)
+		if err == nil {
+			gatewayStatus = statusInt
+		}
+	}
+
+	for k, vs := range trw.headers {
+		if strings.HasPrefix(k, "Fn-Http-H-") {
+			// TODO strip out content-length and stuff here.
+			realHeader := strings.TrimPrefix(k, "Fn-Http-H-")
+			if realHeader != "" { // case where header is exactly the prefix
+				for _, v := range vs {
+					trw.w.Header().Add(realHeader, v)
+				}
+			}
+		}
+
+	}
+	contentType := trw.headers.Get("Content-Type")
+	if contentType != "" {
+		trw.headers.Set("Content-Type", contentType)
+	}
+	trw.w.WriteHeader(gatewayStatus)
+}
+
+//ServeHTTPTr	igger serves an HTTP trigger for a given app/fn/trigger  based on the current request
 // This is exported to allow extensions to handle their own trigger naming and publishing
 func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	writer := syncResponseWriter{
+	writer := &syncResponseWriter{
 		Buffer:  buf,
 		headers: c.Writer.Header(), // copy ref
 	}
 	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
 
+	triggerWriter := &triggerResponseWriter{
+		w:       writer,
+		headers: make(http.Header),
+	}
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
 	// this should happen ASAP to turn app name to app ID
@@ -81,7 +142,7 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 	// strip params, etc.
 
 	call, err := s.agent.GetCall(
-		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
+		agent.WithWriter(triggerWriter), // XXX (reed): order matters [for now]
 		agent.FromHTTPTriggerRequest(app, fn, trigger, c.Request),
 	)
 	if err != nil {
@@ -146,7 +207,7 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 	if writer.status > 0 {
 		c.Writer.WriteHeader(writer.status)
 	}
-	io.Copy(c.Writer, &writer)
+	io.Copy(c.Writer, writer)
 
 	return nil
 }

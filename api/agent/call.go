@@ -53,26 +53,40 @@ const (
 	invokePath = "/invoke"
 )
 
+var skipTriggerHeaders = map[string]bool{
+	"Connection":        true,
+	"Keep-Alive":        true,
+	"Trailer":           true,
+	"Transfer-Encoding": true,
+	"TE":                true,
+	"Upgrade":           true,
+}
+
 // Sets up a call from an http trigger request
 func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
 	return func(c *call) error {
-		ctx := req.Context()
-
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
 		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil && contentType != "" {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v %v", contentType, err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				fn.Format = models.FormatCloudEvent
+		// transpose trigger headers into HTTP
+		headers := make(http.Header)
+		for k, vs := range req.Header {
+			// should be generally unnecessary but to be doubly sure.
+			k = textproto.CanonicalMIMEHeaderKey(k)
+			if skipTriggerHeaders[k] {
+				continue
+			}
+			rewriteKey := fmt.Sprintf("Fn-Http-H-%s", k)
+			for _, v := range vs {
+				headers.Add(rewriteKey, v)
 			}
 		}
+		requestUrl := reqURL(req)
+
+		headers.Set("Fn-Http-Method", req.Method)
+		if contentType != "" {
+			headers.Set("Content-Type", contentType)
+		}
+		headers.Set("Fn-Http-Request-Url", requestUrl)
+		headers.Set("Fn-Intent", "httprequest")
 
 		if fn.Format == "" {
 			fn.Format = models.FormatDefault
@@ -83,6 +97,8 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
 		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
 		if rw, ok := c.w.(http.ResponseWriter); ok {
+			// TODO deprecate after CLI is updated
+			rw.Header().Add("Fn-Call-ID", id)
 			rw.Header().Add("FN_CALL_ID", id)
 		}
 
@@ -108,9 +124,9 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
 			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
-			Headers:     req.Header,
+			Headers:     headers,
 			CreatedAt:   common.DateTime(time.Now()),
-			URL:         reqURL(req),
+			URL:         requestUrl,
 			Method:      req.Method,
 			AppID:       app.ID,
 			AppName:     app.Name,
@@ -118,7 +134,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			TriggerID:   trigger.ID,
 			SyslogURL:   syslogURL,
 		}
-
+		req.Header = headers
 		c.req = req
 		return nil
 	}

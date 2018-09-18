@@ -398,7 +398,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 				for name, header := range test.expectedHeaders {
 					if header[0] != rec.Header().Get(name) {
 						isFailure = true
-						t.Errorf("Test %d: Expected header `%s` to be %s but was %s. body: %s",
+						t.Errorf("Test %d: Expected header `%s` to be `%s` but was `%s`. body: `%s`",
 							i, name, header[0], rec.Header().Get(name), respBody)
 					}
 				}
