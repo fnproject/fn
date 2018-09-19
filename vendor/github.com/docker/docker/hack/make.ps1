@@ -130,7 +130,7 @@ Function Check-InContainer() {
 # outside of a container where it may be out of date with master.
 Function Verify-GoVersion() {
     Try {
-        $goVersionDockerfile=(Get-Content ".\Dockerfile" | Select-String "ENV GO_VERSION").ToString().Split(" ")[2]
+        $goVersionDockerfile=(Select-String -Path ".\Dockerfile" -Pattern "^FROM golang:").ToString().Split(" ")[1].SubString(7)
         $goVersionInstalled=(go version).ToString().Split(" ")[2].SubString(2)
     }
     Catch [Exception] {
@@ -437,6 +437,7 @@ Try {
 }
 Catch [Exception] {
     Write-Host -ForegroundColor Red ("`nERROR: make.ps1 failed:`n$_")
+    Write-Host -ForegroundColor Red ($_.InvocationInfo.PositionMessage)
 
     # More gratuitous ASCII art.
     Write-Host

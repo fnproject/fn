@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/server/httputils"
+	"github.com/docker/docker/api/server/router/build"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
@@ -25,7 +26,11 @@ func optionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request,
 	return nil
 }
 
-func pingHandler(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+func (s *systemRouter) pingHandler(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	builderVersion := build.BuilderVersion(*s.features)
+	if bv := builderVersion; bv != "" {
+		w.Header().Set("Builder-Version", string(bv))
+	}
 	_, err := w.Write([]byte{'O', 'K'})
 	return err
 }
@@ -59,6 +64,14 @@ func (s *systemRouter) getInfo(ctx context.Context, w http.ResponseWriter, r *ht
 		}
 		old.SecurityOptions = nameOnlySecurityOptions
 		return httputils.WriteJSON(w, http.StatusOK, old)
+	}
+	if versions.LessThan(httputils.VersionFromContext(ctx), "1.39") {
+		if info.KernelVersion == "" {
+			info.KernelVersion = "<unknown>"
+		}
+		if info.OperatingSystem == "" {
+			info.OperatingSystem = "<unknown>"
+		}
 	}
 	return httputils.WriteJSON(w, http.StatusOK, info)
 }

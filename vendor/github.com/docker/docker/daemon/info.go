@@ -68,11 +68,13 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		Isolation:          daemon.defaultIsolation,
 	}
 
+	daemon.fillAPIInfo(v)
 	// Retrieve platform specific info
 	daemon.fillPlatformInfo(v, sysInfo)
 	daemon.fillDriverInfo(v)
 	daemon.fillPluginsInfo(v)
 	daemon.fillSecurityOptions(v, sysInfo)
+	daemon.fillLicense(v)
 
 	return v, nil
 }
@@ -133,6 +135,8 @@ func (daemon *Daemon) fillDriverInfo(v *types.Info) {
 
 	v.Driver = drivers
 	v.DriverStatus = ds
+
+	fillDriverWarnings(v)
 }
 
 func (daemon *Daemon) fillPluginsInfo(v *types.Info) {
@@ -168,6 +172,32 @@ func (daemon *Daemon) fillSecurityOptions(v *types.Info, sysInfo *sysinfo.SysInf
 	v.SecurityOptions = securityOptions
 }
 
+func (daemon *Daemon) fillAPIInfo(v *types.Info) {
+	const warn string = `
+         Access to the remote API is equivalent to root access on the host. Refer
+         to the 'Docker daemon attack surface' section in the documentation for
+         more information: https://docs.docker.com/engine/security/security/#docker-daemon-attack-surface`
+
+	cfg := daemon.configStore
+	for _, host := range cfg.Hosts {
+		// cnf.Hosts is normalized during startup, so should always have a scheme/proto
+		h := strings.SplitN(host, "://", 2)
+		proto := h[0]
+		addr := h[1]
+		if proto != "tcp" {
+			continue
+		}
+		if !cfg.TLS {
+			v.Warnings = append(v.Warnings, fmt.Sprintf("WARNING: API is accessible on http://%s without encryption.%s", addr, warn))
+			continue
+		}
+		if !cfg.TLSVerify {
+			v.Warnings = append(v.Warnings, fmt.Sprintf("WARNING: API is accessible on https://%s without TLS client verification.%s", addr, warn))
+			continue
+		}
+	}
+}
+
 func hostName() string {
 	hostname := ""
 	if hn, err := os.Hostname(); err != nil {
@@ -179,7 +209,7 @@ func hostName() string {
 }
 
 func kernelVersion() string {
-	kernelVersion := "<unknown>"
+	var kernelVersion string
 	if kv, err := kernel.GetKernelVersion(); err != nil {
 		logrus.Warnf("Could not get kernel version: %v", err)
 	} else {
@@ -198,7 +228,7 @@ func memInfo() *system.MemInfo {
 }
 
 func operatingSystem() string {
-	operatingSystem := "<unknown>"
+	var operatingSystem string
 	if s, err := operatingsystem.GetOperatingSystem(); err != nil {
 		logrus.Warnf("Could not get operating system name: %v", err)
 	} else {

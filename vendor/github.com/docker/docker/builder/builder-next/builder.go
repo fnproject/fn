@@ -3,6 +3,7 @@ package buildkit
 import (
 	"context"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -15,21 +16,45 @@ import (
 	"github.com/docker/docker/daemon/images"
 	"github.com/docker/docker/pkg/streamformatter"
 	"github.com/docker/docker/pkg/system"
+	"github.com/docker/libnetwork"
 	controlapi "github.com/moby/buildkit/api/services/control"
 	"github.com/moby/buildkit/control"
 	"github.com/moby/buildkit/identity"
 	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/solver/llbsolver"
+	"github.com/moby/buildkit/util/entitlements"
 	"github.com/moby/buildkit/util/tracing"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	grpcmetadata "google.golang.org/grpc/metadata"
 )
 
+var errMultipleFilterValues = errors.New("filters expect only one value")
+
+var cacheFields = map[string]bool{
+	"id":          true,
+	"parent":      true,
+	"type":        true,
+	"description": true,
+	"inuse":       true,
+	"shared":      true,
+	"private":     true,
+	// fields from buildkit that are not exposed
+	"mutable":   false,
+	"immutable": false,
+}
+
+func init() {
+	llbsolver.AllowNetworkHostUnstable = true
+}
+
 // Opt is option struct required for creating the builder
 type Opt struct {
-	SessionManager *session.Manager
-	Root           string
-	Dist           images.DistributionServices
+	SessionManager    *session.Manager
+	Root              string
+	NetnsRoot         string
+	Dist              images.DistributionServices
+	NetworkController libnetwork.NetworkController
 }
 
 // Builder can build using BuildKit backend
@@ -77,48 +102,94 @@ func (b *Builder) DiskUsage(ctx context.Context) ([]*types.BuildCache, error) {
 	var items []*types.BuildCache
 	for _, r := range duResp.Record {
 		items = append(items, &types.BuildCache{
-			ID:      r.ID,
-			Mutable: r.Mutable,
-			InUse:   r.InUse,
-			Size:    r.Size_,
-
+			ID:          r.ID,
+			Parent:      r.Parent,
+			Type:        r.RecordType,
+			Description: r.Description,
+			InUse:       r.InUse,
+			Shared:      r.Shared,
+			Size:        r.Size_,
 			CreatedAt:   r.CreatedAt,
 			LastUsedAt:  r.LastUsedAt,
 			UsageCount:  int(r.UsageCount),
-			Parent:      r.Parent,
-			Description: r.Description,
 		})
 	}
 	return items, nil
 }
 
 // Prune clears all reclaimable build cache
-func (b *Builder) Prune(ctx context.Context) (int64, error) {
+func (b *Builder) Prune(ctx context.Context, opts types.BuildCachePruneOptions) (int64, []string, error) {
 	ch := make(chan *controlapi.UsageRecord)
 
 	eg, ctx := errgroup.WithContext(ctx)
 
+	validFilters := make(map[string]bool, 1+len(cacheFields))
+	validFilters["unused-for"] = true
+	for k, v := range cacheFields {
+		validFilters[k] = v
+	}
+	if err := opts.Filters.Validate(validFilters); err != nil {
+		return 0, nil, err
+	}
+
+	var unusedFor time.Duration
+	unusedForValues := opts.Filters.Get("unused-for")
+
+	switch len(unusedForValues) {
+	case 0:
+
+	case 1:
+		var err error
+		unusedFor, err = time.ParseDuration(unusedForValues[0])
+		if err != nil {
+			return 0, nil, errors.Wrap(err, "unused-for filter expects a duration (e.g., '24h')")
+		}
+
+	default:
+		return 0, nil, errMultipleFilterValues
+	}
+
+	bkFilter := make([]string, 0, opts.Filters.Len())
+	for cacheField := range cacheFields {
+		values := opts.Filters.Get(cacheField)
+		switch len(values) {
+		case 0:
+			bkFilter = append(bkFilter, cacheField)
+		case 1:
+			bkFilter = append(bkFilter, cacheField+"=="+values[0])
+		default:
+			return 0, nil, errMultipleFilterValues
+		}
+	}
+
 	eg.Go(func() error {
 		defer close(ch)
-		return b.controller.Prune(&controlapi.PruneRequest{}, &pruneProxy{
+		return b.controller.Prune(&controlapi.PruneRequest{
+			All:          opts.All,
+			KeepDuration: int64(unusedFor),
+			KeepBytes:    opts.KeepStorage,
+			Filter:       bkFilter,
+		}, &pruneProxy{
 			streamProxy: streamProxy{ctx: ctx},
 			ch:          ch,
 		})
 	})
 
 	var size int64
+	var cacheIDs []string
 	eg.Go(func() error {
 		for r := range ch {
 			size += r.Size_
+			cacheIDs = append(cacheIDs, r.ID)
 		}
 		return nil
 	})
 
 	if err := eg.Wait(); err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
-	return size, nil
+	return size, cacheIDs, nil
 }
 
 // Build executes a build request
@@ -209,6 +280,12 @@ func (b *Builder) Build(ctx context.Context, opt backend.BuildConfig) (*builder.
 		frontendAttrs["no-cache"] = ""
 	}
 
+	if opt.Options.PullParent {
+		frontendAttrs["image-resolve-mode"] = "pull"
+	} else {
+		frontendAttrs["image-resolve-mode"] = "default"
+	}
+
 	if opt.Options.Platform != "" {
 		// same as in newBuilder in builder/dockerfile.builder.go
 		// TODO: remove once opt.Options.Platform is of type specs.Platform
@@ -221,6 +298,20 @@ func (b *Builder) Build(ctx context.Context, opt backend.BuildConfig) (*builder.
 		}
 		frontendAttrs["platform"] = opt.Options.Platform
 	}
+
+	switch opt.Options.NetworkMode {
+	case "host", "none":
+		frontendAttrs["force-network-mode"] = opt.Options.NetworkMode
+	case "", "default":
+	default:
+		return nil, errors.Errorf("network mode %q not supported by buildkit", opt.Options.NetworkMode)
+	}
+
+	extraHosts, err := toBuildkitExtraHosts(opt.Options.ExtraHosts)
+	if err != nil {
+		return nil, err
+	}
+	frontendAttrs["add-hosts"] = extraHosts
 
 	exporterAttrs := map[string]string{}
 
@@ -235,6 +326,10 @@ func (b *Builder) Build(ctx context.Context, opt backend.BuildConfig) (*builder.
 		Frontend:      "dockerfile.v0",
 		FrontendAttrs: frontendAttrs,
 		Session:       opt.Options.SessionID,
+	}
+
+	if opt.Options.NetworkMode == "host" {
+		req.Entitlements = append(req.Entitlements, entitlements.EntitlementNetworkHost)
 	}
 
 	aux := streamformatter.AuxFormatter{Writer: opt.ProgressWriter.Output}
@@ -258,9 +353,10 @@ func (b *Builder) Build(ctx context.Context, opt backend.BuildConfig) (*builder.
 
 	eg.Go(func() error {
 		defer close(ch)
-		return b.controller.Status(&controlapi.StatusRequest{
-			Ref: id,
-		}, &statusProxy{streamProxy: streamProxy{ctx: ctx}, ch: ch})
+		// streamProxy.ctx is not set to ctx because when request is cancelled,
+		// only the build request has to be cancelled, not the status request.
+		stream := &statusProxy{streamProxy: streamProxy{ctx: context.TODO()}, ch: ch}
+		return b.controller.Status(&controlapi.StatusRequest{Ref: id}, stream)
 	})
 
 	eg.Go(func() error {
@@ -416,4 +512,20 @@ func (j *buildJob) SetUpload(ctx context.Context, rc io.ReadCloser) error {
 	case fn := <-j.waitCh:
 		return fn(rc)
 	}
+}
+
+// toBuildkitExtraHosts converts hosts from docker key:value format to buildkit's csv format
+func toBuildkitExtraHosts(inp []string) (string, error) {
+	if len(inp) == 0 {
+		return "", nil
+	}
+	hosts := make([]string, 0, len(inp))
+	for _, h := range inp {
+		parts := strings.Split(h, ":")
+		if len(parts) != 2 || parts[0] == "" || net.ParseIP(parts[1]) == nil {
+			return "", errors.Errorf("invalid host %s", h)
+		}
+		hosts = append(hosts, parts[0]+"="+parts[1])
+	}
+	return strings.Join(hosts, ","), nil
 }

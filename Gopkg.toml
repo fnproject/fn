@@ -76,7 +76,7 @@ ignored = ["github.com/fnproject/fn/cli",
 
 [[override]]
   name = "github.com/docker/docker"
-  revision = "763d8392612942ff5c32a35f8bdafd7ae93d3321"
+  revision = "c3e32938430e03a316311f9e4fbdb743e492a07e"
 
 [[override]]
   name = "github.com/docker/libnetwork"

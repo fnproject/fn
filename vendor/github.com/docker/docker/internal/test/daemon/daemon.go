@@ -73,7 +73,8 @@ type Daemon struct {
 	// swarm related field
 	swarmListenAddr string
 	SwarmPort       int // FIXME(vdemeester) should probably not be exported
-
+	DefaultAddrPool []string
+	SubnetSize      uint32
 	// cached information
 	CachedInfo types.Info
 }
@@ -200,7 +201,7 @@ func (d *Daemon) Start(t testingT, args ...string) {
 		ht.Helper()
 	}
 	if err := d.StartWithError(args...); err != nil {
-		t.Fatalf("Error starting daemon with arguments %v : %v", args, err)
+		t.Fatalf("failed to start daemon with arguments %v : %v", args, err)
 	}
 }
 

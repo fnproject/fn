@@ -54,6 +54,14 @@ var flatOptions = map[string]bool{
 	"log-opts":           true,
 	"runtimes":           true,
 	"default-ulimits":    true,
+	"features":           true,
+}
+
+// skipValidateOptions contains configuration keys
+// that will be skipped from findConfigurationConflicts
+// for unknown flag validation.
+var skipValidateOptions = map[string]bool{
+	"features": true,
 }
 
 // LogConfig represents the default log configuration.
@@ -203,6 +211,10 @@ type CommonConfig struct {
 	// should be configured with the CRI plugin enabled. This allows using
 	// Docker's containerd instance directly with a Kubernetes kubelet.
 	CriContainerd bool `json:"cri-containerd,omitempty"`
+
+	// Features contains a list of feature key value pairs indicating what features are enabled or disabled.
+	// If a certain feature doesn't appear in this list then it's unset (i.e. neither true nor false).
+	Features map[string]bool `json:"features,omitempty"`
 }
 
 // IsValueSet returns true if a configuration value
@@ -444,7 +456,7 @@ func findConfigurationConflicts(config map[string]interface{}, flags *pflag.Flag
 	// 1. Search keys from the file that we don't recognize as flags.
 	unknownKeys := make(map[string]interface{})
 	for key, value := range config {
-		if flag := flags.Lookup(key); flag == nil {
+		if flag := flags.Lookup(key); flag == nil && !skipValidateOptions[key] {
 			unknownKeys[key] = value
 		}
 	}

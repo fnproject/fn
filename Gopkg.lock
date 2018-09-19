@@ -94,7 +94,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:e7ca7e1ac742af27da6148103c36a846d93ab8994a1aa24d850b32dd5614ccb9"
+  digest = "1:5bd14ec4eacea32533d819153f9a972f219c7004a995763c4f3e0d9da6841855"
   name = "github.com/docker/docker"
   packages = [
     "api/types",
@@ -121,7 +121,7 @@
     "pkg/system",
   ]
   pruneopts = ""
-  revision = "763d8392612942ff5c32a35f8bdafd7ae93d3321"
+  revision = "c3e32938430e03a316311f9e4fbdb743e492a07e"
 
 [[projects]]
   digest = "1:a5ecc2e70260a87aa263811281465a5effcfae8a54bac319cee87c4625f04d63"
