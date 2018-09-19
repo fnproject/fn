@@ -451,6 +451,17 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 
 	mem := call.Memory + uint64(call.TmpFsSize)
 
+	// In blocking mode, we attempt resource allocation in HotPoll intervals
+	// and attempt an evict if we get CapacityFull after HotPoll expiry.
+	// In non-blocking mode, the interval is set to 0.
+	resourceTimeout := a.cfg.HotPoll
+	if a.cfg.EnableNBResourceTracker {
+		resourceTimeout = 0
+	}
+
+	resourceCtx, cancelCtx := context.WithTimeout(ctx, resourceTimeout)
+	defer cancelCtx()
+
 	// WARNING: Tricky flow below. We are here because: isNewContainerNeeded is true,
 	// in other words, we need to launch a new container at this time due to high load.
 	//
@@ -471,9 +482,15 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
 		if tok != nil && tok.Error() != nil {
-			// before returning error response, as a last resort, try evicting idle containers.
-			if tok.Error() != CapacityFull || !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) {
+			// non-capacity related errors should be propagated to callers
+			// for capacity full, we attempt an eviction.
+			if tok.Error() != CapacityFull {
 				tryNotify(notifyChan, tok.Error())
+			} else if !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) {
+				// If evictions didn't work, then for non-blocking, we propagate error now.
+				if a.cfg.EnableNBResourceTracker {
+					tryNotify(notifyChan, tok.Error())
+				}
 			}
 		} else if a.shutWg.AddSession(1) {
 			go func() {
@@ -484,15 +501,11 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 			// early return (do not allow container state to switch to ContainerStateDone)
 			return
 		}
+
 		if tok != nil {
 			statsUtilization(ctx, a.resources.GetUtilization())
 			tok.Close()
 		}
-		// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
-		// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
-		// idle container.
-	case <-time.After(a.cfg.HotPoll):
-		a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs))
 	case <-ctx.Done(): // timeout
 	case <-a.shutWg.Closer(): // server shutdown
 	}
@@ -550,16 +563,21 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 // launchCold waits for necessary resources to launch a new container, then
 // returns the slot for that new container to run the request on.
 func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
-	isNB := a.cfg.EnableNBResourceTracker
-
-	ch := make(chan Slot)
-
 	ctx, span := trace.StartSpan(ctx, "agent_launch_cold")
 	defer span.End()
 
+	isAsync := call.Type == models.TypeAsync
+	ch := make(chan Slot)
+	mem := call.Memory + uint64(call.TmpFsSize)
+	resourceCtx := ctx
+
 	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
 
-	mem := call.Memory + uint64(call.TmpFsSize)
+	if a.cfg.EnableNBResourceTracker {
+		tmpCtx, tmpCtxCancel := context.WithTimeout(ctx, 0)
+		resourceCtx = tmpCtx
+		defer tmpCtxCancel()
+	}
 
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):

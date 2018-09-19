@@ -212,6 +212,10 @@ func TestResourceGetSimple(t *testing.T) {
 
 func TestResourceGetSimpleNB(t *testing.T) {
 
+	// zero timeout for Non-Blocking
+	ctx, cancel := context.WithTimeout(context.Background(), 0)
+	defer cancel()
+
 	var vals trackerVals
 	trI := NewResourceTracker(nil)
 	tr := trI.(*resourceTracker)
@@ -225,9 +229,7 @@ func TestResourceGetSimpleNB(t *testing.T) {
 	setTrackerTestVals(tr, &vals)
 
 	// ask for 4GB and 10 CPU
-	ctx, cancel := context.WithCancel(context.Background())
-	ch := trI.GetResourceToken(ctx, 4*1024, 1000, true)
-	defer cancel()
+	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false)
 
 	tok := <-ch
 	if tok.Error() == nil {
@@ -238,15 +240,13 @@ func TestResourceGetSimpleNB(t *testing.T) {
 	vals.setDefaults()
 	setTrackerTestVals(tr, &vals)
 
-	tok1 := <-trI.GetResourceToken(ctx, 4*1024, 1000, true)
+	tok1 := <-trI.GetResourceToken(ctx, 4*1024, 1000, false)
 	if tok1.Error() != nil {
 		t.Fatalf("empty system should hand out token")
 	}
 
 	// ask for another 4GB and 10 CPU
-	ctx, cancel = context.WithCancel(context.Background())
-	ch = trI.GetResourceToken(ctx, 4*1024, 1000, true)
-	defer cancel()
+	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false)
 
 	tok = <-ch
 	if tok.Error() == nil {
@@ -256,7 +256,7 @@ func TestResourceGetSimpleNB(t *testing.T) {
 	// close means, giant token resources released
 	tok1.Close()
 
-	tok = <-trI.GetResourceToken(ctx, 4*1024, 1000, true)
+	tok = <-trI.GetResourceToken(ctx, 4*1024, 1000, false)
 	if tok.Error() != nil {
 		t.Fatalf("empty system should hand out token")
 	}
