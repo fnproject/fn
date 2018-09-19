@@ -7,13 +7,14 @@ import (
 	"strconv"
 	"time"
 
+	"strings"
+
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"strings"
 )
 
 // handleHTTPTriggerCall executes the function, for router handlers
@@ -69,6 +70,8 @@ type triggerResponseWriter struct {
 	committed bool
 }
 
+var _ http.ResponseWriter = new(triggerResponseWriter)
+
 func (trw *triggerResponseWriter) Header() http.Header {
 	return trw.headers
 }
@@ -81,7 +84,6 @@ func (trw *triggerResponseWriter) Write(b []byte) (int, error) {
 }
 
 func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
-
 	if trw.committed {
 		return
 	}
@@ -110,11 +112,11 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 				}
 			}
 		}
-
 	}
+
 	contentType := trw.headers.Get("Content-Type")
 	if contentType != "" {
-		trw.headers.Set("Content-Type", contentType)
+		trw.w.Header().Add("Content-Type", contentType)
 	}
 	trw.w.WriteHeader(gatewayStatus)
 }
@@ -140,7 +142,6 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
-
 	call, err := s.agent.GetCall(
 		agent.WithWriter(triggerWriter), // XXX (reed): order matters [for now]
 		agent.FromHTTPTriggerRequest(app, fn, trigger, c.Request),
@@ -187,7 +188,6 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 		}
 		return err
 	}
-
 	// if they don't set a content-type - detect it
 	if writer.Header().Get("Content-Type") == "" {
 		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
