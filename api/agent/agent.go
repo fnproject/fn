@@ -1358,14 +1358,10 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 
 // DockerAuth implements the docker.AuthConfiguration interface.
 func (c *container) DockerAuth() (*docker.AuthConfiguration, error) {
-	logger := common.Logger(context.TODO())
 	registryToken := ""
 	var ok bool
 	if registryToken, ok = c.extensions[RegistryToken]; !ok {
-		logger.WithField("Image", c.image).Infoln("No Registry Token for image")
 		registryToken = ""
-	} else {
-		logger.WithField("Image", c.image).Infof("Registry Token %s", registryToken)
 	}
 	if registryToken != "" {
 		return &docker.AuthConfiguration{
