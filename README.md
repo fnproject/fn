@@ -91,6 +91,12 @@ cd hello
 Feel free to check out the files it created or just keep going and look at it later.
 
 ```sh
+# Set your Docker Hub username
+export FN_REGISTRY=<DOCKERHUB_USERNAME>
+
+# Run your function locally
+fn run
+
 # Deploy your functions to your local Fn server
 fn deploy --app myapp --local
 ```
