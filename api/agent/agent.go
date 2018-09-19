@@ -1358,11 +1358,7 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 
 // DockerAuth implements the docker.AuthConfiguration interface.
 func (c *container) DockerAuth() (*docker.AuthConfiguration, error) {
-	registryToken := ""
-	var ok bool
-	if registryToken, ok = c.extensions[RegistryToken]; !ok {
-		registryToken = ""
-	}
+	registryToken := c.extensions[RegistryToken]
 	if registryToken != "" {
 		return &docker.AuthConfiguration{
 			RegistryToken: registryToken,
