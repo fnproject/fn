@@ -1,12 +1,12 @@
 ![Fn Project](http://fnproject.io/images/fn-300x125.png)
 
-**[Quickstart](https://github.com/fnproject/fn#quickstart)&nbsp; | &nbsp;[Tutorials](https://fnproject.io/tutorials)&nbsp; |  &nbsp;[Docs](https://github.com/fnproject/fn/blob/master/docs/README.md)&nbsp; | &nbsp;[API](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)&nbsp; | &nbsp;[Operating](https://github.com/fnproject/fn/blob/master/docs/README.md#for-operators)&nbsp; | &nbsp;[Flow](https://github.com/fnproject/flow)&nbsp; | &nbsp;[UI](https://github.com/fnproject/ui)**
+**[Quickstart](https://github.com/fnproject/fn#quickstart)&nbsp; | &nbsp;[Tutorials](https://fnproject.io/tutorials)&nbsp; |  &nbsp;[Docs](https://github.com/fnproject/docs)&nbsp; | &nbsp;[API](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger_v2.yml)&nbsp; | &nbsp;[Operating](https://github.com/fnproject/docs/blob/master/fn/README.md#for-operators)&nbsp; | &nbsp;[Flow](https://github.com/fnproject/flow)&nbsp; | &nbsp;[UI](https://github.com/fnproject/ui)**
 
 [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn) [![GoDoc](https://godoc.org/github.com/fnproject/fn?status.svg)](https://godoc.org/github.com/fnproject/fn)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fnproject/fn)](https://goreportcard.com/report/github.com/fnproject/fn)
 
 ## Welcome
-Fn is an event-driven, open source, [Functions-as-a-Service (FaaS)](docs/serverless.md) compute platform that you can run anywhere. Some of its key features:
+Fn is an event-driven, open source, [Functions-as-a-Service (FaaS)](https://github.com/fnproject/docs/blob/master/fn/general/introduction.md) compute platform that you can run anywhere. Some of its key features:
 
 * Open Source
 * Native Docker: use any Docker container as your Function
@@ -19,7 +19,7 @@ Fn is an event-driven, open source, [Functions-as-a-Service (FaaS)](docs/serverl
 * Written in Go
 * Simple yet powerful extensibility
 
-The fastest way to experience Fn is to follow the quickstart below, or you can jump right to our [full documentation](docs/README.md), [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml), or hit us up in our [Slack Community](http://slack.fnproject.io)!
+The fastest way to experience Fn is to follow the quickstart below, or you can jump right to our [full documentation](https://github.com/fnproject/docs), [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger_v2.yml), or hit us up in our [Slack Community](http://slack.fnproject.io)!
 
 
 ## Quickstart
@@ -68,9 +68,9 @@ fn start
 ```
 
 This will start Fn in single server mode, using an embedded database and message queue. You can find all the
-configuration options [here](docs/operating/options.md). If you are on Windows, check [here](docs/operating/windows.md).
+configuration options [here](https://github.com/fnproject/docs/blob/master/fn/operate/options.md). If you are on Windows, check [here](https://github.com/fnproject/docs/blob/master/fn/operate/windows.md).
 If you are on a Linux system where the SELinux security policy is set to "Enforcing", such as Oracle Linux 7, check
-[here](docs/operating/selinux.md).
+[here](https://github.com/fnproject/docs/blob/master/fn/operate/selinux.md).
 
 ### Your First Function
 
@@ -91,12 +91,6 @@ cd hello
 Feel free to check out the files it created or just keep going and look at it later.
 
 ```sh
-# Set your Docker Hub username
-export FN_REGISTRY=<DOCKERHUB_USERNAME>
-
-# Run your function locally
-fn run
-
 # Deploy your functions to your local Fn server
 fn deploy --app myapp --local
 ```
@@ -113,10 +107,10 @@ That's it! You just deployed your first function and called it. Try updating the
 
 * With our [Fn Getting Started Series](examples/tutorial/), quickly create Fn Hello World applications in multiple languages. This is a great Fn place to start!
 * Visit [Fn tutorials](http://fnproject.io/tutorials) for step by step guides to creating apps with Fn . These tutorials range from introductory to more advanced.
-* See our [full documentation](docs/README.md)
+* See our [full documentation](https://github.com/fnproject/docs)
 * View all of our [examples](/examples)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
-* View our [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)
+* View our [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger_v2.yml)
 * Check out our sub-projects: [Flow](https://github.com/fnproject/flow), [UI](https://github.com/fnproject/ui), [FnLB](https://github.com/fnproject/lb)
 * For a full presentation with lots of content you can use in your own presentations, see [The Fn Project Presentation Master](http://deck.fnproject.io)
 
