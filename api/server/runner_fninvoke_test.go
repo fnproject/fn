@@ -154,11 +154,12 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	httpDneFn := &models.Fn{ID: "http_dne_fn_id", Name: "http_dne_fn", AppID: app.ID, Image: rImgBs1, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	httpDneRegistryFn := &models.Fn{ID: "http_dnereg_fn_id", Name: "http_dnereg_fn", AppID: app.ID, Image: rImgBs2, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	jsonFn := &models.Fn{ID: "json_fn_id", Name: "json_fn", AppID: app.ID, Image: rImg, Format: "json", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	oomFn := &models.Fn{ID: "http_fn_id", Name: "http_fn", AppID: app.ID, Image: rImg, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 8, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+	oomFn := &models.Fn{ID: "http_oom_fn_id", Name: "http_fn", AppID: app.ID, Image: rImg, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 8, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+	httpStreamFn := &models.Fn{ID: "http_stream_fn_id", Name: "http_stream_fn", AppID: app.ID, Image: rImg, Format: "http-stream", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{defaultFn, defaultDneFn, httpDneRegistryFn, oomFn, httpFn, jsonFn, httpDneFn},
+		[]*models.Fn{defaultFn, defaultDneFn, httpDneRegistryFn, httpFn, jsonFn, httpDneFn, oomFn, httpStreamFn},
 	)
 	ls := logs.NewMock()
 
@@ -169,18 +170,19 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
+	expStreamHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}, "Fn-Http-Status": {"200"}}
 
 	// Checking for EndOfLogs currently depends on scheduling of go-routines (in docker/containerd) that process stderr & stdout.
 	// Therefore, not testing for EndOfLogs for hot containers (which has complex I/O processing) anymore.
 	multiLogExpectCold := []string{"BeginOfLogs", "EndOfLogs"}
 	multiLogExpectHot := []string{"BeginOfLogs" /*, "EndOfLogs" */}
 
-	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`                      // crash container
-	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 12000000}`             // ask for 12MB
-	badHot := `{"echoContent": "_TRX_ID_", "invalidResponse": true, "isDebug": true}`               // write a not json/http as output
-	ok := `{"echoContent": "_TRX_ID_", "isDebug": true}`                                            // good response / ok
-	respTypeLie := `{"echoContent": "_TRX_ID_", "responseContentType": "foo/bar", "isDebug": true}` // Content-Type: foo/bar
-	respTypeJason := `{"echoContent": "_TRX_ID_", "jasonContentType": "foo/bar", "isDebug": true}`  // Content-Type: foo/bar
+	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`                                     // crash container
+	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 12000000}`                            // ask for 12MB
+	badHot := `{"echoContent": "_TRX_ID_", "invalidResponse": true, "isDebug": true}`                              // write a not json/http as output
+	ok := `{"echoContent": "_TRX_ID_", "responseContentType": "application/json; charset=utf-8", "isDebug": true}` // good response / ok
+	respTypeLie := `{"echoContent": "_TRX_ID_", "responseContentType": "foo/bar", "isDebug": true}`                // Content-Type: foo/bar
+	respTypeJason := `{"echoContent": "_TRX_ID_", "jasonContentType": "foo/bar", "isDebug": true}`                 // Content-Type: foo/bar
 
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
 	multiLog := `{"echoContent": "_TRX_ID_", "sleepTime": 1000, "isDebug": true}`
@@ -210,6 +212,8 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		// hot container now back to normal:
 		{"/invoke/json_fn_id", ok, "POST", http.StatusOK, expHeaders, "", nil},
 
+		{"/invoke/http_stream_fn_id", ok, "POST", http.StatusOK, expStreamHeaders, "", nil},
+
 		{"/invoke/http_fn_id", respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
 		{"/invoke/json_fn_id", respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
 		{"/invoke/json_fn_id", respTypeJason, "POST", http.StatusOK, expCTHeaders, "", nil},
@@ -219,7 +223,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/default_dne_fn_id", ``, "POST", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/invoke/http_dne_fn_id", ``, "POST", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/invoke/http_dnereg_fn_id", ``, "POST", http.StatusInternalServerError, nil, "connection refused", nil},
-		{"/invoke/http_fn_id", oomer, "POST", http.StatusBadGateway, nil, "container out of memory", nil},
+		{"/invoke/http_oom_fn_id", oomer, "POST", http.StatusBadGateway, nil, "container out of memory", nil},
 		{"/invoke/http_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectHot},
 		{"/invoke/default_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectCold},
 		{"/invoke/json_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},

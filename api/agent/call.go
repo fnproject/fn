@@ -64,9 +64,9 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
 		contentType := req.Header.Get("Content-Type")
 		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
+		if err != nil && contentType != "" {
 			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
+			log.Debugf("Could not parse Content-Type header: %v %v", contentType, err)
 		} else {
 			if t == ceMimeType {
 				c.IsCloudEvent = true
@@ -135,9 +135,9 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
 		contentType := req.Header.Get("Content-Type")
 		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
+		if err != nil && contentType != "" {
 			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
+			log.Debugf("Could not parse Content-Type header: %v %v", contentType, err)
 		} else {
 			if t == ceMimeType {
 				c.IsCloudEvent = true

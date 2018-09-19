@@ -111,33 +111,30 @@ func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 		}
 	}
 
-	var outto fdkresponse
-	outto.Writer = out
-	finalizeRequest(&outto, req, resp)
+	finalizeRequest(out, req, resp)
 	err := postProcessRequest(req, out)
 	if err != nil {
 		panic(err.Error())
 	}
 }
 
-func finalizeRequest(out *fdkresponse, req *AppRequest, resp *AppResponse) {
+func finalizeRequest(out io.Writer, req *AppRequest, resp *AppResponse) {
 	// custom response code
 	if req.ResponseCode != 0 {
-		out.Status = req.ResponseCode
-	} else {
-		out.Status = 200
+		fdk.WriteStatus(out, req.ResponseCode)
 	}
 
 	// custom content type
 	if req.ResponseContentType != "" {
-		out.Header.Set("Content-Type", req.ResponseContentType)
+		fdk.SetHeader(out, "Content-Type", req.ResponseContentType)
 	}
 	// NOTE: don't add 'application/json' explicitly here as an else,
 	// we will test that go's auto-detection logic does not fade since
 	// some people are relying on it now
 
 	if req.JasonContentType != "" {
-		out.JasonContentType = req.JasonContentType
+		// this will get picked up by our json out handler...
+		fdk.SetHeader(out, "Content-Type", req.JasonContentType)
 	}
 
 	if !req.IsEmptyBody {
@@ -294,6 +291,8 @@ func testDo(format string, in io.Reader, out io.Writer) {
 		testDoJSON(ctx, in, out)
 	case "default":
 		fdkutils.DoDefault(fdk.HandlerFunc(AppHandler), ctx, in, out)
+	case "http-stream":
+		fdk.Handle(fdk.HandlerFunc(AppHandler)) // XXX(reed): can extract & instrument
 	default:
 		panic("unknown format (fdk-go): " + format)
 	}
@@ -331,7 +330,7 @@ func testDoJSON(ctx context.Context, in io.Reader, out io.Writer) {
 func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
 	buf.Reset()
 	fdkutils.ResetHeaders(hdr)
-	var resp fdkresponse
+	var resp fdkutils.Response
 	resp.Writer = buf
 	resp.Status = 200
 	resp.Header = hdr
@@ -383,19 +382,11 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 	return postProcessRequest(appRequest, out)
 }
 
-// since we need to test little jason's content type since he's special. but we
-// don't want to add redundant and confusing fields to the fdk...
-type fdkresponse struct {
-	fdkutils.Response
-
-	JasonContentType string // dumb
-}
-
 // copy of fdk.GetJSONResp but with sugar for stupid jason's little fields
-func getJSONResp(buf *bytes.Buffer, fnResp *fdkresponse, req *fdkutils.JsonIn) *fdkutils.JsonOut {
+func getJSONResp(buf *bytes.Buffer, fnResp *fdkutils.Response, req *fdkutils.JsonIn) *fdkutils.JsonOut {
 	return &fdkutils.JsonOut{
 		Body:        buf.String(),
-		ContentType: fnResp.JasonContentType,
+		ContentType: fnResp.Header.Get("Content-Type"),
 		Protocol: fdkutils.CallResponseHTTP{
 			StatusCode: fnResp.Status,
 			Headers:    fnResp.Header,
@@ -406,7 +397,7 @@ func getJSONResp(buf *bytes.Buffer, fnResp *fdkresponse, req *fdkutils.JsonIn) *
 func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
 	buf.Reset()
 	fdkutils.ResetHeaders(hdr)
-	var resp fdkresponse
+	var resp fdkutils.Response
 	resp.Writer = buf
 	resp.Status = 200
 	resp.Header = hdr
@@ -442,7 +433,7 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		appRequest = appReq
 	}
 
-	hResp := fdkutils.GetHTTPResp(buf, &resp.Response, req)
+	hResp := fdkutils.GetHTTPResp(buf, &resp, req)
 
 	err = hResp.Write(out)
 	if err != nil {
