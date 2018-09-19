@@ -21,6 +21,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/fsnotify/fsnotify"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
@@ -117,6 +118,9 @@ type agent struct {
 
 // Option configures an agent at startup
 type Option func(*agent) error
+
+// RegistryToken is a reserved call extensions key to pass registry token
+const RegistryToken = "FN_REGISTRY_TOKEN"
 
 // New creates an Agent that executes functions locally as Docker containers.
 func New(da CallHandler, options ...Option) Agent {
@@ -827,14 +831,15 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	}
 
 	container := &container{
-		id:      id.New().String(), // XXX we could just let docker generate ids...
-		image:   call.Image,
-		env:     map[string]string(call.Config),
-		memory:  call.Memory,
-		cpus:    uint64(call.CPUs),
-		fsSize:  a.cfg.MaxFsSize,
-		iofs:    &noopIOFS{},
-		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
+		id:         id.New().String(), // XXX we could just let docker generate ids...
+		image:      call.Image,
+		env:        map[string]string(call.Config),
+		extensions: call.extensions,
+		memory:     call.Memory,
+		cpus:       uint64(call.CPUs),
+		fsSize:     a.cfg.MaxFsSize,
+		iofs:       &noopIOFS{},
+		timeout:    time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		logCfg: drivers.LoggerConfig{
 			URL: strings.TrimSpace(call.SyslogURL),
 			Tags: []drivers.LoggerTag{
@@ -1330,7 +1335,21 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	c.swapMu.Unlock()
 }
 
-//func (c *container) DockerAuth() (docker.AuthConfiguration, error) {
-// Implementing the docker.AuthConfiguration interface.
-// TODO per call could implement this stored somewhere (vs. configured on host)
-//}
+// DockerAuth implements the docker.AuthConfiguration interface.
+func (c *container) DockerAuth() (*docker.AuthConfiguration, error) {
+	logger := common.Logger(context.TODO())
+	registryToken := ""
+	var ok bool
+	if registryToken, ok = c.extensions[RegistryToken]; !ok {
+		logger.WithField("Image", c.image).Infoln("No Registry Token for image")
+		registryToken = ""
+	} else {
+		logger.WithField("Image", c.image).Infof("Registry Token %s", registryToken)
+	}
+	if registryToken != "" {
+		return &docker.AuthConfiguration{
+			RegistryToken: registryToken,
+		}, nil
+	}
+	return nil, nil
+}
