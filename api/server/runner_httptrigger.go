@@ -146,6 +146,7 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 		agent.WithWriter(triggerWriter), // XXX (reed): order matters [for now]
 		agent.FromHTTPTriggerRequest(app, fn, trigger, c.Request),
 	)
+
 	if err != nil {
 		return err
 	}
@@ -154,6 +155,7 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
 		c.Request = c.Request.WithContext(ctx)
 	}
+	writer.Header().Add("Fn_call_id", model.ID)
 
 	// TODO TRIGGERWIP  not clear this makes sense here - but it works  so...
 	if model.Type == "async" {
