@@ -13,6 +13,8 @@ import (
 
 	"go.opencensus.io/trace"
 
+	"net/textproto"
+
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -87,6 +89,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 		}
 		headers.Set("Fn-Http-Request-Url", requestUrl)
 		headers.Set("Fn-Intent", "httprequest")
+		req.Header = headers
 
 		if fn.Format == "" {
 			fn.Format = models.FormatDefault
@@ -124,7 +127,7 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
 			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
-			Headers:     headers,
+			Headers:     req.Header,
 			CreatedAt:   common.DateTime(time.Now()),
 			URL:         requestUrl,
 			Method:      req.Method,
@@ -134,7 +137,6 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 			TriggerID:   trigger.ID,
 			SyslogURL:   syslogURL,
 		}
-		req.Header = headers
 		c.req = req
 		return nil
 	}
