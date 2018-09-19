@@ -4,19 +4,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/internal/testutil"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestFastTimeMarshalJSONWithInvalidYear(t *testing.T) {
 	aTime := time.Date(-1, 1, 1, 0, 0, 0, 0, time.Local)
 	_, err := fastTimeMarshalJSON(aTime)
-	testutil.ErrorContains(t, err, "year outside of range")
+	assert.Check(t, is.ErrorContains(err, "year outside of range"))
 
 	anotherTime := time.Date(10000, 1, 1, 0, 0, 0, 0, time.Local)
 	_, err = fastTimeMarshalJSON(anotherTime)
-	testutil.ErrorContains(t, err, "year outside of range")
+	assert.Check(t, is.ErrorContains(err, "year outside of range"))
 }
 
 func TestFastTimeMarshalJSON(t *testing.T) {

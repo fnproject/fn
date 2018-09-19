@@ -13,9 +13,36 @@ keywords: "API, Docker, rcli, REST, documentation"
      will be rejected.
 -->
 
+## V1.39 API changes
+
+[Docker Engine API v1.39](https://docs.docker.com/engine/api/v1.39/) documentation
+
+* `GET /info` now returns an empty string, instead of `<unknown>` for `KernelVersion`
+  and `OperatingSystem` if the daemon was unable to obtain this information.
+* `GET /info` now returns information about the product license, if a license
+  has been applied to the daemon.
+* `GET /info` now returns a `Warnings` field, containing warnings and informational
+  messages about missing features, or issues related to the daemon configuration.
+* `POST /swarm/init` now accepts a `DefaultAddrPool` property to set global scope default address pool
+* `POST /swarm/init` now accepts a `SubnetSize` property to set global scope networks by giving the
+  length of the subnet masks for every such network
+* `GET /nodes` now supports a filter type `node.label` filter to filter nodes based
+  on the node.label. The format of the label filter is `node.label=<key>`/`node.label=<key>=<value>`
+  to return those with the specified labels, or `node.label!=<key>`/`node.label!=<key>=<value>`
+  to return those without the specified labels.
+
+## V1.38 API changes
+
+[Docker Engine API v1.38](https://docs.docker.com/engine/api/v1.38/) documentation
+
+
+* `GET /tasks` and `GET /tasks/{id}` now return a `NetworkAttachmentSpec` field,
+  containing the `ContainerID` for non-service containers connected to "attachable"
+  swarm-scoped networks.
+
 ## v1.37 API changes
 
-[Docker Engine API v1.37](https://docs.docker.com/engine/api/v1.36/) documentation
+[Docker Engine API v1.37](https://docs.docker.com/engine/api/v1.37/) documentation
 
 * `POST /containers/create` and `POST /services/create` now supports exposing SCTP ports.
 * `POST /configs/create` and `POST /configs/{id}/create` now accept a `Templating` driver.

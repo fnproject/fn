@@ -41,11 +41,12 @@ func (NoopVolume) CreatedAt() (time.Time, error) { return time.Now(), nil }
 type FakeVolume struct {
 	name       string
 	driverName string
+	createdAt  time.Time
 }
 
 // NewFakeVolume creates a new fake volume for testing
 func NewFakeVolume(name string, driverName string) volume.Volume {
-	return FakeVolume{name: name, driverName: driverName}
+	return FakeVolume{name: name, driverName: driverName, createdAt: time.Now()}
 }
 
 // Name is the name of the volume
@@ -64,10 +65,14 @@ func (FakeVolume) Mount(_ string) (string, error) { return "fake", nil }
 func (FakeVolume) Unmount(_ string) error { return nil }
 
 // Status provides low-level details about the volume
-func (FakeVolume) Status() map[string]interface{} { return nil }
+func (FakeVolume) Status() map[string]interface{} {
+	return map[string]interface{}{"datakey": "datavalue"}
+}
 
 // CreatedAt provides the time the volume (directory) was created at
-func (FakeVolume) CreatedAt() (time.Time, error) { return time.Now(), nil }
+func (f FakeVolume) CreatedAt() (time.Time, error) {
+	return f.createdAt, nil
+}
 
 // FakeDriver is a driver that generates fake volumes
 type FakeDriver struct {

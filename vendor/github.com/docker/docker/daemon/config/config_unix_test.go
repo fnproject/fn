@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/docker/docker/opts"
-	units "github.com/docker/go-units"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"github.com/gotestyourself/gotestyourself/fs"
+	"github.com/docker/go-units"
 	"github.com/spf13/pflag"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/fs"
 )
 
 func TestGetConflictFreeConfiguration(t *testing.T) {

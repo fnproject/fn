@@ -3,6 +3,7 @@
 package daemon // import "github.com/docker/docker/daemon"
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,9 @@ import (
 	containertypes "github.com/docker/docker/api/types/container"
 	mounttypes "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/container"
+	"github.com/docker/docker/oci"
 	"github.com/docker/docker/pkg/stringid"
+	volumeopts "github.com/docker/docker/volume/service/opts"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
 )
@@ -22,9 +25,19 @@ func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Con
 	}
 	defer daemon.Unmount(container)
 
-	rootIDs := daemon.idMappings.RootPair()
+	rootIDs := daemon.idMapping.RootPair()
 	if err := container.SetupWorkingDirectory(rootIDs); err != nil {
 		return err
+	}
+
+	// Set the default masked and readonly paths with regard to the host config options if they are not set.
+	if hostConfig.MaskedPaths == nil && !hostConfig.Privileged {
+		hostConfig.MaskedPaths = oci.DefaultSpec().Linux.MaskedPaths // Set it to the default if nil
+		container.HostConfig.MaskedPaths = hostConfig.MaskedPaths
+	}
+	if hostConfig.ReadonlyPaths == nil && !hostConfig.Privileged {
+		hostConfig.ReadonlyPaths = oci.DefaultSpec().Linux.ReadonlyPaths // Set it to the default if nil
+		container.HostConfig.ReadonlyPaths = hostConfig.ReadonlyPaths
 	}
 
 	for spec := range config.Volumes {
@@ -46,16 +59,16 @@ func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Con
 			return fmt.Errorf("cannot mount volume over existing file, file exists %s", path)
 		}
 
-		v, err := daemon.volumes.CreateWithRef(name, hostConfig.VolumeDriver, container.ID, nil, nil)
+		v, err := daemon.volumes.Create(context.TODO(), name, hostConfig.VolumeDriver, volumeopts.WithCreateReference(container.ID))
 		if err != nil {
 			return err
 		}
 
-		if err := label.Relabel(v.Path(), container.MountLabel, true); err != nil {
+		if err := label.Relabel(v.Mountpoint, container.MountLabel, true); err != nil {
 			return err
 		}
 
-		container.AddMountPointWithVolume(destination, v, true)
+		container.AddMountPointWithVolume(destination, &volumeWrapper{v: v, s: daemon.volumes}, true)
 	}
 	return daemon.populateVolumes(container)
 }

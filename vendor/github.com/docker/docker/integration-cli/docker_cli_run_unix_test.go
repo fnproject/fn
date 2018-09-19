@@ -26,8 +26,8 @@ import (
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/go-check/check"
-	"github.com/gotestyourself/gotestyourself/icmd"
 	"github.com/kr/pty"
+	"gotest.tools/icmd"
 )
 
 // #6509
@@ -579,7 +579,7 @@ func (s *DockerSuite) TestRunWithBlkioWeight(c *check.C) {
 func (s *DockerSuite) TestRunWithInvalidBlkioWeight(c *check.C) {
 	testRequires(c, blkioWeight)
 	out, _, err := dockerCmdWithError("run", "--blkio-weight", "5", "busybox", "true")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 	expected := "Range of blkio weight is from 10 to 1000"
 	c.Assert(out, checker.Contains, expected)
 }
@@ -587,31 +587,31 @@ func (s *DockerSuite) TestRunWithInvalidBlkioWeight(c *check.C) {
 func (s *DockerSuite) TestRunWithInvalidPathforBlkioWeightDevice(c *check.C) {
 	testRequires(c, blkioWeight)
 	out, _, err := dockerCmdWithError("run", "--blkio-weight-device", "/dev/sdX:100", "busybox", "true")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 }
 
 func (s *DockerSuite) TestRunWithInvalidPathforBlkioDeviceReadBps(c *check.C) {
 	testRequires(c, blkioWeight)
 	out, _, err := dockerCmdWithError("run", "--device-read-bps", "/dev/sdX:500", "busybox", "true")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 }
 
 func (s *DockerSuite) TestRunWithInvalidPathforBlkioDeviceWriteBps(c *check.C) {
 	testRequires(c, blkioWeight)
 	out, _, err := dockerCmdWithError("run", "--device-write-bps", "/dev/sdX:500", "busybox", "true")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 }
 
 func (s *DockerSuite) TestRunWithInvalidPathforBlkioDeviceReadIOps(c *check.C) {
 	testRequires(c, blkioWeight)
 	out, _, err := dockerCmdWithError("run", "--device-read-iops", "/dev/sdX:500", "busybox", "true")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 }
 
 func (s *DockerSuite) TestRunWithInvalidPathforBlkioDeviceWriteIOps(c *check.C) {
 	testRequires(c, blkioWeight)
 	out, _, err := dockerCmdWithError("run", "--device-write-iops", "/dev/sdX:500", "busybox", "true")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 }
 
 func (s *DockerSuite) TestRunOOMExitCode(c *check.C) {
@@ -619,7 +619,8 @@ func (s *DockerSuite) TestRunOOMExitCode(c *check.C) {
 	errChan := make(chan error)
 	go func() {
 		defer close(errChan)
-		out, exitCode, _ := dockerCmdWithError("run", "-m", "4MB", "busybox", "sh", "-c", "x=a; while true; do x=$x$x$x$x; done")
+		// memory limit lower than 8MB will raise an error of "device or resource busy" from docker-runc.
+		out, exitCode, _ := dockerCmdWithError("run", "-m", "8MB", "busybox", "sh", "-c", "x=a; while true; do x=$x$x$x$x; done")
 		if expected := 137; exitCode != expected {
 			errChan <- fmt.Errorf("wrong exit code for OOM container: expected %d, got %d (output: %q)", expected, exitCode, out)
 		}
@@ -766,17 +767,17 @@ func (s *DockerSuite) TestRunInvalidCpusetMemsFlagValue(c *check.C) {
 func (s *DockerSuite) TestRunInvalidCPUShares(c *check.C) {
 	testRequires(c, cpuShare, DaemonIsLinux)
 	out, _, err := dockerCmdWithError("run", "--cpu-shares", "1", "busybox", "echo", "test")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 	expected := "The minimum allowed cpu-shares is 2"
 	c.Assert(out, checker.Contains, expected)
 
 	out, _, err = dockerCmdWithError("run", "--cpu-shares", "-1", "busybox", "echo", "test")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 	expected = "shares: invalid argument"
 	c.Assert(out, checker.Contains, expected)
 
 	out, _, err = dockerCmdWithError("run", "--cpu-shares", "99999999", "busybox", "echo", "test")
-	c.Assert(err, check.NotNil, check.Commentf(out))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 	expected = "The maximum allowed cpu-shares is"
 	c.Assert(out, checker.Contains, expected)
 }
@@ -1165,7 +1166,7 @@ func (s *DockerSuite) TestLegacyRunNoNewPrivSetuid(c *check.C) {
 }
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesChown(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_CHOWN
@@ -1183,7 +1184,7 @@ func (s *DockerSuite) TestUserNoEffectiveCapabilitiesChown(c *check.C) {
 }
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesDacOverride(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_DAC_OVERRIDE
@@ -1196,7 +1197,7 @@ func (s *DockerSuite) TestUserNoEffectiveCapabilitiesDacOverride(c *check.C) {
 }
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesFowner(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_FOWNER
@@ -1212,7 +1213,7 @@ func (s *DockerSuite) TestUserNoEffectiveCapabilitiesFowner(c *check.C) {
 // TODO CAP_KILL
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesSetuid(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_SETUID
@@ -1230,7 +1231,7 @@ func (s *DockerSuite) TestUserNoEffectiveCapabilitiesSetuid(c *check.C) {
 }
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesSetgid(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_SETGID
@@ -1250,7 +1251,7 @@ func (s *DockerSuite) TestUserNoEffectiveCapabilitiesSetgid(c *check.C) {
 // TODO CAP_SETPCAP
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesNetBindService(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_NET_BIND_SERVICE
@@ -1268,7 +1269,7 @@ func (s *DockerSuite) TestUserNoEffectiveCapabilitiesNetBindService(c *check.C) 
 }
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesNetRaw(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_NET_RAW
@@ -1286,7 +1287,7 @@ func (s *DockerSuite) TestUserNoEffectiveCapabilitiesNetRaw(c *check.C) {
 }
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesChroot(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_SYS_CHROOT
@@ -1304,7 +1305,7 @@ func (s *DockerSuite) TestUserNoEffectiveCapabilitiesChroot(c *check.C) {
 }
 
 func (s *DockerSuite) TestUserNoEffectiveCapabilitiesMknod(c *check.C) {
-	testRequires(c, DaemonIsLinux, NotUserNamespace)
+	testRequires(c, DaemonIsLinux, NotUserNamespace, SameHostDaemon)
 	ensureSyscallTest(c)
 
 	// test that a root user has default capability CAP_MKNOD
@@ -1348,7 +1349,7 @@ func (s *DockerSuite) TestRunSeccompWithDefaultProfile(c *check.C) {
 	testRequires(c, SameHostDaemon, seccompEnabled)
 
 	out, _, err := dockerCmdWithError("run", "--security-opt", "seccomp=../profiles/seccomp/default.json", "debian:jessie", "unshare", "--map-root-user", "--user", "sh", "-c", "whoami")
-	c.Assert(err, checker.NotNil, check.Commentf(out))
+	c.Assert(err, checker.NotNil, check.Commentf("%s", out))
 	c.Assert(strings.TrimSpace(out), checker.Equals, "unshare: unshare failed: Operation not permitted")
 }
 

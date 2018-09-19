@@ -9,8 +9,8 @@ import (
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration/internal/container"
-	"github.com/docker/docker/integration/internal/request"
-	"github.com/gotestyourself/gotestyourself/poll"
+	"github.com/docker/docker/internal/test/request"
+	"gotest.tools/poll"
 )
 
 // TestHealthCheckWorkdir verifies that health-checks inherit the containers'

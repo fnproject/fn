@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/docker/docker/pkg/term"
+	"github.com/moby/buildkit/util/apicaps"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -24,18 +25,16 @@ func newDaemonCommand() *cobra.Command {
 		SilenceErrors: true,
 		Args:          cli.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if opts.version {
-				showVersion()
-				return nil
-			}
 			opts.flags = cmd.Flags()
 			return runDaemon(opts)
 		},
+		DisableFlagsInUseLine: true,
+		Version:               fmt.Sprintf("%s, build %s", dockerversion.Version, dockerversion.GitCommit),
 	}
 	cli.SetupRootCommand(cmd)
 
 	flags := cmd.Flags()
-	flags.BoolVarP(&opts.version, "version", "v", false, "Print version information and quit")
+	flags.BoolP("version", "v", false, "Print version information and quit")
 	flags.StringVar(&opts.configFile, "config-file", defaultDaemonConfigFile, "Daemon configuration file")
 	opts.InstallFlags(flags)
 	installConfigFlags(opts.daemonConfig, flags)
@@ -44,8 +43,10 @@ func newDaemonCommand() *cobra.Command {
 	return cmd
 }
 
-func showVersion() {
-	fmt.Printf("Docker version %s, build %s\n", dockerversion.Version, dockerversion.GitCommit)
+func init() {
+	if dockerversion.ProductName != "" {
+		apicaps.ExportedProduct = dockerversion.ProductName
+	}
 }
 
 func main() {

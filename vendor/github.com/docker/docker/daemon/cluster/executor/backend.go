@@ -1,6 +1,7 @@
 package executor // import "github.com/docker/docker/daemon/cluster/executor"
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -17,11 +18,12 @@ import (
 	clustertypes "github.com/docker/docker/daemon/cluster/provider"
 	networkSettings "github.com/docker/docker/daemon/network"
 	"github.com/docker/docker/plugin"
+	volumeopts "github.com/docker/docker/volume/service/opts"
 	"github.com/docker/libnetwork"
 	"github.com/docker/libnetwork/cluster"
 	networktypes "github.com/docker/libnetwork/types"
 	"github.com/docker/swarmkit/agent/exec"
-	"golang.org/x/net/context"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // Backend defines the executor component for a swarm agent.
@@ -47,7 +49,6 @@ type Backend interface {
 	SetContainerSecretReferences(name string, refs []*swarmtypes.SecretReference) error
 	SetContainerConfigReferences(name string, refs []*swarmtypes.ConfigReference) error
 	SystemInfo() (*types.Info, error)
-	VolumeCreate(name, driverName string, opts, labels map[string]string) (*types.Volume, error)
 	Containers(config *types.ContainerListOptions) ([]*types.Container, error)
 	SetNetworkBootstrapKeys([]*networktypes.EncryptionKey) error
 	DaemonJoinsCluster(provider cluster.Provider)
@@ -62,9 +63,14 @@ type Backend interface {
 	GetAttachmentStore() *networkSettings.AttachmentStore
 }
 
+// VolumeBackend is used by an executor to perform volume operations
+type VolumeBackend interface {
+	Create(ctx context.Context, name, driverName string, opts ...volumeopts.CreateOption) (*types.Volume, error)
+}
+
 // ImageBackend is used by an executor to perform image operations
 type ImageBackend interface {
-	PullImage(ctx context.Context, image, tag, platform string, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error
+	PullImage(ctx context.Context, image, tag string, platform *specs.Platform, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error
 	GetRepository(context.Context, reference.Named, *types.AuthConfig) (distribution.Repository, bool, error)
 	LookupImage(name string) (*types.ImageInspect, error)
 }

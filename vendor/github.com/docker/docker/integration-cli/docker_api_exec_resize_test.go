@@ -9,8 +9,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/integration-cli/checker"
-	"github.com/docker/docker/integration-cli/request"
+	"github.com/docker/docker/internal/test/request"
 	"github.com/go-check/check"
 )
 
@@ -22,7 +23,11 @@ func (s *DockerSuite) TestExecResizeAPIHeightWidthNoInt(c *check.C) {
 	endpoint := "/exec/" + cleanedContainerID + "/resize?h=foo&w=bar"
 	res, _, err := request.Post(endpoint)
 	c.Assert(err, checker.IsNil)
-	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
+	if versions.LessThan(testEnv.DaemonAPIVersion(), "1.32") {
+		c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	} else {
+		c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
+	}
 }
 
 // Part of #14845
@@ -66,16 +71,17 @@ func (s *DockerSuite) TestExecResizeImmediatelyAfterExecStart(c *check.C) {
 		defer conn.Close()
 
 		_, rc, err := request.Post(fmt.Sprintf("/exec/%s/resize?h=24&w=80", execID), request.ContentType("text/plain"))
-		// It's probably a panic of the daemon if io.ErrUnexpectedEOF is returned.
-		if err == io.ErrUnexpectedEOF {
-			return fmt.Errorf("The daemon might have crashed.")
+		if err != nil {
+			// It's probably a panic of the daemon if io.ErrUnexpectedEOF is returned.
+			if err == io.ErrUnexpectedEOF {
+				return fmt.Errorf("The daemon might have crashed.")
+			}
+			// Other error happened, should be reported.
+			return fmt.Errorf("Fail to exec resize immediately after start. Error: %q", err.Error())
 		}
 
-		if err == nil {
-			rc.Close()
-		}
+		rc.Close()
 
-		// We only interested in the io.ErrUnexpectedEOF error, so we return nil otherwise.
 		return nil
 	}
 

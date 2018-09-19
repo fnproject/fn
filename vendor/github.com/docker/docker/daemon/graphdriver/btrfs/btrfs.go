@@ -72,7 +72,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	if err != nil {
 		return nil, err
 	}
-	if err := idtools.MkdirAllAndChown(home, 0700, idtools.IDPair{UID: rootUID, GID: rootGID}); err != nil {
+	if err := idtools.MkdirAllAndChown(home, 0700, idtools.Identity{UID: rootUID, GID: rootGID}); err != nil {
 		return nil, err
 	}
 
@@ -291,10 +291,10 @@ func subvolDelete(dirpath, name string, quotaEnabled bool) error {
 			_, _, errno := unix.Syscall(unix.SYS_IOCTL, getDirFd(dir), C.BTRFS_IOC_QGROUP_CREATE,
 				uintptr(unsafe.Pointer(&args)))
 			if errno != 0 {
-				logrus.Errorf("Failed to delete btrfs qgroup %v for %s: %v", qgroupid, fullPath, errno.Error())
+				logrus.WithField("storage-driver", "btrfs").Errorf("Failed to delete btrfs qgroup %v for %s: %v", qgroupid, fullPath, errno.Error())
 			}
 		} else {
-			logrus.Errorf("Failed to lookup btrfs qgroup for %s: %v", fullPath, err.Error())
+			logrus.WithField("storage-driver", "btrfs").Errorf("Failed to lookup btrfs qgroup for %s: %v", fullPath, err.Error())
 		}
 	}
 
@@ -502,7 +502,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 	if err != nil {
 		return err
 	}
-	if err := idtools.MkdirAllAndChown(subvolumes, 0700, idtools.IDPair{UID: rootUID, GID: rootGID}); err != nil {
+	if err := idtools.MkdirAllAndChown(subvolumes, 0700, idtools.Identity{UID: rootUID, GID: rootGID}); err != nil {
 		return err
 	}
 	if parent == "" {
@@ -537,7 +537,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 		if err := d.setStorageSize(path.Join(subvolumes, id), driver); err != nil {
 			return err
 		}
-		if err := idtools.MkdirAllAndChown(quotas, 0700, idtools.IDPair{UID: rootUID, GID: rootGID}); err != nil {
+		if err := idtools.MkdirAllAndChown(quotas, 0700, idtools.Identity{UID: rootUID, GID: rootGID}); err != nil {
 			return err
 		}
 		if err := ioutil.WriteFile(path.Join(quotas, id), []byte(fmt.Sprint(driver.options.size)), 0644); err != nil {

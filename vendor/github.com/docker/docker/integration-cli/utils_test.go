@@ -9,8 +9,8 @@ import (
 
 	"github.com/docker/docker/internal/testutil"
 	"github.com/go-check/check"
-	"github.com/gotestyourself/gotestyourself/icmd"
 	"github.com/pkg/errors"
+	"gotest.tools/icmd"
 )
 
 func getPrefixAndSlashFromDaemonPlatform() (prefix, slash string) {
@@ -21,7 +21,7 @@ func getPrefixAndSlashFromDaemonPlatform() (prefix, slash string) {
 }
 
 // TODO: update code to call cmd.RunCmd directly, and remove this function
-// Deprecated: use gotestyourself/gotestyourself/icmd
+// Deprecated: use gotest.tools/icmd
 func runCommandWithOutput(execCmd *exec.Cmd) (string, int, error) {
 	result := icmd.RunCmd(transformCmd(execCmd))
 	return result.Combined(), result.ExitCode, result.Error
@@ -119,7 +119,7 @@ type elementListOptions struct {
 }
 
 func existingElements(c *check.C, opts elementListOptions) []string {
-	args := []string{}
+	var args []string
 	switch opts.element {
 	case "container":
 		args = append(args, "ps", "-a")
@@ -136,7 +136,7 @@ func existingElements(c *check.C, opts elementListOptions) []string {
 		args = append(args, "--format", opts.format)
 	}
 	out, _ := dockerCmd(c, args...)
-	lines := []string{}
+	var lines []string
 	for _, l := range strings.Split(out, "\n") {
 		if l != "" {
 			lines = append(lines, l)

@@ -1,6 +1,7 @@
 package service // import "github.com/docker/docker/integration/service"
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -11,11 +12,10 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration/internal/swarm"
 	"github.com/google/go-cmp/cmp"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"github.com/gotestyourself/gotestyourself/poll"
-	"github.com/gotestyourself/gotestyourself/skip"
-	"golang.org/x/net/context"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/poll"
+	"gotest.tools/skip"
 )
 
 func TestInspect(t *testing.T) {
@@ -23,8 +23,8 @@ func TestInspect(t *testing.T) {
 	defer setupTest(t)()
 	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
-	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
-	assert.NilError(t, err)
+	client := d.NewClientT(t)
+	defer client.Close()
 
 	var now = time.Now()
 	var instances uint64 = 2
@@ -54,7 +54,7 @@ func TestInspect(t *testing.T) {
 	assert.Check(t, is.DeepEqual(service, expected, cmpServiceOpts()))
 }
 
-// TODO: use helpers from gotestyourself/assert/opt when available
+// TODO: use helpers from gotest.tools/assert/opt when available
 func cmpServiceOpts() cmp.Option {
 	const threshold = 20 * time.Second
 

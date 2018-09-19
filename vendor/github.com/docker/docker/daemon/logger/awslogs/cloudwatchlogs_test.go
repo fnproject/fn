@@ -21,8 +21,8 @@ import (
 	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/daemon/logger/loggerutils"
 	"github.com/docker/docker/dockerversion"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 const (
@@ -67,13 +67,11 @@ func TestNewAWSLogsClientUserAgentHandler(t *testing.T) {
 	}
 
 	client, err := newAWSLogsClient(info)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NilError(t, err)
+
 	realClient, ok := client.(*cloudwatchlogs.CloudWatchLogs)
-	if !ok {
-		t.Fatal("Could not cast client to cloudwatchlogs.CloudWatchLogs")
-	}
+	assert.Check(t, ok, "Could not cast client to cloudwatchlogs.CloudWatchLogs")
+
 	buildHandlerList := realClient.Handlers.Build
 	request := &request.Request{
 		HTTPRequest: &http.Request{
@@ -90,6 +88,26 @@ func TestNewAWSLogsClientUserAgentHandler(t *testing.T) {
 	}
 }
 
+func TestNewAWSLogsClientAWSLogsEndpoint(t *testing.T) {
+	endpoint := "mock-endpoint"
+	info := logger.Info{
+		Config: map[string]string{
+			regionKey:   "us-east-1",
+			endpointKey: endpoint,
+		},
+	}
+
+	client, err := newAWSLogsClient(info)
+	assert.NilError(t, err)
+
+	realClient, ok := client.(*cloudwatchlogs.CloudWatchLogs)
+	assert.Check(t, ok, "Could not cast client to cloudwatchlogs.CloudWatchLogs")
+
+	endpointWithScheme := realClient.Endpoint
+	expectedEndpointWithScheme := "https://" + endpoint
+	assert.Equal(t, endpointWithScheme, expectedEndpointWithScheme, "Wrong endpoint")
+}
+
 func TestNewAWSLogsClientRegionDetect(t *testing.T) {
 	info := logger.Info{
 		Config: map[string]string{},
@@ -104,9 +122,7 @@ func TestNewAWSLogsClientRegionDetect(t *testing.T) {
 	}
 
 	_, err := newAWSLogsClient(info)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NilError(t, err)
 }
 
 func TestCreateSuccess(t *testing.T) {
@@ -196,11 +212,93 @@ func TestCreateAlreadyExists(t *testing.T) {
 
 	err := stream.create()
 
-	if err != nil {
-		t.Fatal("Expected nil err")
+	assert.NilError(t, err)
+}
+
+func TestLogClosed(t *testing.T) {
+	mockClient := newMockClient()
+	stream := &logStream{
+		client: mockClient,
+		closed: true,
+	}
+	err := stream.Log(&logger.Message{})
+	if err == nil {
+		t.Fatal("Expected non-nil error")
 	}
 }
 
+func TestLogBlocking(t *testing.T) {
+	mockClient := newMockClient()
+	stream := &logStream{
+		client:   mockClient,
+		messages: make(chan *logger.Message),
+	}
+
+	errorCh := make(chan error, 1)
+	started := make(chan bool)
+	go func() {
+		started <- true
+		err := stream.Log(&logger.Message{})
+		errorCh <- err
+	}()
+	<-started
+	select {
+	case err := <-errorCh:
+		t.Fatal("Expected stream.Log to block: ", err)
+	default:
+		break
+	}
+	select {
+	case <-stream.messages:
+		break
+	default:
+		t.Fatal("Expected to be able to read from stream.messages but was unable to")
+	}
+	select {
+	case err := <-errorCh:
+		assert.NilError(t, err)
+
+	case <-time.After(30 * time.Second):
+		t.Fatal("timed out waiting for read")
+	}
+}
+
+func TestLogNonBlockingBufferEmpty(t *testing.T) {
+	mockClient := newMockClient()
+	stream := &logStream{
+		client:         mockClient,
+		messages:       make(chan *logger.Message, 1),
+		logNonBlocking: true,
+	}
+	err := stream.Log(&logger.Message{})
+	assert.NilError(t, err)
+}
+
+func TestLogNonBlockingBufferFull(t *testing.T) {
+	mockClient := newMockClient()
+	stream := &logStream{
+		client:         mockClient,
+		messages:       make(chan *logger.Message, 1),
+		logNonBlocking: true,
+	}
+	stream.messages <- &logger.Message{}
+	errorCh := make(chan error)
+	started := make(chan bool)
+	go func() {
+		started <- true
+		err := stream.Log(&logger.Message{})
+		errorCh <- err
+	}()
+	<-started
+	select {
+	case err := <-errorCh:
+		if err == nil {
+			t.Fatal("Expected non-nil error")
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("Expected Log call to not block")
+	}
+}
 func TestPublishBatchSuccess(t *testing.T) {
 	mockClient := newMockClient()
 	stream := &logStream{
@@ -410,8 +508,9 @@ func TestCollectBatchSimple(t *testing.T) {
 			C: ticks,
 		}
 	}
-
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	stream.Log(&logger.Message{
 		Line:      []byte(logline),
@@ -454,7 +553,9 @@ func TestCollectBatchTicker(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	stream.Log(&logger.Message{
 		Line:      []byte(logline + " 1"),
@@ -526,7 +627,9 @@ func TestCollectBatchMultilinePattern(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	stream.Log(&logger.Message{
 		Line:      []byte(logline),
@@ -580,7 +683,9 @@ func BenchmarkCollectBatch(b *testing.B) {
 			}
 		}
 
-		go stream.collectBatch()
+		d := make(chan bool)
+		close(d)
+		go stream.collectBatch(d)
 		stream.logGenerator(10, 100)
 		ticks <- time.Time{}
 		stream.Close()
@@ -610,7 +715,9 @@ func BenchmarkCollectBatchMultilinePattern(b *testing.B) {
 				C: ticks,
 			}
 		}
-		go stream.collectBatch()
+		d := make(chan bool)
+		close(d)
+		go stream.collectBatch(d)
 		stream.logGenerator(10, 100)
 		ticks <- time.Time{}
 		stream.Close()
@@ -640,7 +747,9 @@ func TestCollectBatchMultilinePatternMaxEventAge(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	stream.Log(&logger.Message{
 		Line:      []byte(logline),
@@ -702,7 +811,9 @@ func TestCollectBatchMultilinePatternNegativeEventAge(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	stream.Log(&logger.Message{
 		Line:      []byte(logline),
@@ -750,7 +861,9 @@ func TestCollectBatchMultilinePatternMaxEventSize(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	// Log max event size
 	longline := strings.Repeat("A", maximumBytesPerEvent)
@@ -801,7 +914,9 @@ func TestCollectBatchClose(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	stream.Log(&logger.Message{
 		Line:      []byte(logline),
@@ -844,7 +959,9 @@ func TestCollectBatchLineSplit(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	longline := strings.Repeat("A", maximumBytesPerEvent)
 	stream.Log(&logger.Message{
@@ -891,7 +1008,9 @@ func TestCollectBatchMaxEvents(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	line := "A"
 	for i := 0; i <= maximumLogEventsPerPut; i++ {
@@ -946,7 +1065,9 @@ func TestCollectBatchMaxTotalBytes(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
 	numPayloads := maximumBytesPerPut / (maximumBytesPerEvent + perEventBytes)
 	// maxline is the maximum line that could be submitted after
@@ -1025,10 +1146,12 @@ func TestCollectBatchWithDuplicateTimestamps(t *testing.T) {
 		}
 	}
 
-	go stream.collectBatch()
+	d := make(chan bool)
+	close(d)
+	go stream.collectBatch(d)
 
+	var expectedEvents []*cloudwatchlogs.InputLogEvent
 	times := maximumLogEventsPerPut
-	expectedEvents := []*cloudwatchlogs.InputLogEvent{}
 	timestamp := time.Now()
 	for i := 0; i < times; i++ {
 		line := fmt.Sprintf("%d", i)
@@ -1134,9 +1257,7 @@ func TestCreateTagSuccess(t *testing.T) {
 
 	err := stream.create()
 
-	if err != nil {
-		t.Errorf("Received unexpected err: %v\n", err)
-	}
+	assert.NilError(t, err)
 	argument := <-mockClient.createLogStreamArgument
 
 	if *argument.LogStreamName != "test-container/container-abcdefghijklmnopqrstuvwxyz01234567890" {
@@ -1228,7 +1349,6 @@ func TestNewAWSLogsClientCredentialEnvironmentVariable(t *testing.T) {
 
 	assert.Check(t, is.Equal(expectedAccessKeyID, creds.AccessKeyID))
 	assert.Check(t, is.Equal(expectedSecretAccessKey, creds.SecretAccessKey))
-
 }
 
 func TestNewAWSLogsClientCredentialSharedFile(t *testing.T) {

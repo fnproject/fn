@@ -56,7 +56,7 @@ ignored = ["github.com/fnproject/fn/cli",
 
 [[constraint]]
   name = "github.com/fsouza/go-dockerclient"
-  revision = "ddfe58fbc21ae55e43040f0fef017a5fddb8e54f"
+  revision = "1b33efcb40bef3494af8bc6a1f73600f37a3c9d1"
 
 [[constraint]]
   name = "github.com/coreos/go-semver"
@@ -76,4 +76,8 @@ ignored = ["github.com/fnproject/fn/cli",
 
 [[override]]
   name = "github.com/docker/docker"
-  revision = "29fc64b590badcb1c3f5beff7563ffd31eb58974"
+  revision = "c3e32938430e03a316311f9e4fbdb743e492a07e"
+
+[[override]]
+  name = "github.com/docker/libnetwork"
+  revision = "0ae9b6f38f24f65567d4b46602502b33c95cf57a"

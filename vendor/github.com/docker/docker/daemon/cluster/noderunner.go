@@ -1,7 +1,9 @@
 package cluster // import "github.com/docker/docker/daemon/cluster"
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -15,7 +17,6 @@ import (
 	swarmnode "github.com/docker/swarmkit/node"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -52,6 +53,10 @@ type nodeStartConfig struct {
 	AdvertiseAddr string
 	// DataPathAddr is the address that has to be used for the data path
 	DataPathAddr string
+	// DefaultAddressPool contains list of subnets
+	DefaultAddressPool []string
+	// SubnetSize contains subnet size of DefaultAddressPool
+	SubnetSize uint32
 	// JoinInProgress is set to true if a join operation has started, but
 	// not completed yet.
 	JoinInProgress bool
@@ -110,6 +115,12 @@ func (n *nodeRunner) start(conf nodeStartConfig) error {
 		joinAddr = conf.RemoteAddr
 	}
 
+	var defaultAddrPool []*net.IPNet
+	for _, address := range conf.DefaultAddressPool {
+		if _, b, err := net.ParseCIDR(address); err == nil {
+			defaultAddrPool = append(defaultAddrPool, b)
+		}
+	}
 	// Hostname is not set here. Instead, it is obtained from
 	// the node description that is reported periodically
 	swarmnodeConfig := swarmnode.Config{
@@ -117,18 +128,22 @@ func (n *nodeRunner) start(conf nodeStartConfig) error {
 		ListenControlAPI:   control,
 		ListenRemoteAPI:    conf.ListenAddr,
 		AdvertiseRemoteAPI: conf.AdvertiseAddr,
+		DefaultAddrPool:    defaultAddrPool,
+		SubnetSize:         int(conf.SubnetSize),
 		JoinAddr:           joinAddr,
 		StateDir:           n.cluster.root,
 		JoinToken:          conf.joinToken,
 		Executor: container.NewExecutor(
 			n.cluster.config.Backend,
 			n.cluster.config.PluginBackend,
-			n.cluster.config.ImageBackend),
-		HeartbeatTick: 1,
+			n.cluster.config.ImageBackend,
+			n.cluster.config.VolumeBackend,
+		),
+		HeartbeatTick: n.cluster.config.RaftHeartbeatTick,
 		// Recommended value in etcd/raft is 10 x (HeartbeatTick).
 		// Lower values were seen to have caused instability because of
 		// frequent leader elections when running on flakey networks.
-		ElectionTick:     10,
+		ElectionTick:     n.cluster.config.RaftElectionTick,
 		UnlockKey:        conf.lockKey,
 		AutoLockManagers: conf.autolock,
 		PluginGetter:     n.cluster.config.Backend.PluginGetter(),

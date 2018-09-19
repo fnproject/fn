@@ -39,6 +39,7 @@ func (s *DockerSwarmSuite) TestSecretCreateResolve(c *check.C) {
 	c.Assert(out, checker.Contains, fake)
 
 	out, err = d.Cmd("secret", "rm", id)
+	c.Assert(err, checker.IsNil)
 	c.Assert(out, checker.Contains, id)
 
 	// Fake one will remain
@@ -54,6 +55,7 @@ func (s *DockerSwarmSuite) TestSecretCreateResolve(c *check.C) {
 	// - Full Name
 	// - Partial ID (prefix)
 	out, err = d.Cmd("secret", "rm", id[:5])
+	c.Assert(err, checker.Not(checker.IsNil))
 	c.Assert(out, checker.Not(checker.Contains), id)
 	out, err = d.Cmd("secret", "ls")
 	c.Assert(err, checker.IsNil)
@@ -62,6 +64,7 @@ func (s *DockerSwarmSuite) TestSecretCreateResolve(c *check.C) {
 
 	// Remove based on ID prefix of the fake one should succeed
 	out, err = d.Cmd("secret", "rm", fake[:5])
+	c.Assert(err, checker.IsNil)
 	c.Assert(out, checker.Contains, fake[:5])
 	out, err = d.Cmd("secret", "ls")
 	c.Assert(err, checker.IsNil)
@@ -84,7 +87,7 @@ func (s *DockerSwarmSuite) TestSecretCreateWithFile(c *check.C) {
 	testName := "test_secret"
 	out, err := d.Cmd("secret", "create", testName, testFile.Name())
 	c.Assert(err, checker.IsNil)
-	c.Assert(strings.TrimSpace(out), checker.Not(checker.Equals), "", check.Commentf(out))
+	c.Assert(strings.TrimSpace(out), checker.Not(checker.Equals), "", check.Commentf("%s", out))
 
 	id := strings.TrimSpace(out)
 	secret := d.GetSecret(c, id)

@@ -1,6 +1,7 @@
 package environment // import "github.com/docker/docker/internal/test/environment"
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,9 +9,8 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/integration-cli/fixtures/load"
+	"github.com/docker/docker/internal/test/fixtures/load"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 // Execution contains information about the current test execution and daemon
@@ -121,7 +121,7 @@ func (e *Execution) IsRemoteDaemon() bool {
 	return !e.IsLocalDaemon()
 }
 
-// DaemonAPIVersion returns the negociated daemon api version
+// DaemonAPIVersion returns the negotiated daemon api version
 func (e *Execution) DaemonAPIVersion() string {
 	version, err := e.APIClient().ServerVersion(context.TODO())
 	if err != nil {

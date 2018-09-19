@@ -10,11 +10,10 @@ import (
 
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/internal/testutil"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"github.com/gotestyourself/gotestyourself/env"
-	"github.com/gotestyourself/gotestyourself/skip"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/env"
+	"gotest.tools/skip"
 )
 
 func TestNewEnvClient(t *testing.T) {
@@ -162,7 +161,7 @@ func TestParseHostURL(t *testing.T) {
 	for _, testcase := range testcases {
 		actual, err := ParseHostURL(testcase.host)
 		if testcase.expectedErr != "" {
-			testutil.ErrorContains(t, err, testcase.expectedErr)
+			assert.Check(t, is.ErrorContains(err, testcase.expectedErr))
 		}
 		assert.Check(t, is.DeepEqual(testcase.expected, actual))
 	}
@@ -194,7 +193,7 @@ func TestNewEnvClientSetsDefaultVersion(t *testing.T) {
 // TestNegotiateAPIVersionEmpty asserts that client.Client can
 // negotiate a compatible APIVersion when omitted
 func TestNegotiateAPIVersionEmpty(t *testing.T) {
-	defer env.PatchAll(t, map[string]string{"DOCKER_API_VERSION": ""})
+	defer env.PatchAll(t, map[string]string{"DOCKER_API_VERSION": ""})()
 
 	client, err := NewEnvClient()
 	assert.NilError(t, err)

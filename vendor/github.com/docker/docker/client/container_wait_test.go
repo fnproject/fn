@@ -2,6 +2,7 @@ package client // import "github.com/docker/docker/client"
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,8 +13,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-
-	"golang.org/x/net/context"
 )
 
 func TestContainerWaitError(t *testing.T) {

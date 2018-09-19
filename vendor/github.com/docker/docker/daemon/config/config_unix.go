@@ -7,7 +7,7 @@ import (
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/opts"
-	units "github.com/docker/go-units"
+	"github.com/docker/go-units"
 )
 
 const (
@@ -23,7 +23,6 @@ type Config struct {
 
 	// These fields are common to all unix platforms.
 	CommonUnixConfig
-
 	// Fields below here are platform specific.
 	CgroupParent         string                   `json:"cgroup-parent,omitempty"`
 	EnableSelinuxSupport bool                     `json:"selinux-enabled,omitempty"`
@@ -38,6 +37,8 @@ type Config struct {
 	ShmSize              opts.MemBytes            `json:"default-shm-size,omitempty"`
 	NoNewPrivileges      bool                     `json:"no-new-privileges,omitempty"`
 	IpcMode              string                   `json:"default-ipc-mode,omitempty"`
+	// ResolvConf is the path to the configuration of the host resolver
+	ResolvConf string `json:"resolv-conf,omitempty"`
 }
 
 // BridgeConfig stores all the bridge driver specific

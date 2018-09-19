@@ -3,14 +3,14 @@
 package authorization // import "github.com/docker/docker/pkg/authorization"
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/docker/docker/pkg/plugingetter"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"golang.org/x/net/context"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestMiddlewareWrapHandler(t *testing.T) {

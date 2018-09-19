@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/go-check/check"
-	"github.com/gotestyourself/gotestyourself/icmd"
+	"gotest.tools/icmd"
 )
 
 func (s *DockerSuite) TestPsListContainersBase(c *check.C) {
@@ -171,7 +172,7 @@ func (s *DockerSuite) TestPsListContainersSize(c *check.C) {
 	idIndex := strings.Index(lines[0], "CONTAINER ID")
 	foundID := lines[1][idIndex : idIndex+12]
 	c.Assert(foundID, checker.Equals, id[:12], check.Commentf("Expected id %s, got %s", id[:12], foundID))
-	expectedSize := fmt.Sprintf("%dB", (2 + baseBytes))
+	expectedSize := fmt.Sprintf("%dB", 2+baseBytes)
 	foundSize := lines[1][sizeIndex:]
 	c.Assert(foundSize, checker.Contains, expectedSize, check.Commentf("Expected size %q, got %q", expectedSize, foundSize))
 }
@@ -200,11 +201,14 @@ func (s *DockerSuite) TestPsListContainersFilterStatus(c *check.C) {
 	c.Assert(RemoveOutputForExistingElements(containerOut, existingContainers), checker.Equals, secondID)
 
 	result := cli.Docker(cli.Args("ps", "-a", "-q", "--filter=status=rubbish"), cli.WithTimeout(time.Second*60))
+	err := "Invalid filter 'status=rubbish'"
+	if versions.LessThan(testEnv.DaemonAPIVersion(), "1.32") {
+		err = "Unrecognised filter value for status: rubbish"
+	}
 	result.Assert(c, icmd.Expected{
 		ExitCode: 1,
-		Err:      "Invalid filter 'status=rubbish'",
+		Err:      err,
 	})
-
 	// Windows doesn't support pausing of containers
 	if testEnv.OSType != "windows" {
 		// pause running container
@@ -373,7 +377,7 @@ func (s *DockerSuite) TestPsListContainersFilterAncestorImage(c *check.C) {
 }
 
 func checkPsAncestorFilterOutput(c *check.C, out string, filterName string, expectedIDs []string) {
-	actualIDs := []string{}
+	var actualIDs []string
 	if out != "" {
 		actualIDs = strings.Split(out[:len(out)-1], "\n")
 	}
@@ -788,19 +792,14 @@ func (s *DockerSuite) TestPsListContainersFilterNetwork(c *check.C) {
 }
 
 func (s *DockerSuite) TestPsByOrder(c *check.C) {
-	name1 := "xyz-abc"
-	out := runSleepingContainer(c, "--name", name1)
+	out := runSleepingContainer(c, "--name", "xyz-abc")
 	container1 := strings.TrimSpace(out)
 
-	name2 := "xyz-123"
-	out = runSleepingContainer(c, "--name", name2)
+	out = runSleepingContainer(c, "--name", "xyz-123")
 	container2 := strings.TrimSpace(out)
 
-	name3 := "789-abc"
-	out = runSleepingContainer(c, "--name", name3)
-
-	name4 := "789-123"
-	out = runSleepingContainer(c, "--name", name4)
+	runSleepingContainer(c, "--name", "789-abc")
+	runSleepingContainer(c, "--name", "789-123")
 
 	// Run multiple time should have the same result
 	out = cli.DockerCmd(c, "ps", "--no-trunc", "-q", "-f", "name=xyz").Combined()
@@ -848,8 +847,7 @@ func (s *DockerSuite) TestPsListContainersFilterPorts(c *check.C) {
 }
 
 func (s *DockerSuite) TestPsNotShowLinknamesOfDeletedContainer(c *check.C) {
-	testRequires(c, DaemonIsLinux)
-
+	testRequires(c, DaemonIsLinux, MinimumAPIVersion("1.31"))
 	existingContainers := ExistingContainerNames(c)
 
 	dockerCmd(c, "create", "--name=aaa", "busybox", "top")

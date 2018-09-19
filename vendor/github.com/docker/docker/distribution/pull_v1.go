@@ -1,6 +1,7 @@
 package distribution // import "github.com/docker/docker/distribution"
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -24,8 +25,8 @@ import (
 	"github.com/docker/docker/pkg/progress"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/registry"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 type v1Puller struct {
@@ -36,7 +37,7 @@ type v1Puller struct {
 	session     *registry.Session
 }
 
-func (p *v1Puller) Pull(ctx context.Context, ref reference.Named, os string) error {
+func (p *v1Puller) Pull(ctx context.Context, ref reference.Named, _ *specs.Platform) error {
 	if _, isCanonical := ref.(reference.Canonical); isCanonical {
 		// Allowing fallback, because HTTPS v1 is before HTTP v2
 		return fallbackError{err: ErrNoSupport{Err: errors.New("Cannot pull by digest with v1 registry")}}

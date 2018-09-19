@@ -1,7 +1,9 @@
 package images // import "github.com/docker/docker/daemon/images"
 
 import (
+	"context"
 	"io"
+	"time"
 
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
@@ -9,11 +11,11 @@ import (
 	"github.com/docker/docker/distribution"
 	progressutils "github.com/docker/docker/distribution/utils"
 	"github.com/docker/docker/pkg/progress"
-	"golang.org/x/net/context"
 )
 
 // PushImage initiates a push operation on the repository named localName.
 func (i *ImageService) PushImage(ctx context.Context, image, tag string, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error {
+	start := time.Now()
 	ref, err := reference.ParseNormalizedNamed(image)
 	if err != nil {
 		return err
@@ -59,5 +61,6 @@ func (i *ImageService) PushImage(ctx context.Context, image, tag string, metaHea
 	err = distribution.Push(ctx, ref, imagePushConfig)
 	close(progressChan)
 	<-writesDone
+	imageActions.WithValues("push").UpdateSince(start)
 	return err
 }

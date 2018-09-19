@@ -1,13 +1,15 @@
 package daemon // import "github.com/docker/docker/daemon"
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/volume"
+	volumemounts "github.com/docker/docker/volume/mounts"
+	volumeopts "github.com/docker/docker/volume/service/opts"
 )
 
 // createContainerOSSpecificSettings performs host-OS specific container create functionality
@@ -26,7 +28,7 @@ func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Con
 		}
 		hostConfig.Isolation = "hyperv"
 	}
-	parser := volume.NewParser(container.OS)
+	parser := volumemounts.NewParser(container.OS)
 	for spec := range config.Volumes {
 
 		mp, err := parser.ParseMountRaw(spec, hostConfig.VolumeDriver)
@@ -49,7 +51,7 @@ func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Con
 
 		// Create the volume in the volume driver. If it doesn't exist,
 		// a new one will be created.
-		v, err := daemon.volumes.CreateWithRef(mp.Name, volumeDriver, container.ID, nil, nil)
+		v, err := daemon.volumes.Create(context.TODO(), mp.Name, volumeDriver, volumeopts.WithCreateReference(container.ID))
 		if err != nil {
 			return err
 		}
@@ -85,7 +87,7 @@ func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Con
 		//	}
 
 		// Add it to container.MountPoints
-		container.AddMountPointWithVolume(mp.Destination, v, mp.RW)
+		container.AddMountPointWithVolume(mp.Destination, &volumeWrapper{v: v, s: daemon.volumes}, mp.RW)
 	}
 	return nil
 }

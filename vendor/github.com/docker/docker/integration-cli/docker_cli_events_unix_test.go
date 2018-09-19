@@ -135,8 +135,8 @@ func (s *DockerSuite) TestEventsContainerFilterByName(c *check.C) {
 	c2 := strings.TrimSpace(cOut)
 	waitRun("bar")
 	out, _ := dockerCmd(c, "events", "-f", "container=foo", "--since=0", "--until", daemonUnixTime(c))
-	c.Assert(out, checker.Contains, c1, check.Commentf(out))
-	c.Assert(out, checker.Not(checker.Contains), c2, check.Commentf(out))
+	c.Assert(out, checker.Contains, c1, check.Commentf("%s", out))
+	c.Assert(out, checker.Not(checker.Contains), c2, check.Commentf("%s", out))
 }
 
 // #18453
@@ -185,11 +185,12 @@ func (s *DockerSuite) TestVolumeEvents(c *check.C) {
 	c.Assert(len(events), checker.GreaterThan, 4)
 
 	volumeEvents := eventActionsByIDAndType(c, events, "test-event-volume-local", "volume")
-	c.Assert(volumeEvents, checker.HasLen, 4)
+	c.Assert(volumeEvents, checker.HasLen, 5)
 	c.Assert(volumeEvents[0], checker.Equals, "create")
-	c.Assert(volumeEvents[1], checker.Equals, "mount")
-	c.Assert(volumeEvents[2], checker.Equals, "unmount")
-	c.Assert(volumeEvents[3], checker.Equals, "destroy")
+	c.Assert(volumeEvents[1], checker.Equals, "create")
+	c.Assert(volumeEvents[2], checker.Equals, "mount")
+	c.Assert(volumeEvents[3], checker.Equals, "unmount")
+	c.Assert(volumeEvents[4], checker.Equals, "destroy")
 }
 
 func (s *DockerSuite) TestNetworkEvents(c *check.C) {
@@ -350,7 +351,7 @@ func (s *DockerSuite) TestEventsFilterVolumeAndNetworkType(c *check.C) {
 
 	out, _ := dockerCmd(c, "events", "--filter", "type=volume", "--filter", "type=network", "--since", since, "--until", daemonUnixTime(c))
 	events := strings.Split(strings.TrimSpace(out), "\n")
-	c.Assert(len(events), checker.GreaterOrEqualThan, 2, check.Commentf(out))
+	c.Assert(len(events), checker.GreaterOrEqualThan, 2, check.Commentf("%s", out))
 
 	networkActions := eventActionsByIDAndType(c, events, "test-event-network-type", "network")
 	volumeActions := eventActionsByIDAndType(c, events, "test-event-volume-type", "volume")
@@ -435,7 +436,7 @@ func (s *DockerDaemonSuite) TestDaemonEvents(c *check.C) {
 		"(allow-nondistributable-artifacts=[",
 		" cluster-advertise=, ",
 		" cluster-store=, ",
-		" cluster-store-opts={",
+		" cluster-store-opts=",
 		" debug=true, ",
 		" default-ipc-mode=",
 		" default-runtime=",

@@ -196,6 +196,27 @@ func TestAuthConfigIdentityToken(t *testing.T) {
 	}
 }
 
+func TestAuthConfigRegistryToken(t *testing.T) {
+	t.Parallel()
+	auth := base64.StdEncoding.EncodeToString([]byte("someuser:"))
+	read := strings.NewReader(fmt.Sprintf(`{"auths":{"docker.io":{"auth":"%s","registrytoken":"sometoken"}}}`, auth))
+	ac, err := NewAuthConfigurations(read)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c, ok := ac.Configs["docker.io"]
+	if !ok {
+		t.Error("NewAuthConfigurations: Expected Configs to contain docker.io")
+	}
+	if got, want := c.Username, "someuser"; got != want {
+		t.Errorf(`AuthConfigurations.Configs["docker.io"].Username: wrong result. Want %q. Got %q`, want, got)
+	}
+	if got, want := c.RegistryToken, "sometoken"; got != want {
+		t.Errorf(`AuthConfigurations.Configs["docker.io"].RegistryToken: wrong result. Want %q. Got %q`, want, got)
+	}
+}
+
 func TestAuthCheck(t *testing.T) {
 	t.Parallel()
 	fakeRT := &FakeRoundTripper{status: http.StatusOK}

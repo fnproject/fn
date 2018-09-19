@@ -2,6 +2,7 @@ package client // import "github.com/docker/docker/client"
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -9,8 +10,7 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types"
-	"github.com/gotestyourself/gotestyourself/assert"
-	"golang.org/x/net/context"
+	"gotest.tools/assert"
 )
 
 // TestSetHostHeader should set fake host for local communications, set real host
@@ -61,7 +61,7 @@ func TestSetHostHeader(t *testing.T) {
 				}
 				return &http.Response{
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(bytes.NewReader(([]byte("")))),
+					Body:       ioutil.NopCloser(bytes.NewReader([]byte(""))),
 				}, nil
 			}),
 

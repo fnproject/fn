@@ -2,19 +2,19 @@ package dockerfile // import "github.com/docker/docker/builder/dockerfile"
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/containerd/containerd/platforms"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/builder"
-	"github.com/docker/docker/builder/dockerfile/instructions"
-	"github.com/docker/docker/builder/dockerfile/parser"
-	"github.com/docker/docker/builder/dockerfile/shell"
 	"github.com/docker/docker/builder/fscache"
 	"github.com/docker/docker/builder/remotecontext"
 	"github.com/docker/docker/errdefs"
@@ -22,10 +22,13 @@ import (
 	"github.com/docker/docker/pkg/streamformatter"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/system"
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
+	"github.com/moby/buildkit/frontend/dockerfile/shell"
 	"github.com/moby/buildkit/session"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/syncmap"
 )
 
@@ -53,21 +56,21 @@ type SessionGetter interface {
 
 // BuildManager is shared across all Builder objects
 type BuildManager struct {
-	idMappings *idtools.IDMappings
-	backend    builder.Backend
-	pathCache  pathCache // TODO: make this persistent
-	sg         SessionGetter
-	fsCache    *fscache.FSCache
+	idMapping *idtools.IdentityMapping
+	backend   builder.Backend
+	pathCache pathCache // TODO: make this persistent
+	sg        SessionGetter
+	fsCache   *fscache.FSCache
 }
 
 // NewBuildManager creates a BuildManager
-func NewBuildManager(b builder.Backend, sg SessionGetter, fsCache *fscache.FSCache, idMappings *idtools.IDMappings) (*BuildManager, error) {
+func NewBuildManager(b builder.Backend, sg SessionGetter, fsCache *fscache.FSCache, identityMapping *idtools.IdentityMapping) (*BuildManager, error) {
 	bm := &BuildManager{
-		backend:    b,
-		pathCache:  &syncmap.Map{},
-		sg:         sg,
-		idMappings: idMappings,
-		fsCache:    fsCache,
+		backend:   b,
+		pathCache: &syncmap.Map{},
+		sg:        sg,
+		idMapping: identityMapping,
+		fsCache:   fsCache,
 	}
 	if err := fsCache.RegisterTransport(remotecontext.ClientSessionRemote, NewClientSessionTransport()); err != nil {
 		return nil, err
@@ -103,21 +106,18 @@ func (bm *BuildManager) Build(ctx context.Context, config backend.BuildConfig) (
 		source = src
 	}
 
-	os := ""
-	apiPlatform := system.ParsePlatform(config.Options.Platform)
-	if apiPlatform.OS != "" {
-		os = apiPlatform.OS
-	}
-	config.Options.Platform = os
-
 	builderOptions := builderOptions{
 		Options:        config.Options,
 		ProgressWriter: config.ProgressWriter,
 		Backend:        bm.backend,
 		PathCache:      bm.pathCache,
-		IDMappings:     bm.idMappings,
+		IDMapping:      bm.idMapping,
 	}
-	return newBuilder(ctx, builderOptions).build(source, dockerfile)
+	b, err := newBuilder(ctx, builderOptions)
+	if err != nil {
+		return nil, err
+	}
+	return b.build(source, dockerfile)
 }
 
 func (bm *BuildManager) initializeClientSession(ctx context.Context, cancel func(), options *types.ImageBuildOptions) (builder.Source, error) {
@@ -159,7 +159,7 @@ type builderOptions struct {
 	Backend        builder.Backend
 	ProgressWriter backend.ProgressWriter
 	PathCache      pathCache
-	IDMappings     *idtools.IDMappings
+	IDMapping      *idtools.IdentityMapping
 }
 
 // Builder is a Dockerfile builder
@@ -175,16 +175,17 @@ type Builder struct {
 	docker    builder.Backend
 	clientCtx context.Context
 
-	idMappings       *idtools.IDMappings
+	idMapping        *idtools.IdentityMapping
 	disableCommit    bool
 	imageSources     *imageSources
 	pathCache        pathCache
 	containerManager *containerManager
 	imageProber      ImageProber
+	platform         *specs.Platform
 }
 
 // newBuilder creates a new Dockerfile builder from an optional dockerfile and a Options.
-func newBuilder(clientCtx context.Context, options builderOptions) *Builder {
+func newBuilder(clientCtx context.Context, options builderOptions) (*Builder, error) {
 	config := options.Options
 	if config == nil {
 		config = new(types.ImageBuildOptions)
@@ -198,22 +199,48 @@ func newBuilder(clientCtx context.Context, options builderOptions) *Builder {
 		Aux:              options.ProgressWriter.AuxFormatter,
 		Output:           options.ProgressWriter.Output,
 		docker:           options.Backend,
-		idMappings:       options.IDMappings,
+		idMapping:        options.IDMapping,
 		imageSources:     newImageSources(clientCtx, options),
 		pathCache:        options.PathCache,
 		imageProber:      newImageProber(options.Backend, config.CacheFrom, config.NoCache),
 		containerManager: newContainerManager(options.Backend),
 	}
 
-	return b
+	// same as in Builder.Build in builder/builder-next/builder.go
+	// TODO: remove once config.Platform is of type specs.Platform
+	if config.Platform != "" {
+		sp, err := platforms.Parse(config.Platform)
+		if err != nil {
+			return nil, err
+		}
+		if err := system.ValidatePlatform(sp); err != nil {
+			return nil, err
+		}
+		b.platform = &sp
+	}
+
+	return b, nil
+}
+
+// Build 'LABEL' command(s) from '--label' options and add to the last stage
+func buildLabelOptions(labels map[string]string, stages []instructions.Stage) {
+	keys := []string{}
+	for key := range labels {
+		keys = append(keys, key)
+	}
+
+	// Sort the label to have a repeatable order
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := labels[key]
+		stages[len(stages)-1].AddCommand(instructions.NewLabelCommand(key, value, true))
+	}
 }
 
 // Build runs the Dockerfile builder by parsing the Dockerfile and executing
 // the instructions from the file.
 func (b *Builder) build(source builder.Source, dockerfile *parser.Result) (*builder.Result, error) {
 	defer b.imageSources.Unmount()
-
-	addNodesForLabelOption(dockerfile.AST, b.options.Labels)
 
 	stages, metaArgs, err := instructions.Parse(dockerfile.AST)
 	if err != nil {
@@ -226,10 +253,13 @@ func (b *Builder) build(source builder.Source, dockerfile *parser.Result) (*buil
 		targetIx, found := instructions.HasStage(stages, b.options.Target)
 		if !found {
 			buildsFailed.WithValues(metricsBuildTargetNotReachableError).Inc()
-			return nil, errors.Errorf("failed to reach build target %s in Dockerfile", b.options.Target)
+			return nil, errdefs.InvalidParameter(errors.Errorf("failed to reach build target %s in Dockerfile", b.options.Target))
 		}
 		stages = stages[:targetIx+1]
 	}
+
+	// Add 'LABEL' command specified by '--label' option to the last stage
+	buildLabelOptions(b.options.Labels, stages)
 
 	dockerfile.PrintWarnings(b.Stderr)
 	dispatchState, err := b.dispatchDockerfileWithCancellation(stages, metaArgs, dockerfile.EscapeToken, source)
@@ -247,10 +277,10 @@ func emitImageID(aux *streamformatter.AuxFormatter, state *dispatchState) error 
 	if aux == nil || state.imageID == "" {
 		return nil
 	}
-	return aux.Emit(types.BuildResult{ID: state.imageID})
+	return aux.Emit("", types.BuildResult{ID: state.imageID})
 }
 
-func processMetaArg(meta instructions.ArgCommand, shlex *shell.Lex, args *buildArgs) error {
+func processMetaArg(meta instructions.ArgCommand, shlex *shell.Lex, args *BuildArgs) error {
 	// shell.Lex currently only support the concatenated string format
 	envs := convertMapToEnvList(args.GetAllAllowed())
 	if err := meta.Expand(func(word string) (string, error) {
@@ -271,7 +301,7 @@ func printCommand(out io.Writer, currentCommandIndex int, totalCommands int, cmd
 
 func (b *Builder) dispatchDockerfileWithCancellation(parseResult []instructions.Stage, metaArgs []instructions.ArgCommand, escapeToken rune, source builder.Source) (*dispatchState, error) {
 	dispatchRequest := dispatchRequest{}
-	buildArgs := newBuildArgs(b.options.BuildArgs)
+	buildArgs := NewBuildArgs(b.options.BuildArgs)
 	totalCommands := len(metaArgs) + len(parseResult)
 	currentCommandIndex := 1
 	for _, stage := range parseResult {
@@ -333,15 +363,6 @@ func (b *Builder) dispatchDockerfileWithCancellation(parseResult []instructions.
 	return dispatchRequest.state, nil
 }
 
-func addNodesForLabelOption(dockerfile *parser.Node, labels map[string]string) {
-	if len(labels) == 0 {
-		return
-	}
-
-	node := parser.NodeFromLabels(labels)
-	dockerfile.Children = append(dockerfile.Children, node)
-}
-
 // BuildFromConfig builds directly from `changes`, treating it as if it were the contents of a Dockerfile
 // It will:
 // - Call parse.Parse() to get an AST root for the concatenated Dockerfile entries.
@@ -364,9 +385,12 @@ func BuildFromConfig(config *container.Config, changes []string, os string) (*co
 		return nil, errdefs.InvalidParameter(err)
 	}
 
-	b := newBuilder(context.Background(), builderOptions{
+	b, err := newBuilder(context.Background(), builderOptions{
 		Options: &types.ImageBuildOptions{NoCache: true},
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// ensure that the commands are valid
 	for _, n := range dockerfile.AST.Children {
@@ -379,7 +403,7 @@ func BuildFromConfig(config *container.Config, changes []string, os string) (*co
 	b.Stderr = ioutil.Discard
 	b.disableCommit = true
 
-	commands := []instructions.Command{}
+	var commands []instructions.Command
 	for _, n := range dockerfile.AST.Children {
 		cmd, err := instructions.ParseCommand(n)
 		if err != nil {
@@ -388,7 +412,7 @@ func BuildFromConfig(config *container.Config, changes []string, os string) (*co
 		commands = append(commands, cmd)
 	}
 
-	dispatchRequest := newDispatchRequest(b, dockerfile.EscapeToken, nil, newBuildArgs(b.options.BuildArgs), newStagesBuildResults())
+	dispatchRequest := newDispatchRequest(b, dockerfile.EscapeToken, nil, NewBuildArgs(b.options.BuildArgs), newStagesBuildResults())
 	// We make mutations to the configuration, ensure we have a copy
 	dispatchRequest.state.runConfig = copyRunConfig(config)
 	dispatchRequest.state.imageID = config.Image

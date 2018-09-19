@@ -42,18 +42,17 @@ type container struct {
 	// have access to the Spec
 	ociSpec *specs.Spec
 
-	isWindows           bool
-	manualStopRequested bool
-	hcsContainer        hcsshim.Container
+	isWindows    bool
+	hcsContainer hcsshim.Container
 
-	id            string
-	status        Status
-	exitedAt      time.Time
-	exitCode      uint32
-	waitCh        chan struct{}
-	init          *process
-	execs         map[string]*process
-	updatePending bool
+	id               string
+	status           Status
+	exitedAt         time.Time
+	exitCode         uint32
+	waitCh           chan struct{}
+	init             *process
+	execs            map[string]*process
+	terminateInvoked bool
 }
 
 // Win32 error codes that are used for various workarounds
@@ -70,6 +69,28 @@ const (
 // container creator management stacks. We hard code "docker" in the case
 // of docker.
 const defaultOwner = "docker"
+
+type client struct {
+	sync.Mutex
+
+	stateDir   string
+	backend    Backend
+	logger     *logrus.Entry
+	eventQ     queue
+	containers map[string]*container
+}
+
+// NewClient creates a new local executor for windows
+func NewClient(ctx context.Context, cli *containerd.Client, stateDir, ns string, b Backend) (Client, error) {
+	c := &client{
+		stateDir:   stateDir,
+		backend:    b,
+		logger:     logrus.WithField("module", "libcontainerd").WithField("module", "libcontainerd").WithField("namespace", ns),
+		containers: make(map[string]*container),
+	}
+
+	return c, nil
+}
 
 func (c *client) Version(ctx context.Context) (containerd.Version, error) {
 	return containerd.Version{}, errors.New("not implemented on Windows")
@@ -324,15 +345,15 @@ func (c *client) createWindows(id string, spec *specs.Spec, runtimeOptions inter
 	logger.Debug("starting container")
 	if err = hcsContainer.Start(); err != nil {
 		c.logger.WithError(err).Error("failed to start container")
-		ctr.debugGCS()
+		ctr.Lock()
 		if err := c.terminateContainer(ctr); err != nil {
 			c.logger.WithError(err).Error("failed to cleanup after a failed Start")
 		} else {
 			c.logger.Debug("cleaned up after failed Start by calling Terminate")
 		}
+		ctr.Unlock()
 		return err
 	}
-	ctr.debugGCS()
 
 	c.Lock()
 	c.containers[id] = ctr
@@ -494,6 +515,10 @@ func (c *client) createLinux(id string, spec *specs.Spec, runtimeOptions interfa
 				CreateInUtilityVM: true,
 				ReadOnly:          readonly,
 			}
+			// If we are 1803/RS4+ enable LinuxMetadata support by default
+			if system.GetOSVersion().Build >= 17134 {
+				md.LinuxMetadata = true
+			}
 			mds = append(mds, md)
 			specMount.Source = path.Join(uvmPath, mount.Destination)
 		}
@@ -524,11 +549,13 @@ func (c *client) createLinux(id string, spec *specs.Spec, runtimeOptions interfa
 	if err = hcsContainer.Start(); err != nil {
 		c.logger.WithError(err).Error("failed to start container")
 		ctr.debugGCS()
+		ctr.Lock()
 		if err := c.terminateContainer(ctr); err != nil {
 			c.logger.WithError(err).Error("failed to cleanup after a failed Start")
 		} else {
 			c.logger.Debug("cleaned up after failed Start by calling Terminate")
 		}
+		ctr.Unlock()
 		return err
 	}
 	ctr.debugGCS()
@@ -848,8 +875,6 @@ func (c *client) SignalProcess(_ context.Context, containerID, processID string,
 		return err
 	}
 
-	ctr.manualStopRequested = true
-
 	logger := c.logger.WithFields(logrus.Fields{
 		"container": containerID,
 		"process":   processID,
@@ -861,11 +886,14 @@ func (c *client) SignalProcess(_ context.Context, containerID, processID string,
 	if processID == InitProcessName {
 		if syscall.Signal(signal) == syscall.SIGKILL {
 			// Terminate the compute system
+			ctr.Lock()
+			ctr.terminateInvoked = true
 			if err := ctr.hcsContainer.Terminate(); err != nil {
 				if !hcsshim.IsPending(err) {
 					logger.WithError(err).Error("failed to terminate hccshim container")
 				}
 			}
+			ctr.Unlock()
 		} else {
 			// Shut down the container
 			if err := ctr.hcsContainer.Shutdown(); err != nil {
@@ -1167,12 +1195,17 @@ func (c *client) getProcess(containerID, processID string) (*container, *process
 	return ctr, p, nil
 }
 
+// ctr mutex must be held when calling this function.
 func (c *client) shutdownContainer(ctr *container) error {
-	const shutdownTimeout = time.Minute * 5
-	err := ctr.hcsContainer.Shutdown()
+	var err error
+	const waitTimeout = time.Minute * 5
 
-	if hcsshim.IsPending(err) {
-		err = ctr.hcsContainer.WaitTimeout(shutdownTimeout)
+	if !ctr.terminateInvoked {
+		err = ctr.hcsContainer.Shutdown()
+	}
+
+	if hcsshim.IsPending(err) || ctr.terminateInvoked {
+		err = ctr.hcsContainer.WaitTimeout(waitTimeout)
 	} else if hcsshim.IsAlreadyStopped(err) {
 		err = nil
 	}
@@ -1192,8 +1225,10 @@ func (c *client) shutdownContainer(ctr *container) error {
 	return nil
 }
 
+// ctr mutex must be held when calling this function.
 func (c *client) terminateContainer(ctr *container) error {
 	const terminateTimeout = time.Minute * 5
+	ctr.terminateInvoked = true
 	err := ctr.hcsContainer.Terminate()
 
 	if hcsshim.IsPending(err) {
@@ -1259,7 +1294,6 @@ func (c *client) reapProcess(ctr *container, p *process) int {
 		ctr.exitedAt = exitedAt
 		ctr.exitCode = uint32(exitCode)
 		close(ctr.waitCh)
-		ctr.Unlock()
 
 		if err := c.shutdownContainer(ctr); err != nil {
 			exitCode = -1
@@ -1273,6 +1307,7 @@ func (c *client) reapProcess(ctr *container, p *process) int {
 		} else {
 			logger.Debug("completed container shutdown")
 		}
+		ctr.Unlock()
 
 		if err := ctr.hcsContainer.Close(); err != nil {
 			exitCode = -1

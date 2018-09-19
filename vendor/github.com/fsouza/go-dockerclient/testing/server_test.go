@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"reflect"
 	"sort"
@@ -250,7 +251,8 @@ func TestListContainersFilterLabels(t *testing.T) {
 	addContainers(&server, 3)
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
-	request, _ := http.NewRequest("GET", `/containers/json?all=1&filters={"label": ["key=val-1"]}`, nil)
+	filters := url.QueryEscape(`{"label": ["key=val-1"]}`)
+	request, _ := http.NewRequest("GET", "/containers/json?all=1&filters="+filters, nil)
 	server.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Errorf("TestListContainersFilterLabels: wrong status. Want %d. Got %d.", http.StatusOK, recorder.Code)
@@ -263,7 +265,8 @@ func TestListContainersFilterLabels(t *testing.T) {
 	if len(got) != 1 {
 		t.Errorf("TestListContainersFilterLabels: Want 1. Got %d.", len(got))
 	}
-	request, _ = http.NewRequest("GET", `/containers/json?all=1&filters={"label": ["key="]}`, nil)
+	filters = url.QueryEscape(`{"label": ["key="]}`)
+	request, _ = http.NewRequest("GET", "/containers/json?all=1&filters="+filters, nil)
 	server.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Errorf("TestListContainersFilterLabels: wrong status. Want %d. Got %d.", http.StatusOK, recorder.Code)
@@ -275,7 +278,8 @@ func TestListContainersFilterLabels(t *testing.T) {
 	if len(got) != 0 {
 		t.Errorf("TestListContainersFilterLabels: Want 0. Got %d.", len(got))
 	}
-	request, _ = http.NewRequest("GET", `/containers/json?all=1&filters={"label": ["key"]}`, nil)
+	filters = url.QueryEscape(`{"label": ["key"]}`)
+	request, _ = http.NewRequest("GET", "/containers/json?all=1&filters="+filters, nil)
 	server.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Errorf("TestListContainersFilterLabels: wrong status. Want %d. Got %d.", http.StatusOK, recorder.Code)
@@ -532,9 +536,13 @@ func TestCommitContainerComplete(t *testing.T) {
 	containers := addContainers(&server, 2)
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
-	queryString := "container=" + containers[0].ID + "&repo=tsuru/python&m=saving&author=developers"
-	queryString += `&run={"Cmd": ["cat", "/world"],"PortSpecs":["22"]}`
-	request, _ := http.NewRequest("POST", "/commit?"+queryString, nil)
+	qs := make(url.Values)
+	qs.Add("container", containers[0].ID)
+	qs.Add("repo", "tsuru/python")
+	qs.Add("m", "saving")
+	qs.Add("author", "developers")
+	qs.Add("run", `{"Cmd": ["cat", "/world"],"PortSpecs":["22"]}`)
+	request, _ := http.NewRequest("POST", "/commit?"+qs.Encode(), nil)
 	server.ServeHTTP(recorder, request)
 	imgID := fmt.Sprintf("img-%s", containers[0].ID)
 	image := server.images[imgID]

@@ -54,6 +54,14 @@ var flatOptions = map[string]bool{
 	"log-opts":           true,
 	"runtimes":           true,
 	"default-ulimits":    true,
+	"features":           true,
+}
+
+// skipValidateOptions contains configuration keys
+// that will be skipped from findConfigurationConflicts
+// for unknown flag validation.
+var skipValidateOptions = map[string]bool{
+	"features": true,
 }
 
 // LogConfig represents the default log configuration.
@@ -69,6 +77,14 @@ type LogConfig struct {
 type commonBridgeConfig struct {
 	Iface     string `json:"bridge,omitempty"`
 	FixedCIDR string `json:"fixed-cidr,omitempty"`
+}
+
+// NetworkConfig stores the daemon-wide networking configurations
+type NetworkConfig struct {
+	// Default address pools for docker networks
+	DefaultAddressPools opts.PoolsOpt `json:"default-address-pools,omitempty"`
+	// NetworkControlPlaneMTU allows to specify the control plane MTU, this will allow to optimize the network use in some components
+	NetworkControlPlaneMTU int `json:"network-control-plane-mtu,omitempty"`
 }
 
 // CommonTLSOptions defines TLS configuration for the daemon server.
@@ -158,10 +174,22 @@ type CommonConfig struct {
 	// given to the /swarm/init endpoint and no advertise address is
 	// specified.
 	SwarmDefaultAdvertiseAddr string `json:"swarm-default-advertise-addr"`
-	MetricsAddress            string `json:"metrics-addr"`
+
+	// SwarmRaftHeartbeatTick is the number of ticks in time for swarm mode raft quorum heartbeat
+	// Typical value is 1
+	SwarmRaftHeartbeatTick uint32 `json:"swarm-raft-heartbeat-tick"`
+
+	// SwarmRaftElectionTick is the number of ticks to elapse before followers in the quorum can propose
+	// a new round of leader election.  Default, recommended value is at least 10X that of Heartbeat tick.
+	// Higher values can make the quorum less sensitive to transient faults in the environment, but this also
+	// means it takes longer for the managers to detect a down leader.
+	SwarmRaftElectionTick uint32 `json:"swarm-raft-election-tick"`
+
+	MetricsAddress string `json:"metrics-addr"`
 
 	LogConfig
 	BridgeConfig // bridgeConfig holds bridge network specific configuration.
+	NetworkConfig
 	registry.ServiceOptions
 
 	sync.Mutex
@@ -174,12 +202,19 @@ type CommonConfig struct {
 	// Exposed node Generic Resources
 	// e.g: ["orange=red", "orange=green", "orange=blue", "apple=3"]
 	NodeGenericResources []string `json:"node-generic-resources,omitempty"`
-	// NetworkControlPlaneMTU allows to specify the control plane MTU, this will allow to optimize the network use in some components
-	NetworkControlPlaneMTU int `json:"network-control-plane-mtu,omitempty"`
 
 	// ContainerAddr is the address used to connect to containerd if we're
 	// not starting it ourselves
 	ContainerdAddr string `json:"containerd,omitempty"`
+
+	// CriContainerd determines whether a supervised containerd instance
+	// should be configured with the CRI plugin enabled. This allows using
+	// Docker's containerd instance directly with a Kubernetes kubelet.
+	CriContainerd bool `json:"cri-containerd,omitempty"`
+
+	// Features contains a list of feature key value pairs indicating what features are enabled or disabled.
+	// If a certain feature doesn't appear in this list then it's unset (i.e. neither true nor false).
+	Features map[string]bool `json:"features,omitempty"`
 }
 
 // IsValueSet returns true if a configuration value
@@ -242,6 +277,25 @@ func GetConflictFreeLabels(labels []string) ([]string, error) {
 		newLabels = append(newLabels, fmt.Sprintf("%s=%s", k, v))
 	}
 	return newLabels, nil
+}
+
+// ValidateReservedNamespaceLabels errors if the reserved namespaces com.docker.*,
+// io.docker.*, org.dockerproject.* are used in a configured engine label.
+//
+// TODO: This is a separate function because we need to warn users first of the
+// deprecation.  When we return an error, this logic can be added to Validate
+// or GetConflictFreeLabels instead of being here.
+func ValidateReservedNamespaceLabels(labels []string) error {
+	for _, label := range labels {
+		lowered := strings.ToLower(label)
+		if strings.HasPrefix(lowered, "com.docker.") || strings.HasPrefix(lowered, "io.docker.") ||
+			strings.HasPrefix(lowered, "org.dockerproject.") {
+			return fmt.Errorf(
+				"label %s not allowed: the namespaces com.docker.*, io.docker.*, and org.dockerproject.* are reserved for Docker's internal use",
+				label)
+		}
+	}
+	return nil
 }
 
 // Reload reads the configuration in the host and reloads the daemon and server.
@@ -402,7 +456,7 @@ func findConfigurationConflicts(config map[string]interface{}, flags *pflag.Flag
 	// 1. Search keys from the file that we don't recognize as flags.
 	unknownKeys := make(map[string]interface{})
 	for key, value := range config {
-		if flag := flags.Lookup(key); flag == nil {
+		if flag := flags.Lookup(key); flag == nil && !skipValidateOptions[key] {
 			unknownKeys[key] = value
 		}
 	}

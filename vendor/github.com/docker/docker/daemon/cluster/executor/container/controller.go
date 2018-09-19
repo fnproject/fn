@@ -1,6 +1,7 @@
 package container // import "github.com/docker/docker/daemon/cluster/executor/container"
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -17,11 +18,14 @@ import (
 	"github.com/docker/swarmkit/log"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 )
 
 const defaultGossipConvergeDelay = 2 * time.Second
+
+// waitNodeAttachmentsTimeout defines the total period of time we should wait
+// for node attachments to be ready before giving up on starting a task
+const waitNodeAttachmentsTimeout = 30 * time.Second
 
 // controller implements agent.Controller against docker's API.
 //
@@ -40,8 +44,8 @@ type controller struct {
 var _ exec.Controller = &controller{}
 
 // NewController returns a docker exec runner for the provided task.
-func newController(b executorpkg.Backend, i executorpkg.ImageBackend, task *api.Task, node *api.NodeDescription, dependencies exec.DependencyGetter) (*controller, error) {
-	adapter, err := newContainerAdapter(b, i, task, node, dependencies)
+func newController(b executorpkg.Backend, i executorpkg.ImageBackend, v executorpkg.VolumeBackend, task *api.Task, node *api.NodeDescription, dependencies exec.DependencyGetter) (*controller, error) {
+	adapter, err := newContainerAdapter(b, i, v, task, node, dependencies)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +99,25 @@ func (r *controller) Update(ctx context.Context, t *api.Task) error {
 // If the container has already be created, exec.ErrTaskPrepared is returned.
 func (r *controller) Prepare(ctx context.Context) error {
 	if err := r.checkClosed(); err != nil {
+		return err
+	}
+
+	// Before we create networks, we need to make sure that the node has all of
+	// the network attachments that the task needs. This will block until that
+	// is the case or the context has expired.
+	// NOTE(dperny): Prepare doesn't time out on its own (that is, the context
+	// passed in does not expire after any period of time), which means if the
+	// node attachment never arrives (for example, if the network's IP address
+	// space is exhausted), then the tasks on the node will park in PREPARING
+	// forever (or until the node dies). To avoid this case, we create a new
+	// context with a fixed deadline, and give up. In normal operation, a node
+	// update with the node IP address should come in hot on the tail of the
+	// task being assigned to the node, and this should exit on the order of
+	// milliseconds, but to be extra conservative we'll give it 30 seconds to
+	// time out before giving up.
+	waitNodeAttachmentsContext, waitCancel := context.WithTimeout(ctx, waitNodeAttachmentsTimeout)
+	defer waitCancel()
+	if err := r.adapter.waitNodeAttachments(waitNodeAttachmentsContext); err != nil {
 		return err
 	}
 

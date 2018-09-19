@@ -10,10 +10,9 @@ import (
 	"testing"
 
 	"github.com/docker/docker/builder"
-	"github.com/docker/docker/internal/testutil"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"github.com/gotestyourself/gotestyourself/fs"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/fs"
 )
 
 var binaryContext = []byte{0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00} //xz magic
@@ -232,7 +231,7 @@ func TestGetWithStatusError(t *testing.T) {
 			assert.NilError(t, err)
 			assert.Check(t, is.Contains(string(body), testcase.expectedBody))
 		} else {
-			testutil.ErrorContains(t, err, testcase.expectedErr)
+			assert.Check(t, is.ErrorContains(err, testcase.expectedErr))
 		}
 	}
 }

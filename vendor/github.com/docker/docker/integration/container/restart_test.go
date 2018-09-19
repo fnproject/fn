@@ -8,12 +8,13 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/integration-cli/daemon"
-	"github.com/gotestyourself/gotestyourself/skip"
+	"github.com/docker/docker/internal/test/daemon"
+	"gotest.tools/assert"
+	"gotest.tools/skip"
 )
 
 func TestDaemonRestartKillContainers(t *testing.T) {
-	skip.If(t, testEnv.IsRemoteDaemon(), "cannot start daemon on remote test run")
+	skip.If(t, testEnv.IsRemoteDaemon, "cannot start daemon on remote test run")
 	type testCase struct {
 		desc       string
 		config     *container.Config
@@ -21,6 +22,7 @@ func TestDaemonRestartKillContainers(t *testing.T) {
 
 		xRunning            bool
 		xRunningLiveRestore bool
+		xStart              bool
 	}
 
 	for _, c := range []testCase{
@@ -28,6 +30,7 @@ func TestDaemonRestartKillContainers(t *testing.T) {
 			desc:                "container without restart policy",
 			config:              &container.Config{Image: "busybox", Cmd: []string{"top"}},
 			xRunningLiveRestore: true,
+			xStart:              true,
 		},
 		{
 			desc:                "container with restart=always",
@@ -35,14 +38,19 @@ func TestDaemonRestartKillContainers(t *testing.T) {
 			hostConfig:          &container.HostConfig{RestartPolicy: container.RestartPolicy{Name: "always"}},
 			xRunning:            true,
 			xRunningLiveRestore: true,
+			xStart:              true,
+		},
+		{
+			desc:       "container created should not be restarted",
+			config:     &container.Config{Image: "busybox", Cmd: []string{"top"}},
+			hostConfig: &container.HostConfig{RestartPolicy: container.RestartPolicy{Name: "always"}},
 		},
 	} {
 		for _, liveRestoreEnabled := range []bool{false, true} {
 			for fnName, stopDaemon := range map[string]func(*testing.T, *daemon.Daemon){
 				"kill-daemon": func(t *testing.T, d *daemon.Daemon) {
-					if err := d.Kill(); err != nil {
-						t.Fatal(err)
-					}
+					err := d.Kill()
+					assert.NilError(t, err)
 				},
 				"stop-daemon": func(t *testing.T, d *daemon.Daemon) {
 					d.Stop(t)
@@ -55,11 +63,9 @@ func TestDaemonRestartKillContainers(t *testing.T) {
 
 					t.Parallel()
 
-					d := daemon.New(t, "", "dockerd", daemon.Config{})
+					d := daemon.New(t)
 					client, err := d.NewClient()
-					if err != nil {
-						t.Fatal(err)
-					}
+					assert.NilError(t, err)
 
 					args := []string{"--iptables=false"}
 					if liveRestoreEnabled {
@@ -71,13 +77,12 @@ func TestDaemonRestartKillContainers(t *testing.T) {
 					ctx := context.Background()
 
 					resp, err := client.ContainerCreate(ctx, c.config, c.hostConfig, nil, "")
-					if err != nil {
-						t.Fatal(err)
-					}
+					assert.NilError(t, err)
 					defer client.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{Force: true})
 
-					if err := client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-						t.Fatal(err)
+					if c.xStart {
+						err = client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+						assert.NilError(t, err)
 					}
 
 					stopDaemon(t, d)
@@ -91,9 +96,7 @@ func TestDaemonRestartKillContainers(t *testing.T) {
 					var running bool
 					for i := 0; i < 30; i++ {
 						inspect, err := client.ContainerInspect(ctx, resp.ID)
-						if err != nil {
-							t.Fatal(err)
-						}
+						assert.NilError(t, err)
 
 						running = inspect.State.Running
 						if running == expected {
@@ -102,10 +105,7 @@ func TestDaemonRestartKillContainers(t *testing.T) {
 						time.Sleep(2 * time.Second)
 
 					}
-
-					if running != expected {
-						t.Fatalf("got unexpected running state, expected %v, got: %v", expected, running)
-					}
+					assert.Equal(t, expected, running, "got unexpected running state, expected %v, got: %v", expected, running)
 					// TODO(cpuguy83): test pause states... this seems to be rather undefined currently
 				})
 			}

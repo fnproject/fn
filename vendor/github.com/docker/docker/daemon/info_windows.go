@@ -5,6 +5,9 @@ import (
 	"github.com/docker/docker/pkg/sysinfo"
 )
 
-// FillPlatformInfo fills the platform related info.
-func (daemon *Daemon) FillPlatformInfo(v *types.Info, sysInfo *sysinfo.SysInfo) {
+// fillPlatformInfo fills the platform related info.
+func (daemon *Daemon) fillPlatformInfo(v *types.Info, sysInfo *sysinfo.SysInfo) {
+}
+
+func fillDriverWarnings(v *types.Info) {
 }

@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/containerd/continuity/driver"
 	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/builder"
-	"github.com/docker/docker/builder/dockerfile/parser"
 	"github.com/docker/docker/builder/dockerignore"
 	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/urlutil"
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -22,8 +23,7 @@ import (
 const ClientSessionRemote = "client-session"
 
 // Detect returns a context and dockerfile from remote location or local
-// archive. progressReader is only used if remoteURL is actually a URL
-// (not empty, and not a Git endpoint).
+// archive.
 func Detect(config backend.BuildConfig) (remote builder.Source, dockerfile *parser.Result, err error) {
 	remoteURL := config.Options.RemoteContext
 	dockerfilePath := config.Options.Dockerfile
@@ -174,6 +174,9 @@ func StatAt(remote builder.Source, path string) (os.FileInfo, error) {
 func FullPath(remote builder.Source, path string) (string, error) {
 	fullPath, err := remote.Root().ResolveScopedPath(path, true)
 	if err != nil {
+		if runtime.GOOS == "windows" {
+			return "", fmt.Errorf("failed to resolve scoped path %s (%s): %s. Possible cause is a forbidden path outside the build context", path, fullPath, err)
+		}
 		return "", fmt.Errorf("Forbidden path outside the build context: %s (%s)", path, fullPath) // backwards compat with old error
 	}
 	return fullPath, nil

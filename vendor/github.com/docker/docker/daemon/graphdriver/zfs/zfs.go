@@ -17,7 +17,7 @@ import (
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
-	zfs "github.com/mistifyio/go-zfs"
+	"github.com/mistifyio/go-zfs"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -37,7 +37,7 @@ type Logger struct{}
 
 // Log wraps log message from ZFS driver with a prefix '[zfs]'.
 func (*Logger) Log(cmd []string) {
-	logrus.Debugf("[zfs] %s", strings.Join(cmd, " "))
+	logrus.WithField("storage-driver", "zfs").Debugf("[zfs] %s", strings.Join(cmd, " "))
 }
 
 // Init returns a new ZFS driver.
@@ -46,14 +46,16 @@ func (*Logger) Log(cmd []string) {
 func Init(base string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
 	var err error
 
+	logger := logrus.WithField("storage-driver", "zfs")
+
 	if _, err := exec.LookPath("zfs"); err != nil {
-		logrus.Debugf("[zfs] zfs command is not available: %v", err)
+		logger.Debugf("zfs command is not available: %v", err)
 		return nil, graphdriver.ErrPrerequisites
 	}
 
 	file, err := os.OpenFile("/dev/zfs", os.O_RDWR, 600)
 	if err != nil {
-		logrus.Debugf("[zfs] cannot open /dev/zfs: %v", err)
+		logger.Debugf("cannot open /dev/zfs: %v", err)
 		return nil, graphdriver.ErrPrerequisites
 	}
 	defer file.Close()
@@ -104,7 +106,7 @@ func Init(base string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdri
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get root uid/guid: %v", err)
 	}
-	if err := idtools.MkdirAllAndChown(base, 0700, idtools.IDPair{rootUID, rootGID}); err != nil {
+	if err := idtools.MkdirAllAndChown(base, 0700, idtools.Identity{UID: rootUID, GID: rootGID}); err != nil {
 		return nil, fmt.Errorf("Failed to create '%s': %v", base, err)
 	}
 
@@ -145,13 +147,13 @@ func lookupZfsDataset(rootdir string) (string, error) {
 	}
 	wantedDev := stat.Dev
 
-	mounts, err := mount.GetMounts()
+	mounts, err := mount.GetMounts(nil)
 	if err != nil {
 		return "", err
 	}
 	for _, m := range mounts {
 		if err := unix.Stat(m.Mountpoint, &stat); err != nil {
-			logrus.Debugf("[zfs] failed to stat '%s' while scanning for zfs mount: %v", m.Mountpoint, err)
+			logrus.WithField("storage-driver", "zfs").Debugf("failed to stat '%s' while scanning for zfs mount: %v", m.Mountpoint, err)
 			continue // may fail on fuse file systems
 		}
 
@@ -364,10 +366,10 @@ func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr e
 		if retErr != nil {
 			if c := d.ctr.Decrement(mountpoint); c <= 0 {
 				if mntErr := unix.Unmount(mountpoint, 0); mntErr != nil {
-					logrus.Errorf("Error unmounting %v: %v", mountpoint, mntErr)
+					logrus.WithField("storage-driver", "zfs").Errorf("Error unmounting %v: %v", mountpoint, mntErr)
 				}
 				if rmErr := unix.Rmdir(mountpoint); rmErr != nil && !os.IsNotExist(rmErr) {
-					logrus.Debugf("Failed to remove %s: %v", id, rmErr)
+					logrus.WithField("storage-driver", "zfs").Debugf("Failed to remove %s: %v", id, rmErr)
 				}
 
 			}
@@ -376,14 +378,14 @@ func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr e
 
 	filesystem := d.zfsPath(id)
 	options := label.FormatMountLabel("", mountLabel)
-	logrus.Debugf(`[zfs] mount("%s", "%s", "%s")`, filesystem, mountpoint, options)
+	logrus.WithField("storage-driver", "zfs").Debugf(`mount("%s", "%s", "%s")`, filesystem, mountpoint, options)
 
 	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
 	if err != nil {
 		return nil, err
 	}
 	// Create the target directories if they don't exist
-	if err := idtools.MkdirAllAndChown(mountpoint, 0755, idtools.IDPair{rootUID, rootGID}); err != nil {
+	if err := idtools.MkdirAllAndChown(mountpoint, 0755, idtools.Identity{UID: rootUID, GID: rootGID}); err != nil {
 		return nil, err
 	}
 
@@ -407,13 +409,15 @@ func (d *Driver) Put(id string) error {
 		return nil
 	}
 
-	logrus.Debugf(`[zfs] unmount("%s")`, mountpoint)
+	logger := logrus.WithField("storage-driver", "zfs")
+
+	logger.Debugf(`unmount("%s")`, mountpoint)
 
 	if err := unix.Unmount(mountpoint, unix.MNT_DETACH); err != nil {
-		logrus.Warnf("Failed to unmount %s mount %s: %v", id, mountpoint, err)
+		logger.Warnf("Failed to unmount %s mount %s: %v", id, mountpoint, err)
 	}
 	if err := unix.Rmdir(mountpoint); err != nil && !os.IsNotExist(err) {
-		logrus.Debugf("Failed to remove %s mount point %s: %v", id, mountpoint, err)
+		logger.Debugf("Failed to remove %s mount point %s: %v", id, mountpoint, err)
 	}
 
 	return nil

@@ -15,10 +15,10 @@ import (
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/daemon/graphdriver/quota"
 	"github.com/docker/docker/pkg/stringid"
-	units "github.com/docker/go-units"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
+	"github.com/docker/go-units"
 	"golang.org/x/sys/unix"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 var (
