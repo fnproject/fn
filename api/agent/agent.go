@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"strings"
@@ -459,9 +460,6 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 		resourceTimeout = 0
 	}
 
-	resourceCtx, cancelCtx := context.WithTimeout(ctx, resourceTimeout)
-	defer cancelCtx()
-
 	// WARNING: Tricky flow below. We are here because: isNewContainerNeeded is true,
 	// in other words, we need to launch a new container at this time due to high load.
 	//
@@ -480,7 +478,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	// Non-blocking mode only applies to cpu+mem, and if isNewContainerNeeded decided that we do not
 	// need to start a new container, then waiters will wait.
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
+	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs):
 		if tok != nil && tok.Error() != nil {
 			// non-capacity related errors should be propagated to callers
 			// for capacity full, we attempt an eviction.
@@ -569,18 +567,16 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	isAsync := call.Type == models.TypeAsync
 	ch := make(chan Slot)
 	mem := call.Memory + uint64(call.TmpFsSize)
-	resourceCtx := ctx
 
 	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
 
-	if a.cfg.EnableNBResourceTracker {
-		tmpCtx, tmpCtxCancel := context.WithTimeout(ctx, 0)
-		resourceCtx = tmpCtx
-		defer tmpCtxCancel()
+	timeout := time.Duration(0)
+	if !a.cfg.EnableNBResourceTracker {
+		timeout = time.Duration(math.MaxInt64)
 	}
 
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
+	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs):
 		if tok.Error() != nil {
 			return nil, tok.Error()
 		}

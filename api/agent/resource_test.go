@@ -3,8 +3,13 @@ package agent
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
+)
+
+var (
+	maxTimeout = time.Duration(math.MaxInt64)
 )
 
 func setTrackerTestVals(tr *resourceTracker, vals *trackerVals) {
@@ -163,7 +168,7 @@ func TestResourceGetSimple(t *testing.T) {
 
 	// ask for 4GB and 10 CPU
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false, maxTimeout)
 	defer cancel()
 
 	_, err := fetchToken(ch)
@@ -182,7 +187,7 @@ func TestResourceGetSimple(t *testing.T) {
 
 	// ask for another 4GB and 10 CPU
 	ctx, cancel = context.WithCancel(context.Background())
-	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false, maxTimeout)
 	defer cancel()
 
 	_, err = fetchToken(ch)
@@ -212,8 +217,7 @@ func TestResourceGetSimple(t *testing.T) {
 
 func TestResourceGetSimpleNB(t *testing.T) {
 
-	// zero timeout for Non-Blocking
-	ctx, cancel := context.WithTimeout(context.Background(), 0)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	var vals trackerVals
@@ -229,7 +233,7 @@ func TestResourceGetSimpleNB(t *testing.T) {
 	setTrackerTestVals(tr, &vals)
 
 	// ask for 4GB and 10 CPU
-	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false, 0)
 
 	tok := <-ch
 	if tok.Error() == nil {
@@ -240,13 +244,13 @@ func TestResourceGetSimpleNB(t *testing.T) {
 	vals.setDefaults()
 	setTrackerTestVals(tr, &vals)
 
-	tok1 := <-trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	tok1 := <-trI.GetResourceToken(ctx, 4*1024, 1000, false, 0)
 	if tok1.Error() != nil {
 		t.Fatalf("empty system should hand out token")
 	}
 
 	// ask for another 4GB and 10 CPU
-	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false, 0)
 
 	tok = <-ch
 	if tok.Error() == nil {
@@ -256,7 +260,7 @@ func TestResourceGetSimpleNB(t *testing.T) {
 	// close means, giant token resources released
 	tok1.Close()
 
-	tok = <-trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	tok = <-trI.GetResourceToken(ctx, 4*1024, 1000, false, 0)
 	if tok.Error() != nil {
 		t.Fatalf("empty system should hand out token")
 	}

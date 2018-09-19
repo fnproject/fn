@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fnproject/fn/api/models"
 
@@ -176,7 +177,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 	// if we find a resource token, shut down the thread waiting on ctx finish.
 	// alternatively, if the ctx is done, wake up the cond loop.
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 
 	go func() {
 		<-ctx.Done()
@@ -191,21 +192,26 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	go func() {
 		defer span.End()
 		defer cancel()
+
+		// If context times out or canceled, we return CapacityFull
+		var t ResourceToken
+		t = &resourceToken{err: CapacityFull}
+
 		c.L.Lock()
 
 		isWaiting = true
-		for !a.isResourceAvailableLocked(memory, cpuQuota) && ctx.Err() == nil {
+		for {
+			// Order is important. We do want to pass a token even if ctx is expired
+			if a.isResourceAvailableLocked(memory, cpuQuota, isAsync) {
+				t = a.allocResourcesLocked(memory, cpuQuota, isAsync)
+				break
+			}
+			if ctx.Err() != nil {
+				break
+			}
 			c.Wait()
 		}
 		isWaiting = false
-
-		// We are here because either context expired or we found a resource
-		var t ResourceToken
-		if a.isResourceAvailableLocked(memory, cpuQuota, isAsync) {
-			t = a.allocResourcesLocked(memory, cpuQuota, isAsync)
-		} else {
-			t = &resourceToken{err: CapacityFull}
-		}
 
 		c.L.Unlock()
 
