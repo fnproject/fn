@@ -56,16 +56,16 @@ func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelF
 
 func checkLogs(t *testing.T, tnum int, ds models.LogStore, callID string, expected []string) bool {
 
-	logReader, err := ds.GetLog(context.Background(), "myapp", callID)
+	logReader, err := ds.GetLog(context.Background(), "fnid_not_needed_by_mock", callID)
 	if err != nil {
-		t.Errorf("Test %d: GetLog for call_id:%s returned err %s",
+		t.Errorf("Test %d: GetLog for call_id:'%s' returned err %s",
 			tnum, callID, err.Error())
 		return false
 	}
 
 	logBytes, err := ioutil.ReadAll(logReader)
 	if err != nil {
-		t.Errorf("Test %d: GetLog read IO call_id:%s returned err %s",
+		t.Errorf("Test %d: GetLog read IO call_id:'%s' returned err %s",
 			tnum, callID, err.Error())
 		return false
 	}
@@ -398,7 +398,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 				for name, header := range test.expectedHeaders {
 					if header[0] != rec.Header().Get(name) {
 						isFailure = true
-						t.Errorf("Test %d: Expected header `%s` to be %s but was %s. body: %s",
+						t.Errorf("Test %d: Expected header `%s` to be `%s` but was `%s`. body: `%s`",
 							i, name, header[0], rec.Header().Get(name), respBody)
 					}
 				}
