@@ -105,10 +105,8 @@ That's it! You just deployed your first function and called it. Try updating the
 
 ## Learn More
 
-* With our [Fn Getting Started Series](examples/tutorial/), quickly create Fn Hello World applications in multiple languages. This is a great Fn place to start!
 * Visit [Fn tutorials](http://fnproject.io/tutorials) for step by step guides to creating apps with Fn . These tutorials range from introductory to more advanced.
 * See our [full documentation](https://github.com/fnproject/docs)
-* View all of our [examples](/examples)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
 * View our [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger_v2.yml)
 * Check out our sub-projects: [Flow](https://github.com/fnproject/flow), [UI](https://github.com/fnproject/ui), [FnLB](https://github.com/fnproject/lb)
@@ -118,7 +116,6 @@ That's it! You just deployed your first function and called it. Try updating the
 ## Get Help
 
 * [Ask your question on StackOverflow](https://stackoverflow.com/questions/tagged/fn) and tag it with `fn`
-* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
 
 ## Get Involved
 
