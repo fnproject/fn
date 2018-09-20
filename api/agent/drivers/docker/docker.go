@@ -36,7 +36,7 @@ type Auther interface {
 	// certain restrictions on images or if credentials must be acquired right
 	// before runtime and there's an error doing so. If these credentials don't
 	// work, the docker pull will fail and the task will be set to error status.
-	DockerAuth() (docker.AuthConfiguration, error)
+	DockerAuth() (*docker.AuthConfiguration, error)
 }
 
 type runResult struct {
@@ -310,7 +310,9 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 		if err != nil {
 			return err
 		}
-		config = &authConfig
+		if authConfig != nil {
+			config = authConfig
+		}
 	}
 
 	globalRepo := path.Join(reg, repo)

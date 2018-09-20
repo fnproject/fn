@@ -1105,3 +1105,60 @@ func TestNBIOResourceTracker(t *testing.T) {
 		t.Fatalf("Expected successes, but got %d", ok)
 	}
 }
+
+func TestDockerAuthExtn(t *testing.T) {
+	modelCall := &models.Call{
+		AppID:       id.New().String(),
+		FnID:        id.New().String(),
+		Image:       "fnproject/fn-test-utils",
+		Type:        "sync",
+		Format:      "http",
+		Timeout:     1,
+		IdleTimeout: 2,
+	}
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatalf("bad config %+v", cfg)
+	}
+
+	ls := logs.NewMock()
+	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	defer checkClose(t, a)
+
+	callIf, err := a.GetCall(FromModel(modelCall))
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := callIf.(*call)
+
+	ctx := context.TODO()
+
+	c, err := newHotContainer(ctx, call, cfg)
+	if err != nil {
+		t.Fatal("got unexpected err: ", err)
+	}
+	da, err := c.DockerAuth()
+	if da != nil {
+		t.Fatal("invalid docker auth configuration")
+	}
+	if err != nil {
+		t.Fatal("got unexpected err: ", err)
+	}
+
+	// Add registry token as extension
+	extn := make(map[string]string)
+	extn["FN_REGISTRY_TOKEN"] = "TestRegistryToken"
+	call.extensions = extn
+
+	c, err = newHotContainer(ctx, call, cfg)
+	if err != nil {
+		t.Fatal("got unexpected err: ", err)
+	}
+	da, err = c.DockerAuth()
+	if da == nil {
+		t.Fatal("invalid docker auth configuration")
+	}
+	if da.RegistryToken != "TestRegistryToken" {
+		t.Fatalf("unexpected registry token %s", da.RegistryToken)
+	}
+}
