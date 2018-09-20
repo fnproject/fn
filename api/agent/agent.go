@@ -696,24 +696,28 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	}
 }
 
-func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
-	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
-	defer span.End()
+var removeHeaders = map[string]bool{
+	"connection":        true,
+	"keep-alive":        true,
+	"trailer":           true,
+	"transfer-encoding": true,
+	"te":                true,
+	"upgrade":           true,
+	"authorization":     true,
+}
 
-	// TODO we can't trust that resp.Write doesn't timeout, even if the http
-	// client should respect the request context (right?) so we still need this (right?)
-	errApp := make(chan error, 1)
-
+func callToHTTPRequest(ctx context.Context, call *call) (*http.Request, error) {
 	req, err := http.NewRequest("POST", "http://localhost/call", call.req.Body)
 	if err != nil {
-		errApp <- err
-		return errApp
+		return req, err
 	}
 
 	req.Header = make(http.Header)
 	for k, vs := range call.req.Header {
-		for _, v := range vs {
-			req.Header.Add(k, v)
+		if !removeHeaders[strings.ToLower(k)] {
+			for _, v := range vs {
+				req.Header.Add(k, v)
+			}
 		}
 	}
 
@@ -726,6 +730,24 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 		deadlineStr := deadline.Format(time.RFC3339)
 		req.Header.Set("Fn-Deadline", deadlineStr)
 		req.Header.Set("FN_DEADLINE", deadlineStr)
+	}
+
+	return req, err
+}
+
+func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
+	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
+	defer span.End()
+
+	// TODO we can't trust that resp.Write doesn't timeout, even if the http
+	// client should respect the request context (right?) so we still need this (right?)
+	errApp := make(chan error, 1)
+
+	req, err := callToHTTPRequest(ctx, call)
+
+	if err != nil {
+		errApp <- err
+		return errApp
 	}
 
 	go func() {
