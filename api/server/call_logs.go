@@ -27,11 +27,10 @@ type callLog struct {
 func writeJSON(c *gin.Context, callID string, logReader io.Reader) {
 	var b bytes.Buffer
 	b.ReadFrom(logReader)
-	c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
-		&callLog{
-			CallID: callID,
-			Log:    b.String(),
-		}})
+	c.JSON(http.StatusOK, &callLog{
+		CallID: callID,
+		Log:    b.String(),
+	})
 }
 
 func (s *Server) handleCallLogGet(c *gin.Context) {
