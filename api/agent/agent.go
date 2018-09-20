@@ -989,9 +989,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
-	// container is running
-	state.UpdateState(ctx, ContainerStateIdle, call.slots)
-
 	// buffered, in case someone has slot when waiter returns but isn't yet listening
 	errC := make(chan error, 1)
 
@@ -1101,43 +1098,26 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	var err error
 	isFrozen := false
-	isEvictable := false
+	isEvictEvent := false
 
 	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
+	evictor := a.evictor.GetEvictor(call.ID, call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
-	defer freezeTimer.Stop()
-	defer idleTimer.Stop()
-
-	// log if any error is encountered
 	defer func() {
+		a.evictor.UnregisterEvictor(evictor)
+		freezeTimer.Stop()
+		idleTimer.Stop()
+		// log if any error is encountered
 		if err != nil {
 			logger.WithError(err).Error("hot function failure")
 		}
 	}()
 
-	evictor := a.evictor.GetEvictor(call.ID, call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
+	a.evictor.RegisterEvictor(evictor)
+	state.UpdateState(ctx, ContainerStateIdle, call.slots)
 
-	// if an immediate freeze is requested, freeze first before enqueuing at all.
-	if a.cfg.FreezeIdle == time.Duration(0) && !isFrozen {
-		err = cookie.Freeze(ctx)
-		if err != nil {
-			return false
-		}
-		isFrozen = true
-		state.UpdateState(ctx, ContainerStatePaused, call.slots)
-		if !isEvictable {
-			isEvictable = true
-			a.evictor.RegisterEvictor(evictor)
-		}
-	}
-
-	if !isFrozen {
-		state.UpdateState(ctx, ContainerStateIdle, call.slots)
-	}
 	s := call.slots.queueSlot(slot)
-
-	isEvictEvent := false
 
 	for {
 		select {
@@ -1153,10 +1133,6 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 				}
 				isFrozen = true
 				state.UpdateState(ctx, ContainerStatePaused, call.slots)
-				if !isEvictable {
-					isEvictable = true
-					a.evictor.RegisterEvictor(evictor)
-				}
 			}
 			continue
 		case <-evictor.C:
@@ -1166,9 +1142,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		break
 	}
 
-	if isEvictable {
-		a.evictor.UnregisterEvictor(evictor)
-	}
+	a.evictor.UnregisterEvictor(evictor)
 
 	// if we can acquire token, that means we are here due to
 	// abort/shutdown/timeout, attempt to acquire and terminate,
