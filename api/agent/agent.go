@@ -302,6 +302,7 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	// We are about to execute the function, set container Exec Deadline (call.Timeout)
 	slotCtx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
 	defer cancel()
+
 	// Pass this error (nil or otherwise) to end directly, to store status, etc.
 	err = slot.exec(slotCtx, call)
 	return a.handleCallEnd(ctx, call, slot, err, true)

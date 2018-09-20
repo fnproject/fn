@@ -190,6 +190,7 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 		}
 		return err
 	}
+
 	// if they don't set a content-type - detect it
 	if writer.Header().Get("Content-Type") == "" {
 		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?

@@ -173,6 +173,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
 		if rw, ok := c.w.(http.ResponseWriter); ok {
 			rw.Header().Add("FN_CALL_ID", id)
+			rw.Header().Add("Fn-Call-Id", id)
 		}
 
 		var syslogURL string
