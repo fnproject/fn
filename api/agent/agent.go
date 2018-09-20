@@ -696,24 +696,28 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	}
 }
 
-func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
-	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
-	defer span.End()
+var removeHeaders = map[string]bool{
+	"connection":        true,
+	"keep-alive":        true,
+	"trailer":           true,
+	"transfer-encoding": true,
+	"te":                true,
+	"upgrade":           true,
+	"authorization":     true,
+}
 
-	// TODO we can't trust that resp.Write doesn't timeout, even if the http
-	// client should respect the request context (right?) so we still need this (right?)
-	errApp := make(chan error, 1)
-
+func callToHTTPRequest(ctx context.Context, call *call) (*http.Request, error) {
 	req, err := http.NewRequest("POST", "http://localhost/call", call.req.Body)
 	if err != nil {
-		errApp <- err
-		return errApp
+		return req, err
 	}
 
 	req.Header = make(http.Header)
 	for k, vs := range call.req.Header {
-		for _, v := range vs {
-			req.Header.Add(k, v)
+		if !removeHeaders[strings.ToLower(k)] {
+			for _, v := range vs {
+				req.Header.Add(k, v)
+			}
 		}
 	}
 
@@ -726,14 +730,31 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 		deadlineStr := deadline.Format(time.RFC3339)
 		req.Header.Set("Fn-Deadline", deadlineStr)
 		req.Header.Set("FN_DEADLINE", deadlineStr)
+	}
 
+	return req, err
+}
+
+func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
+	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
+	defer span.End()
+
+	// TODO we can't trust that resp.Write doesn't timeout, even if the http
+	// client should respect the request context (right?) so we still need this (right?)
+	errApp := make(chan error, 1)
+
+	req, err := callToHTTPRequest(ctx, call)
+
+	if err != nil {
+		errApp <- err
+		return errApp
 	}
 
 	go func() {
 		resp, err := s.udsClient.Do(req)
 		if err != nil {
-			common.Logger(ctx).WithError(err).Debug("Got error from UDS socket")
-			errApp <- err
+			common.Logger(ctx).WithError(err).Error("Got error from UDS socket")
+			errApp <- models.NewAPIError(http.StatusBadGateway, errors.New("error receiving function response"))
 			return
 		}
 		common.Logger(ctx).WithField("status", resp.StatusCode).Debug("Got resp from UDS socket")
@@ -741,7 +762,7 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 		defer resp.Body.Close()
 
 		select {
-		case errApp <- writeResp(resp, call.w):
+		case errApp <- writeResp(s.cfg.MaxResponseSize, resp, call.w):
 		case <-ctx.Done():
 			errApp <- ctx.Err()
 		}
@@ -750,11 +771,14 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 }
 
 // XXX(reed): dupe code in http proto (which will die...)
-func writeResp(resp *http.Response, w io.Writer) error {
+func writeResp(max uint64, resp *http.Response, w io.Writer) error {
 	rw, ok := w.(http.ResponseWriter)
 	if !ok {
+		w = common.NewClampWriter(rw, max, models.ErrFunctionResponseTooBig)
 		return resp.Write(w)
 	}
+
+	rw = newSizerRespWriter(max, rw)
 
 	// if we're writing directly to the response writer, we need to set headers
 	// and status code, and only copy the body. resp.Write would copy a full
@@ -771,6 +795,24 @@ func writeResp(resp *http.Response, w io.Writer) error {
 	_, err := io.Copy(rw, resp.Body)
 	return err
 }
+
+// XXX(reed): this is a remnant of old io.pipe plumbing, we need to get rid of
+// the buffers from the front-end in actuality, but only after removing other formats... so here, eat this
+type sizerRespWriter struct {
+	http.ResponseWriter
+	w io.Writer
+}
+
+var _ http.ResponseWriter = new(sizerRespWriter)
+
+func newSizerRespWriter(max uint64, rw http.ResponseWriter) http.ResponseWriter {
+	return &sizerRespWriter{
+		ResponseWriter: rw,
+		w:              common.NewClampWriter(rw, max, models.ErrFunctionResponseTooBig),
+	}
+}
+
+func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
 // TODO remove
 func (s *hotSlot) dispatchOldFormats(ctx context.Context, call *call) chan error {
