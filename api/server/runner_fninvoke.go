@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -20,7 +21,14 @@ var (
 	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
-var _ http.ResponseWriter = new(syncResponseWriter)
+type ResponseBufferingWriter interface {
+	http.ResponseWriter
+	io.Reader
+	Status() int
+	GetBuffer() *bytes.Buffer
+}
+
+var _ ResponseBufferingWriter = new(syncResponseWriter)
 
 // implements http.ResponseWriter
 // this little guy buffers responses from user containers and lets them still
@@ -28,13 +36,15 @@ var _ http.ResponseWriter = new(syncResponseWriter)
 // server could still die while we're copying the buffer]. this lets us set
 // content length and content type nicely, as a bonus. it is sad, yes.
 type syncResponseWriter struct {
-	headers http.Header
+	Headers http.Header
 	status  int
 	*bytes.Buffer
 }
 
-func (s *syncResponseWriter) Header() http.Header  { return s.headers }
-func (s *syncResponseWriter) WriteHeader(code int) { s.status = code }
+func (s *syncResponseWriter) Header() http.Header      { return s.Headers }
+func (s *syncResponseWriter) WriteHeader(code int)     { s.status = code }
+func (s *syncResponseWriter) Status() int              { return s.status }
+func (s *syncResponseWriter) GetBuffer() *bytes.Buffer { return s.Buffer }
 
 // handleFnInvokeCall executes the function, for router handlers
 func (s *Server) handleFnInvokeCall(c *gin.Context) {
@@ -70,15 +80,23 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 	// TODO: we should get rid of the buffers, and stream back (saves memory (+splice), faster (splice), allows streaming, don't have to cap resp size)
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	writer := syncResponseWriter{
+	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
+
+	writer := &syncResponseWriter{
 		Buffer:  buf,
-		headers: c.Writer.Header(),
+		Headers: c.Writer.Header(),
 	}
 	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
 
-	call, err := s.agent.GetCall(
-		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
+	return s.FnInvoke(c, app, fn, writer,
+		agent.WithWriter(writer), // XXX (reed): order matters [for now]
 		agent.FromHTTPFnRequest(app, fn, c.Request),
+	)
+}
+
+func (s *Server) FnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer ResponseBufferingWriter, opts ...agent.CallOpt) error {
+	call, err := s.agent.GetCall(
+		opts...,
 	)
 	if err != nil {
 		return err
@@ -89,6 +107,7 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
 		c.Request = c.Request.WithContext(ctx)
 	}
+	writer.Header().Add("Fn_call_id", model.ID)
 
 	err = s.agent.Submit(call)
 	if err != nil {
@@ -101,28 +120,32 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 		}
 		return err
 	}
-
+	fmt.Println(writer.Header())
 	// if they don't set a content-type - detect it
 	// TODO: remove this after removing all the formats (too many tests to scrub til then)
 	if writer.Header().Get("Content-Type") == "" {
 		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
 		var contentType string
 		jsonPrefix := [1]byte{'{'} // stack allocated
-		if bytes.HasPrefix(buf.Bytes(), jsonPrefix[:]) {
+		if bytes.HasPrefix(writer.GetBuffer().Bytes(), jsonPrefix[:]) {
 			// try to detect json, since DetectContentType isn't a hipster.
 			contentType = "application/json; charset=utf-8"
 		} else {
-			contentType = http.DetectContentType(buf.Bytes())
+			contentType = http.DetectContentType(writer.GetBuffer().Bytes())
 		}
+		fmt.Printf("Setting: %s\n", contentType)
 		writer.Header().Set("Content-Type", contentType)
 	}
+	fmt.Println(writer.Header())
 
-	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
+	writer.Header().Set("Content-Length", strconv.Itoa(int(writer.GetBuffer().Len())))
 
-	if writer.status > 0 {
-		c.Writer.WriteHeader(writer.status)
+	if writer.Status() > 0 {
+		c.Writer.WriteHeader(writer.Status())
 	}
-	io.Copy(c.Writer, &writer)
+
+	c.Writer.Header()
+	io.Copy(c.Writer, writer)
 
 	return nil
 }
