@@ -36,12 +36,14 @@ var _ ResponseBufferingWriter = new(syncResponseWriter)
 // server could still die while we're copying the buffer]. this lets us set
 // content length and content type nicely, as a bonus. it is sad, yes.
 type syncResponseWriter struct {
-	Headers http.Header
+	headers http.Header
 	status  int
 	*bytes.Buffer
 }
 
-func (s *syncResponseWriter) Header() http.Header      { return s.Headers }
+func (s *syncResponseWriter) Header() http.Header { return s.headers }
+
+// By storing the status here, we effectively buffer the response
 func (s *syncResponseWriter) WriteHeader(code int)     { s.status = code }
 func (s *syncResponseWriter) Status() int              { return s.status }
 func (s *syncResponseWriter) GetBuffer() *bytes.Buffer { return s.Buffer }
@@ -77,37 +79,34 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 
 func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) error {
 	// TODO: we should get rid of the buffers, and stream back (saves memory (+splice), faster (splice), allows streaming, don't have to cap resp size)
+	//TODO: Remove this pool, it makes concurrency bugs easy to create, but hard to discover.
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
 
 	writer := &syncResponseWriter{
 		Buffer:  buf,
-		Headers: c.Writer.Header(),
+		headers: c.Writer.Header(),
 	}
 
-	return s.FnInvoke(c, app, fn, writer,
-		agent.WithWriter(writer), // XXX (reed): order matters [for now]
-		agent.FromHTTPFnRequest(app, fn, c.Request),
-	)
-}
+	call, err := s.agent.GetCall(agent.WithWriter(writer), // XXX (reed): order matters [for now]
+		agent.FromHTTPFnRequest(app, fn, c.Request))
 
-func (s *Server) FnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer ResponseBufferingWriter, opts ...agent.CallOpt) error {
-	call, err := s.agent.GetCall(
-		opts...,
-	)
 	if err != nil {
 		return err
 	}
 
+	return s.FnInvoke(c, app, fn, writer, call)
+}
+
+func (s *Server) FnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer ResponseBufferingWriter, call agent.Call) error {
 	model := call.Model()
 	{ // scope this, to disallow ctx use outside of this scope. add id for handleV1ErrorResponse logger
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
 		c.Request = c.Request.WithContext(ctx)
 	}
-	writer.Header().Add("Fn_call_id", model.ID)
 
-	err = s.agent.Submit(call)
+	err := s.agent.Submit(call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little
@@ -118,7 +117,6 @@ func (s *Server) FnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer
 		}
 		return err
 	}
-	fmt.Println(writer.Header())
 	// if they don't set a content-type - detect it
 	// TODO: remove this after removing all the formats (too many tests to scrub til then)
 	if writer.Header().Get("Content-Type") == "" {
@@ -134,7 +132,6 @@ func (s *Server) FnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer
 		fmt.Printf("Setting: %s\n", contentType)
 		writer.Header().Set("Content-Type", contentType)
 	}
-	fmt.Println(writer.Header())
 
 	writer.Header().Set("Content-Length", strconv.Itoa(int(writer.GetBuffer().Len())))
 

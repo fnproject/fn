@@ -67,7 +67,6 @@ var skipTriggerHeaders = map[string]bool{
 // Sets up a call from an http trigger request
 func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
 	return func(c *call) error {
-		contentType := req.Header.Get("Content-Type")
 		// transpose trigger headers into HTTP
 		headers := make(http.Header)
 		for k, vs := range req.Header {
@@ -84,61 +83,13 @@ func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trig
 		requestUrl := reqURL(req)
 
 		headers.Set("Fn-Http-Method", req.Method)
-		if contentType != "" {
-			headers.Set("Content-Type", contentType)
-		}
 		headers.Set("Fn-Http-Request-Url", requestUrl)
 		headers.Set("Fn-Intent", "httprequest")
 		req.Header = headers
 
-		if fn.Format == "" {
-			fn.Format = models.FormatDefault
-		}
-
-		id := id.New().String()
-
-		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
-		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
-		if rw, ok := c.w.(http.ResponseWriter); ok {
-			// TODO deprecate after CLI is updated
-			rw.Header().Add("Fn-Call-ID", id)
-			rw.Header().Add("FN_CALL_ID", id)
-		}
-
-		var syslogURL string
-		if app.SyslogURL != nil {
-			syslogURL = *app.SyslogURL
-		}
-
-		c.Call = &models.Call{
-			ID:    id,
-			Image: fn.Image,
-			// Delay: 0,
-			Type:   "sync",
-			Format: fn.Format,
-			// Payload: TODO,
-			Priority:    new(int32), // TODO this is crucial, apparently
-			Timeout:     fn.Timeout,
-			IdleTimeout: fn.IdleTimeout,
-			TmpFsSize:   0, // TODO clean up this
-			Memory:      fn.Memory,
-			CPUs:        0, // TODO clean up this
-			Config:      buildConfig(app, fn, trigger.Source),
-			// TODO - this wasn't really the intention here (that annotations would naturally cascade
-			// but seems to be necessary for some runner behaviour
-			Annotations: app.Annotations.MergeChange(fn.Annotations).MergeChange(trigger.Annotations),
-			Headers:     req.Header,
-			CreatedAt:   common.DateTime(time.Now()),
-			URL:         requestUrl,
-			Method:      req.Method,
-			AppID:       app.ID,
-			AppName:     app.Name,
-			FnID:        fn.ID,
-			TriggerID:   trigger.ID,
-			SyslogURL:   syslogURL,
-		}
-		c.req = req
-		return nil
+		err := FromHTTPFnRequest(app, fn, req)(c)
+		c.Model().TriggerID = trigger.ID
+		return err
 	}
 }
 

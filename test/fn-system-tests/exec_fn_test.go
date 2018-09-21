@@ -256,7 +256,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 
 	results := make(chan error)
 	latch := make(chan struct{})
-	concurrentFuncs := 100
+	concurrentFuncs := 10
 	for i := 0; i < concurrentFuncs; i++ {
 		go func() {
 			body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`

@@ -68,7 +68,7 @@ type triggerResponseWriter struct {
 var _ ResponseBufferingWriter = new(triggerResponseWriter)
 
 func (trw *triggerResponseWriter) Header() http.Header {
-	return trw.Headers
+	return trw.headers
 }
 
 func (trw *triggerResponseWriter) Write(b []byte) (int, error) {
@@ -83,21 +83,8 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 		return
 	}
 	trw.committed = true
-	gatewayStatus := 200
 
-	if statusCode >= 400 {
-		gatewayStatus = 502
-	}
-
-	status := trw.Headers.Get("Fn-Http-Status")
-	if status != "" {
-		statusInt, err := strconv.Atoi(status)
-		if err == nil {
-			gatewayStatus = statusInt
-		}
-	}
-
-	for k, vs := range trw.Headers {
+	for k, vs := range trw.Header() {
 		if strings.HasPrefix(k, "Fn-Http-H-") {
 			// TODO strip out content-length and stuff here.
 			realHeader := strings.TrimPrefix(k, "Fn-Http-H-")
@@ -110,10 +97,20 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 		}
 	}
 
-	contentType := trw.Headers.Get("Content-Type")
-	if contentType != "" {
-		trw.Header().Add("Content-Type", contentType)
+	gatewayStatus := 200
+
+	if statusCode >= 400 {
+		gatewayStatus = 502
 	}
+
+	status := trw.Header().Get("Fn-Http-Status")
+	if status != "" {
+		statusInt, err := strconv.Atoi(status)
+		if err == nil {
+			gatewayStatus = statusInt
+		}
+	}
+
 	trw.WriteHeader(gatewayStatus)
 }
 
@@ -127,7 +124,7 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 	triggerWriter := &triggerResponseWriter{
 		syncResponseWriter{
 			Buffer:  buf,
-			Headers: c.Writer.Header()},
+			headers: c.Writer.Header()},
 		false,
 	}
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
@@ -136,8 +133,12 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
-	return s.FnInvoke(c, app, fn, triggerWriter,
-		agent.WithWriter(triggerWriter), // XXX (reed): order matters [for now]
-		agent.FromHTTPTriggerRequest(app, fn, trigger, c.Request),
-	)
+
+	call, err := s.agent.GetCall(agent.WithWriter(triggerWriter), // XXX (reed): order matters [for now]
+		agent.FromHTTPTriggerRequest(app, fn, trigger, c.Request))
+
+	if err != nil {
+		return err
+	}
+	return s.FnInvoke(c, app, fn, triggerWriter, call)
 }
