@@ -117,13 +117,8 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 //ServeHTTPTr	igger serves an HTTP trigger for a given app/fn/trigger  based on the current request
 // This is exported to allow extensions to handle their own trigger naming and publishing
 func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn, trigger *models.Trigger) error {
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
-
 	triggerWriter := &triggerResponseWriter{
 		syncResponseWriter{
-			Buffer:  buf,
 			headers: c.Writer.Header()},
 		false,
 	}
@@ -140,5 +135,5 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 	if err != nil {
 		return err
 	}
-	return s.FnInvoke(c, app, fn, triggerWriter, call)
+	return s.fnInvoke(c, app, fn, triggerWriter, call)
 }

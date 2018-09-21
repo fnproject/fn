@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -26,6 +25,7 @@ type ResponseBufferingWriter interface {
 	io.Reader
 	Status() int
 	GetBuffer() *bytes.Buffer
+	SetBuffer(*bytes.Buffer)
 }
 
 var _ ResponseBufferingWriter = new(syncResponseWriter)
@@ -47,6 +47,7 @@ func (s *syncResponseWriter) Header() http.Header { return s.headers }
 func (s *syncResponseWriter) WriteHeader(code int)     { s.status = code }
 func (s *syncResponseWriter) Status() int              { return s.status }
 func (s *syncResponseWriter) GetBuffer() *bytes.Buffer { return s.Buffer }
+func (s *syncResponseWriter) SetBuffer(buf *bytes.Buffer) { s.Buffer = buf}
 
 // handleFnInvokeCall executes the function, for router handlers
 func (s *Server) handleFnInvokeCall(c *gin.Context) {
@@ -78,14 +79,7 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 }
 
 func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) error {
-	// TODO: we should get rid of the buffers, and stream back (saves memory (+splice), faster (splice), allows streaming, don't have to cap resp size)
-	//TODO: Remove this pool, it makes concurrency bugs easy to create, but hard to discover.
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
-
 	writer := &syncResponseWriter{
-		Buffer:  buf,
 		headers: c.Writer.Header(),
 	}
 
@@ -96,26 +90,37 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 		return err
 	}
 
-	return s.FnInvoke(c, app, fn, writer, call)
+	return s.fnInvoke(c, app, fn, writer, call)
 }
 
-func (s *Server) FnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer ResponseBufferingWriter, call agent.Call) error {
+func (s *Server) fnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer ResponseBufferingWriter, call agent.Call) error {
+	// TODO: we should get rid of the buffers, and stream back (saves memory (+splice), faster (splice), allows streaming, don't have to cap resp size)
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	var submitErr error
+	defer func(){
+		if buf.Len() == 0 && submitErr == nil{
+			bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
+		}
+	}()
+	writer.SetBuffer(buf)
+
 	model := call.Model()
 	{ // scope this, to disallow ctx use outside of this scope. add id for handleV1ErrorResponse logger
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
 		c.Request = c.Request.WithContext(ctx)
 	}
 
-	err := s.agent.Submit(call)
-	if err != nil {
+	submitErr = s.agent.Submit(call)
+	if submitErr != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little
-		if err == models.ErrCallTimeoutServerBusy || err == models.ErrCallTimeout {
+		if submitErr == models.ErrCallTimeoutServerBusy || submitErr == models.ErrCallTimeout {
 			// TODO maneuver
 			// add this, since it means that start may not have been called [and it's relevant]
 			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
 		}
-		return err
+		return submitErr
 	}
 	// if they don't set a content-type - detect it
 	// TODO: remove this after removing all the formats (too many tests to scrub til then)
@@ -129,7 +134,6 @@ func (s *Server) FnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer
 		} else {
 			contentType = http.DetectContentType(writer.GetBuffer().Bytes())
 		}
-		fmt.Printf("Setting: %s\n", contentType)
 		writer.Header().Set("Content-Type", contentType)
 	}
 
