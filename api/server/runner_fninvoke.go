@@ -76,7 +76,6 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 }
 
 func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) error {
-	// TODO: we should combine this logic with trigger, which just wraps this block with some headers wizardry
 	// TODO: we should get rid of the buffers, and stream back (saves memory (+splice), faster (splice), allows streaming, don't have to cap resp size)
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
@@ -86,7 +85,6 @@ func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) e
 		Buffer:  buf,
 		Headers: c.Writer.Header(),
 	}
-	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
 
 	return s.FnInvoke(c, app, fn, writer,
 		agent.WithWriter(writer), // XXX (reed): order matters [for now]
@@ -144,7 +142,6 @@ func (s *Server) FnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer
 		c.Writer.WriteHeader(writer.Status())
 	}
 
-	c.Writer.Header()
 	io.Copy(c.Writer, writer)
 
 	return nil
