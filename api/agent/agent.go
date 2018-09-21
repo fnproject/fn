@@ -314,7 +314,9 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 }
 
 func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isStarted bool) error {
-
+	if call.slots != nil {
+		defer a.slotMgr.freeSlotQueue(call.slots)
+	}
 	if slot != nil {
 		slot.Close()
 	}
@@ -369,7 +371,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 			call.slotHashId = getSlotQueueKey(call)
 		}
 
-		call.slots, _ = a.slotMgr.getSlotQueue(call.slotHashId)
+		call.slots = a.slotMgr.allocSlotQueue(call.slotHashId)
 		call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
 		return a.waitHot(ctx, call)
 	}
@@ -479,6 +481,11 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slot
 			// to launch more containers.
 			launchPending = make(chan struct{}, 1)
 			go func() {
+				// get another reference to our slot queue. This ensures during lifetime
+				// of the hot container slot queue is not deleted.
+				refSlotQueue := a.slotMgr.allocSlotQueue(call.slotHashId)
+				defer a.slotMgr.freeSlotQueue(refSlotQueue)
+
 				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
 				a.runHot(ctx, call, resource, launchPending)
 				a.shutWg.DoneSession()

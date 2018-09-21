@@ -144,10 +144,6 @@ func TestSlotQueueBasic2(t *testing.T) {
 
 	obj := NewSlotQueue("test2")
 
-	if !obj.isIdle() {
-		t.Fatalf("Should be idle")
-	}
-
 	timeout := time.Duration(500) * time.Millisecond
 	err := checkGetTokenId(t, obj, timeout, 6)
 	if err == nil {

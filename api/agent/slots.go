@@ -50,6 +50,7 @@ type slotQueue struct {
 	cond      *sync.Cond
 	slots     []*slotToken
 	nextId    uint64
+	refCount  uint64
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -155,25 +156,6 @@ func (a *slotQueue) queueSlot(slot Slot) *slotToken {
 	return token
 }
 
-// isIdle() returns true is there's no activity for this slot queue. This
-// means no one is waiting, running or starting.
-func (a *slotQueue) isIdle() bool {
-	var isIdle bool
-
-	a.statsLock.Lock()
-
-	isIdle = a.stats.requestStates[RequestStateWait] == 0 &&
-		a.stats.requestStates[RequestStateExec] == 0 &&
-		a.stats.containerStates[ContainerStateStart] == 0 &&
-		a.stats.containerStates[ContainerStateIdle] == 0 &&
-		a.stats.containerStates[ContainerStatePaused] == 0 &&
-		a.stats.containerStates[ContainerStateBusy] == 0
-
-	a.statsLock.Unlock()
-
-	return isIdle
-}
-
 func (a *slotQueue) getStats() slotQueueStats {
 	var out slotQueueStats
 	a.statsLock.Lock()
@@ -214,34 +196,32 @@ func (a *slotQueue) exitContainerState(conType ContainerStateType) {
 	}
 }
 
-// getSlot must ensure that if it receives a slot, it will be returned, otherwise
-// a container will be locked up forever waiting for slot to free.
-func (a *slotQueueMgr) getSlotQueue(key string) (*slotQueue, bool) {
+// allocSlotQueue returns a new slot queue if already not allocated.
+func (a *slotQueueMgr) allocSlotQueue(key string) *slotQueue {
 
 	a.hMu.Lock()
 	slots, ok := a.hot[key]
 	if !ok {
 		slots = NewSlotQueue(key)
 		a.hot[key] = slots
+	} else {
+		slots.refCount++
 	}
 	a.hMu.Unlock()
 
-	return slots, !ok
+	return slots
 }
 
-// currently unused. But at some point, we need to age/delete old
-// slotQueues.
-func (a *slotQueueMgr) deleteSlotQueue(slots *slotQueue) bool {
-	isDeleted := false
+// freeSlotQueue frees a slot queue and deallocates it if referece count hits zero
+func (a *slotQueueMgr) freeSlotQueue(slots *slotQueue) {
 
 	a.hMu.Lock()
-	if slots.isIdle() {
+	if slots.refCount == 0 {
 		delete(a.hot, slots.key)
-		isDeleted = true
+	} else {
+		slots.refCount--
 	}
 	a.hMu.Unlock()
-
-	return isDeleted
 }
 
 var shapool = &sync.Pool{New: func() interface{} { return sha256.New() }}
