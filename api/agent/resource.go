@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/fnproject/fn/api/models"
 
@@ -27,8 +26,6 @@ const (
 	// Assume 2GB RAM on non-linux systems
 	DefaultNonLinuxMemory = 2048 * Mem1MB
 )
-
-var CapacityFull = errors.New("max capacity reached")
 
 type ResourceUtilization struct {
 	// CPU in use
@@ -95,17 +92,11 @@ func NewResourceTracker(cfg *Config) ResourceTracker {
 type ResourceToken interface {
 	// Close must be called by any thread that receives a token.
 	io.Closer
-	Error() error
 }
 
 type resourceToken struct {
 	once      sync.Once
-	err       error
 	decrement func()
-}
-
-func (t *resourceToken) Error() error {
-	return t.err
 }
 
 func (t *resourceToken) Close() error {
@@ -177,7 +168,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 	// if we find a resource token, shut down the thread waiting on ctx finish.
 	// alternatively, if the ctx is done, wake up the cond loop.
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithCancel(ctx)
 
 	go func() {
 		<-ctx.Done()
@@ -193,9 +184,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		defer span.End()
 		defer cancel()
 
-		// If context times out or canceled, we return CapacityFull
 		var t ResourceToken
-		t = &resourceToken{err: CapacityFull}
 
 		c.L.Lock()
 
@@ -215,10 +204,12 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 		c.L.Unlock()
 
-		select {
-		case ch <- t:
-		default:
-			t.Close()
+		if t != nil {
+			select {
+			case ch <- t:
+			case <-ctx.Done():
+				t.Close()
+			}
 		}
 	}()
 

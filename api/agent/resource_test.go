@@ -3,13 +3,8 @@ package agent
 import (
 	"context"
 	"errors"
-	"math"
 	"testing"
 	"time"
-)
-
-var (
-	maxTimeout = time.Duration(math.MaxInt64)
 )
 
 func setTrackerTestVals(tr *resourceTracker, vals *trackerVals) {
@@ -168,7 +163,7 @@ func TestResourceGetSimple(t *testing.T) {
 
 	// ask for 4GB and 10 CPU
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false, maxTimeout)
+	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false)
 	defer cancel()
 
 	_, err := fetchToken(ch)
@@ -187,7 +182,7 @@ func TestResourceGetSimple(t *testing.T) {
 
 	// ask for another 4GB and 10 CPU
 	ctx, cancel = context.WithCancel(context.Background())
-	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false, maxTimeout)
+	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false)
 	defer cancel()
 
 	_, err = fetchToken(ch)

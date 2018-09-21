@@ -50,7 +50,6 @@ type slotQueue struct {
 	cond      *sync.Cond
 	slots     []*slotToken
 	nextId    uint64
-	signaller chan chan error
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -64,10 +63,9 @@ func NewSlotQueueMgr() *slotQueueMgr {
 
 func NewSlotQueue(key string) *slotQueue {
 	obj := &slotQueue{
-		key:       key,
-		cond:      sync.NewCond(new(sync.Mutex)),
-		slots:     make([]*slotToken, 0),
-		signaller: make(chan chan error, 1),
+		key:   key,
+		cond:  sync.NewCond(new(sync.Mutex)),
+		slots: make([]*slotToken, 0),
 	}
 
 	return obj
@@ -98,17 +96,10 @@ func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 
 	isWaiting := false
 	output := make(chan *slotToken)
+	dampen := make(chan struct{}, 2)
 
 	go func() {
-		<-ctx.Done()
-		a.cond.L.Lock()
-		if isWaiting {
-			a.cond.Broadcast()
-		}
-		a.cond.L.Unlock()
-	}()
-
-	go func() {
+		dampen <- struct{}{}
 		for {
 			a.cond.L.Lock()
 
@@ -134,6 +125,19 @@ func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 		}
 	}()
 
+	go func() {
+		dampen <- struct{}{}
+		<-ctx.Done()
+		a.cond.L.Lock()
+		if isWaiting {
+			a.cond.Broadcast()
+		}
+		a.cond.L.Unlock()
+	}()
+
+	// slow this down to allow at least go-routines to start above
+	<-dampen
+	<-dampen
 	return output
 }
 
@@ -160,7 +164,6 @@ func (a *slotQueue) isIdle() bool {
 
 	isIdle = a.stats.requestStates[RequestStateWait] == 0 &&
 		a.stats.requestStates[RequestStateExec] == 0 &&
-		a.stats.containerStates[ContainerStateWait] == 0 &&
 		a.stats.containerStates[ContainerStateStart] == 0 &&
 		a.stats.containerStates[ContainerStateIdle] == 0 &&
 		a.stats.containerStates[ContainerStatePaused] == 0 &&
@@ -177,37 +180,6 @@ func (a *slotQueue) getStats() slotQueueStats {
 	out = a.stats
 	a.statsLock.Unlock()
 	return out
-}
-
-func isNewContainerNeeded(cur *slotQueueStats) bool {
-
-	idleWorkers := cur.containerStates[ContainerStateIdle] + cur.containerStates[ContainerStatePaused]
-	starters := cur.containerStates[ContainerStateStart]
-	startWaiters := cur.containerStates[ContainerStateWait]
-
-	queuedRequests := cur.requestStates[RequestStateWait]
-
-	// we expect idle containers to immediately pick up
-	// any waiters. We assume non-idle containers busy.
-	effectiveWaiters := uint64(0)
-	if idleWorkers < queuedRequests {
-		effectiveWaiters = queuedRequests - idleWorkers
-	}
-
-	if effectiveWaiters == 0 {
-		return false
-	}
-
-	// we expect resource waiters to eventually transition
-	// into starters.
-	effectiveStarters := starters + startWaiters
-
-	// if containers are starting, do not start more than effective waiters
-	if effectiveStarters > 0 && effectiveStarters >= effectiveWaiters {
-		return false
-	}
-
-	return true
 }
 
 func (a *slotQueue) enterRequestState(reqType RequestStateType) {

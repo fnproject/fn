@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"strings"
@@ -329,7 +328,7 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 		}
 	} else {
 		statsDequeue(ctx)
-		if err == CapacityFull || err == context.DeadlineExceeded {
+		if err == models.ErrCallTimeoutServerBusy || err == context.DeadlineExceeded {
 			statsTooBusy(ctx)
 			return models.ErrCallTimeoutServerBusy
 		}
@@ -366,171 +365,141 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	defer span.End()
 
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
-		var isNew bool
-
 		if call.slotHashId == "" {
 			call.slotHashId = getSlotQueueKey(call)
 		}
 
-		call.slots, isNew = a.slotMgr.getSlotQueue(call.slotHashId)
+		call.slots, _ = a.slotMgr.getSlotQueue(call.slotHashId)
 		call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
-		if isNew {
-			go a.hotLauncher(ctx, call)
-		}
-		s, err := a.waitHot(ctx, call)
-		return s, err
+		return a.waitHot(ctx, call)
 	}
 
 	call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
 	return a.launchCold(ctx, call)
 }
 
-// hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
-// containers if needed. Upon shutdown or activity timeout, hotLauncher exits and during exit,
-// it destroys the slot queue.
-func (a *agent) hotLauncher(ctx context.Context, call *call) {
-	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
-	// whichever is longer. If in this time, there's no activity, then
-	// we destroy the hot queue.
-	timeout := a.cfg.HotLauncherTimeout
-	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
-	if timeout < idleTimeout {
-		timeout = idleTimeout
-	}
+// checkLaunch monitors both slot queue and resource tracker to get a token or a new
+// container whichever is faster. If a new container is launched, checkLaunch will wait
+// until launch completes before trying to spawn more containers.
+func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slotToken) (Slot, error) {
 
-	logger := common.Logger(ctx)
-	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
-
-	// IMPORTANT: get a context that has a child span / logger but NO timeout
-	// TODO this is a 'FollowsFrom'
-	ctx = common.BackgroundContext(ctx)
-	ctx, span := trace.StartSpan(ctx, "agent_hot_launcher")
-	defer span.End()
-
-	var notifyChan chan error
-
-	for {
-		ctx, cancel := context.WithTimeout(ctx, timeout)
-		a.checkLaunch(ctx, call, notifyChan)
-		notifyChan = nil
-
-		select {
-		case <-a.shutWg.Closer(): // server shutdown
-			cancel()
-			return
-		case <-ctx.Done(): // timed out
-			cancel()
-			if a.slotMgr.deleteSlotQueue(call.slots) {
-				logger.Info("Hot function launcher timed out")
-				return
-			}
-		case notifyChan = <-call.slots.signaller:
-			cancel()
-		}
-	}
-}
-
-func tryNotify(notifyChan chan error, err error) {
-	if notifyChan != nil && err != nil {
-		select {
-		case notifyChan <- err:
-		default:
-		}
-	}
-}
-
-func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan error) {
-	curStats := call.slots.getStats()
-	isNB := a.cfg.EnableNBResourceTracker
-	if !isNewContainerNeeded(&curStats) {
-		return
-	}
-
-	state := NewContainerState()
-	state.UpdateState(ctx, ContainerStateWait, call.slots)
-
+	isAsync := call.Type == models.TypeAsync
 	mem := call.Memory + uint64(call.TmpFsSize)
 
-	// In blocking mode, we attempt resource allocation in HotPoll intervals
-	// and attempt an evict if we get CapacityFull after HotPoll expiry.
-	// In non-blocking mode, the interval is set to 0.
-	resourceTimeout := a.cfg.HotPoll
-	if a.cfg.EnableNBResourceTracker {
-		resourceTimeout = 0
+	var launchPending chan struct{}
+	var resourceChan <-chan ResourceToken
+	var cancel func()
+
+	defer func() {
+		if cancel != nil {
+			cancel()
+		}
+	}()
+
+	// Initial quick check to drain any easy tokens in slot queue. Very happy case.
+	s, err := a.tryGetToken(ctx, call, slotChan)
+	if s != nil || err != nil {
+		return s, err
 	}
 
-	// WARNING: Tricky flow below. We are here because: isNewContainerNeeded is true,
-	// in other words, we need to launch a new container at this time due to high load.
-	//
-	// For non-blocking mode, this means, if we cannot acquire resources (cpu+mem), then we need
-	// to notify the caller through notifyChan. This is not perfect as the callers and
-	// checkLaunch do not match 1-1. But this is OK, we can notify *any* waiter that
-	// has signalled us, this is because non-blocking mode is a system wide setting.
-	// The notifications are lossy, but callers will signal/poll again if this is the case
-	// or this may not matter if they've already acquired an empty slot.
-	//
-	// For Non-blocking mode, a.cfg.HotPoll should not be set to too high since a missed
-	// notify event from here will add a.cfg.HotPoll msec latency. Setting a.cfg.HotPoll may
-	// be an acceptable workaround for the short term since non-blocking mode likely to reduce
-	// the number of waiters which perhaps could compensate for more frequent polling.
-	//
-	// Non-blocking mode only applies to cpu+mem, and if isNewContainerNeeded decided that we do not
-	// need to start a new container, then waiters will wait.
-	select {
-	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs):
-		if tok != nil && tok.Error() != nil {
-			// non-capacity related errors should be propagated to callers
-			// for capacity full, we attempt an eviction.
-			if tok.Error() != CapacityFull {
-				tryNotify(notifyChan, tok.Error())
-			} else if !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) {
-				// If evictions didn't work, then for non-blocking, we propagate error now.
-				if a.cfg.EnableNBResourceTracker {
-					tryNotify(notifyChan, tok.Error())
+	for {
+		// If we are currently launching a container, let's wait for the launch process.
+		// We also check slotChan in case a previously busy container gets done earlier
+		// than the current launch process. This cuts down latency in those cases, but
+		// leaves an orphan container, which can be used by other queries or claimed by
+		// evictor
+		if launchPending != nil {
+			select {
+			case s := <-slotChan:
+				// check to see if slot is still valid (could be evicted, exited, etc.)
+				if call.slots.acquireSlot(s) {
+					if s.slot.Error() != nil {
+						s.slot.Close()
+						return nil, s.slot.Error()
+					}
+					return s.slot, nil
 				}
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-a.shutWg.Closer(): // server shutdown
+				return nil, models.ErrCallTimeoutServerBusy
+			case <-launchPending:
+				launchPending = nil
 			}
-		} else if a.shutWg.AddSession(1) {
+			if launchPending != nil {
+				// we are here because we got a token but couldn't acquire it.
+				continue
+			}
+		}
+
+		// IMPORTANT: Check again here to avoid select below to randomly
+		// pick resourceChan if token is already available. Remember if
+		// multiple channels are I/O pending, then select will pick at random.
+		// Extra poll here prioritizes slotChan slightly
+		s, err := a.tryGetToken(ctx, call, slotChan)
+		if s != nil || err != nil {
+			return s, err
+		}
+
+		// Get a resourceChan if we do not have one. Otherwise, select below
+		// will continue with previous resourceChan.
+		if resourceChan == nil {
+			ctx, ctxCancel := context.WithCancel(ctx)
+			cancel = ctxCancel
+			resourceChan = a.resources.GetResourceToken(ctx, mem, call.CPUs, isAsync)
+		}
+
+		select {
+		case s := <-slotChan:
+			// check to see if slot is still valid (could be evicted, exited, etc.)
+			if call.slots.acquireSlot(s) {
+				if s.slot.Error() != nil {
+					s.slot.Close()
+					return nil, s.slot.Error()
+				}
+				return s.slot, nil
+			}
+		case resource := <-resourceChan:
+			statsUtilization(ctx, a.resources.GetUtilization())
+
+			// We received our resource, now shutdown GetResourceToken() channel via cancel
+			// and clear the resourceChan. resourceChan is one-time use only with one resource
+			// output.
+			cancel()
+			cancel = nil
+			resourceChan = nil
+
+			// If we can't add a session, we are shutting down, return too-busy
+			if !a.shutWg.AddSession(1) {
+				resource.Close()
+				return nil, models.ErrCallTimeoutServerBusy
+			}
+
+			// set a new launchPending channel, which we will wait on before attempting
+			// to launch more containers.
+			launchPending = make(chan struct{}, 1)
 			go func() {
 				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
-				a.runHot(ctx, call, tok, state)
+				a.runHot(ctx, call, resource, launchPending)
 				a.shutWg.DoneSession()
 			}()
-			// early return (do not allow container state to switch to ContainerStateDone)
-			return
+		case <-time.After(a.cfg.HotPoll):
+			// We are here because we waited for too long for CPU. We evict and continue waiting for resources
+			if !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) && a.cfg.EnableNBResourceTracker {
+				return nil, models.ErrCallTimeoutServerBusy
+			}
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-a.shutWg.Closer(): // server shutdown
+			return nil, models.ErrCallTimeoutServerBusy
 		}
-
-		if tok != nil {
-			statsUtilization(ctx, a.resources.GetUtilization())
-			tok.Close()
-		}
-	case <-ctx.Done(): // timeout
-	case <-a.shutWg.Closer(): // server shutdown
 	}
-
-	state.UpdateState(ctx, ContainerStateDone, call.slots)
 }
 
-// waitHot pings and waits for a hot container from the slot queue
-func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
-	ctx, span := trace.StartSpan(ctx, "agent_wait_hot")
-	defer span.End()
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel() // shut down dequeuer if we grab a slot
-
-	ch := call.slots.startDequeuer(ctx)
-
-	notifyChan := make(chan error)
-
-	// 1) if we can get a slot immediately, grab it.
-	// 2) if we don't, send a signaller every x msecs until we do.
-
-	sleep := 1 * time.Microsecond // pad, so time.After doesn't send immediately
+// tryGetToken attempts to fetch/acquire a token from slot queue without blocking.
+func (a *agent) tryGetToken(ctx context.Context, call *call, ch chan *slotToken) (Slot, error) {
 	for {
 		select {
-		case err := <-notifyChan:
-			return nil, err
 		case s := <-ch:
 			if call.slots.acquireSlot(s) {
 				if s.slot.Error() != nil {
@@ -539,23 +508,22 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 				}
 				return s.slot, nil
 			}
-			// we failed to take ownership of the token (eg. container idle timeout) => try again
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-a.shutWg.Closer(): // server shutdown
-			return nil, models.ErrCallTimeoutServerBusy
-		case <-time.After(sleep):
-			// ping dequeuer again
-		}
-
-		// set sleep to x msecs after first iteration
-		sleep = a.cfg.HotPoll
-		// send a notification to launchHot()
-		select {
-		case call.slots.signaller <- notifyChan:
 		default:
+			return nil, nil
 		}
 	}
+}
+
+// waitHot waits for a hot container or launches a new one
+func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
+	ctx, span := trace.StartSpan(ctx, "agent_wait_hot")
+	defer span.End()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // shut down dequeuer if we grab a slot
+
+	ch := call.slots.startDequeuer(ctx)
+	return a.checkLaunch(ctx, call, ch)
 }
 
 // launchCold waits for necessary resources to launch a new container, then
@@ -568,19 +536,8 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	ch := make(chan Slot)
 	mem := call.Memory + uint64(call.TmpFsSize)
 
-	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
-
-	timeout := time.Duration(0)
-	if !a.cfg.EnableNBResourceTracker {
-		timeout = time.Duration(math.MaxInt64)
-	}
-
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs):
-		if tok.Error() != nil {
-			return nil, tok.Error()
-		}
-
 		go a.prepCold(ctx, call, tok, ch)
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -943,15 +900,20 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	}
 }
 
-func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
+func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, ready chan struct{}) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
 	ctx = common.BackgroundContext(ctx)
 	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
 	defer span.End()
 
-	statsUtilization(ctx, a.resources.GetUtilization())
+	state := NewContainerState()
+
 	defer func() {
+		select {
+		case ready <- struct{}{}:
+		default:
+		}
 		statsUtilization(ctx, a.resources.GetUtilization())
 	}()
 
@@ -1036,6 +998,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			return
 		}
 
+		initSig := ready
+
 		for {
 			select { // make sure everything is up before trying to send slot
 			case <-ctx.Done(): // container shutdown
@@ -1053,7 +1017,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				udsClient:     udsClient,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
-			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
+			if !a.runHotReq(ctx, call, state, logger, cookie, slot, initSig) {
 				return
 			}
 			// wait for this call to finish
@@ -1064,6 +1028,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				logger.WithError(slot.fatalErr).Info("hot function terminating")
 				return
 			}
+
+			initSig = nil
 		}
 	}()
 
@@ -1155,7 +1121,7 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 // runHotReq enqueues a free slot to slot queue manager and watches various timers and the consumer until
 // the slot is consumed. A return value of false means, the container should shutdown and no subsequent
 // calls should be made to this function.
-func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState, logger logrus.FieldLogger, cookie drivers.Cookie, slot *hotSlot) bool {
+func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState, logger logrus.FieldLogger, cookie drivers.Cookie, slot *hotSlot, initSig chan struct{}) bool {
 
 	var err error
 	isFrozen := false
@@ -1179,6 +1145,12 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	state.UpdateState(ctx, ContainerStateIdle, call.slots)
 
 	s := call.slots.queueSlot(slot)
+	if initSig != nil {
+		select {
+		case initSig <- struct{}{}:
+		default:
+		}
+	}
 
 	for {
 		select {
