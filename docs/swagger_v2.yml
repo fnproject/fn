@@ -569,6 +569,7 @@ definitions:
         enum:
           - default
           - http
+          - http-stream
           - json
           - cloudevent
         description: "Payload format sent into function."
