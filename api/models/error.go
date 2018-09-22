@@ -146,6 +146,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("Invalid annotation change, new key(s) exceed maximum permitted number of annotations keys (%d)", maxAnnotationsKeys),
 	}
+	ErrTooManyRequests = err{
+		code:  http.StatusTooManyRequests,
+		error: errors.New("Too many requests submitted"),
+	}
 
 	ErrAsyncUnsupported = err{
 		code:  http.StatusBadRequest,
