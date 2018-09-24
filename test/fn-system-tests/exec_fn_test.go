@@ -255,12 +255,14 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
 	results := make(chan error)
+	latch := make(chan struct{})
 	concurrentFuncs := 10
 	for i := 0; i < concurrentFuncs; i++ {
 		go func() {
 			body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
+			<-latch
 			resp, err := callFN(ctx, u.String(), content, output)
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
@@ -280,6 +282,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			results <- nil
 		}()
 	}
+	close(latch)
 	for i := 0; i < concurrentFuncs; i++ {
 		err := <-results
 		if err != nil {
