@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"net/http"
 	"strconv"
 
