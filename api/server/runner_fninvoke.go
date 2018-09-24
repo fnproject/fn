@@ -44,10 +44,10 @@ type syncResponseWriter struct {
 func (s *syncResponseWriter) Header() http.Header { return s.headers }
 
 // By storing the status here, we effectively buffer the response
-func (s *syncResponseWriter) WriteHeader(code int)     { s.status = code }
-func (s *syncResponseWriter) Status() int              { return s.status }
-func (s *syncResponseWriter) GetBuffer() *bytes.Buffer { return s.Buffer }
-func (s *syncResponseWriter) SetBuffer(buf *bytes.Buffer) { s.Buffer = buf}
+func (s *syncResponseWriter) WriteHeader(code int)        { s.status = code }
+func (s *syncResponseWriter) Status() int                 { return s.status }
+func (s *syncResponseWriter) GetBuffer() *bytes.Buffer    { return s.Buffer }
+func (s *syncResponseWriter) SetBuffer(buf *bytes.Buffer) { s.Buffer = buf }
 
 // handleFnInvokeCall executes the function, for router handlers
 func (s *Server) handleFnInvokeCall(c *gin.Context) {
@@ -98,8 +98,8 @@ func (s *Server) fnInvoke(c *gin.Context, app *models.App, fn *models.Fn, writer
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	var submitErr error
-	defer func(){
-		if buf.Len() == 0 && submitErr == nil{
+	defer func() {
+		if buf.Len() == 0 && submitErr == nil {
 			bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
 		}
 	}()
