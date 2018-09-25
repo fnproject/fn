@@ -739,6 +739,10 @@ func WithPrometheus() Option {
 		s.promExporter = exporter
 		view.RegisterExporter(exporter)
 
+		converter, _ := NewSpanConverter(Options{Namespace: "fn"})
+		trace.RegisterExporter(converter)
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
 		return nil
 	}
 }
