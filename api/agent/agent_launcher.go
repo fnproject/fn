@@ -7,34 +7,38 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
-type WaitResult struct {
-	Slot Slot
-	Err  error
+// implements Slot
+type errSlot struct {
+	err error
 }
 
+func (s *errSlot) Error() error                               { return s.err }
+func (s *errSlot) Close() error                               { return nil }
+func (s *errSlot) exec(ctx context.Context, call *call) error { panic("bug") }
+
 // tryGetToken attempts to fetch/acquire a token from slot queue without blocking.
-func tryGetToken(ch chan WaitResult) (Slot, error) {
+func tryGetToken(ch chan Slot) Slot {
 	select {
 	case s := <-ch:
-		return s.Slot, s.Err
+		return s
 	default:
-		return nil, nil
+		return nil
 	}
 }
 
 // waitGetToken blocks and waits on both wait and token channels.
-func waitGetToken(ch chan WaitResult, wait chan struct{}) (Slot, error) {
+func waitGetToken(ch chan Slot, wait chan struct{}) Slot {
 	select {
 	case s := <-ch:
-		return s.Slot, s.Err
+		return s
 	case <-wait:
 	}
-	return nil, nil
+	return nil
 }
 
 // listenWaitResult listens [context, agent shutdown, slot channel] and pushes the result to one channel
-func (a *agent) listenWaitResult(ctx context.Context, call *call, slotChan chan *slotToken) chan WaitResult {
-	output := make(chan WaitResult)
+func (a *agent) listenWaitResult(ctx context.Context, call *call, slotChan chan *slotToken) chan Slot {
+	output := make(chan Slot)
 	dampen := make(chan struct{}, 1)
 
 	go func() {
@@ -43,13 +47,8 @@ func (a *agent) listenWaitResult(ctx context.Context, call *call, slotChan chan 
 			select {
 			case s := <-slotChan:
 				if call.slots.acquireSlot(s) {
-					if s.slot.Error() != nil {
-						s.slot.Close()
-						output <- WaitResult{nil, s.slot.Error()}
-						return
-					}
 					select {
-					case output <- WaitResult{s.slot, nil}:
+					case output <- s.slot:
 					case <-ctx.Done():
 						s.slot.Close()
 					case <-a.shutWg.Closer():
@@ -58,10 +57,10 @@ func (a *agent) listenWaitResult(ctx context.Context, call *call, slotChan chan 
 					return
 				}
 			case <-ctx.Done():
-				output <- WaitResult{nil, ctx.Err()}
+				output <- &errSlot{ctx.Err()}
 				return
 			case <-a.shutWg.Closer(): // server shutdown
-				output <- WaitResult{nil, models.ErrCallTimeoutServerBusy}
+				output <- &errSlot{models.ErrCallTimeoutServerBusy}
 				return
 			}
 		}
@@ -74,16 +73,16 @@ func (a *agent) listenWaitResult(ctx context.Context, call *call, slotChan chan 
 // checkLaunch monitors both slot queue and resource tracker to get a token or a new
 // container whichever is faster. If a new container is launched, checkLaunch will wait
 // until launch completes before trying to spawn more containers.
-func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slotToken) (Slot, error) {
+func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slotToken) Slot {
 
 	isAsync := call.Type == models.TypeAsync
 	mem := call.Memory + uint64(call.TmpFsSize)
 	waitChan := a.listenWaitResult(ctx, call, slotChan)
 
 	// Initial quick check to drain any easy tokens in slot queue. Very happy case.
-	s, err := tryGetToken(waitChan)
-	if s != nil || err != nil {
-		return s, err
+	s := tryGetToken(waitChan)
+	if s != nil {
+		return s
 	}
 
 	for {
@@ -92,9 +91,9 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slot
 		// cpu/mem resource if both are available. If we spawned a container in previous
 		// iteration, there's no success guarantee here, since it is possible that
 		// another request stole that Slot.
-		s, err := tryGetToken(waitChan)
-		if s != nil || err != nil {
-			return s, err
+		s := tryGetToken(waitChan)
+		if s != nil {
+			return s
 		}
 
 		// Prepare context/cancel for GetResourceToken()
@@ -107,22 +106,22 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slot
 		select {
 		case s := <-waitChan:
 			cancel()
-			return s.Slot, s.Err
+			return s
 		case resource := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isAsync):
 			cancel()
 			launchWait := make(chan struct{}, 1)
 			if !a.launchHot(ctx, call, resource, launchWait) {
-				return nil, models.ErrCallTimeoutServerBusy
+				return &errSlot{models.ErrCallTimeoutServerBusy}
 			}
 			// let's wait for the launch process.
-			s, err := waitGetToken(waitChan, launchWait)
-			if s != nil || err != nil {
-				return s, err
+			s := waitGetToken(waitChan, launchWait)
+			if s != nil {
+				return s
 			}
 		case <-time.After(a.cfg.HotPoll):
 			cancel()
 			if !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) && a.cfg.EnableNBResourceTracker {
-				return nil, models.ErrCallTimeoutServerBusy
+				return &errSlot{models.ErrCallTimeoutServerBusy}
 			}
 		}
 	}

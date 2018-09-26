@@ -291,12 +291,12 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	a.startStateTrackers(ctx, call)
 	defer a.endStateTrackers(ctx, call)
 
-	slot, err := a.getSlot(ctx, call)
-	if err != nil {
-		return a.handleCallEnd(ctx, call, slot, err, false)
+	slot := a.getSlot(ctx, call)
+	if slot.Error() != nil {
+		return a.handleCallEnd(ctx, call, slot, slot.Error(), false)
 	}
 
-	err = call.Start(ctx)
+	err := call.Start(ctx)
 	if err != nil {
 		return a.handleCallEnd(ctx, call, slot, err, false)
 	}
@@ -317,9 +317,8 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 	if call.slots != nil {
 		defer a.slotMgr.freeSlotQueue(call.slots)
 	}
-	if slot != nil {
-		slot.Close()
-	}
+
+	slot.Close()
 
 	// This means call was routed (executed)
 	if isStarted {
@@ -350,7 +349,7 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 // getSlot returns a Slot (or error) for the request to run. Depending on hot/cold
 // request type, this may launch a new container or wait for other containers to become idle
 // or it may wait for resources to become available to launch a new container.
-func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
+func (a *agent) getSlot(ctx context.Context, call *call) Slot {
 	if call.Type == models.TypeAsync {
 		// *) for async, slot deadline is also call.Timeout. This is because we would like to
 		// allocate enough time for docker-pull, slot-wait, docker-start, etc.
@@ -381,7 +380,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 }
 
 // waitHot waits for a hot container or launches a new one
-func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
+func (a *agent) waitHot(ctx context.Context, call *call) Slot {
 	ctx, span := trace.StartSpan(ctx, "agent_wait_hot")
 	defer span.End()
 
@@ -394,7 +393,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 
 // launchCold waits for necessary resources to launch a new container, then
 // returns the slot for that new container to run the request on.
-func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
+func (a *agent) launchCold(ctx context.Context, call *call) Slot {
 	ctx, span := trace.StartSpan(ctx, "agent_launch_cold")
 	defer span.End()
 
@@ -406,19 +405,15 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs):
 		go a.prepCold(ctx, call, tok, ch)
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return &errSlot{ctx.Err()}
 	}
 
 	// wait for launch err or a slot to open up
 	select {
 	case s := <-ch:
-		if s.Error() != nil {
-			s.Close()
-			return nil, s.Error()
-		}
-		return s, nil
+		return s
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return &errSlot{ctx.Err()}
 	}
 }
 
