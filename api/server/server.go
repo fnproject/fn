@@ -48,6 +48,9 @@ const (
 	// forcing usage through WithXxx configuration methods and documenting there vs.
 	// expecting users to use os.SetEnv(EnvLogLevel, "debug") // why ?
 
+	// EnvLogFormat sets the stderr logging format, text or json only
+	EnvLogFormat = "FN_LOG_FORMAT"
+
 	// EnvLogLevel sets the stderr logging level
 	EnvLogLevel = "FN_LOG_LEVEL"
 
@@ -115,6 +118,9 @@ const (
 
 	// EnvMaxRequestSize sets the limit in bytes for any API request's length.
 	EnvMaxRequestSize = "FN_MAX_REQUEST_SIZE"
+
+	// DefaultLogFormat is text
+	DefaultLogFormat = "text"
 
 	// DefaultLogLevel is info
 	DefaultLogLevel = "info"
@@ -246,6 +252,7 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	}
 	opts = append(opts, WithWebPort(getEnvInt(EnvPort, DefaultPort)))
 	opts = append(opts, WithGRPCPort(getEnvInt(EnvGRPCPort, DefaultGRPCPort)))
+	opts = append(opts, WithLogFormat(getEnv(EnvLogFormat, DefaultLogFormat)))
 	opts = append(opts, WithLogLevel(getEnv(EnvLogLevel, DefaultLogLevel)))
 	opts = append(opts, WithLogDest(getEnv(EnvLogDest, DefaultLogDest), getEnv(EnvLogPrefix, "")))
 	opts = append(opts, WithZipkin(getEnv(EnvZipkinURL, "")))
@@ -305,6 +312,14 @@ func WithWebPort(port int) Option {
 func WithGRPCPort(port int) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.svcConfigs[GRPCServer].Addr = fmt.Sprintf(":%d", port)
+		return nil
+	}
+}
+
+// WithLogFormat maps EnvLogFormat
+func WithLogFormat(format string) Option {
+	return func(ctx context.Context, s *Server) error {
+		common.SetLogFormat(format)
 		return nil
 	}
 }

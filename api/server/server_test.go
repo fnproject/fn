@@ -19,6 +19,7 @@ import (
 
 func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType NodeType, opts ...Option) *Server {
 	return New(context.Background(), append(opts,
+		WithLogFormat("text"),
 		WithLogLevel("debug"),
 		WithDatastore(ds),
 		WithMQ(mq),
