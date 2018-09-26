@@ -86,17 +86,16 @@ func (a *App) Validate() error {
 
 	if a.SyslogURL != nil && *a.SyslogURL != "" {
 		url, err := url.Parse(strings.TrimSpace(*a.SyslogURL))
-		fail := err != nil
-		if !fail {
+		if err == nil {
 			// See: https://docs.docker.com/config/containers/logging/syslog/#options
 			switch url.Scheme {
 			case "udp", "tcp", "unix", "unixgram", "tcp+tls":
 			default:
-				fail = true
+				err = fmt.Errorf("invalid scheme, only [tcp, udp, unix, unixgram, tcp+tls] are supported")
 			}
 		}
-		if fail {
-			return ErrInvalidSyslog(fmt.Sprintf(`invalid syslog url: "%v"`, *a.SyslogURL))
+		if err != nil { // not else if for a reason...
+			return ErrInvalidSyslog(fmt.Sprintf(`invalid syslog url: "%v" %v`, *a.SyslogURL, err))
 		}
 	}
 	return nil
