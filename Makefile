@@ -130,7 +130,12 @@ docker-test:
 	-v ${CURDIR}:/go/src/github.com/fnproject/fn \
 	-w /go/src/github.com/fnproject/fn \
 	fnproject/go:dev go test \
-	-v $(shell docker run --rm -ti -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn')
+	-v $(shell docker run --rm -ti -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn -e GOPATH=/go golang:alpine sh -c 'go list ./... | \
+                                                                                                                                                          grep -v vendor | \
+                                                                                                                                                          grep -v examples | \
+                                                                                                                                                          grep -v test/fn-api-tests | \
+                                                                                                                                                          grep -v test/fn-system-tests | \
+                                                                                                                                                          grep -v images/fn-test-utils')
 
 .PHONY: all
 all: dep generate build

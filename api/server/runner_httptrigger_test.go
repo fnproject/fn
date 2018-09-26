@@ -324,7 +324,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 	statusChecker := `{"echoContent": "_TRX_ID_", "isDebug": true, "responseCode":202, "responseContentType": "application/json; charset=utf-8"}`
 
 	fooHeader := map[string][]string{"Content-Type": {"application/hateson"}, "Test-Header": {"foo"}}
-	expFooHeaders := map[string][]string{"Content-Type": {"application/hateson"}, "Test-Header": {"foo"}}
+	expFooHeaders := map[string][]string{"Content-Type": {"application/hateson"}, "Return-Header": {"foo", "bar"}}
 	expFooHeadersBody := `{"echoContent": "_TRX_ID_",
 		"expectHeaders": {
 			"Content-Type":["application/hateson"],
@@ -333,7 +333,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 			"Fn-Http-Request-Url":["http://127.0.0.1:8080/t/myapp/httpstream"]
 		},
 		"returnHeaders": {
-			"Test-Header":["foo"]
+			"Return-Header":["foo","bar"]
 		},
 		"responseContentType":"application/hateson",
 		"isDebug": true}`

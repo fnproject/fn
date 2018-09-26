@@ -116,8 +116,7 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 	gatewayStatus := 200
 	if statusCode >= 400 {
 		gatewayStatus = 502
-	}
-	if fnStatus > 0 {
+	} else if fnStatus > 0 {
 		gatewayStatus = fnStatus
 	}
 
