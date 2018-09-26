@@ -120,7 +120,7 @@ func RegisterAPIViews(tagKeys []string, dist []float64) {
 	}
 }
 
-func DefaultAPIViewsGetPath(routes gin.RoutesInfo, c *gin.Context) string {
+func DefaultAPIViewsGetPath(engine *gin.Engine, c *gin.Context, routes gin.RoutesInfo) string {
 	// get the handler url, example: /v1/apps/:app
 	url := "invalid"
 	for _, r := range routes {
@@ -142,7 +142,7 @@ func apiMetricsWrap(s *Server) {
 			}
 			start := time.Now()
 			ctx, err := tag.New(c.Request.Context(),
-				tag.Upsert(pathKey, APIViewsGetPath(routes, c)),
+				tag.Upsert(pathKey, APIViewsGetPath(engine, c, routes)),
 				tag.Upsert(methodKey, c.Request.Method),
 			)
 			if err != nil {
