@@ -30,6 +30,8 @@ var (
 	apiRequestCountMeasure  = common.MakeMeasure("api/request_count", "Count of API requests started", stats.UnitDimensionless)
 	apiResponseCountMeasure = common.MakeMeasure("api/response_count", "API response count", stats.UnitDimensionless)
 	apiLatencyMeasure       = common.MakeMeasure("api/latency", "Latency distribution of API requests", stats.UnitMilliseconds)
+
+	APIViewsGetPath = DefaultAPIViewsGetPath
 )
 
 func optionalCorsWrap(r *gin.Engine) {
@@ -118,6 +120,18 @@ func RegisterAPIViews(tagKeys []string, dist []float64) {
 	}
 }
 
+func DefaultAPIViewsGetPath(routes gin.RoutesInfo, c *gin.Context) string {
+	// get the handler url, example: /v1/apps/:app
+	url := "invalid"
+	for _, r := range routes {
+		if r.Handler == c.HandlerName() {
+			url = r.Path
+			break
+		}
+	}
+	return url
+}
+
 func apiMetricsWrap(s *Server) {
 
 	measure := func(engine *gin.Engine) func(*gin.Context) {
@@ -127,17 +141,8 @@ func apiMetricsWrap(s *Server) {
 				routes = engine.Routes()
 			}
 			start := time.Now()
-			// get the handler url, example: /v1/apps/:app
-			url := "invalid"
-			for _, r := range routes {
-				if r.Handler == c.HandlerName() {
-					url = r.Path
-					break
-				}
-			}
-
 			ctx, err := tag.New(c.Request.Context(),
-				tag.Upsert(pathKey, url),
+				tag.Upsert(pathKey, APIViewsGetPath(routes, c)),
 				tag.Upsert(methodKey, c.Request.Method),
 			)
 			if err != nil {
