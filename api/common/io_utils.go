@@ -107,7 +107,7 @@ func (g *ghostWriter) awaitRealWriter() (io.Writer, bool) {
 			g.cond.L.Unlock()
 			return nil, false
 		}
-		if _, ok := g.inner.(*waitWriter); ok {
+		if _, ok := g.inner.(*waitWriter); ok || g.inner == nil {
 			g.cond.Wait()
 		} else {
 			break
@@ -180,7 +180,7 @@ func (g *ghostReader) awaitRealReader() (io.Reader, bool) {
 			g.cond.L.Unlock()
 			return nil, false
 		}
-		if _, ok := g.inner.(*waitReader); ok {
+		if _, ok := g.inner.(*waitReader); ok || g.inner == nil {
 			g.cond.Wait()
 		} else {
 			break

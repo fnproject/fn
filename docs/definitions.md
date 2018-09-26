@@ -204,14 +204,14 @@ curl -v localhost:8080/r/newapp/envsync
 > Accept: */*
 > 
 < HTTP/1.1 200 OK
-< Fn_call_id: f5621e8b-725a-4ba9-8323-b8cdc02ce37e
+< Fn-Call-Id: f5621e8b-725a-4ba9-8323-b8cdc02ce37e
 < Date: Fri, 02 Jun 2017 12:31:30 GMT
 < Content-Length: 489
 < Content-Type: text/plain; charset=utf-8
 < 
 ...
 ```
-Corresponding HTTP header is `Fn_call_id`.
+Corresponding HTTP header is `Fn-Call-Id`.
 
 ### Per-route calls
 

@@ -11,15 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"go.opencensus.io/trace"
-
-	"net/textproto"
-
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 )
 
 type Call interface {
@@ -54,44 +51,6 @@ const (
 	// static path for all fn invocations
 	invokePath = "/invoke"
 )
-
-var skipTriggerHeaders = map[string]bool{
-	"Connection":        true,
-	"Keep-Alive":        true,
-	"Trailer":           true,
-	"Transfer-Encoding": true,
-	"TE":                true,
-	"Upgrade":           true,
-}
-
-// Sets up a call from an http trigger request
-func FromHTTPTriggerRequest(app *models.App, fn *models.Fn, trigger *models.Trigger, req *http.Request) CallOpt {
-	return func(c *call) error {
-		// transpose trigger headers into HTTP
-		headers := make(http.Header)
-		for k, vs := range req.Header {
-			// should be generally unnecessary but to be doubly sure.
-			k = textproto.CanonicalMIMEHeaderKey(k)
-			if skipTriggerHeaders[k] {
-				continue
-			}
-			rewriteKey := fmt.Sprintf("Fn-Http-H-%s", k)
-			for _, v := range vs {
-				headers.Add(rewriteKey, v)
-			}
-		}
-		requestUrl := reqURL(req)
-
-		headers.Set("Fn-Http-Method", req.Method)
-		headers.Set("Fn-Http-Request-Url", requestUrl)
-		headers.Set("Fn-Intent", "httprequest")
-		req.Header = headers
-
-		err := FromHTTPFnRequest(app, fn, req)(c)
-		c.Model().TriggerID = trigger.ID
-		return err
-	}
-}
 
 // Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
@@ -235,7 +194,17 @@ func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 	}
 }
 
-// WithWriter sets the writier that the call uses to send its output message to
+// WithTrigger adds trigger specific bits to a call.
+// TODO consider removal, this is from a shuffle
+func WithTrigger(t *models.Trigger) CallOpt {
+	return func(c *call) error {
+		// right now just set the trigger id
+		c.TriggerID = t.ID
+		return nil
+	}
+}
+
+// WithWriter sets the writer that the call uses to send its output message to
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
 	return func(c *call) error {
@@ -330,7 +299,6 @@ type call struct {
 	requestState   RequestState
 	containerState ContainerState
 	slotHashId     string
-	isLB           bool
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
@@ -377,12 +345,6 @@ func (c *call) Start(ctx context.Context) error {
 
 	c.StartedAt = common.DateTime(time.Now())
 	c.Status = "running"
-
-	if !c.isLB {
-		if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
-			rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
-		}
-	}
 
 	if c.Type == models.TypeAsync {
 		// XXX (reed): make sure MQ reservation is lengthy. to skirt MQ semantics,

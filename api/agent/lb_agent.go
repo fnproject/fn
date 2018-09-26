@@ -119,7 +119,6 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 
 	setupCtx(&c)
 
-	c.isLB = true
 	c.handler = a.cda
 	c.ct = a
 	c.stderr = &nullReadWriter{}

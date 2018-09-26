@@ -26,11 +26,24 @@ func WithContext(ctx context.Context, fnctx *Ctx) context.Context {
 
 // Ctx provides access to Config and Headers from fn.
 type Ctx struct {
-	Header     http.Header
+	// Header are the unmodified headers as sent to the container, see
+	// HTTPHeader for specific trigger headers
+	Header http.Header
+
+	// HTTPHeader are the request headers as they appear on the original HTTP request,
+	// for an http trigger.
+	HTTPHeader http.Header
 	Config     map[string]string
 	RequestURL string
 	Method     string
+
+	// XXX(reed): should turn this whole mess into some kind of event that we can
+	// morph into another type of an event after http/json/default die
+	// XXX(reed): should strip out eg FN_APP_NAME, etc as fields so Config is actually the config not config + fn's env vars
+	callId string
 }
+
+func (c Ctx) CallId() string { return c.callId }
 
 type key struct{}
 

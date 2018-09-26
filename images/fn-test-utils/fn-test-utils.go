@@ -65,6 +65,11 @@ type AppRequest struct {
 	PostErrGarbage string `json:"postErrGarbage,omitempty"`
 	// test empty body
 	IsEmptyBody bool `json:"isEmptyBody,omitempty"`
+	// test headers that come into function
+	ExpectHeaders map[string][]string `json:"expectHeaders,omitempty"`
+	// send some headers out explicitly
+	ReturnHeaders map[string][]string `json:"returnHeaders,omitempty"`
+
 	// TODO: simulate slow read/slow write
 	// TODO: simulate partial IO write/read
 	// TODO: simulate high cpu usage (async and sync)
@@ -119,11 +124,6 @@ func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 }
 
 func finalizeRequest(out io.Writer, req *AppRequest, resp *AppResponse) {
-	// custom response code
-	if req.ResponseCode != 0 {
-		fdk.WriteStatus(out, req.ResponseCode)
-	}
-
 	// custom content type
 	if req.ResponseContentType != "" {
 		fdk.SetHeader(out, "Content-Type", req.ResponseContentType)
@@ -135,6 +135,19 @@ func finalizeRequest(out io.Writer, req *AppRequest, resp *AppResponse) {
 	if req.JasonContentType != "" {
 		// this will get picked up by our json out handler...
 		fdk.SetHeader(out, "Content-Type", req.JasonContentType)
+	}
+
+	if req.ReturnHeaders != nil {
+		for k, vs := range req.ReturnHeaders {
+			for _, v := range vs {
+				fdk.AddHeader(out, k, v)
+			}
+		}
+	}
+
+	// custom response code
+	if req.ResponseCode != 0 {
+		fdk.WriteStatus(out, req.ResponseCode)
 	}
 
 	if !req.IsEmptyBody {
@@ -155,6 +168,7 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		log.Printf("Received format %v", format)
 		log.Printf("Received request %#v", request)
 		log.Printf("Received headers %v", fnctx.Header)
+		log.Printf("Received http headers %v", fnctx.HTTPHeader)
 		log.Printf("Received config %v", fnctx.Config)
 	}
 
@@ -217,6 +231,23 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 	// simulate crash
 	if request.IsCrash {
 		log.Fatalln("Crash requested")
+	}
+
+	if request.ExpectHeaders != nil {
+		for name, header := range request.ExpectHeaders {
+			if strings.HasPrefix(name, "Fn-Http-H-") {
+				// if it's an http header, make sure our other bucket works.
+				// idk this seems like a weird good idea, maybe we should only test/expose one or the other...
+				if h2 := fnctx.HTTPHeader.Get(strings.TrimPrefix(name, "Fn-Http-H-")); header[0] != h2 {
+					log.Fatalf("Expected http header `%s` to be `%s` but was `%s`.",
+						name, header[0], h2)
+				}
+			}
+			if h2 := fnctx.Header.Get(name); header[0] != h2 {
+				log.Fatalf("Expected header `%s` to be `%s` but was `%s`",
+					name, header[0], h2)
+			}
+		}
 	}
 
 	resp := AppResponse{
