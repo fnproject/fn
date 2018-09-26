@@ -36,8 +36,8 @@ func waitGetToken(ch chan Slot, wait chan struct{}) Slot {
 	return nil
 }
 
-// listenWaitResult listens [context, agent shutdown, slot channel] and pushes the result to one channel
-func (a *agent) listenWaitResult(ctx context.Context, call *call, slotChan chan *slotToken) chan Slot {
+// multiplexSlotChan listens [context, agent shutdown, slot channel] and pushes the result to one channel
+func (a *agent) multiplexSlotChan(ctx context.Context, call *call, slotChan chan *slotToken) chan Slot {
 	output := make(chan Slot)
 	dampen := make(chan struct{}, 1)
 
@@ -77,13 +77,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slot
 
 	isAsync := call.Type == models.TypeAsync
 	mem := call.Memory + uint64(call.TmpFsSize)
-	waitChan := a.listenWaitResult(ctx, call, slotChan)
-
-	// Initial quick check to drain any easy tokens in slot queue. Very happy case.
-	s := tryGetToken(waitChan)
-	if s != nil {
-		return s
-	}
+	waitChan := a.multiplexSlotChan(ctx, call, slotChan)
 
 	for {
 		// IMPORTANT: Remember if multiple channels are I/O pending, then select
