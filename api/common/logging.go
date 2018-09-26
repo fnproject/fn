@@ -9,15 +9,26 @@ import (
 	"strings"
 )
 
+func SetLogFormat(format string) {
+	if format != "text" && format != "json" {
+		logrus.WithFields(logrus.Fields{"format": format}).Warn("Unknown log format specified, using text. Possible options are json and text.")
+	}
+
+	if format == "json" {
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+	} else {
+		// show full timestamps
+		formatter := &logrus.TextFormatter{
+			FullTimestamp: true,
+		}
+		logrus.SetFormatter(formatter)
+	}
+}
+
 func SetLogLevel(ll string) {
 	if ll == "" {
 		ll = "info"
 	}
-	// show full timestamps
-	formatter := &logrus.TextFormatter{
-		FullTimestamp: true,
-	}
-	logrus.SetFormatter(formatter)
 
 	logrus.WithFields(logrus.Fields{"level": ll}).Info("Setting log level to")
 	logLevel, err := logrus.ParseLevel(ll)
