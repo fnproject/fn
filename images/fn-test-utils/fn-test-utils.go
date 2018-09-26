@@ -140,7 +140,7 @@ func finalizeRequest(out io.Writer, req *AppRequest, resp *AppResponse) {
 	if req.ReturnHeaders != nil {
 		for k, vs := range req.ReturnHeaders {
 			for _, v := range vs {
-				fdk.SetHeader(out, k, v)
+				fdk.AddHeader(out, k, v)
 			}
 		}
 	}

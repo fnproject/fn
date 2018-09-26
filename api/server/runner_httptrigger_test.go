@@ -16,6 +16,7 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+	"reflect"
 )
 
 func envTweaker(name, value string) func() {
@@ -433,10 +434,10 @@ func TestTriggerRunnerExecution(t *testing.T) {
 
 			if test.expectedHeaders != nil {
 				for name, header := range test.expectedHeaders {
-					if header[0] != rec.Header().Get(name) {
+					if !reflect.DeepEqual(header, rec.Header()[name]) {
 						isFailure = true
-						t.Errorf("Test %d: Expected header `%s` to be `%s` but was `%s`. body: `%s`",
-							i, name, header[0], rec.Header().Get(name), respBody)
+						t.Errorf("Test %d: Expected header `%s` to be `%v` but was `%v`. body: `%s`",
+							i, name, header, rec.Header()[name], respBody)
 					}
 				}
 			}
