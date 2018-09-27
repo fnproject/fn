@@ -250,7 +250,8 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	opts = append(opts, WithLogDest(getEnv(EnvLogDest, DefaultLogDest), getEnv(EnvLogPrefix, "")))
 	opts = append(opts, WithZipkin(getEnv(EnvZipkinURL, "")))
 	opts = append(opts, WithJaeger(getEnv(EnvJaegerURL, "")))
-	opts = append(opts, WithPrometheus()) // TODO option to turn this off?
+	opts = append(opts, WithPrometheus())    // TODO option to turn this off?
+	opts = append(opts, WithSpanConverter()) // TODO option to turn this off?
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLogDBURL, "")))
@@ -739,12 +740,16 @@ func WithPrometheus() Option {
 		s.promExporter = exporter
 		view.RegisterExporter(exporter)
 
-		converter, _ := NewSpanConverter(Options{Namespace: "fn"})
-		trace.RegisterExporter(converter)
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-
 		return nil
 	}
+}
+
+func WithSpanConverter() Option {
+	converter, _ := NewSpanConverter(Options{Namespace: "fn"})
+	trace.RegisterExporter(converter)
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
+	return nil
 }
 
 // WithoutHTTPTriggerEndpoints optionally disables the trigger and route endpoints from a LB -supporting server, allowing extensions to replace them with their own versions
