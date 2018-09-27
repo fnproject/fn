@@ -26,12 +26,14 @@ func tryGetToken(ch chan Slot) Slot {
 	}
 }
 
-// waitGetToken blocks and waits on both wait and token channels.
-func waitGetToken(ch chan Slot, wait chan struct{}) Slot {
-	select {
-	case s := <-ch:
-		return s
-	case <-wait:
+// waitGetToken blocks and waits on token channel and all waitChans
+func waitGetToken(ch chan Slot, waitChans []chan struct{}) Slot {
+	for _, wait := range waitChans {
+		select {
+		case s := <-ch:
+			return s
+		case <-wait:
+		}
 	}
 	return nil
 }
@@ -103,18 +105,26 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slot
 			return s
 		case resource := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isAsync):
 			cancel()
-			launchWait := make(chan struct{}, 1)
-			if !a.launchHot(ctx, call, resource, launchWait) {
+			launchChans := make([]chan struct{}, 0, 1)
+			launchChans = append(launchChans, make(chan struct{}, 1))
+			if !a.launchHot(ctx, call, resource, launchChans[0]) {
 				return &errSlot{models.ErrCallTimeoutServerBusy}
 			}
 			// let's wait for the launch process.
-			s := waitGetToken(waitChan, launchWait)
+			s := waitGetToken(waitChan, launchChans)
 			if s != nil {
 				return s
 			}
 		case <-time.After(a.cfg.HotPoll):
 			cancel()
-			if !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) && a.cfg.EnableNBResourceTracker {
+			evictChans := a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs))
+			if len(evictChans) > 0 {
+				// let's wait for the evict process.
+				s := waitGetToken(waitChan, evictChans)
+				if s != nil {
+					return s
+				}
+			} else if a.cfg.EnableNBResourceTracker {
 				return &errSlot{models.ErrCallTimeoutServerBusy}
 			}
 		}

@@ -2,6 +2,11 @@ package agent
 
 import (
 	"sync"
+	"sync/atomic"
+
+	"github.com/fnproject/fn/api/id"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Evictor For Agent
@@ -20,23 +25,22 @@ type tokenKey struct {
 }
 
 type EvictToken struct {
-	key tokenKey
-	C   chan struct{}
+	key       tokenKey
+	evictable uint32
+	C         chan struct{}
+	DoneChan  chan struct{}
 }
 
 type Evictor interface {
 	// Create an eviction token to be used in register/unregister functions
-	GetEvictor(id, slotId string, mem, cpu uint64) *EvictToken
-
-	// register an eviction token with evictor system
-	RegisterEvictor(token *EvictToken)
+	CreateEvictToken(slotId string, mem, cpu uint64) *EvictToken
 
 	// unregister an eviction token from evictor system
-	UnregisterEvictor(token *EvictToken)
+	DeleteEvictToken(token *EvictToken)
 
 	// perform eviction to satisfy resource requirements of the call
 	// returns true if evictions were performed to satisfy the requirements.
-	PerformEviction(slotId string, mem, cpu uint64) bool
+	PerformEviction(slotId string, mem, cpu uint64) []chan struct{}
 }
 
 type evictor struct {
@@ -62,6 +66,15 @@ func (tok *EvictToken) isEvicted() bool {
 	return false
 }
 
+func (token *EvictToken) SetEvictable(isEvictable bool) {
+	val := uint32(0)
+	if isEvictable {
+		val = 1
+	}
+
+	atomic.StoreUint32(&token.evictable, val)
+}
+
 func (tok *EvictToken) isEligible() bool {
 	// if no resource limits are in place, then this
 	// function is not eligible.
@@ -71,41 +84,37 @@ func (tok *EvictToken) isEligible() bool {
 	return true
 }
 
-func (e *evictor) GetEvictor(id, slotId string, mem, cpu uint64) *EvictToken {
+func (e *evictor) CreateEvictToken(slotId string, mem, cpu uint64) *EvictToken {
+
 	key := tokenKey{
-		id:     id,
+		id:     id.New().String(),
 		slotId: slotId,
 		memory: mem,
 		cpu:    cpu,
 	}
 
-	return &EvictToken{
-		key: key,
-		C:   make(chan struct{}),
-	}
-}
-
-func (e *evictor) RegisterEvictor(token *EvictToken) {
-	if !token.isEligible() || token.isEvicted() {
-		return
+	token := &EvictToken{
+		key:      key,
+		C:        make(chan struct{}),
+		DoneChan: make(chan struct{}),
 	}
 
 	e.lock.Lock()
 
-	// be paranoid, do not register if it's already there
 	_, ok := e.tokens[token.key.id]
-	if !ok {
-		e.tokens[token.key.id] = token
-		e.slots = append(e.slots, token.key)
+	if ok {
+		logrus.Fatalf("id collusion key=%+v", key)
 	}
+
+	e.tokens[token.key.id] = token
+	e.slots = append(e.slots, token.key)
 
 	e.lock.Unlock()
+
+	return token
 }
 
-func (e *evictor) UnregisterEvictor(token *EvictToken) {
-	if !token.isEligible() || token.isEvicted() {
-		return
-	}
+func (e *evictor) DeleteEvictToken(token *EvictToken) {
 
 	e.lock.Lock()
 
@@ -118,14 +127,18 @@ func (e *evictor) UnregisterEvictor(token *EvictToken) {
 	delete(e.tokens, token.key.id)
 
 	e.lock.Unlock()
+
+	close(token.DoneChan)
 }
 
-func (e *evictor) PerformEviction(slotId string, mem, cpu uint64) bool {
+func (e *evictor) PerformEviction(slotId string, mem, cpu uint64) []chan struct{} {
+	var notifyChans []chan struct{}
+
 	// if no resources are defined for this function, then
 	// we don't know what to do here. We cannot evict anyone
 	// in this case.
 	if mem == 0 && cpu == 0 {
-		return false
+		return notifyChans
 	}
 
 	// Our eviction sum so far
@@ -134,13 +147,17 @@ func (e *evictor) PerformEviction(slotId string, mem, cpu uint64) bool {
 	isSatisfied := false
 
 	var keys []string
-	var chans []chan struct{}
+	var completionChans []chan struct{}
 
 	e.lock.Lock()
 
 	for _, val := range e.slots {
 		// lets not evict from our own slot queue
 		if slotId == val.slotId {
+			continue
+		}
+		// descend into map to verify evictable state
+		if atomic.LoadUint32(&e.tokens[val.id].evictable) == 0 {
 			continue
 		}
 
@@ -158,7 +175,9 @@ func (e *evictor) PerformEviction(slotId string, mem, cpu uint64) bool {
 	// If we can satisfy the need, then let's commit/perform eviction
 	if isSatisfied {
 
-		chans = make([]chan struct{}, 0, len(keys))
+		notifyChans = make([]chan struct{}, 0, len(keys))
+		completionChans = make([]chan struct{}, 0, len(keys))
+
 		idx := 0
 		for _, id := range keys {
 
@@ -171,16 +190,18 @@ func (e *evictor) PerformEviction(slotId string, mem, cpu uint64) bool {
 				}
 			}
 
-			chans = append(chans, e.tokens[id].C)
+			notifyChans = append(notifyChans, e.tokens[id].C)
+			completionChans = append(completionChans, e.tokens[id].DoneChan)
+
 			delete(e.tokens, id)
 		}
 	}
 
 	e.lock.Unlock()
 
-	for _, ch := range chans {
+	for _, ch := range notifyChans {
 		close(ch)
 	}
 
-	return isSatisfied
+	return completionChans
 }

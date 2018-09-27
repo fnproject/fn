@@ -768,6 +768,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, ready
 	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
 	defer span.End()
 
+	evictor := a.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
+	defer a.evictor.DeleteEvictToken(evictor)
+
 	state := NewContainerState()
 	statsUtilization(ctx, a.resources.GetUtilization())
 
@@ -879,7 +882,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, ready
 				udsClient:     udsClient,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
-			if !a.runHotReq(ctx, call, state, logger, cookie, slot, initSig) {
+			if !a.runHotReq(ctx, call, state, logger, cookie, slot, initSig, evictor) {
 				return
 			}
 			// wait for this call to finish
@@ -983,7 +986,7 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 // runHotReq enqueues a free slot to slot queue manager and watches various timers and the consumer until
 // the slot is consumed. A return value of false means, the container should shutdown and no subsequent
 // calls should be made to this function.
-func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState, logger logrus.FieldLogger, cookie drivers.Cookie, slot *hotSlot, initSig chan struct{}) bool {
+func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState, logger logrus.FieldLogger, cookie drivers.Cookie, slot *hotSlot, initSig chan struct{}, evictor *EvictToken) bool {
 
 	var err error
 	isFrozen := false
@@ -991,10 +994,9 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
-	evictor := a.evictor.GetEvictor(call.ID, call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
 	defer func() {
-		a.evictor.UnregisterEvictor(evictor)
+		evictor.SetEvictable(false)
 		freezeTimer.Stop()
 		idleTimer.Stop()
 		// log if any error is encountered
@@ -1003,7 +1005,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		}
 	}()
 
-	a.evictor.RegisterEvictor(evictor)
+	evictor.SetEvictable(true)
 	state.UpdateState(ctx, ContainerStateIdle, call.slots)
 
 	s := call.slots.queueSlot(slot)
@@ -1037,7 +1039,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		break
 	}
 
-	a.evictor.UnregisterEvictor(evictor)
+	evictor.SetEvictable(false)
 
 	// if we can acquire token, that means we are here due to
 	// abort/shutdown/timeout, attempt to acquire and terminate,
