@@ -27,6 +27,9 @@ func handleErrorResponse(c *gin.Context, err error) {
 // HandleErrorResponse used to handle response errors in the same way.
 func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) {
 	log := common.Logger(ctx)
+	if w, ok := err.(models.APIErrorWrapper); ok {
+		log = log.WithField("root_error", w.RootError())
+	}
 
 	if ctx.Err() == context.Canceled {
 		log.Info("client context cancelled")

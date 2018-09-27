@@ -28,12 +28,10 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 	state := NewPlacerTracker(ctx, &sp.cfg)
 	defer state.HandleDone()
 
+	var runnerPoolErr error
 	for {
-		runners, err := rp.Runners(call)
-		if err != nil {
-			state.HandleFindRunnersFailure(err)
-			return err
-		}
+		var runners []Runner
+		runners, runnerPoolErr = rp.Runners(call)
 
 		for j := 0; j < len(runners) && !state.IsDone(); j++ {
 
@@ -51,5 +49,13 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 		}
 	}
 
+	if runnerPoolErr != nil {
+		// If we haven't been able to place the function and we got an error
+		// from the runner pool, return that error (since we don't have
+		// enough runners to handle the current load and the runner pool is
+		// having trouble).
+		state.HandleFindRunnersFailure(runnerPoolErr)
+		return runnerPoolErr
+	}
 	return models.ErrCallTimeoutServerBusy
 }
