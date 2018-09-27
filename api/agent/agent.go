@@ -1057,30 +1057,30 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	logger.WithError(res.Error()).Info("hot function terminated")
 }
 
+//checkSocketDestination verifies that the socket file created by the FDK is valid and permitted - notably verifying that any symlinks are relative to the socket dir
 func checkSocketDestination(filename string) error {
-	// check that any symlinks are relative and in same dir
 	finfo, err := os.Lstat(filename)
 	if err != nil {
 		return fmt.Errorf("error statting unix socket link file %s", err)
 	}
 
 	if (finfo.Mode() & os.ModeSymlink) > 0 {
-		dest, err := os.Readlink(filename)
+		linkDest, err := os.Readlink(filename)
 		if err != nil {
 			return fmt.Errorf("error reading unix socket symlink destination %s", err)
 		}
-		if filepath.Dir(dest) != "." {
-			return fmt.Errorf("invalid unix socket symlink, symlinks must resolve to within the unix socket directory ")
+		if filepath.Dir(linkDest) != "." {
+			return fmt.Errorf("invalid unix socket symlink, symlinks must be relative within the unix socket directory")
 		}
 	}
 
-	// stat the absolute path and check it is a socket and that it's writable
+	// stat the absolute path and check it is a socket
 	absInfo, err := os.Stat(filename)
 	if err != nil {
 		return fmt.Errorf("unable to stat unix socket file %s", err)
 	}
 	if absInfo.Mode()&os.ModeSocket == 0 {
-		return fmt.Errorf("socket file is not a socket ")
+		return fmt.Errorf("listener file is not a socket")
 	}
 
 	return nil
