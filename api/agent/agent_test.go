@@ -22,6 +22,10 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/sirupsen/logrus"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
 )
 
 func init() {
@@ -1161,4 +1165,66 @@ func TestDockerAuthExtn(t *testing.T) {
 	if da.RegistryToken != "TestRegistryToken" {
 		t.Fatalf("unexpected registry token %s", da.RegistryToken)
 	}
+}
+
+func TestCheckSocketDestination(t *testing.T) {
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "testSocketPerms")
+	if err != nil {
+		t.Fatal("failed to create temp tmpDir", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	goodSock := filepath.Join(tmpDir, "fn.sock")
+	s, err := net.Listen("unix", goodSock)
+	if err != nil {
+		t.Fatal("failed to create socket", err)
+	}
+	defer s.Close()
+
+	err = os.Chmod(goodSock, 0666)
+	if err != nil {
+		t.Fatal("failed to change perms", err)
+	}
+	notASocket := filepath.Join(tmpDir, "notasock.sock")
+
+	err = ioutil.WriteFile(notASocket, []byte{0}, 0666)
+	if err != nil {
+		t.Fatalf("Failed to create empty sock")
+	}
+
+	goodSymlink := filepath.Join(tmpDir, "goodlink.sock")
+	err = os.Symlink("fn.sock", goodSymlink)
+	if err != nil {
+		t.Fatalf("Failed to create symlink")
+	}
+
+	badLinkNonExistant := filepath.Join(tmpDir, "badlinknonExist.sock")
+	err = os.Symlink("noxexistatnt.sock", badLinkNonExistant)
+	if err != nil {
+		t.Fatalf("Failed to create symlink")
+	}
+
+	badLinkOutOfPath := filepath.Join(tmpDir, "badlinkoutofpath.sock")
+	err = os.Symlink(filepath.Join("..", filepath.Base(tmpDir), "fn.sock"), badLinkOutOfPath)
+	if err != nil {
+		t.Fatalf("Failed to create symlink")
+	}
+
+	for _, good := range []string{goodSock, goodSymlink} {
+		t.Run(filepath.Base(good), func(t *testing.T) {
+			err := checkSocketDestination(good)
+			if err != nil {
+				t.Errorf("Expected no error got, %s", err)
+			}
+		})
+	}
+	for _, bad := range []string{notASocket, badLinkNonExistant, badLinkOutOfPath, filepath.Join(tmpDir, "notAFile"), tmpDir} {
+		t.Run(filepath.Base(bad), func(t *testing.T) {
+			err := checkSocketDestination(bad)
+			if err == nil {
+				t.Errorf("Expected an error but got none")
+			}
+		})
+	}
+
 }
