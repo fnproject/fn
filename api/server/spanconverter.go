@@ -59,6 +59,8 @@ func (c *SpanConverter) ExportSpan(sd *trace.SpanData) {
 	stats.Record(context.Background(), m.M(spanTimeMillis))
 }
 
+var latencyDist = []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+
 func (c *SpanConverter) getMeasure(span *trace.SpanData) *stats.Float64Measure {
 	sig := sanitize(span.Name)
 	c.viewsMu.Lock()
@@ -71,16 +73,7 @@ func (c *SpanConverter) getMeasure(span *trace.SpanData) *stats.Float64Measure {
 			Name:        sanitize(span.Name),
 			Description: sanitize(span.Name),
 			Measure:     m,
-			Aggregation: view.Distribution(1,
-				10,
-				50,
-				100,
-				250,
-				500,
-				1000,
-				10000,
-				60000,
-				120000),
+			Aggregation: view.Distribution(latencyDist...),
 		}
 
 		c.viewsMu.Lock()
@@ -122,8 +115,8 @@ func sanitizeRune(r rune) rune {
 	return '_'
 }
 
-//Gin creates spans for all paths, containing ID values.
-//We can safely discard these, as other histograms are being created for them.
+// Gin creates spans for all paths, containing ID values.
+// We can safely discard these, as other histograms are being created for them.
 func urlName(sd *trace.SpanData) bool {
 	return strings.HasPrefix(sd.Name, "/")
 }
