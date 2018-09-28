@@ -1105,7 +1105,11 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 	if err != nil {
 		return fmt.Errorf("error getting fsnotify watcher: %v", err)
 	}
-	defer fsWatcher.Close()
+	defer func() {
+		if err := fsWatcher.Close(); err != nil {
+			common.Logger(ctx).WithError(err).Error("Failed to close inotify watcher")
+		}
+	}()
 
 	err = fsWatcher.Add(iofsDir)
 	if err != nil {
