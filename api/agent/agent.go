@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
+	"os"
 )
 
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
@@ -1011,6 +1012,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 				return
 			}
+
 		case <-ctx.Done():
 			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: ctx.Err()})
 			return
@@ -1055,9 +1057,40 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	logger.WithError(res.Error()).Info("hot function terminated")
 }
 
+//checkSocketDestination verifies that the socket file created by the FDK is valid and permitted - notably verifying that any symlinks are relative to the socket dir
+func checkSocketDestination(filename string) error {
+	finfo, err := os.Lstat(filename)
+	if err != nil {
+		return fmt.Errorf("error statting unix socket link file %s", err)
+	}
+
+	if (finfo.Mode() & os.ModeSymlink) > 0 {
+		linkDest, err := os.Readlink(filename)
+		if err != nil {
+			return fmt.Errorf("error reading unix socket symlink destination %s", err)
+		}
+		if filepath.Dir(linkDest) != "." {
+			return fmt.Errorf("invalid unix socket symlink, symlinks must be relative within the unix socket directory")
+		}
+	}
+
+	// stat the absolute path and check it is a socket
+	absInfo, err := os.Stat(filename)
+	if err != nil {
+		return fmt.Errorf("unable to stat unix socket file %s", err)
+	}
+	if absInfo.Mode()&os.ModeSocket == 0 {
+		return fmt.Errorf("listener file is not a socket")
+	}
+
+	return nil
+}
 func inotifyUDS(ctx context.Context, iofsDir string, awaitUDS chan<- error) {
 	// XXX(reed): I forgot how to plumb channels temporarily forgive me for this sin (inotify will timeout, this is just bad programming)
 	err := inotifyAwait(ctx, iofsDir)
+	if err == nil {
+		err = checkSocketDestination(filepath.Join(iofsDir, udsFilename))
+	}
 	select {
 	case awaitUDS <- err:
 	case <-ctx.Done():
@@ -1089,6 +1122,7 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 		case event := <-fsWatcher.Events:
 			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
+
 				// wait until the socket file is created by the container
 				return nil
 			}
