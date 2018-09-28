@@ -965,6 +965,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		udsClient = http.Client{
 			Transport: &http.Transport{
 				// XXX(reed): other settings ?
+				IdleConnTimeout: 1 * time.Second,
 				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 					var d net.Dialer
 					return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), udsFilename))
