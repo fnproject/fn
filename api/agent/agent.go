@@ -716,6 +716,9 @@ func callToHTTPRequest(ctx context.Context, call *call) (*http.Request, error) {
 	if err != nil {
 		return req, err
 	}
+	// Set the context on the request to make sure transport and client handle
+	// it properly and close connections at the end, e.g. when using UDS.
+	req = req.WithContext(ctx)
 
 	req.Header = make(http.Header)
 	for k, vs := range call.req.Header {
