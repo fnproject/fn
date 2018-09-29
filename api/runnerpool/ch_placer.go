@@ -34,12 +34,10 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 	key := call.Model().FnID
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
 
+	var runnerPoolErr error
 	for {
-		runners, err := rp.Runners(call)
-		if err != nil {
-			state.HandleFindRunnersFailure(err)
-			return err
-		}
+		var runners []Runner
+		runners, runnerPoolErr = rp.Runners(call)
 
 		i := int(jumpConsistentHash(sum64, int32(len(runners))))
 		for j := 0; j < len(runners) && !state.IsDone(); j++ {
@@ -59,6 +57,14 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 		}
 	}
 
+	if runnerPoolErr != nil {
+		// If we haven't been able to place the function and we got an error
+		// from the runner pool, return that error (since we don't have
+		// enough runners to handle the current load and the runner pool is
+		// having trouble).
+		state.HandleFindRunnersFailure(runnerPoolErr)
+		return runnerPoolErr
+	}
 	return models.ErrCallTimeoutServerBusy
 }
 

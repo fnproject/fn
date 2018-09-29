@@ -194,3 +194,26 @@ type ErrorWrapper struct {
 func (m *ErrorWrapper) Validate() error {
 	return nil
 }
+
+// APIErrorWrapper wraps an error with an APIError such that the APIError
+// governs the HTTP response but the root error remains accessible.
+type APIErrorWrapper interface {
+	APIError
+	RootError() error
+}
+
+type apiErrorWrapper struct {
+	APIError
+	root error
+}
+
+func (w apiErrorWrapper) RootError() error {
+	return w.root
+}
+
+func NewAPIErrorWrapper(apiErr APIError, rootErr error) APIErrorWrapper {
+	return &apiErrorWrapper{
+		APIError: apiErr,
+		root:     rootErr,
+	}
+}
