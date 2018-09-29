@@ -10,12 +10,11 @@ import (
 )
 
 // Evictor For Agent
-// Agent hot containers can register themselves as evictable using
-// Register/Unregister calls. If a hot container registers itself,
-// a starved request can call PerformEviction() to scan the eligible
+// Agent hot containers register themselves to the evictor system.
+// A starved request can call PerformEviction() to scan the evictable
 // hot containers and if a number of these can be evicted to satisfy
 // memory+cpu needs of the starved request, then those hot-containers
-// are evicted (which is signalled using their channel.)
+// are evicted.
 
 type tokenKey struct {
 	id     string
@@ -32,14 +31,16 @@ type EvictToken struct {
 }
 
 type Evictor interface {
-	// Create an eviction token to be used in register/unregister functions
+	// CreateEvictToken creates an eviction token to be used in evictor tracking. Returns
+	// an eviction token.
 	CreateEvictToken(slotId string, mem, cpu uint64) *EvictToken
 
-	// unregister an eviction token from evictor system
+	// DeleteEvictToken deletes an eviction token from evictor system
 	DeleteEvictToken(token *EvictToken)
 
-	// perform eviction to satisfy resource requirements of the call
-	// returns true if evictions were performed to satisfy the requirements.
+	// PerformEviction performs evictions to satisfy cpu & mem arguments
+	// and returns a slice of channels for evictions performed. The callers
+	// can wait on these channel to ensure evictions are completed.
 	PerformEviction(slotId string, mem, cpu uint64) []chan struct{}
 }
 
@@ -78,10 +79,7 @@ func (token *EvictToken) SetEvictable(isEvictable bool) {
 func (tok *EvictToken) isEligible() bool {
 	// if no resource limits are in place, then this
 	// function is not eligible.
-	if tok.key.memory == 0 && tok.key.cpu == 0 {
-		return false
-	}
-	return true
+	return tok.key.memory != 0 || tok.key.cpu != 0
 }
 
 func (e *evictor) CreateEvictToken(slotId string, mem, cpu uint64) *EvictToken {
@@ -97,6 +95,10 @@ func (e *evictor) CreateEvictToken(slotId string, mem, cpu uint64) *EvictToken {
 		key:      key,
 		C:        make(chan struct{}),
 		DoneChan: make(chan struct{}),
+	}
+
+	if !token.isEligible() {
+		return token
 	}
 
 	e.lock.Lock()
@@ -115,6 +117,9 @@ func (e *evictor) CreateEvictToken(slotId string, mem, cpu uint64) *EvictToken {
 }
 
 func (e *evictor) DeleteEvictToken(token *EvictToken) {
+	if !token.isEligible() {
+		return
+	}
 
 	e.lock.Lock()
 

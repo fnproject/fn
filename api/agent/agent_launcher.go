@@ -7,6 +7,10 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
+// Hot Container launch logic. Below functions determine under
+// which conditions to wait or launch a new container. If the system
+// is resource starved, evictions are performed.
+
 // implements Slot
 type errSlot struct {
 	err error
