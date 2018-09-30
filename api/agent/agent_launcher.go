@@ -39,6 +39,19 @@ func waitGetToken(ch chan Slot, waitChans []chan struct{}) Slot {
 		case <-wait:
 		}
 	}
+
+	// This is something we do not want to see, but the slight delay
+	// below allows slotQueue, etc. to sync up with us. Otherwise,
+	// our main loop is too fast for tokens, etc. to show up in slot chan.
+	// If 1 msec is not enough for some systems, then failure of this
+	// fragile timing may result into more than one container launched.
+	// With evictor this should not be a big problem.
+	select {
+	case s := <-ch:
+		return s
+	case <-time.After(1 * time.Millisecond):
+	}
+
 	return nil
 }
 
