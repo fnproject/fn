@@ -441,7 +441,6 @@ func tryNotify(notifyChan chan error, err error) {
 
 func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan error) {
 	curStats := call.slots.getStats()
-	isAsync := call.Type == models.TypeAsync
 	isNB := a.cfg.EnableNBResourceTracker
 	if !isNewContainerNeeded(&curStats) {
 		return
@@ -470,7 +469,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	// Non-blocking mode only applies to cpu+mem, and if isNewContainerNeeded decided that we do not
 	// need to start a new container, then waiters will wait.
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isAsync, isNB):
+	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
 		if tok != nil && tok.Error() != nil {
 			// before returning error response, as a last resort, try evicting idle containers.
 			if tok.Error() != CapacityFull || !a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs)) {
@@ -551,7 +550,6 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 // launchCold waits for necessary resources to launch a new container, then
 // returns the slot for that new container to run the request on.
 func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
-	isAsync := call.Type == models.TypeAsync
 	isNB := a.cfg.EnableNBResourceTracker
 
 	ch := make(chan Slot)
@@ -564,7 +562,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	mem := call.Memory + uint64(call.TmpFsSize)
 
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isAsync, isNB):
+	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
 		if tok.Error() != nil {
 			return nil, tok.Error()
 		}
