@@ -27,8 +27,6 @@ const (
 	DefaultNonLinuxMemory = 2048 * Mem1MB
 )
 
-var CapacityFull = errors.New("max capacity reached")
-
 type ResourceUtilization struct {
 	// CPU in use
 	CpuUsed models.MilliCPUs
@@ -51,9 +49,8 @@ type ResourceTracker interface {
 	// the channel will never receive anything. If it is not possible to fulfill this resource, the channel
 	// will never receive anything (use IsResourcePossible). If a resource token is available for the provided
 	// resource parameters, it will otherwise be sent once on the returned channel. The channel is never closed.
-	// if isNB is set, resource check is done and error token is returned without blocking.
 	// Memory is expected to be provided in MB units.
-	GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isNB bool) <-chan ResourceToken
+	GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) <-chan ResourceToken
 
 	// IsResourcePossible returns whether it's possible to fulfill the requested resources on this
 	// machine. It must be called before GetResourceToken or GetResourceToken may hang.
@@ -95,17 +92,11 @@ func NewResourceTracker(cfg *Config) ResourceTracker {
 type ResourceToken interface {
 	// Close must be called by any thread that receives a token.
 	io.Closer
-	Error() error
 }
 
 type resourceToken struct {
 	once      sync.Once
-	err       error
 	decrement func()
-}
-
-func (t *resourceToken) Error() error {
-	return t.err
 }
 
 func (t *resourceToken) Close() error {
@@ -166,62 +157,13 @@ func (a *resourceTracker) allocResourcesLocked(memory uint64, cpuQuota models.Mi
 	}}
 }
 
-func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.MilliCPUs) ResourceToken {
-	if !a.IsResourcePossible(memory, cpuQuota) {
-		return &resourceToken{err: CapacityFull}
-	}
-	memory = memory * Mem1MB
-
-	var t ResourceToken
-
-	a.cond.L.Lock()
-
-	if !a.isResourceAvailableLocked(memory, cpuQuota) {
-		t = &resourceToken{err: CapacityFull}
-	} else {
-		t = a.allocResourcesLocked(memory, cpuQuota)
-	}
-
-	a.cond.L.Unlock()
-	return t
-}
-
-func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) <-chan ResourceToken {
-	ctx, span := trace.StartSpan(ctx, "agent_get_resource_token_nbio_chan")
-
-	ch := make(chan ResourceToken)
-	go func() {
-		defer span.End()
-		t := a.getResourceTokenNB(memory, cpuQuota)
-
-		select {
-		case ch <- t:
-		case <-ctx.Done():
-			// if we can't send b/c nobody is waiting anymore, need to decrement here
-			t.Close()
-		}
-	}()
-
-	return ch
-}
-
 // the received token should be passed directly to launch (unconditionally), launch
 // will close this token (i.e. the receiver should not call Close)
-func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isNB bool) <-chan ResourceToken {
-	if isNB {
-		return a.getResourceTokenNBChan(ctx, memory, cpuQuota)
-	}
+func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) <-chan ResourceToken {
 
 	ch := make(chan ResourceToken)
-
-	if !a.IsResourcePossible(memory, cpuQuota) {
-		// return the channel, but never send anything.
-		return ch
-	}
-
 	c := a.cond
 	isWaiting := false
-
 	memory = memory * Mem1MB
 
 	// if we find a resource token, shut down the thread waiting on ctx finish.
@@ -241,27 +183,33 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	go func() {
 		defer span.End()
 		defer cancel()
+
+		var t ResourceToken
+
 		c.L.Lock()
 
 		isWaiting = true
-		for !a.isResourceAvailableLocked(memory, cpuQuota) && ctx.Err() == nil {
+		for {
+			// Order is important. We do want to pass a token even if ctx is expired
+			if a.isResourceAvailableLocked(memory, cpuQuota) {
+				t = a.allocResourcesLocked(memory, cpuQuota)
+				break
+			}
+			if ctx.Err() != nil {
+				break
+			}
 			c.Wait()
 		}
 		isWaiting = false
 
-		if ctx.Err() != nil {
-			c.L.Unlock()
-			return
-		}
-
-		t := a.allocResourcesLocked(memory, cpuQuota)
 		c.L.Unlock()
 
-		select {
-		case ch <- t:
-		case <-ctx.Done():
-			// if we can't send b/c nobody is waiting anymore, need to decrement here
-			t.Close()
+		if t != nil {
+			select {
+			case ch <- t:
+			case <-ctx.Done():
+				t.Close()
+			}
 		}
 	}()
 

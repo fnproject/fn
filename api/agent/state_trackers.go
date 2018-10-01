@@ -48,7 +48,6 @@ const (
 
 const (
 	ContainerStateNone   ContainerStateType = iota // uninitialized
-	ContainerStateWait                             // resource (cpu + mem) waiting
 	ContainerStateStart                            // launching
 	ContainerStateIdle                             // running: idle but not paused
 	ContainerStatePaused                           // running: idle but paused
@@ -59,7 +58,6 @@ const (
 
 var containerGaugeKeys = [ContainerStateMax]string{
 	"",
-	"container_wait_total",
 	"container_start_total",
 	"container_idle_total",
 	"container_paused_total",
@@ -68,7 +66,6 @@ var containerGaugeKeys = [ContainerStateMax]string{
 
 var containerTimeKeys = [ContainerStateMax]string{
 	"",
-	"container_wait_duration_seconds",
 	"container_start_duration_seconds",
 	"container_idle_duration_seconds",
 	"container_paused_duration_seconds",

@@ -144,10 +144,6 @@ func TestSlotQueueBasic2(t *testing.T) {
 
 	obj := NewSlotQueue("test2")
 
-	if !obj.isIdle() {
-		t.Fatalf("Should be idle")
-	}
-
 	timeout := time.Duration(500) * time.Millisecond
 	err := checkGetTokenId(t, obj, timeout, 6)
 	if err == nil {
@@ -162,47 +158,6 @@ func statsHelperSet(reqW, reqE, conW, conS, conI, conB uint64) slotQueueStats {
 	return slotQueueStats{
 		requestStates:   [RequestStateMax]uint64{0, reqW, reqE, 0},
 		containerStates: [ContainerStateMax]uint64{0, conW, conS, conI, conB, 0},
-	}
-}
-
-func TestSlotNewContainerLogic1(t *testing.T) {
-
-	var cur slotQueueStats
-
-	cur = statsHelperSet(0, 0, 0, 0, 0, 0)
-	// CASE: There's no queued requests
-	if isNewContainerNeeded(&cur) {
-		t.Fatalf("Should not need a new container cur: %#v", cur)
-	}
-
-	// CASE: There are starters >= queued requests
-	cur = statsHelperSet(1, 0, 0, 10, 0, 0)
-	if isNewContainerNeeded(&cur) {
-		t.Fatalf("Should not need a new container cur: %#v", cur)
-	}
-
-	// CASE: There are starters < queued requests
-	cur = statsHelperSet(10, 0, 0, 1, 0, 0)
-	if !isNewContainerNeeded(&cur) {
-		t.Fatalf("Should need a new container cur: %#v", cur)
-	}
-
-	// CASE: effective queued requests (idle > requests)
-	cur = statsHelperSet(10, 0, 0, 0, 11, 0)
-	if isNewContainerNeeded(&cur) {
-		t.Fatalf("Should not need a new container cur: %#v", cur)
-	}
-
-	// CASE: effective queued requests (idle < requests)
-	cur = statsHelperSet(10, 0, 0, 0, 5, 0)
-	if !isNewContainerNeeded(&cur) {
-		t.Fatalf("Should need a new container cur: %#v", cur)
-	}
-
-	// CASE: no executors, but 1 queued request
-	cur = statsHelperSet(1, 0, 0, 0, 0, 0)
-	if !isNewContainerNeeded(&cur) {
-		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 }
 

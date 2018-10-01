@@ -50,7 +50,7 @@ type slotQueue struct {
 	cond      *sync.Cond
 	slots     []*slotToken
 	nextId    uint64
-	signaller chan chan error
+	refCount  uint64
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -64,10 +64,9 @@ func NewSlotQueueMgr() *slotQueueMgr {
 
 func NewSlotQueue(key string) *slotQueue {
 	obj := &slotQueue{
-		key:       key,
-		cond:      sync.NewCond(new(sync.Mutex)),
-		slots:     make([]*slotToken, 0),
-		signaller: make(chan chan error, 1),
+		key:   key,
+		cond:  sync.NewCond(new(sync.Mutex)),
+		slots: make([]*slotToken, 0),
 	}
 
 	return obj
@@ -98,17 +97,10 @@ func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 
 	isWaiting := false
 	output := make(chan *slotToken)
+	dampen := make(chan struct{}, 2)
 
 	go func() {
-		<-ctx.Done()
-		a.cond.L.Lock()
-		if isWaiting {
-			a.cond.Broadcast()
-		}
-		a.cond.L.Unlock()
-	}()
-
-	go func() {
+		dampen <- struct{}{}
 		for {
 			a.cond.L.Lock()
 
@@ -134,6 +126,19 @@ func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 		}
 	}()
 
+	go func() {
+		dampen <- struct{}{}
+		<-ctx.Done()
+		a.cond.L.Lock()
+		if isWaiting {
+			a.cond.Broadcast()
+		}
+		a.cond.L.Unlock()
+	}()
+
+	// slow this down to allow at least go-routines to start above
+	<-dampen
+	<-dampen
 	return output
 }
 
@@ -151,63 +156,12 @@ func (a *slotQueue) queueSlot(slot Slot) *slotToken {
 	return token
 }
 
-// isIdle() returns true is there's no activity for this slot queue. This
-// means no one is waiting, running or starting.
-func (a *slotQueue) isIdle() bool {
-	var isIdle bool
-
-	a.statsLock.Lock()
-
-	isIdle = a.stats.requestStates[RequestStateWait] == 0 &&
-		a.stats.requestStates[RequestStateExec] == 0 &&
-		a.stats.containerStates[ContainerStateWait] == 0 &&
-		a.stats.containerStates[ContainerStateStart] == 0 &&
-		a.stats.containerStates[ContainerStateIdle] == 0 &&
-		a.stats.containerStates[ContainerStatePaused] == 0 &&
-		a.stats.containerStates[ContainerStateBusy] == 0
-
-	a.statsLock.Unlock()
-
-	return isIdle
-}
-
 func (a *slotQueue) getStats() slotQueueStats {
 	var out slotQueueStats
 	a.statsLock.Lock()
 	out = a.stats
 	a.statsLock.Unlock()
 	return out
-}
-
-func isNewContainerNeeded(cur *slotQueueStats) bool {
-
-	idleWorkers := cur.containerStates[ContainerStateIdle] + cur.containerStates[ContainerStatePaused]
-	starters := cur.containerStates[ContainerStateStart]
-	startWaiters := cur.containerStates[ContainerStateWait]
-
-	queuedRequests := cur.requestStates[RequestStateWait]
-
-	// we expect idle containers to immediately pick up
-	// any waiters. We assume non-idle containers busy.
-	effectiveWaiters := uint64(0)
-	if idleWorkers < queuedRequests {
-		effectiveWaiters = queuedRequests - idleWorkers
-	}
-
-	if effectiveWaiters == 0 {
-		return false
-	}
-
-	// we expect resource waiters to eventually transition
-	// into starters.
-	effectiveStarters := starters + startWaiters
-
-	// if containers are starting, do not start more than effective waiters
-	if effectiveStarters > 0 && effectiveStarters >= effectiveWaiters {
-		return false
-	}
-
-	return true
 }
 
 func (a *slotQueue) enterRequestState(reqType RequestStateType) {
@@ -242,34 +196,32 @@ func (a *slotQueue) exitContainerState(conType ContainerStateType) {
 	}
 }
 
-// getSlot must ensure that if it receives a slot, it will be returned, otherwise
-// a container will be locked up forever waiting for slot to free.
-func (a *slotQueueMgr) getSlotQueue(key string) (*slotQueue, bool) {
+// allocSlotQueue returns a new slot queue if already not allocated.
+func (a *slotQueueMgr) allocSlotQueue(key string) *slotQueue {
 
 	a.hMu.Lock()
 	slots, ok := a.hot[key]
 	if !ok {
 		slots = NewSlotQueue(key)
 		a.hot[key] = slots
+	} else {
+		slots.refCount++
 	}
 	a.hMu.Unlock()
 
-	return slots, !ok
+	return slots
 }
 
-// currently unused. But at some point, we need to age/delete old
-// slotQueues.
-func (a *slotQueueMgr) deleteSlotQueue(slots *slotQueue) bool {
-	isDeleted := false
+// freeSlotQueue frees a slot queue and deallocates it if referece count hits zero
+func (a *slotQueueMgr) freeSlotQueue(slots *slotQueue) {
 
 	a.hMu.Lock()
-	if slots.isIdle() {
+	if slots.refCount == 0 {
 		delete(a.hot, slots.key)
-		isDeleted = true
+	} else {
+		slots.refCount--
 	}
 	a.hMu.Unlock()
-
-	return isDeleted
 }
 
 var shapool = &sync.Pool{New: func() interface{} { return sha256.New() }}
