@@ -259,7 +259,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	}
 
 	mem := c.Memory + uint64(c.TmpFsSize)
-	if !a.resources.IsResourcePossible(mem, c.CPUs, c.Type == models.TypeAsync) {
+	if !a.resources.IsResourcePossible(mem, c.CPUs) {
 		return nil, models.ErrCallResourceTooBig
 	}
 

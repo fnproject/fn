@@ -41,7 +41,7 @@ type ResourceUtilization struct {
 }
 
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
-// TODO: add cpu, disk, network IO for future
+// TODO: disk, network IO for future
 type ResourceTracker interface {
 	// WaitAsyncResource returns a channel that will send once when there seem to be sufficient
 	// resource levels to run an async task, it is up to the implementer to create policy here.
@@ -52,14 +52,13 @@ type ResourceTracker interface {
 	// will never receive anything (use IsResourcePossible). If a resource token is available for the provided
 	// resource parameters, it will otherwise be sent once on the returned channel. The channel is never closed.
 	// if isNB is set, resource check is done and error token is returned without blocking.
-	// if isAsync is set, resource allocation specific for async requests is considered. (eg. always allow
-	// a sync only reserve area) Memory is expected to be provided in MB units.
-	GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isAsync, isNB bool) <-chan ResourceToken
+	// Memory is expected to be provided in MB units.
+	GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isNB bool) <-chan ResourceToken
 
 	// IsResourcePossible returns whether it's possible to fulfill the requested resources on this
 	// machine. It must be called before GetResourceToken or GetResourceToken may hang.
 	// Memory is expected to be provided in MB units.
-	IsResourcePossible(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) bool
+	IsResourcePossible(memory uint64, cpuQuota models.MilliCPUs) bool
 
 	// Retrieve current stats/usage
 	GetUtilization() ResourceUtilization
@@ -68,26 +67,17 @@ type ResourceTracker interface {
 type resourceTracker struct {
 	// cond protects access to ram variables below
 	cond *sync.Cond
-	// ramTotal is the total usable memory for sync functions
-	ramSyncTotal uint64
-	// ramSyncUsed is ram reserved for running sync containers including hot/idle
-	ramSyncUsed uint64
-	// ramAsyncTotal is the total usable memory for async + sync functions
-	ramAsyncTotal uint64
-	// ramAsyncUsed is ram reserved for running async + sync containers including hot/idle
-	ramAsyncUsed uint64
-	// memory in use for async area in which agent stops dequeuing async jobs
+	// ramTotal is the total usable memory for functions
+	ramTotal uint64
+	// ramUsed is ram reserved for running containers including hot/idle
+	ramUsed uint64
+	// memory in use in which agent stops dequeuing async jobs
 	ramAsyncHWMark uint64
-
-	// cpuTotal is the total usable cpu for sync functions
-	cpuSyncTotal uint64
-	// cpuSyncUsed is cpu reserved for running sync containers including hot/idle
-	cpuSyncUsed uint64
-	// cpuAsyncTotal is the total usable cpu for async + sync functions
-	cpuAsyncTotal uint64
-	// cpuAsyncUsed is cpu reserved for running async + sync containers including hot/idle
-	cpuAsyncUsed uint64
-	// cpu in use for async area in which agent stops dequeuing async jobs
+	// cpuTotal is the total usable cpu for functions
+	cpuTotal uint64
+	// cpuUsed is cpu reserved for running containers including hot/idle
+	cpuUsed uint64
+	// cpu in use in which agent stops dequeuing async jobs
 	cpuAsyncHWMark uint64
 }
 
@@ -127,20 +117,12 @@ func (t *resourceToken) Close() error {
 	return nil
 }
 
-func (a *resourceTracker) isResourceAvailableLocked(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) bool {
+func (a *resourceTracker) isResourceAvailableLocked(memory uint64, cpuQuota models.MilliCPUs) bool {
 
-	asyncAvailMem := a.ramAsyncTotal - a.ramAsyncUsed
-	syncAvailMem := a.ramSyncTotal - a.ramSyncUsed
+	availMem := a.ramTotal - a.ramUsed
+	availCPU := a.cpuTotal - a.cpuUsed
 
-	asyncAvailCPU := a.cpuAsyncTotal - a.cpuAsyncUsed
-	syncAvailCPU := a.cpuSyncTotal - a.cpuSyncUsed
-
-	// For sync functions, we can steal from async pool. For async, we restrict it to sync pool
-	if isAsync {
-		return asyncAvailMem >= memory && asyncAvailCPU >= uint64(cpuQuota)
-	} else {
-		return asyncAvailMem+syncAvailMem >= memory && asyncAvailCPU+syncAvailCPU >= uint64(cpuQuota)
-	}
+	return availMem >= memory && availCPU >= uint64(cpuQuota)
 }
 
 func (a *resourceTracker) GetUtilization() ResourceUtilization {
@@ -148,58 +130,33 @@ func (a *resourceTracker) GetUtilization() ResourceUtilization {
 
 	a.cond.L.Lock()
 
-	util.CpuUsed = models.MilliCPUs(a.cpuAsyncUsed + a.cpuSyncUsed)
-	util.MemUsed = a.ramAsyncUsed + a.ramSyncUsed
+	util.CpuUsed = models.MilliCPUs(a.cpuUsed)
+	util.MemUsed = a.ramUsed
 
 	a.cond.L.Unlock()
 
-	util.CpuAvail = models.MilliCPUs(a.cpuAsyncTotal+a.cpuSyncTotal) - util.CpuUsed
-	util.MemAvail = a.ramAsyncTotal + a.ramSyncTotal - util.MemUsed
+	util.CpuAvail = models.MilliCPUs(a.cpuTotal) - util.CpuUsed
+	util.MemAvail = a.ramTotal - util.MemUsed
 
 	return util
 }
 
 // is this request possible to meet? If no, fail quick
-func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) bool {
+func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota models.MilliCPUs) bool {
 	memory = memory * Mem1MB
-
-	if isAsync {
-		return memory <= a.ramAsyncTotal && uint64(cpuQuota) <= a.cpuAsyncTotal
-	} else {
-		return memory <= a.ramSyncTotal+a.ramAsyncTotal && uint64(cpuQuota) <= a.cpuSyncTotal+a.cpuAsyncTotal
-	}
+	return memory <= a.ramTotal && uint64(cpuQuota) <= a.cpuTotal
 }
 
-func (a *resourceTracker) allocResourcesLocked(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) ResourceToken {
+func (a *resourceTracker) allocResourcesLocked(memory uint64, cpuQuota models.MilliCPUs) ResourceToken {
 
-	var asyncMem, syncMem uint64
-	var asyncCPU, syncCPU uint64
-
-	if isAsync {
-		// async uses async pool only
-		asyncMem = memory
-		asyncCPU = uint64(cpuQuota)
-	} else {
-		// if sync fits async + sync pool
-		syncMem = minUint64(a.ramSyncTotal-a.ramSyncUsed, memory)
-		syncCPU = minUint64(a.cpuSyncTotal-a.cpuSyncUsed, uint64(cpuQuota))
-
-		asyncMem = memory - syncMem
-		asyncCPU = uint64(cpuQuota) - syncCPU
-	}
-
-	a.ramAsyncUsed += asyncMem
-	a.ramSyncUsed += syncMem
-	a.cpuAsyncUsed += asyncCPU
-	a.cpuSyncUsed += syncCPU
+	a.ramUsed += memory
+	a.cpuUsed += uint64(cpuQuota)
 
 	return &resourceToken{decrement: func() {
 
 		a.cond.L.Lock()
-		a.ramAsyncUsed -= asyncMem
-		a.ramSyncUsed -= syncMem
-		a.cpuAsyncUsed -= asyncCPU
-		a.cpuSyncUsed -= syncCPU
+		a.ramUsed -= memory
+		a.cpuUsed -= uint64(cpuQuota)
 		a.cond.L.Unlock()
 
 		// WARNING: yes, we wake up everyone even async waiters when only sync pool has space, but
@@ -209,8 +166,8 @@ func (a *resourceTracker) allocResourcesLocked(memory uint64, cpuQuota models.Mi
 	}}
 }
 
-func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.MilliCPUs, isAsync bool) ResourceToken {
-	if !a.IsResourcePossible(memory, cpuQuota, isAsync) {
+func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.MilliCPUs) ResourceToken {
+	if !a.IsResourcePossible(memory, cpuQuota) {
 		return &resourceToken{err: CapacityFull}
 	}
 	memory = memory * Mem1MB
@@ -219,23 +176,23 @@ func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.Mill
 
 	a.cond.L.Lock()
 
-	if !a.isResourceAvailableLocked(memory, cpuQuota, isAsync) {
+	if !a.isResourceAvailableLocked(memory, cpuQuota) {
 		t = &resourceToken{err: CapacityFull}
 	} else {
-		t = a.allocResourcesLocked(memory, cpuQuota, isAsync)
+		t = a.allocResourcesLocked(memory, cpuQuota)
 	}
 
 	a.cond.L.Unlock()
 	return t
 }
 
-func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isAsync bool) <-chan ResourceToken {
+func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) <-chan ResourceToken {
 	ctx, span := trace.StartSpan(ctx, "agent_get_resource_token_nbio_chan")
 
 	ch := make(chan ResourceToken)
 	go func() {
 		defer span.End()
-		t := a.getResourceTokenNB(memory, cpuQuota, isAsync)
+		t := a.getResourceTokenNB(memory, cpuQuota)
 
 		select {
 		case ch <- t:
@@ -250,14 +207,14 @@ func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uin
 
 // the received token should be passed directly to launch (unconditionally), launch
 // will close this token (i.e. the receiver should not call Close)
-func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isAsync, isNB bool) <-chan ResourceToken {
+func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isNB bool) <-chan ResourceToken {
 	if isNB {
-		return a.getResourceTokenNBChan(ctx, memory, cpuQuota, isAsync)
+		return a.getResourceTokenNBChan(ctx, memory, cpuQuota)
 	}
 
 	ch := make(chan ResourceToken)
 
-	if !a.IsResourcePossible(memory, cpuQuota, isAsync) {
+	if !a.IsResourcePossible(memory, cpuQuota) {
 		// return the channel, but never send anything.
 		return ch
 	}
@@ -287,7 +244,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		c.L.Lock()
 
 		isWaiting = true
-		for !a.isResourceAvailableLocked(memory, cpuQuota, isAsync) && ctx.Err() == nil {
+		for !a.isResourceAvailableLocked(memory, cpuQuota) && ctx.Err() == nil {
 			c.Wait()
 		}
 		isWaiting = false
@@ -297,7 +254,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 			return
 		}
 
-		t := a.allocResourcesLocked(memory, cpuQuota, isAsync)
+		t := a.allocResourcesLocked(memory, cpuQuota)
 		c.L.Unlock()
 
 		select {
@@ -338,7 +295,7 @@ func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
 		defer cancel()
 		c.L.Lock()
 		isWaiting = true
-		for (a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark) && ctx.Err() == nil {
+		for (a.ramUsed >= a.ramAsyncHWMark || a.cpuUsed >= a.cpuAsyncHWMark) && ctx.Err() == nil {
 			c.Wait()
 		}
 		isWaiting = false
@@ -373,8 +330,6 @@ func clampUint64(val, min, max uint64) uint64 {
 }
 
 func (a *resourceTracker) initializeCPU(cfg *Config) {
-
-	var maxSyncCPU, maxAsyncCPU, cpuAsyncHWMark uint64
 
 	// Use all available CPU from go.runtime in non-linux systems. We ignore
 	// non-linux container implementations and their limits on CPU if there's any.
@@ -417,35 +372,24 @@ func (a *resourceTracker) initializeCPU(cfg *Config) {
 		"availCPU": availCPU,
 	}).Info("available cpu")
 
-	// %20 of cpu for sync only reserve
-	maxSyncCPU = uint64(availCPU * 2 / 10)
-	maxAsyncCPU = availCPU - maxSyncCPU
-	cpuAsyncHWMark = maxAsyncCPU * 8 / 10
+	a.cpuTotal = availCPU
+	a.cpuAsyncHWMark = availCPU * 8 / 10
 
 	logrus.WithFields(logrus.Fields{
-		"cpuSync":        maxSyncCPU,
-		"cpuAsync":       maxAsyncCPU,
-		"cpuAsyncHWMark": cpuAsyncHWMark,
-	}).Info("sync and async cpu reservations")
+		"cpu":            a.cpuTotal,
+		"cpuAsyncHWMark": a.cpuAsyncHWMark,
+	}).Info("cpu reservations")
 
-	if maxSyncCPU == 0 || maxAsyncCPU == 0 {
+	if a.cpuTotal == 0 {
 		logrus.Fatal("Cannot get the proper CPU information to size server")
 	}
 
-	if maxSyncCPU+maxAsyncCPU < 1000 {
-		logrus.Warn("Severaly Limited CPU: cpuSync + cpuAsync < 1000m (1 CPU)")
-	} else if maxAsyncCPU < 1000 {
-		logrus.Warn("Severaly Limited CPU: cpuAsync < 1000m (1 CPU)")
+	if a.cpuTotal < 1000 {
+		logrus.Warn("Severaly Limited CPU: cpu < 1000m (1 CPU)")
 	}
-
-	a.cpuAsyncHWMark = cpuAsyncHWMark
-	a.cpuSyncTotal = maxSyncCPU
-	a.cpuAsyncTotal = maxAsyncCPU
 }
 
 func (a *resourceTracker) initializeMemory(cfg *Config) {
-
-	var maxSyncMemory, maxAsyncMemory, ramAsyncHWMark uint64
 
 	availMemory := uint64(DefaultNonLinuxMemory)
 
@@ -486,32 +430,22 @@ func (a *resourceTracker) initializeMemory(cfg *Config) {
 		availMemory = minUint64(cfg.MaxTotalMemory, availMemory)
 	}
 
-	// %20 of ram for sync only reserve
-	maxSyncMemory = uint64(availMemory * 2 / 10)
-	maxAsyncMemory = availMemory - maxSyncMemory
-	ramAsyncHWMark = maxAsyncMemory * 8 / 10
+	a.ramTotal = availMemory
+	a.ramAsyncHWMark = availMemory * 8 / 10
 
 	// For non-linux OS, we expect these (or their defaults) properly configured from command-line/env
 	logrus.WithFields(logrus.Fields{
-		"availMemory":    availMemory,
-		"ramSync":        maxSyncMemory,
-		"ramAsync":       maxAsyncMemory,
-		"ramAsyncHWMark": ramAsyncHWMark,
-	}).Info("sync and async ram reservations")
+		"availMemory":    a.ramTotal,
+		"ramAsyncHWMark": a.ramAsyncHWMark,
+	}).Info("ram reservations")
 
-	if maxSyncMemory == 0 || maxAsyncMemory == 0 {
+	if a.ramTotal == 0 {
 		logrus.Fatal("Cannot get the proper memory pool information to size server")
 	}
 
-	if maxSyncMemory+maxAsyncMemory < 256*Mem1MB {
-		logrus.Warn("Severely Limited memory: ramSync + ramAsync < 256MB")
-	} else if maxAsyncMemory < 256*Mem1MB {
-		logrus.Warn("Severely Limited memory: ramAsync < 256MB")
+	if a.ramTotal < 256*Mem1MB {
+		logrus.Warn("Severely Limited memory: ram < 256MB")
 	}
-
-	a.ramAsyncHWMark = ramAsyncHWMark
-	a.ramSyncTotal = maxSyncMemory
-	a.ramAsyncTotal = maxAsyncMemory
 }
 
 // headroom estimation in order not to consume entire RAM if possible
