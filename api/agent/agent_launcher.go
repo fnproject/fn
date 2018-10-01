@@ -94,7 +94,6 @@ func (a *agent) multiplexSlotChan(ctx context.Context, call *call, slotChan chan
 // until launch completes before trying to spawn more containers.
 func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slotToken) Slot {
 
-	isAsync := call.Type == models.TypeAsync
 	mem := call.Memory + uint64(call.TmpFsSize)
 	waitChan := a.multiplexSlotChan(ctx, call, slotChan)
 
@@ -120,7 +119,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, slotChan chan *slot
 		case s := <-waitChan:
 			cancel()
 			return s
-		case resource := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isAsync):
+		case resource := <-a.resources.GetResourceToken(ctx, mem, call.CPUs):
 			cancel()
 			launchChans := make([]chan struct{}, 0, 1)
 			launchChans = append(launchChans, make(chan struct{}, 1))

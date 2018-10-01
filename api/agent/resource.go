@@ -191,8 +191,8 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		isWaiting = true
 		for {
 			// Order is important. We do want to pass a token even if ctx is expired
-			if a.isResourceAvailableLocked(memory, cpuQuota, isAsync) {
-				t = a.allocResourcesLocked(memory, cpuQuota, isAsync)
+			if a.isResourceAvailableLocked(memory, cpuQuota) {
+				t = a.allocResourcesLocked(memory, cpuQuota)
 				break
 			}
 			if ctx.Err() != nil {

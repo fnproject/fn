@@ -397,7 +397,6 @@ func (a *agent) launchCold(ctx context.Context, call *call) Slot {
 	ctx, span := trace.StartSpan(ctx, "agent_launch_cold")
 	defer span.End()
 
-	isAsync := call.Type == models.TypeAsync
 	ch := make(chan Slot)
 	mem := call.Memory + uint64(call.TmpFsSize)
 
