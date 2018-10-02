@@ -14,6 +14,8 @@ import (
 
 	"path/filepath"
 
+	"os"
+
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
@@ -25,7 +27,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
-	"os"
 )
 
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
@@ -691,9 +692,18 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	call.req = call.req.WithContext(ctx) // TODO this is funny biz reed is bad
 
 	var errApp chan error
+	var err error
 	if call.Format == models.FormatHTTPStream {
-		errApp = s.dispatch(ctx, call)
+		req, err := callToHTTPRequest(ctx, call)
+		// the acksync channel is used on on LB configuration so the channel could be not initialized
+		if call.ackSync != nil {
+			call.ackSync <- err
+		}
+		errApp = s.dispatch(ctx, call, req, err)
 	} else { // TODO remove this block one glorious day
+		if call.ackSync != nil {
+			call.ackSync <- err
+		}
 		errApp = s.dispatchOldFormats(ctx, call)
 	}
 
@@ -761,7 +771,10 @@ func callToHTTPRequest(ctx context.Context, call *call) *http.Request {
 	return req
 }
 
-func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
+func (s *hotSlot) dispatch(ctx context.Context, call *call, req *http.Request, err error) chan error {
+	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
+	defer span.End()
+
 	// TODO we can't trust that resp.Write doesn't timeout, even if the http
 	// client should respect the request context (right?) so we still need this (right?)
 	errApp := make(chan error, 1)

@@ -73,6 +73,11 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			}
 		}
 
+		invokeType := req.Header.Get("Fn-Invoke-Type")
+		if invokeType == "" {
+			invokeType = models.TypeSync
+		}
+
 		if fn.Format == "" {
 			fn.Format = models.FormatDefault
 		}
@@ -95,7 +100,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			ID:    id,
 			Image: fn.Image,
 			// Delay: 0,
-			Type:   "sync",
+			Type:   invokeType,
 			Format: fn.Format,
 			// Payload: TODO,
 			Priority:    new(int32), // TODO this is crucial, apparently
@@ -299,6 +304,7 @@ type call struct {
 	requestState   RequestState
 	containerState ContainerState
 	slotHashId     string
+	ackSync        chan error // channel used to notify the ack that the function has been placed on a container
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string

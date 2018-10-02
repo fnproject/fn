@@ -13,9 +13,9 @@ type PlacerConfig struct {
 	PlacerTimeout time.Duration `json:"placer_timeout"`
 }
 
-func NewPlacerConfig() PlacerConfig {
+func NewPlacerConfig(timeout time.Duration) PlacerConfig {
 	return PlacerConfig{
 		RetryAllDelay: 10 * time.Millisecond,
-		PlacerTimeout: 360 * time.Second,
+		PlacerTimeout: timeout * time.Second,
 	}
 }

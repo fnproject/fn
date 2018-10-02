@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
@@ -24,6 +26,12 @@ type lbAgent struct {
 	placer        pool.Placer
 	callOverrider CallOverrider
 	shutWg        *common.WaitGroup
+}
+
+type AckSyncResponseWriter struct {
+	http.ResponseWriter
+	origin http.ResponseWriter
+	acked  chan struct{}
 }
 
 type LBAgentOption func(*lbAgent) error
@@ -177,8 +185,41 @@ func (a *lbAgent) Submit(callI Call) error {
 	statsDequeue(ctx)
 	statsStartRun(ctx)
 
-	err = a.placer.PlaceCall(a.rp, ctx, call)
-	return a.handleCallEnd(ctx, call, err, true)
+	errPlace := make(chan error, 1)
+
+	call.w = &AckSyncResponseWriter{
+		origin: call.ResponseWriter(),
+		acked:  make(chan struct{}, 1),
+	}
+	isAckSync := call.Type == models.TypeAcksync
+	rw := call.w.(*AckSyncResponseWriter)
+	// change the context if it is a acksync call
+	if isAckSync {
+		ctx = common.BackgroundContext(ctx)
+		// We don't want this to run indefinetely we need to guard this context
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(60+call.Timeout))
+		defer cancel()
+	}
+
+	go a.spawnPlaceCall(ctx, call, errPlace)
+
+	for {
+		select {
+		case err := <-errPlace:
+			return err
+		case <-rw.acked:
+			// if it is an acksync we return immediately otherwise we ignore the ack
+			if isAckSync {
+				return nil
+			}
+		}
+	}
+}
+
+func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error) {
+	err := a.placer.PlaceCall(a.rp, ctx, call)
+	errCh <- a.handleCallEnd(ctx, call, err, true)
 }
 
 // setRequestGetBody sets GetBody function on the given http.Request if it is missing.  GetBody allows
@@ -256,6 +297,19 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 		statsErrors(ctx)
 	}
 	return err
+}
+
+func (w *AckSyncResponseWriter) Heaader() http.Header {
+	return w.origin.Header()
+}
+
+func (w *AckSyncResponseWriter) Write(data []byte) (int, error) {
+	return w.origin.Write(data)
+}
+
+func (w *AckSyncResponseWriter) WriteHeader(statusCode int) {
+	w.origin.WriteHeader(statusCode)
+	w.acked <- struct{}{}
 }
 
 var _ Agent = &lbAgent{}

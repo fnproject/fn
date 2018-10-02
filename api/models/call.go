@@ -14,6 +14,8 @@ const (
 	TypeSync = "sync"
 	// TypeAsync ...
 	TypeAsync = "async"
+	// TypeAcksync ...
+	TypeAcksync = "acksync"
 )
 
 const (

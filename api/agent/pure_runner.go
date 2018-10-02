@@ -199,6 +199,25 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
+func (ch *callHandle) enqueAckSync(err error) {
+	statusCode := http.StatusAccepted
+	if err != nil {
+		if models.IsAPIError(err) {
+			statusCode = models.GetAPIErrorCode(err)
+		} else {
+			statusCode = http.StatusInternalServerError
+		}
+	}
+
+	err = ch.enqueueMsg(&runner.RunnerMsg{
+		Body: &runner.RunnerMsg_ResultStart{
+			ResultStart: &runner.CallResultStart{
+				Meta: &runner.CallResultStart_Http{
+					Http: &runner.HttpRespMeta{
+						Headers:    ch.prepHeaders(),
+						StatusCode: int32(statusCode)}}}}})
+}
+
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
@@ -385,6 +404,10 @@ func (ch *callHandle) prepHeaders() []*runner.HttpHeader {
 // received data is pushed to LB via gRPC sender queue.
 // Write also sends http headers/state to the LB.
 func (ch *callHandle) Write(data []byte) (int, error) {
+	if ch.c.Model().Type == models.TypeAsync {
+		//If it is an acksync call we just /dev/null the data coming back from the container
+		return len(data), nil
+	}
 	var err error
 	ch.headerOnce.Do(func() {
 		// WARNING: we do fetch Status and Headers without
@@ -410,7 +433,6 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	total := 0
 	// split up data into gRPC chunks
 	for {
@@ -559,9 +581,11 @@ func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
 }
 
-func (pr *pureRunner) spawnSubmit(state *callHandle) {
+func (pr *pureRunner) spawnSubmit(state *callHandle, chErr chan error) {
 	go func() {
 		err := pr.a.Submit(state.c)
+		// Notify the error back
+		chErr <- err
 		state.enqueueCallResponse(err)
 	}()
 }
@@ -612,7 +636,20 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		}
 		state.c.slotHashId = string(hashId[:])
 	}
-	pr.spawnSubmit(state)
+	errSubmit := make(chan error, 1)
+	state.c.ackSync = make(chan error, 1)
+	pr.spawnSubmit(state, errSubmit)
+	select {
+	case <-errSubmit:
+		// The error is already managed in the spawnSubmit we just return here
+		return nil
+	case err := <-state.c.ackSync:
+		// if it is an acksync then we want to notify the LB
+		if state.c.Model().Type == models.TypeAcksync {
+			// EnqueuSyncAck
+			state.enqueAckSync(err)
+		}
+	}
 
 	return nil
 }
