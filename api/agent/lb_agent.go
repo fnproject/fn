@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
@@ -24,6 +26,12 @@ type lbAgent struct {
 	placer        pool.Placer
 	callOverrider CallOverrider
 	shutWg        *common.WaitGroup
+}
+
+type DetachedResponseWriter struct {
+	http.ResponseWriter
+	origin http.ResponseWriter
+	acked  chan struct{}
 }
 
 type LBAgentOption func(*lbAgent) error
@@ -177,8 +185,42 @@ func (a *lbAgent) Submit(callI Call) error {
 	statsDequeue(ctx)
 	statsStartRun(ctx)
 
-	err = a.placer.PlaceCall(a.rp, ctx, call)
-	return a.handleCallEnd(ctx, call, err, true)
+	errPlace := make(chan error, 1)
+
+	call.w = &DetachedResponseWriter{
+		origin: call.ResponseWriter(),
+		acked:  make(chan struct{}, 1),
+	}
+	isDetached := call.Type == models.TypeDetached
+	rw := call.w.(*DetachedResponseWriter)
+
+	go a.spawnPlaceCall(ctx, call, errPlace, isDetached)
+
+	for {
+		select {
+		case err := <-errPlace:
+			return err
+		case <-rw.acked:
+			// if it is a detached call  we return immediately otherwise we ignore the ack
+			// If it is not a detached call  we get the ack and we can use it to log info, stats etc.
+			if isDetached {
+				return nil
+			}
+		}
+	}
+}
+
+func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error, isDetached bool) {
+	if isDetached {
+		var cancel func()
+		ctx = common.BackgroundContext(ctx)
+		// 30 secs PlacerTimeout for Detached + call.Timeout (inside container) + 360 sec headroom
+		// to make sure we do not wait indefinitely, but also wait enough time for worst case.
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(360+call.Timeout)*time.Second)
+		defer cancel()
+	}
+	err := a.placer.PlaceCall(a.rp, ctx, call)
+	errCh <- a.handleCallEnd(ctx, call, err, true)
 }
 
 // setRequestGetBody sets GetBody function on the given http.Request if it is missing.  GetBody allows
@@ -256,6 +298,19 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 		statsErrors(ctx)
 	}
 	return err
+}
+
+func (w *DetachedResponseWriter) Heaader() http.Header {
+	return w.origin.Header()
+}
+
+func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
+	return w.origin.Write(data)
+}
+
+func (w *DetachedResponseWriter) WriteHeader(statusCode int) {
+	w.origin.WriteHeader(statusCode)
+	w.acked <- struct{}{}
 }
 
 var _ Agent = &lbAgent{}

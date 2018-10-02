@@ -14,6 +14,8 @@ const (
 	TypeSync = "sync"
 	// TypeAsync ...
 	TypeAsync = "async"
+	// TypeDetached is used for calls which return an ack to the caller as soon as the call starts
+	TypeDetached = "detached"
 )
 
 const (

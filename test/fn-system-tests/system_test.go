@@ -286,6 +286,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	pureRunner, err := agent.NewPureRunner(cancel, grpcAddr,
 		agent.PureRunnerWithAgent(innerAgent),
 		agent.PureRunnerWithStatusImage(StatusImage),
+		agent.PureRunnerWithDetached(),
 	)
 	if err != nil {
 		return nil, err

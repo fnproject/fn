@@ -160,7 +160,8 @@ func TestOneRunner(t *testing.T) {
 	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
-	call := &mockRunnerCall{}
+	modelCall := &models.Call{Type: models.TypeSync}
+	call := &mockRunnerCall{model: modelCall}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
 	defer cancel()
 	err := placer.PlaceCall(rp, ctx, call)
@@ -173,13 +174,35 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
-	call := &mockRunnerCall{}
+
+	modelCall := &models.Call{Type: models.TypeSync}
+	call := &mockRunnerCall{model: modelCall}
+
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
 	defer cancel()
 	err := placer.PlaceCall(rp, ctx, call)
 	if err == nil {
 		t.Fatal("Call should have timed out")
 	}
+}
+
+func TestDetachedPlacerTimeout(t *testing.T) {
+	// In this test we set the detached placer timeout to a value lower than the request timeout (call.Timeout)
+	// the fake placer will just sleep for a time greater of the detached placement timeout and it will return
+	// the right error only if the detached timeout exceeds but the request timeout is still valid
+	cfg := pool.NewPlacerConfig()
+	cfg.DetachedPlacerTimeout = 300 * time.Millisecond
+	placer := pool.NewFakeDetachedPlacer(&cfg, 400*time.Millisecond)
+
+	modelCall := &models.Call{Type: models.TypeDetached}
+	call := &mockRunnerCall{model: modelCall}
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
+	defer cancel()
+	err := placer.PlaceCall(nil, ctx, call)
+	if err == nil {
+		t.Fatal("Detached call should have time out because of the expiration of the placement timeout")
+	}
+
 }
 
 func TestRRRunner(t *testing.T) {
@@ -196,7 +219,9 @@ func TestRRRunner(t *testing.T) {
 			defer wg.Done()
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Millisecond))
 			defer cancel()
-			call := &mockRunnerCall{}
+			modelCall := &models.Call{Type: models.TypeSync}
+			call := &mockRunnerCall{model: modelCall}
+
 			err := placer.PlaceCall(rp, ctx, call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
@@ -231,7 +256,9 @@ func TestEnforceLbTimeout(t *testing.T) {
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Millisecond))
 			defer cancel()
 
-			call := &mockRunnerCall{}
+			modelCall := &models.Call{Type: models.TypeSync}
+			call := &mockRunnerCall{model: modelCall}
+
 			err := placer.PlaceCall(rp, ctx, call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)

@@ -14,6 +14,8 @@ import (
 
 	"path/filepath"
 
+	"os"
+
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
@@ -25,7 +27,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
-	"os"
 )
 
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)

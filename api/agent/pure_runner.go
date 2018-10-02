@@ -199,6 +199,25 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
+func (ch *callHandle) enqueueDetached(err error) {
+	statusCode := http.StatusAccepted
+	if err != nil {
+		if models.IsAPIError(err) {
+			statusCode = models.GetAPIErrorCode(err)
+		} else {
+			statusCode = http.StatusInternalServerError
+		}
+	}
+
+	err = ch.enqueueMsg(&runner.RunnerMsg{
+		Body: &runner.RunnerMsg_ResultStart{
+			ResultStart: &runner.CallResultStart{
+				Meta: &runner.CallResultStart_Http{
+					Http: &runner.HttpRespMeta{
+						Headers:    ch.prepHeaders(),
+						StatusCode: int32(statusCode)}}}}})
+}
+
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
@@ -385,6 +404,10 @@ func (ch *callHandle) prepHeaders() []*runner.HttpHeader {
 // received data is pushed to LB via gRPC sender queue.
 // Write also sends http headers/state to the LB.
 func (ch *callHandle) Write(data []byte) (int, error) {
+	if ch.c.Model().Type == models.TypeDetached {
+		//If it is an detached call we just /dev/null the data coming back from the container
+		return len(data), nil
+	}
 	var err error
 	ch.headerOnce.Do(func() {
 		// WARNING: we do fetch Status and Headers without
@@ -410,7 +433,6 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	total := 0
 	// split up data into gRPC chunks
 	for {
@@ -526,10 +548,12 @@ type statusTracker struct {
 // pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
 // and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
-	gRPCServer *grpc.Server
-	creds      credentials.TransportCredentials
-	a          Agent
-	status     statusTracker
+	gRPCServer     *grpc.Server
+	creds          credentials.TransportCredentials
+	a              Agent
+	status         statusTracker
+	callHandleMap  map[string]*callHandle
+	callHandleLock sync.Mutex
 }
 
 // implements Agent
@@ -559,9 +583,30 @@ func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
 }
 
+func (pr *pureRunner) saveCallHandle(ch *callHandle) {
+	pr.callHandleLock.Lock()
+	pr.callHandleMap[ch.c.Model().ID] = ch
+	pr.callHandleLock.Unlock()
+}
+
+func (pr *pureRunner) removeCallHandle(cID string) {
+	pr.callHandleLock.Lock()
+	delete(pr.callHandleMap, cID)
+	pr.callHandleLock.Unlock()
+
+}
+
 func (pr *pureRunner) spawnSubmit(state *callHandle) {
 	go func() {
+		isDetached := state.c.Type == models.TypeDetached
+		// we keep track of the callHandle which will be used in the process to send the ack back
+		if isDetached {
+			pr.saveCallHandle(state)
+		}
 		err := pr.a.Submit(state.c)
+		if isDetached {
+			pr.removeCallHandle(state.c.Model().ID)
+		}
 		state.enqueueCallResponse(err)
 	}()
 }
@@ -612,8 +657,8 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		}
 		state.c.slotHashId = string(hashId[:])
 	}
-	pr.spawnSubmit(state)
 
+	pr.spawnSubmit(state)
 	return nil
 }
 
@@ -864,6 +909,29 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 	return pr.handleStatusCall(ctx)
 }
 
+// BeforeCall called before a function is executed
+func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
+	if call.Type != models.TypeDetached {
+		return nil
+	}
+	var err error
+	// it is an ack sync we send ResultStart message back
+	pr.callHandleLock.Lock()
+	ch := pr.callHandleMap[call.ID]
+	pr.callHandleLock.Unlock()
+	if ch == nil {
+		err = models.ErrCallHandlerNotFound
+		return err
+	}
+	ch.enqueueDetached(err)
+	return nil
+}
+
+// AfterCall called after a funcion is executed
+func (pr *pureRunner) AfterCall(ctx context.Context, call *models.Call) error {
+	return nil
+}
+
 func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, tlsCfg *tls.Config) (Agent, error) {
 
 	agent := New(da)
@@ -909,6 +977,13 @@ func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
 	}
 }
 
+func PureRunnerWithDetached() PureRunnerOption {
+	return func(pr *pureRunner) error {
+		pr.AddCallListener(pr)
+		return nil
+	}
+}
+
 func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunnerOption) (Agent, error) {
 
 	pr := &pureRunner{}
@@ -935,6 +1010,7 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 		logrus.Warn("Running pure runner in insecure mode!")
 	}
 
+	pr.callHandleMap = make(map[string]*callHandle)
 	pr.gRPCServer = grpc.NewServer(opts...)
 	runner.RegisterRunnerProtocolServer(pr.gRPCServer, pr)
 
