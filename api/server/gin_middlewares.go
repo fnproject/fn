@@ -105,8 +105,10 @@ func RegisterAPIViews(tagKeys []string, dist []float64) {
 	// add extra tags if not already in default tags for req/resp
 	for _, key := range tagKeys {
 		if key != "path" && key != "method" && key != "status" {
-			reqTags = append(reqTags, common.MakeKey(key))
 			respTags = append(respTags, common.MakeKey(key))
+		}
+		if key != "path" && key != "method" {
+			reqTags = append(reqTags, common.MakeKey(key))
 		}
 	}
 
@@ -133,7 +135,6 @@ func DefaultAPIViewsGetPath(routes gin.RoutesInfo, c *gin.Context) string {
 }
 
 func apiMetricsWrap(s *Server) {
-
 	measure := func(engine *gin.Engine) func(*gin.Context) {
 		var routes gin.RoutesInfo
 		return func(c *gin.Context) {
@@ -169,7 +170,6 @@ func apiMetricsWrap(s *Server) {
 		a := s.AdminRouter
 		a.Use(measure(a))
 	}
-
 }
 
 func panicWrap(c *gin.Context) {
