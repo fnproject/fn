@@ -53,6 +53,7 @@ func (r *runResult) Error() error   { return r.err }
 func (r *runResult) Status() string { return r.status }
 
 type DockerDriver struct {
+	cancel   func()
 	conf     drivers.Config
 	docker   dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
 	hostname string
@@ -75,9 +76,11 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		logrus.WithError(err).Fatal("couldn't initialize registry")
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	driver := &DockerDriver{
+		cancel:   cancel,
 		conf:     conf,
-		docker:   newClient(),
+		docker:   newClient(ctx),
 		hostname: hostname,
 		auths:    auths,
 	}
@@ -144,6 +147,9 @@ func (drv *DockerDriver) Close() error {
 	var err error
 	if drv.pool != nil {
 		err = drv.pool.Close()
+	}
+	if drv.cancel != nil {
+		drv.cancel()
 	}
 	return err
 }
