@@ -784,10 +784,17 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 		}
 		common.Logger(ctx).WithField("resp", resp).Debug("Got resp from UDS socket")
 
+		// if ctx is canceled/timedout, then we close the body to unlock writeResp() below
 		defer resp.Body.Close()
 
+		ioErrChan := make(chan error, 1)
+		go func() {
+			ioErrChan <- writeResp(s.cfg.MaxResponseSize, resp, call.w)
+		}()
+
 		select {
-		case errApp <- writeResp(s.cfg.MaxResponseSize, resp, call.w):
+		case ioErr := <-ioErrChan:
+			errApp <- ioErr
 		case <-ctx.Done():
 			errApp <- ctx.Err()
 		}
