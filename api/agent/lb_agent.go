@@ -215,7 +215,7 @@ func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan err
 		var cancel func()
 		ctx = common.BackgroundContext(ctx)
 		// We don't want this to run indefinetely we need to guard this context
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(60+call.Timeout))
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(60+call.Timeout)*time.Second)
 		defer cancel()
 	}
 	err := a.placer.PlaceCall(a.rp, ctx, call)

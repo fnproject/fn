@@ -581,6 +581,9 @@ func (pr *pureRunner) Close() error {
 // implements Agent
 func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
+
+	// adding a call listener for ack sync call, the call listener it is the purerunner itself
+	pr.a.AddCallListener(pr)
 }
 
 func (pr *pureRunner) saveCallHandle(ch *callHandle) {
