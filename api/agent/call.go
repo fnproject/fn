@@ -304,7 +304,6 @@ type call struct {
 	requestState   RequestState
 	containerState ContainerState
 	slotHashId     string
-	ackSync        chan error // channel used to notify the ack that the function has been placed on a container
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string

@@ -199,7 +199,7 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
-func (ch *callHandle) enqueAckSync(err error) {
+func (ch *callHandle) enqueueAckSync(err error) {
 	statusCode := http.StatusAccepted
 	if err != nil {
 		if models.IsAPIError(err) {
@@ -548,10 +548,12 @@ type statusTracker struct {
 // pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
 // and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
-	gRPCServer *grpc.Server
-	creds      credentials.TransportCredentials
-	a          Agent
-	status     statusTracker
+	gRPCServer     *grpc.Server
+	creds          credentials.TransportCredentials
+	a              Agent
+	status         statusTracker
+	callHandleMap  map[string]*callHandle
+	callHandleLock sync.Mutex
 }
 
 // implements Agent
@@ -581,11 +583,28 @@ func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
 }
 
-func (pr *pureRunner) spawnSubmit(state *callHandle, chErr chan error) {
+func (pr *pureRunner) saveCallHandle(ch *callHandle) {
+	pr.callHandleLock.Lock()
+	pr.callHandleMap[ch.c.Model().ID] = ch
+	pr.callHandleLock.Unlock()
+}
+
+func (pr *pureRunner) removeCallHandle(cID string) {
+	pr.callHandleLock.Lock()
+	delete(pr.callHandleMap, cID)
+	pr.callHandleLock.Unlock()
+
+}
+
+func (pr *pureRunner) spawnSubmit(state *callHandle) {
 	go func() {
+		isAcksync := state.c.Type == models.TypeAcksync
+		// we keep track of the callHandle which will be used in the process to send the ack back
+		if isAcksync {
+			pr.saveCallHandle(state)
+		}
 		err := pr.a.Submit(state.c)
-		// Notify the error back
-		chErr <- err
+
 		state.enqueueCallResponse(err)
 	}()
 }
@@ -636,21 +655,8 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		}
 		state.c.slotHashId = string(hashId[:])
 	}
-	errSubmit := make(chan error, 1)
-	state.c.ackSync = make(chan error, 1)
-	pr.spawnSubmit(state, errSubmit)
-	select {
-	case <-errSubmit:
-		// The error is already managed in the spawnSubmit we just return here
-		return nil
-	case err := <-state.c.ackSync:
-		// if it is an acksync then we want to notify the LB
-		if state.c.Model().Type == models.TypeAcksync {
-			// EnqueuSyncAck
-			state.enqueAckSync(err)
-		}
-	}
 
+	pr.spawnSubmit(state)
 	return nil
 }
 
@@ -901,6 +907,31 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 	return pr.handleStatusCall(ctx)
 }
 
+// BeforeCall called before a function is executed
+func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
+	if call.Type != models.TypeAcksync {
+		return nil
+	}
+	var err error
+	// it is an ack sync we send ResultStart message back
+	pr.callHandleLock.Lock()
+	ch := pr.callHandleMap[call.ID]
+	pr.callHandleLock.Unlock()
+	if ch == nil {
+		err = models.ErrCallHandlerNotFound
+	}
+	ch.enqueueAckSync(err)
+	return nil
+}
+
+// AfterCall called after a funcion is executed
+func (pr *pureRunner) AfterCall(ctx context.Context, call *models.Call) error {
+	if call.Type == models.TypeAcksync {
+		pr.removeCallHandle(call.ID)
+	}
+	return nil
+}
+
 func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, tlsCfg *tls.Config) (Agent, error) {
 
 	agent := New(da)
@@ -972,6 +1003,7 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 		logrus.Warn("Running pure runner in insecure mode!")
 	}
 
+	pr.callHandleMap = make(map[string]*callHandle)
 	pr.gRPCServer = grpc.NewServer(opts...)
 	runner.RegisterRunnerProtocolServer(pr.gRPCServer, pr)
 

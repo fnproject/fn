@@ -155,6 +155,11 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Async functions are not supported on this server"),
 	}
+
+	ErrCallHandlerNotFound = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Unable to find the call handle"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response

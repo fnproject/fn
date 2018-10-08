@@ -692,18 +692,10 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	call.req = call.req.WithContext(ctx) // TODO this is funny biz reed is bad
 
 	var errApp chan error
-	var err error
 	if call.Format == models.FormatHTTPStream {
-		req, err := callToHTTPRequest(ctx, call)
-		// the acksync channel is used on on LB configuration so the channel could be not initialized
-		if call.ackSync != nil {
-			call.ackSync <- err
-		}
-		errApp = s.dispatch(ctx, call, req, err)
+		errApp = s.dispatch(ctx, call)
+
 	} else { // TODO remove this block one glorious day
-		if call.ackSync != nil {
-			call.ackSync <- err
-		}
 		errApp = s.dispatchOldFormats(ctx, call)
 	}
 
@@ -771,7 +763,7 @@ func callToHTTPRequest(ctx context.Context, call *call) *http.Request {
 	return req
 }
 
-func (s *hotSlot) dispatch(ctx context.Context, call *call, req *http.Request, err error) chan error {
+func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
 	defer span.End()
 

@@ -193,16 +193,8 @@ func (a *lbAgent) Submit(callI Call) error {
 	}
 	isAckSync := call.Type == models.TypeAcksync
 	rw := call.w.(*AckSyncResponseWriter)
-	// change the context if it is a acksync call
-	if isAckSync {
-		ctx = common.BackgroundContext(ctx)
-		// We don't want this to run indefinetely we need to guard this context
-		var cancel func()
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(60+call.Timeout))
-		defer cancel()
-	}
 
-	go a.spawnPlaceCall(ctx, call, errPlace)
+	go a.spawnPlaceCall(ctx, call, errPlace, isAckSync)
 
 	for {
 		select {
@@ -210,6 +202,7 @@ func (a *lbAgent) Submit(callI Call) error {
 			return err
 		case <-rw.acked:
 			// if it is an acksync we return immediately otherwise we ignore the ack
+			// If it is not an acksync we get the ack and we can use it to log info, stats etc.
 			if isAckSync {
 				return nil
 			}
@@ -217,7 +210,14 @@ func (a *lbAgent) Submit(callI Call) error {
 	}
 }
 
-func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error) {
+func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error, isAckSync bool) {
+	if isAckSync {
+		var cancel func()
+		ctx = common.BackgroundContext(ctx)
+		// We don't want this to run indefinetely we need to guard this context
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(60+call.Timeout))
+		defer cancel()
+	}
 	err := a.placer.PlaceCall(a.rp, ctx, call)
 	errCh <- a.handleCallEnd(ctx, call, err, true)
 }
