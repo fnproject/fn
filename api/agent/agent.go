@@ -694,7 +694,6 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	var errApp chan error
 	if call.Format == models.FormatHTTPStream {
 		errApp = s.dispatch(ctx, call)
-
 	} else { // TODO remove this block one glorious day
 		errApp = s.dispatchOldFormats(ctx, call)
 	}
@@ -764,9 +763,6 @@ func callToHTTPRequest(ctx context.Context, call *call) *http.Request {
 }
 
 func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
-	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
-	defer span.End()
-
 	// TODO we can't trust that resp.Write doesn't timeout, even if the http
 	// client should respect the request context (right?) so we still need this (right?)
 	errApp := make(chan error, 1)
