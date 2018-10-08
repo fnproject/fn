@@ -125,7 +125,6 @@ type mockRunnerCall struct {
 	stdErr     io.ReadWriteCloser
 	model      *models.Call
 	slotHashId string
-	ackSync    chan error
 }
 
 func (c *mockRunnerCall) SlotHashId() string {
@@ -162,8 +161,7 @@ func TestOneRunner(t *testing.T) {
 	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
 	modelCall := &models.Call{Type: models.TypeSync}
-	call := &mockRunnerCall{ackSync: make(chan error, 1),
-		model: modelCall}
+	call := &mockRunnerCall{model: modelCall}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
 	defer cancel()
 	err := placer.PlaceCall(rp, ctx, call)
@@ -178,8 +176,7 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
 
 	modelCall := &models.Call{Type: models.TypeSync}
-	call := &mockRunnerCall{ackSync: make(chan error, 1),
-		model: modelCall}
+	call := &mockRunnerCall{model: modelCall}
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
 	defer cancel()
@@ -204,8 +201,7 @@ func TestRRRunner(t *testing.T) {
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Millisecond))
 			defer cancel()
 			modelCall := &models.Call{Type: models.TypeSync}
-			call := &mockRunnerCall{ackSync: make(chan error, 1),
-				model: modelCall}
+			call := &mockRunnerCall{model: modelCall}
 
 			err := placer.PlaceCall(rp, ctx, call)
 			if err != nil {
@@ -242,8 +238,7 @@ func TestEnforceLbTimeout(t *testing.T) {
 			defer cancel()
 
 			modelCall := &models.Call{Type: models.TypeSync}
-			call := &mockRunnerCall{ackSync: make(chan error, 1),
-				model: modelCall}
+			call := &mockRunnerCall{model: modelCall}
 
 			err := placer.PlaceCall(rp, ctx, call)
 			if err != nil {
