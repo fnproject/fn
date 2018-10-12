@@ -565,7 +565,7 @@ func WithAgentFromEnv() Option {
 			}
 
 			// Select the placement algorithm
-			placerCfg := pool.NewPlacerConfig(360)
+			placerCfg := pool.NewPlacerConfig()
 			var placer pool.Placer
 			switch getEnv(EnvLBPlacementAlg, "") {
 			case "ch":

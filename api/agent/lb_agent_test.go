@@ -157,7 +157,7 @@ func setupMockRunnerPool(expectedRunners []string, execSleep time.Duration, maxC
 }
 
 func TestOneRunner(t *testing.T) {
-	cfg := pool.NewPlacerConfig(360)
+	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
 	modelCall := &models.Call{Type: models.TypeSync}
@@ -171,7 +171,7 @@ func TestOneRunner(t *testing.T) {
 }
 
 func TestEnforceTimeoutFromContext(t *testing.T) {
-	cfg := pool.NewPlacerConfig(360)
+	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
 
@@ -187,7 +187,7 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 }
 
 func TestRRRunner(t *testing.T) {
-	cfg := pool.NewPlacerConfig(360)
+	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 2)
 
@@ -223,7 +223,7 @@ func TestRRRunner(t *testing.T) {
 }
 
 func TestEnforceLbTimeout(t *testing.T) {
-	cfg := pool.NewPlacerConfig(360)
+	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 1)
 

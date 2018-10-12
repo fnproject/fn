@@ -214,7 +214,8 @@ func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan err
 	if isAckSync {
 		var cancel func()
 		ctx = common.BackgroundContext(ctx)
-		// We don't want this to run indefinetely we need to guard this context
+		// 30 secs PlacerTimeout for AsyncAck + call.Timeout (inside container) + 30 sec headroom
+		// to make sure we do not wait indefinitely, but also wait enough time for worst case.
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(60+call.Timeout)*time.Second)
 		defer cancel()
 	}

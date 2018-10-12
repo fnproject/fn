@@ -220,7 +220,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	placerCfg := pool.NewPlacerConfig(360)
+	placerCfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&placerCfg)
 
 	keys := []string{"fn_appname", "fn_path"}
@@ -286,6 +286,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	pureRunner, err := agent.NewPureRunner(cancel, grpcAddr,
 		agent.PureRunnerWithAgent(innerAgent),
 		agent.PureRunnerWithStatusImage(StatusImage),
+		agent.PureRunnerWithAcksync(),
 	)
 	if err != nil {
 		return nil, err

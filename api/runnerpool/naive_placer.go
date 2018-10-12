@@ -24,10 +24,7 @@ func NewNaivePlacer(cfg *PlacerConfig) Placer {
 }
 
 func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
-	if call.Model().Type == models.TypeAcksync {
-		sp.cfg = NewPlacerConfig(30)
-	}
-	state := NewPlacerTracker(ctx, &sp.cfg)
+	state := NewPlacerTracker(ctx, &sp.cfg, call.Model().Type)
 	defer state.HandleDone()
 
 	var runnerPoolErr error

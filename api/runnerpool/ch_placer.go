@@ -27,10 +27,7 @@ func NewCHPlacer(cfg *PlacerConfig) Placer {
 // Because we ask a runner to accept load (queuing on the LB rather than on the nodes), we don't use
 // the LB_WAIT to drive placement decisions: runners only accept work if they have the capacity for it.
 func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
-	if call.Model().Type == models.TypeAcksync {
-		p.cfg = NewPlacerConfig(30)
-	}
-	state := NewPlacerTracker(ctx, &p.cfg)
+	state := NewPlacerTracker(ctx, &p.cfg, call.Model().Type)
 	defer state.HandleDone()
 
 	key := call.Model().FnID

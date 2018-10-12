@@ -604,7 +604,9 @@ func (pr *pureRunner) spawnSubmit(state *callHandle) {
 			pr.saveCallHandle(state)
 		}
 		err := pr.a.Submit(state.c)
-
+		if isAcksync {
+			pr.removeCallHandle(state.c.Model().ID)
+		}
 		state.enqueueCallResponse(err)
 	}()
 }
@@ -926,9 +928,6 @@ func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
 
 // AfterCall called after a funcion is executed
 func (pr *pureRunner) AfterCall(ctx context.Context, call *models.Call) error {
-	if call.Type == models.TypeAcksync {
-		pr.removeCallHandle(call.ID)
-	}
 	return nil
 }
 
@@ -973,6 +972,13 @@ func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
 			return fmt.Errorf("Duplicate status image configuration old=%s new=%s", pr.status.imageName, imgName)
 		}
 		pr.status.imageName = imgName
+		return nil
+	}
+}
+
+func PureRunnerWithAcksync() PureRunnerOption {
+	return func(pr *pureRunner) error {
+		pr.AddCallListener(pr)
 		return nil
 	}
 }
