@@ -186,6 +186,25 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 	}
 }
 
+func TestPlacerAcksyncTimeout(t *testing.T) {
+	// In this test we set the acksync placer timeout to a value lower than the request timeout (call.Timeout)
+	// the fake placer will just sleep for a time greater of the acksync placement timeout and it will return
+	// the right error only if the acksync timeout exceeds but the request timeout is still valid
+	cfg := pool.NewPlacerConfig()
+	cfg.PlacerAcksyncTimeout = 500 * time.Millisecond
+	placer := pool.NewFakeAcksyncPlacer(&cfg, 700*time.Millisecond)
+
+	modelCall := &models.Call{Type: models.TypeAcksync}
+	call := &mockRunnerCall{model: modelCall}
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
+	defer cancel()
+	err := placer.PlaceCall(nil, ctx, call)
+	if err == nil {
+		t.Fatal("Acksync call should have time out because of the expiration of the placement timeout")
+	}
+
+}
+
 func TestRRRunner(t *testing.T) {
 	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
