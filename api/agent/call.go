@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -55,36 +54,7 @@ const (
 // Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
 	return func(c *call) error {
-		ctx := req.Context()
-
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil && contentType != "" {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v %v", contentType, err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				fn.Format = models.FormatCloudEvent
-			}
-		}
-
-		if fn.Format == "" {
-			fn.Format = models.FormatDefault
-		}
-
 		id := id.New().String()
-
-		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
-		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
-		if rw, ok := c.w.(http.ResponseWriter); ok {
-			rw.Header().Add("FN_CALL_ID", id)
-			rw.Header().Add("Fn-Call-Id", id)
-		}
 
 		var syslogURL string
 		if app.SyslogURL != nil {
@@ -287,18 +257,14 @@ func setupCtx(c *call) {
 type call struct {
 	*models.Call
 
-	// IsCloudEvent flag whether this was ingested as a cloud event. This may become the default or only way.
-	IsCloudEvent bool `json:"is_cloud_event"`
-
-	handler        CallHandler
-	w              io.Writer
-	req            *http.Request
-	stderr         io.ReadWriteCloser
-	ct             callTrigger
-	slots          *slotQueue
-	requestState   RequestState
-	containerState ContainerState
-	slotHashId     string
+	handler      CallHandler
+	w            io.Writer
+	req          *http.Request
+	stderr       io.ReadWriteCloser
+	ct           callTrigger
+	slots        *slotQueue
+	requestState RequestState
+	slotHashId   string
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
