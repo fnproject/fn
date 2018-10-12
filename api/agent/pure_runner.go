@@ -701,7 +701,6 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	c.ID = id.New().String()
 	c.Image = pr.status.imageName
 	c.Type = "sync"
-	c.Format = "json"
 	c.TmpFsSize = 0
 	c.Memory = 0
 	c.CPUs = models.MilliCPUs(0)
@@ -709,7 +708,6 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	c.Method = "GET"
 	c.CreatedAt = common.DateTime(start)
 	c.Config = make(models.Config)
-	c.Config["FN_FORMAT"] = c.Format
 	c.Payload = "{}"
 	c.Timeout = StatusCallTimeout
 	c.IdleTimeout = StatusCallIdleTimeout

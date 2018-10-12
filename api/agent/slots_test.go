@@ -278,9 +278,7 @@ func BenchmarkSlotKey(b *testing.B) {
 	url := "http://127.0.0.1:8080/invoke/" + fnID
 	payload := "payload"
 	typ := "sync"
-	format := "default"
 	cfg := models.Config{
-		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_CPUS":     CPUs.String(),
@@ -294,7 +292,6 @@ func BenchmarkSlotKey(b *testing.B) {
 		FnID:        fnID,
 		Image:       image,
 		Type:        typ,
-		Format:      format,
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,

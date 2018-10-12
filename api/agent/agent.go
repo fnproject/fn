@@ -587,10 +587,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	call.req = call.req.WithContext(ctx) // TODO this is funny biz reed is bad
 
-	var errApp chan error
-	if call.Format == models.FormatHTTPStream {
-		errApp = s.dispatch(ctx, call)
-	}
+	errApp := s.dispatch(ctx, call)
 
 	select {
 	case err := <-s.errC: // error from container
@@ -766,30 +763,24 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	}
 	defer container.Close()
 
-	// NOTE: soon this isn't assigned in a branch...
-	var udsClient http.Client
 	udsAwait := make(chan error)
-	if call.Format == models.FormatHTTPStream {
-		// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
-		go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
+	// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
+	go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
 
-		udsClient = http.Client{
-			Transport: &http.Transport{
-				MaxIdleConns:        1,
-				MaxIdleConnsPerHost: 1,
-				// XXX(reed): other settings ?
-				IdleConnTimeout: 1 * time.Second,
-				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-					var d net.Dialer
-					return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), udsFilename))
-				},
+	udsClient := http.Client{
+		Transport: &http.Transport{
+			MaxIdleConns:        1,
+			MaxIdleConnsPerHost: 1,
+			// XXX(reed): other settings ?
+			IdleConnTimeout: 1 * time.Second,
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), udsFilename))
 			},
-		}
-	} else {
-		close(udsAwait) // XXX(reed): short case first / kill this
+		},
 	}
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.CreateCookie(ctx, container)
@@ -1103,19 +1094,15 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 
 	var iofs iofs
 	var err error
-	if call.Format == models.FormatHTTPStream {
-		// XXX(reed): we should also point stdout to stderr, and not have stdin
-		if cfg.IOFSEnableTmpfs {
-			iofs, err = newTmpfsIOFS(ctx, cfg)
-		} else {
-			iofs, err = newDirectoryIOFS(ctx, cfg)
-		}
-
-		if err != nil {
-			return nil, err
-		}
+	// XXX(reed): we should also point stdout to stderr, and not have stdin
+	if cfg.IOFSEnableTmpfs {
+		iofs, err = newTmpfsIOFS(ctx, cfg)
 	} else {
-		iofs = &noopIOFS{}
+		iofs, err = newDirectoryIOFS(ctx, cfg)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &container{

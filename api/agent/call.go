@@ -45,12 +45,6 @@ type CallOverrider func(*models.Call, map[string]string) (map[string]string, err
 // TODO build w/o closures... lazy
 type CallOpt func(c *call) error
 
-const (
-	ceMimeType = "application/cloudevents+json"
-	// static path for all fn invocations
-	invokePath = "/invoke"
-)
-
 // Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
 	return func(c *call) error {
@@ -65,8 +59,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			ID:    id,
 			Image: fn.Image,
 			// Delay: 0,
-			Type:   "sync",
-			Format: fn.Format,
+			Type: "sync",
 			// Payload: TODO,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     fn.Timeout,
@@ -74,7 +67,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			TmpFsSize:   0, // TODO clean up this
 			Memory:      fn.Memory,
 			CPUs:        0, // TODO clean up this
-			Config:      buildConfig(app, fn, invokePath),
+			Config:      buildConfig(app, fn),
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
 			Annotations: app.Annotations.MergeChange(fn.Annotations),
@@ -93,7 +86,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 	}
 }
 
-func buildConfig(app *models.App, fn *models.Fn, path string) models.Config {
+func buildConfig(app *models.App, fn *models.Fn) models.Config {
 	conf := make(models.Config, 8+len(app.Config)+len(fn.Config))
 	for k, v := range app.Config {
 		conf[k] = v
@@ -102,16 +95,13 @@ func buildConfig(app *models.App, fn *models.Fn, path string) models.Config {
 		conf[k] = v
 	}
 
-	conf["FN_FORMAT"] = fn.Format
-	if fn.Format == models.FormatHTTPStream { // TODO should be always soon...
-		conf["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
-	}
-	conf["FN_APP_NAME"] = app.Name
-	conf["FN_PATH"] = path
-	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
+	// XXX(reed): add trigger id to request headers on call?
+
+	conf["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", fn.Memory)
 	conf["FN_TYPE"] = "sync"
 	conf["FN_FN_ID"] = fn.ID
+	conf["FN_APP_ID"] = app.ID
 
 	return conf
 }
