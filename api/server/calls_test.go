@@ -29,7 +29,7 @@ func TestCallGet(t *testing.T) {
 	call := &models.Call{
 		FnID:  fn.ID,
 		ID:    id.New().String(),
-		Image: "fnproject/hello",
+		Image: "fnproject/fn-test-utils",
 		// Delay: 0,
 		Type: "sync",
 		// Payload: TODO,
@@ -97,7 +97,7 @@ func TestCallList(t *testing.T) {
 	call := &models.Call{
 		FnID:  fn.ID,
 		ID:    id.New().String(),
-		Image: "fnproject/hello",
+		Image: "fnproject/fn-test-utils",
 		// Delay: 0,
 		Type: "sync",
 		// Payload: TODO,

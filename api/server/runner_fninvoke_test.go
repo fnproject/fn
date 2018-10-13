@@ -159,8 +159,6 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
-	// XXX(reed): Fn-Http-Status from invoke no more fren
-	expStreamHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}, "Fn-Http-Status": {"200"}}
 
 	// Checking for EndOfLogs currently depends on scheduling of go-routines (in docker/containerd) that process stderr & stdout.
 	// Therefore, not testing for EndOfLogs for hot containers (which has complex I/O processing) anymore.
@@ -169,10 +167,8 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`           // crash container
 	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 120000000}` // ask for 120MB
 	// XXX(reed): do we have an invalid http response? no right?
-	badHot := `{"echoContent": "_TRX_ID_", "invalidResponse": true, "isDebug": true}`                              // write a not json/http as output
 	ok := `{"echoContent": "_TRX_ID_", "responseContentType": "application/json; charset=utf-8", "isDebug": true}` // good response / ok
 	respTypeLie := `{"echoContent": "_TRX_ID_", "responseContentType": "foo/bar", "isDebug": true}`                // Content-Type: foo/bar
-	respTypeJason := `{"echoContent": "_TRX_ID_", "jasonContentType": "foo/bar", "isDebug": true}`                 // Content-Type: foo/bar
 
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
 	multiLog := `{"echoContent": "_TRX_ID_", "sleepTime": 1000, "isDebug": true}`
@@ -192,13 +188,13 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		expectedErrSubStr  string
 		expectedLogsSubStr []string
 	}{
-		{"/invoke/http_stream_fn_id", ok, "POST", http.StatusOK, expStreamHeaders, "", nil},
+		{"/invoke/http_stream_fn_id", ok, "POST", http.StatusOK, expHeaders, "", nil},
 		// NOTE: we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
 		{"/invoke/http_stream_fn_id", respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
 		{"/invoke/http_stream_fn_id", crasher, "POST", http.StatusBadGateway, expHeaders, "error receiving function response", nil},
 		// XXX(reed): we could stop buffering function responses so that we can stream things?
 		{"/invoke/http_stream_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},
-		{"/invoke/http_stream_fn_id", smalloutput, "POST", http.StatusOK, expStreamHeaders, "", nil},
+		{"/invoke/http_stream_fn_id", smalloutput, "POST", http.StatusOK, expHeaders, "", nil},
 		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
 		{"/invoke/http_stream_fn_id", oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},
 		{"/invoke/http_stream_fn_id", bigbuf, "POST", http.StatusRequestEntityTooLarge, nil, "", nil},
@@ -352,7 +348,7 @@ func TestInvokeRunnerMinimalConcurrentHotSync(t *testing.T) {
 	buf := setLogBuffer()
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
-	fn := &models.Fn{ID: "fn_id", AppID: app.ID, Name: "myfn", Image: "fnproject/fn-test-utils", Format: "http", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 30, IdleTimeout: 5}}
+	fn := &models.Fn{ID: "fn_id", AppID: app.ID, Name: "myfn", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 30, IdleTimeout: 5}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Fn{fn},
