@@ -77,8 +77,8 @@ func down22(ctx context.Context, tx *sqlx.Tx) error {
 
 func init() {
 	Migrations = append(Migrations, &migratex.MigFields{
-		VersionFunc: vfunc(21),
-		UpFunc:      up21,
-		DownFunc:    down21,
+		VersionFunc: vfunc(22),
+		UpFunc:      up22,
+		DownFunc:    down22,
 	})
 }
