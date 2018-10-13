@@ -64,7 +64,7 @@ func up22(ctx context.Context, tx *sqlx.Tx) error {
 		return err
 	}
 
-	_, err = tx.ExecContext(ctx, "DROP TABLE old_calls;")
+	_, err = tx.ExecContext(ctx, "DROP TABLE old_fns;")
 
 	return err
 }
