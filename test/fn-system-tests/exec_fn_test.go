@@ -25,10 +25,9 @@ func TestCanExecuteFunction(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -85,10 +84,9 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -135,10 +133,9 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -185,10 +182,9 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -234,10 +230,9 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},

@@ -25,7 +25,7 @@ checkfmt:
 .PHONY: clear-images
 clear-images:
 	-docker images -q -f dangling=true | xargs docker rmi -f
-	for i in fnproject/fn-test-utils fnproject/fn-status-checker fnproject/hello fnproject/dind fnproject/fnserver ; do \
+	for i in fnproject/fn-test-utils fnproject/fn-status-checker fnproject/dind fnproject/fnserver ; do \
 	    docker images "$$i" --format '{{ .ID }}\t{{ .Repository }}\t{{ .Tag}}' | while read id repo tag; do \
 	        if [ "$$tag" = "<none>" ]; then docker rmi "$$id"; else docker rmi "$$repo:$$tag"; fi; done; done
 
@@ -65,7 +65,7 @@ test-basic: checkfmt pull-images fn-test-utils fn-status-checker
 test: checkfmt pull-images test-basic test-middleware test-extensions test-system
 
 .PHONY: test-system
-test-system: test-basic
+test-system:
 	./system_test.sh sqlite3
 	./system_test.sh mysql
 	./system_test.sh postgres
@@ -73,10 +73,6 @@ test-system: test-basic
 .PHONY: img-busybox
 img-busybox:
 	docker pull busybox
-
-.PHONY: img-hello
-img-hello:
-	docker pull fnproject/hello
 
 .PHONY: img-mysql
 img-mysql:
@@ -91,7 +87,7 @@ img-minio:
 	/bin/bash -c "source ./helpers.sh && docker_pull_minio"
 
 .PHONY: pull-images
-pull-images: img-hello img-mysql img-postgres img-minio img-busybox
+pull-images: img-mysql img-postgres img-minio img-busybox
 
 .PHONY: test-datastore
 test-datastore:

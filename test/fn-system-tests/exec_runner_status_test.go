@@ -49,10 +49,9 @@ func TestCannotExecuteStatusImage(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  StatusImage,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: StatusImage,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},

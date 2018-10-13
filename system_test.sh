@@ -16,6 +16,7 @@ export FN_DS_DB_PING_MAX_RETRIES=60
 export FN_MAX_REQUEST_SIZE=6291456
 export FN_MAX_RESPONSE_SIZE=6291456
 export FN_ENABLE_NB_RESOURCE_TRACKER=1
+export FN_LOG_LEVEL=debug
 
 #
 # dump prometheus metrics to this file

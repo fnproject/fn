@@ -73,7 +73,6 @@ func (rp *systemTestResourceProvider) ValidFn(appID string) *models.Fn {
 	fn := rp.ResourceProvider.ValidFn(appID)
 	fn.Memory = memory
 	fn.Image = image
-	fn.Format = format
 	return fn
 }
 
@@ -343,7 +342,6 @@ const (
 	appName   = "systemtestapp"
 	routeName = "/systemtestroute"
 	image     = "fnproject/fn-test-utils"
-	format    = "json"
 	memory    = 128
 	typ       = "sync"
 )
