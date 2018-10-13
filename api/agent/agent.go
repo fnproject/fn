@@ -1048,10 +1048,6 @@ type container struct {
 
 //newHotContainer creates a container that can be used for multiple sequential events
 func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, error) {
-	// if freezer is enabled, be consistent with freezer behavior and
-	// block stdout and stderr between calls.
-	isBlockIdleIO := MaxMsDisabled != cfg.FreezeIdle
-
 	id := id.New().String()
 
 	stdin := common.NewGhostReader()
@@ -1061,40 +1057,37 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 	// for use if no freezer (or we ever make up our minds)
 	var bufs []*bytes.Buffer
 
-	// when not processing a request, do we block IO?
-	if !isBlockIdleIO {
-		// IMPORTANT: we are not operating on a TTY allocated container. This means, stderr and stdout are multiplexed
-		// from the same stream internally via docker using a multiplexing protocol. Therefore, stderr/stdout *BOTH*
-		// have to be read or *BOTH* blocked consistently. In other words, we cannot block one and continue
-		// reading from the other one without risking head-of-line blocking.
+	// IMPORTANT: we are not operating on a TTY allocated container. This means, stderr and stdout are multiplexed
+	// from the same stream internally via docker using a multiplexing protocol. Therefore, stderr/stdout *BOTH*
+	// have to be read or *BOTH* blocked consistently. In other words, we cannot block one and continue
+	// reading from the other one without risking head-of-line blocking.
 
-		// wrap the syslog and debug loggers in the same (respective) line writer
-		// syslog complete chain for this (from top):
-		// stderr -> line writer
+	// wrap the syslog and debug loggers in the same (respective) line writer
+	// stderr -> line writer
 
-		// TODO(reed): I guess this is worth it
-		// TODO(reed): there's a bug here where the between writers could have
-		// bytes in there, get swapped for real stdout/stderr, come back and write
-		// bytes in and the bytes are [really] stale. I played with fixing this
-		// and mostly came to the conclusion that life is meaningless.
-		buf1 := bufPool.Get().(*bytes.Buffer)
-		buf2 := bufPool.Get().(*bytes.Buffer)
-		bufs = []*bytes.Buffer{buf1, buf2}
+	// TODO(reed): there's a bug here where the between writers could have
+	// bytes in there, get swapped for real stdout/stderr, come back and write
+	// bytes in and the bytes are [really] stale. I played with fixing this
+	// and mostly came to the conclusion that life is meaningless.
+	// TODO(reed): we should let the syslog driver pick this up really but our
+	// default story sucks there
+	buf1 := bufPool.Get().(*bytes.Buffer)
+	buf2 := bufPool.Get().(*bytes.Buffer)
+	bufs = []*bytes.Buffer{buf1, buf2}
 
-		soc := &nopCloser{&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
-		}}
-		sec := &nopCloser{&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
-		}}
+	soc := &nopCloser{&logWriter{
+		logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
+	}}
+	sec := &nopCloser{&logWriter{
+		logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
+	}}
 
-		stdout.Swap(newLineWriterWithBuffer(buf1, soc))
-		stderr.Swap(newLineWriterWithBuffer(buf2, sec))
-	}
+	stdout.Swap(newLineWriterWithBuffer(buf1, soc))
+	stderr.Swap(newLineWriterWithBuffer(buf2, sec))
+	// XXX(reed): we should turn off stdin
 
 	var iofs iofs
 	var err error
-	// XXX(reed): we should also point stdout to stderr, and not have stdin
 	if cfg.IOFSEnableTmpfs {
 		iofs, err = newTmpfsIOFS(ctx, cfg)
 	} else {

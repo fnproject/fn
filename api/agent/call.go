@@ -97,7 +97,6 @@ func buildConfig(app *models.App, fn *models.Fn) models.Config {
 
 	// XXX(reed): add trigger id to request headers on call?
 
-	conf["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", fn.Memory)
 	conf["FN_TYPE"] = "sync"
 	conf["FN_FN_ID"] = fn.ID
@@ -222,6 +221,12 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	if !a.resources.IsResourcePossible(mem, c.CPUs) {
 		return nil, models.ErrCallResourceTooBig
 	}
+
+	if c.Call.Config == nil {
+		c.Call.Config = make(models.Config)
+	}
+	c.Call.Config["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
+	// TODO we could set type here too, for now, or anything else not based in fn/app/trigger config
 
 	setupCtx(&c)
 

@@ -136,7 +136,7 @@ func TestExecuteRunnerStatus(t *testing.T) {
 		select {
 		case status := <-res:
 			if status == nil || status.StatusFailed {
-				t.Fatalf("Runners Status not OK for %v", status)
+				t.Fatalf("Runners Status not OK for %+v", status)
 			}
 			lookup[status.StatusId] = append(lookup[status.StatusId], status)
 		case err := <-errs:
