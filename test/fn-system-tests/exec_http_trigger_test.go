@@ -81,6 +81,12 @@ var rp = &systemTestResourceProvider{
 }
 
 func TestCanExecuteFunctionViaTrigger(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -131,6 +137,12 @@ func TestCanExecuteFunctionViaTrigger(t *testing.T) {
 }
 
 func TestCanExecuteTriggerBigOutput(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	app := ensureApp(t, rp.ValidApp())
@@ -170,6 +182,12 @@ func TestCanExecuteTriggerBigOutput(t *testing.T) {
 }
 
 func TestCanExecuteTriggerTooBigOutput(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	app := ensureApp(t, rp.ValidApp())
@@ -209,6 +227,12 @@ func TestCanExecuteTriggerTooBigOutput(t *testing.T) {
 }
 
 func TestCanExecuteTriggerEmptyOutput(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	app := ensureApp(t, rp.ValidApp())
@@ -247,6 +271,12 @@ func TestCanExecuteTriggerEmptyOutput(t *testing.T) {
 }
 
 func TestBasicTriggerConcurrentExecution(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	app := ensureApp(t, rp.ValidApp())

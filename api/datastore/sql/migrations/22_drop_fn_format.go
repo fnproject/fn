@@ -12,20 +12,39 @@ func up22(ctx context.Context, tx *sqlx.Tx) error {
 	if err != nil {
 		return err
 	}
-	newTable := tx.Rebind(`CREATE TABLE IF NOT EXISTS fns (
-	id varchar(256) NOT NULL PRIMARY KEY,
-	name varchar(256) NOT NULL,
-	app_id varchar(256) NOT NULL,
-	image varchar(256) NOT NULL,
-	memory int NOT NULL,
-	timeout int NOT NULL,
-	idle_timeout int NOT NULL,
-	config text NOT NULL,
-	annotations text NOT NULL,
-	created_at varchar(256) NOT NULL,
-	updated_at varchar(256) NOT NULL,
-    CONSTRAINT name_app_id_unique UNIQUE (app_id, name)
-	);`)
+	var newTable string
+	if tx.DriverName() == "postgres" || tx.DriverName() == "pgx" {
+		// postgres maintains constraints across table name changes with the old table, so
+		// we can't create the constraint again or the tx fails
+		newTable = tx.Rebind(`CREATE TABLE IF NOT EXISTS fns (
+		id varchar(256) NOT NULL PRIMARY KEY,
+		name varchar(256) NOT NULL,
+		app_id varchar(256) NOT NULL,
+		image varchar(256) NOT NULL,
+		memory int NOT NULL,
+		timeout int NOT NULL,
+		idle_timeout int NOT NULL,
+		config text NOT NULL,
+		annotations text NOT NULL,
+		created_at varchar(256) NOT NULL,
+		updated_at varchar(256) NOT NULL
+		);`)
+	} else {
+		newTable = tx.Rebind(`CREATE TABLE IF NOT EXISTS fns (
+		id varchar(256) NOT NULL PRIMARY KEY,
+		name varchar(256) NOT NULL,
+		app_id varchar(256) NOT NULL,
+		image varchar(256) NOT NULL,
+		memory int NOT NULL,
+		timeout int NOT NULL,
+		idle_timeout int NOT NULL,
+		config text NOT NULL,
+		annotations text NOT NULL,
+		created_at varchar(256) NOT NULL,
+		updated_at varchar(256) NOT NULL,
+			CONSTRAINT name_app_id_unique UNIQUE (app_id, name)
+		);`)
+	}
 	_, err = tx.ExecContext(ctx, newTable)
 	if err != nil {
 		return err
