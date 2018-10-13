@@ -89,3 +89,9 @@ ignored = ["github.com/fnproject/fn/cli",
 [[constraint]]
   name = "github.com/prometheus/client_golang"
   version = ">=0.9.0"
+
+# this is really dumb, the images section does this, need to move images
+[[override]]
+  revision = "80587e856ebb4a7a28db9387417c2fc1962e5fa0"
+  name = "github.com/fnproject/fdk-go"
+
