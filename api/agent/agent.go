@@ -693,7 +693,7 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 func writeResp(max uint64, resp *http.Response, w io.Writer) error {
 	rw, ok := w.(http.ResponseWriter)
 	if !ok {
-		w = common.NewClampWriter(rw, max, models.ErrFunctionResponseTooBig)
+		w = common.NewClampWriter(w, max, models.ErrFunctionResponseTooBig)
 		return resp.Write(w)
 	}
 

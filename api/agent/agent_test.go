@@ -369,7 +369,9 @@ func TestSubmitError(t *testing.T) {
 	payload := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`
 	typ := "sync"
 	config := map[string]string{
-		"FN_APP_NAME": app.Name,
+		"FN_LISTENER": "unix:" + filepath.Join(iofsDockerMountDest, udsFilename),
+		"FN_APP_ID":   app.ID,
+		"FN_FN_ID":    fn.ID,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
