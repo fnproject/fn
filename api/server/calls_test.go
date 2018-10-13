@@ -31,8 +31,7 @@ func TestCallGet(t *testing.T) {
 		ID:    id.New().String(),
 		Image: "fnproject/hello",
 		// Delay: 0,
-		Type:   "sync",
-		Format: "default",
+		Type: "sync",
 		// Payload: TODO,
 		Priority:    new(int32), // TODO this is crucial, apparently
 		Timeout:     30,
@@ -100,8 +99,7 @@ func TestCallList(t *testing.T) {
 		ID:    id.New().String(),
 		Image: "fnproject/hello",
 		// Delay: 0,
-		Type:   "sync",
-		Format: "default",
+		Type: "sync",
 		// Payload: TODO,
 		Priority:    new(int32), // TODO this is crucial, apparently
 		Timeout:     30,

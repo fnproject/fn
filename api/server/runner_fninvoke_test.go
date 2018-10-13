@@ -19,10 +19,9 @@ func TestBadRequests(t *testing.T) {
 	buf := setLogBuffer()
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	fn := &models.Fn{ID: "fn_id", AppID: "app_id"}
-	fn2 := &models.Fn{ID: "fn_id2", AppID: "app_id", Format: "cloudevent"}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{fn, fn2},
+		[]*models.Fn{fn},
 	)
 	rnr, cancel := testRunner(t, ds)
 	defer cancel()
@@ -75,13 +74,10 @@ func TestFnInvokeRunnerExecEmptyBody(t *testing.T) {
 
 	app := &models.App{ID: "app_id", Name: "soup"}
 
-	f1 := &models.Fn{ID: "cold", Name: "cold", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 10, IdleTimeout: 20}, Config: rCfg}
-	f2 := &models.Fn{ID: "hothttp", Name: "hothttp", AppID: app.ID, Image: rImg, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 10, IdleTimeout: 20}, Config: rCfg}
-	f3 := &models.Fn{ID: "hotjson", Name: "hotjson", AppID: app.ID, Image: rImg, Format: "json", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 10, IdleTimeout: 20}, Config: rCfg}
-	f4 := &models.Fn{ID: "hothttpstream", Name: "hothttpstream", AppID: app.ID, Image: rImg, Format: "http-stream", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 10, IdleTimeout: 20}, Config: rCfg}
+	f1 := &models.Fn{ID: "hothttpstream", Name: "hothttpstream", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 10, IdleTimeout: 20}, Config: rCfg}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{f1, f2, f3, f4},
+		[]*models.Fn{f1},
 	)
 	ls := logs.NewMock()
 
@@ -96,11 +92,6 @@ func TestFnInvokeRunnerExecEmptyBody(t *testing.T) {
 	testCases := []struct {
 		path string
 	}{
-		{"/invoke/cold"},
-		{"/invoke/hothttp"},
-		{"/invoke/hothttp"},
-		{"/invoke/hotjson"},
-		{"/invoke/hotjson"},
 		{"/invoke/hothttpstream"},
 		{"/invoke/hothttpstream"},
 	}
@@ -136,7 +127,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	tweaker := envTweaker("FN_MAX_RESPONSE_SIZE", "2048")
 	defer tweaker()
 
-	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
+	// Log once after we are done, flow of events are important (hot containers, idle timeout, etc.)
 	// for figuring out why things failed.
 	defer func() {
 		if isFailure {
@@ -151,18 +142,13 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	app := &models.App{ID: "app_id", Name: "myapp"}
 
-	defaultDneFn := &models.Fn{ID: "default_dne_fn_id", Name: "default_dne_fn", AppID: app.ID, Image: rImgBs1, Format: "", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	defaultFn := &models.Fn{ID: "default_fn_id", Name: "default_fn", AppID: app.ID, Image: rImg, Format: "", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	httpFn := &models.Fn{ID: "http_fn_id", Name: "http_fn", AppID: app.ID, Image: rImg, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	httpDneFn := &models.Fn{ID: "http_dne_fn_id", Name: "http_dne_fn", AppID: app.ID, Image: rImgBs1, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	httpDneRegistryFn := &models.Fn{ID: "http_dnereg_fn_id", Name: "http_dnereg_fn", AppID: app.ID, Image: rImgBs2, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	jsonFn := &models.Fn{ID: "json_fn_id", Name: "json_fn", AppID: app.ID, Image: rImg, Format: "json", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	oomFn := &models.Fn{ID: "http_oom_fn_id", Name: "http_fn", AppID: app.ID, Image: rImg, Format: "http", ResourceConfig: models.ResourceConfig{Memory: 8, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	httpStreamFn := &models.Fn{ID: "http_stream_fn_id", Name: "http_stream_fn", AppID: app.ID, Image: rImg, Format: "http-stream", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+	dneFn := &models.Fn{ID: "dne_fn_id", Name: "dne_fn", AppID: app.ID, Image: rImgBs1, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+	dneRegistryFn := &models.Fn{ID: "dnereg_fn_id", Name: "dnereg_fn", AppID: app.ID, Image: rImgBs2, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+	httpStreamFn := &models.Fn{ID: "http_stream_fn_id", Name: "http_stream_fn", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{defaultFn, defaultDneFn, httpDneRegistryFn, httpFn, jsonFn, httpDneFn, oomFn, httpStreamFn},
+		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn},
 	)
 	ls := logs.NewMock()
 
@@ -173,15 +159,16 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
+	// XXX(reed): Fn-Http-Status from invoke no more fren
 	expStreamHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}, "Fn-Http-Status": {"200"}}
 
 	// Checking for EndOfLogs currently depends on scheduling of go-routines (in docker/containerd) that process stderr & stdout.
 	// Therefore, not testing for EndOfLogs for hot containers (which has complex I/O processing) anymore.
-	multiLogExpectCold := []string{"BeginOfLogs", "EndOfLogs"}
 	multiLogExpectHot := []string{"BeginOfLogs" /*, "EndOfLogs" */}
 
-	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`                                     // crash container
-	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 120000000}`                           // ask for 120MB
+	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`           // crash container
+	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 120000000}` // ask for 120MB
+	// XXX(reed): do we have an invalid http response? no right?
 	badHot := `{"echoContent": "_TRX_ID_", "invalidResponse": true, "isDebug": true}`                              // write a not json/http as output
 	ok := `{"echoContent": "_TRX_ID_", "responseContentType": "application/json; charset=utf-8", "isDebug": true}` // good response / ok
 	respTypeLie := `{"echoContent": "_TRX_ID_", "responseContentType": "foo/bar", "isDebug": true}`                // Content-Type: foo/bar
@@ -205,16 +192,6 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		expectedErrSubStr  string
 		expectedLogsSubStr []string
 	}{
-		{"/invoke/default_fn_id", ok, "POST", http.StatusOK, expHeaders, "", nil},
-
-		{"/invoke/http_fn_id", badHot, "POST", http.StatusBadGateway, expHeaders, "invalid http response", nil},
-		// hot container now back to normal:
-		{"/invoke/http_fn_id", ok, "POST", http.StatusOK, expHeaders, "", nil},
-
-		{"/invoke/json_fn_id", badHot, "POST", http.StatusBadGateway, expHeaders, "invalid json response", nil},
-		// hot container now back to normal:
-		{"/invoke/json_fn_id", ok, "POST", http.StatusOK, expHeaders, "", nil},
-
 		{"/invoke/http_stream_fn_id", ok, "POST", http.StatusOK, expStreamHeaders, "", nil},
 		// NOTE: we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
 		{"/invoke/http_stream_fn_id", respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
@@ -226,25 +203,11 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/http_stream_fn_id", oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},
 		{"/invoke/http_stream_fn_id", bigbuf, "POST", http.StatusRequestEntityTooLarge, nil, "", nil},
 
-		{"/invoke/http_fn_id", respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
-		{"/invoke/json_fn_id", respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
-		{"/invoke/json_fn_id", respTypeJason, "POST", http.StatusOK, expCTHeaders, "", nil},
+		{"/invoke/dne_fn_id", ``, "POST", http.StatusNotFound, nil, "pull access denied", nil},
+		{"/invoke/dnereg_fn_id", ``, "POST", http.StatusInternalServerError, nil, "connection refused", nil},
 
-		{"/invoke/default_fn_id", ok, "POST", http.StatusOK, expHeaders, "", nil},
-		{"/invoke/default_fn_id", crasher, "POST", http.StatusBadGateway, expHeaders, "container exit code 1", nil},
-		{"/invoke/default_dne_fn_id", ``, "POST", http.StatusNotFound, nil, "pull access denied", nil},
-		{"/invoke/http_dne_fn_id", ``, "POST", http.StatusNotFound, nil, "pull access denied", nil},
-		{"/invoke/http_dnereg_fn_id", ``, "POST", http.StatusInternalServerError, nil, "connection refused", nil},
-		{"/invoke/http_oom_fn_id", oomer, "POST", http.StatusBadGateway, nil, "container out of memory", nil},
-		{"/invoke/http_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectHot},
-		{"/invoke/default_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectCold},
-		{"/invoke/json_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},
-		{"/invoke/json_fn_id", smalloutput, "POST", http.StatusOK, nil, "", nil},
-		{"/invoke/http_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "", nil},
-		{"/invoke/http_fn_id", smalloutput, "POST", http.StatusOK, nil, "", nil},
-		{"/invoke/default_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "", nil},
-		{"/invoke/default_fn_id", smalloutput, "POST", http.StatusOK, nil, "", nil},
-		{"/invoke/http_fn_id", bigbuf, "POST", http.StatusRequestEntityTooLarge, nil, "", nil},
+		// XXX(reed): what are these?
+		{"/invoke/http_stream_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectHot},
 	}
 
 	callIds := make([]string, len(testCases))
@@ -310,7 +273,7 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
 
-	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
+	// Log once after we are done, flow of events are important (hot containers, idle timeout, etc.)
 	// for figuring out why things failed.
 	defer func() {
 		if isFailure {
@@ -322,16 +285,12 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 	hugeMem := uint64(models.MaxMemory - 1)
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
-	coldFn := &models.Fn{ID: "cold", Name: "cold", AppID: app.ID, Format: "", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
-	httpFn := &models.Fn{ID: "hot", Name: "http", AppID: app.ID, Format: "http", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
-	jsonFn := &models.Fn{ID: "hot-json", Name: "json", AppID: app.ID, Format: "json", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
-	httpStreamFn := &models.Fn{ID: "http-stream", Name: "http-stream", AppID: app.ID, Format: "http-stream", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
-	bigMemColdFn := &models.Fn{ID: "bigmem-cold", Name: "bigmemcold", AppID: app.ID, Format: "", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
-	bigMemHotFn := &models.Fn{ID: "bigmem-hot", Name: "bigmemhot", AppID: app.ID, Format: "http", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
+	httpStreamFn := &models.Fn{ID: "http-stream", Name: "http-stream", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
+	bigMemHotFn := &models.Fn{ID: "bigmem", Name: "bigmemhot", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{coldFn, httpFn, jsonFn, httpStreamFn, bigMemColdFn, bigMemHotFn},
+		[]*models.Fn{httpStreamFn, bigMemHotFn},
 	)
 
 	fnl := logs.NewMock()
@@ -347,16 +306,9 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/invoke/cold", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
-		{"/invoke/cold", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
-		{"/invoke/hot", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
-		{"/invoke/hot", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
 		{"/invoke/http-stream", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
 		{"/invoke/http-stream", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
-		{"/invoke/hot-json", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
-		{"/invoke/hot-json", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
-		{"/invoke/bigmem-cold", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusBadRequest, nil},
-		{"/invoke/bigmem-hot", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusBadRequest, nil},
+		{"/invoke/bigmem", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusBadRequest, nil},
 	} {
 		t.Run(fmt.Sprintf("%d_%s", i, strings.Replace(test.path, "/", "_", -1)), func(t *testing.T) {
 			trx := fmt.Sprintf("_trx_%d_", i)
