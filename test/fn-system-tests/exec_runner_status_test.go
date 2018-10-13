@@ -122,7 +122,6 @@ func TestExecuteRunnerStatus(t *testing.T) {
 				if err != nil {
 					errs <- err
 				} else {
-					fmt.Printf("Runner %v got Status=%+v\n", dest.Address(), status)
 					t.Logf("Runner %v got Status=%+v", dest.Address(), status)
 					res <- status
 				}

@@ -935,7 +935,6 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 		case event := <-fsWatcher.Events:
 			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
-				common.Logger(ctx).WithField("event", event).Debug("OUTTA HERE")
 				// wait until the socket file is created by the container
 				return nil
 			}
