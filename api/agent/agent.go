@@ -759,23 +759,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	}
 	defer container.Close()
 
-	udsAwait := make(chan error)
-	// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
-	go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
-
-	udsClient := http.Client{
-		Transport: &http.Transport{
-			MaxIdleConns:        1,
-			MaxIdleConnsPerHost: 1,
-			// XXX(reed): other settings ?
-			IdleConnTimeout: 1 * time.Second,
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), udsFilename))
-			},
-		},
-	}
-
+	// XXX(reed): we need to timeout the cookie create / prepare since docker client doesn't have timeout anymore,
+	// and handle cookie close having a timed out context it still needs to delete the thing. fun stuff
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
@@ -793,6 +778,27 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
+	ctx, shutdownContainer := context.WithCancel(ctx)
+	defer shutdownContainer() // close this if our waiter returns, to call off slots, needs to follow cookie.Close so the cookie crumbles
+
+	udsAwait := make(chan error)
+	// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
+	// make sure this thread has the shutdownContainer context in case the container exits
+	go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
+
+	udsClient := http.Client{
+		Transport: &http.Transport{
+			MaxIdleConns:        1,
+			MaxIdleConnsPerHost: 1,
+			// XXX(reed): other settings ?
+			IdleConnTimeout: 1 * time.Second,
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), udsFilename))
+			},
+		},
+	}
+
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
@@ -802,8 +808,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	// buffered, in case someone has slot when waiter returns but isn't yet listening
 	errC := make(chan error, 1)
 
-	ctx, shutdownContainer := context.WithCancel(ctx)
-	defer shutdownContainer() // close this if our waiter returns, to call off slots
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
@@ -931,7 +935,7 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 		case event := <-fsWatcher.Events:
 			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
-
+				common.Logger(ctx).WithField("event", event).Debug("OUTTA HERE")
 				// wait until the socket file is created by the container
 				return nil
 			}

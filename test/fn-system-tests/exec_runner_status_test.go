@@ -113,19 +113,19 @@ func TestExecuteRunnerStatus(t *testing.T) {
 
 	concurrency := 10
 	res := make(chan *runnerpool.RunnerStatus, concurrency*len(runners))
+	errs := make(chan error, concurrency*len(runners))
 
 	for _, runner := range runners {
 		for i := 0; i < concurrency; i++ {
 			go func(dest runnerpool.Runner) {
 				status, err := dest.Status(ctx)
 				if err != nil {
-					t.Fatalf("Runners Status failed for %v err=%v", dest.Address(), err)
+					errs <- err
+				} else {
+					fmt.Printf("Runner %v got Status=%+v\n", dest.Address(), status)
+					t.Logf("Runner %v got Status=%+v", dest.Address(), status)
+					res <- status
 				}
-				if status == nil || status.StatusFailed {
-					t.Fatalf("Runners Status not OK for %v %v", dest.Address(), status)
-				}
-				t.Logf("Runner %v got Status=%+v", dest.Address(), status)
-				res <- status
 			}(runner)
 		}
 	}
@@ -133,8 +133,17 @@ func TestExecuteRunnerStatus(t *testing.T) {
 	lookup := make(map[string][]*runnerpool.RunnerStatus)
 
 	for i := 0; i < concurrency*len(runners); i++ {
-		status := <-res
-		lookup[status.StatusId] = append(lookup[status.StatusId], status)
+		select {
+		case status := <-res:
+			if status == nil || status.StatusFailed {
+				t.Fatalf("Runners Status not OK for %v", status)
+			}
+			lookup[status.StatusId] = append(lookup[status.StatusId], status)
+		case err := <-errs:
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 
 	// WARNING: Possibly flappy test below. Might need to relax the numbers below.
