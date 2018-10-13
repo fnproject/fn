@@ -635,15 +635,11 @@ func callToHTTPRequest(ctx context.Context, call *call) *http.Request {
 		}
 	}
 
-	//req.Header.Set("FN_DEADLINE", ci.Deadline().String())
-	// TODO(occ) : fix compatidupes when FDKs are updated
 	req.Header.Set("Fn-Call-Id", call.ID)
-	req.Header.Set("FN_CALL_ID", call.ID)
 	deadline, ok := ctx.Deadline()
 	if ok {
 		deadlineStr := deadline.Format(time.RFC3339)
 		req.Header.Set("Fn-Deadline", deadlineStr)
-		req.Header.Set("FN_DEADLINE", deadlineStr)
 	}
 
 	return req

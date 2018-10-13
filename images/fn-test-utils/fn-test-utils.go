@@ -161,9 +161,7 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 	json.NewDecoder(in).Decode(&request)
 
 	if request.IsDebug {
-		format, _ := os.LookupEnv("FN_FORMAT")
 		log.Printf("BeginOfLogs")
-		log.Printf("Received format %v", format)
 		log.Printf("Received request %#v", request)
 		log.Printf("Received headers %v", fnctx.Header())
 		log.Printf("Received config %v", fnctx.Config())
@@ -239,6 +237,11 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		}
 	}
 
+	if _, ok := ctx.Deadline(); !ok {
+		// XXX(reed): we should plumb the timeout and test it's approximately right but who has time for that?
+		log.Fatalf("fdk should set deadline, go fix fdk-go immediately you")
+	}
+
 	resp := AppResponse{
 		Data:    data,
 		Request: request,
@@ -294,16 +297,11 @@ func main() {
 		log.Printf("Container starting")
 	}
 
-	format, _ := os.LookupEnv("FN_FORMAT")
-	testDo(format, os.Stdin, os.Stdout)
+	fdk.Handle(fdk.HandlerFunc(AppHandler)) // XXX(reed): can extract & instrument
 
 	if os.Getenv("ENABLE_FOOTER") != "" {
 		log.Printf("Container ending")
 	}
-}
-
-func testDo(format string, in io.Reader, out io.Writer) {
-	fdk.Handle(fdk.HandlerFunc(AppHandler)) // XXX(reed): can extract & instrument
 }
 
 func getChunk(size int) []byte {
