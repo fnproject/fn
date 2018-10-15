@@ -28,7 +28,7 @@ type lbAgent struct {
 	shutWg        *common.WaitGroup
 }
 
-type AckSyncResponseWriter struct {
+type DetachedResponseWriter struct {
 	http.ResponseWriter
 	origin http.ResponseWriter
 	acked  chan struct{}
@@ -187,36 +187,36 @@ func (a *lbAgent) Submit(callI Call) error {
 
 	errPlace := make(chan error, 1)
 
-	call.w = &AckSyncResponseWriter{
+	call.w = &DetachedResponseWriter{
 		origin: call.ResponseWriter(),
 		acked:  make(chan struct{}, 1),
 	}
-	isAckSync := call.Type == models.TypeAcksync
-	rw := call.w.(*AckSyncResponseWriter)
+	isDetached := call.Type == models.TypeDetached
+	rw := call.w.(*DetachedResponseWriter)
 
-	go a.spawnPlaceCall(ctx, call, errPlace, isAckSync)
+	go a.spawnPlaceCall(ctx, call, errPlace, isDetached)
 
 	for {
 		select {
 		case err := <-errPlace:
 			return err
 		case <-rw.acked:
-			// if it is an acksync we return immediately otherwise we ignore the ack
-			// If it is not an acksync we get the ack and we can use it to log info, stats etc.
-			if isAckSync {
+			// if it is a detached call  we return immediately otherwise we ignore the ack
+			// If it is not a detached call  we get the ack and we can use it to log info, stats etc.
+			if isDetached {
 				return nil
 			}
 		}
 	}
 }
 
-func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error, isAckSync bool) {
-	if isAckSync {
+func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error, isDetached bool) {
+	if isDetached {
 		var cancel func()
 		ctx = common.BackgroundContext(ctx)
-		// 30 secs PlacerTimeout for AsyncAck + call.Timeout (inside container) + 30 sec headroom
+		// 30 secs PlacerTimeout for Detached + call.Timeout (inside container) + 360 sec headroom
 		// to make sure we do not wait indefinitely, but also wait enough time for worst case.
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(60+call.Timeout)*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(360+call.Timeout)*time.Second)
 		defer cancel()
 	}
 	err := a.placer.PlaceCall(a.rp, ctx, call)
@@ -300,15 +300,15 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 	return err
 }
 
-func (w *AckSyncResponseWriter) Heaader() http.Header {
+func (w *DetachedResponseWriter) Heaader() http.Header {
 	return w.origin.Header()
 }
 
-func (w *AckSyncResponseWriter) Write(data []byte) (int, error) {
+func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
 	return w.origin.Write(data)
 }
 
-func (w *AckSyncResponseWriter) WriteHeader(statusCode int) {
+func (w *DetachedResponseWriter) WriteHeader(statusCode int) {
 	w.origin.WriteHeader(statusCode)
 	w.acked <- struct{}{}
 }

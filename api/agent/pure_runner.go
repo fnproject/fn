@@ -199,7 +199,7 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
-func (ch *callHandle) enqueueAckSync(err error) {
+func (ch *callHandle) enqueueDetached(err error) {
 	statusCode := http.StatusAccepted
 	if err != nil {
 		if models.IsAPIError(err) {
@@ -404,8 +404,8 @@ func (ch *callHandle) prepHeaders() []*runner.HttpHeader {
 // received data is pushed to LB via gRPC sender queue.
 // Write also sends http headers/state to the LB.
 func (ch *callHandle) Write(data []byte) (int, error) {
-	if ch.c.Model().Type == models.TypeAsync {
-		//If it is an acksync call we just /dev/null the data coming back from the container
+	if ch.c.Model().Type == models.TypeDetached {
+		//If it is an detached call we just /dev/null the data coming back from the container
 		return len(data), nil
 	}
 	var err error
@@ -598,13 +598,13 @@ func (pr *pureRunner) removeCallHandle(cID string) {
 
 func (pr *pureRunner) spawnSubmit(state *callHandle) {
 	go func() {
-		isAcksync := state.c.Type == models.TypeAcksync
+		isDetached := state.c.Type == models.TypeDetached
 		// we keep track of the callHandle which will be used in the process to send the ack back
-		if isAcksync {
+		if isDetached {
 			pr.saveCallHandle(state)
 		}
 		err := pr.a.Submit(state.c)
-		if isAcksync {
+		if isDetached {
 			pr.removeCallHandle(state.c.Model().ID)
 		}
 		state.enqueueCallResponse(err)
@@ -911,7 +911,7 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 
 // BeforeCall called before a function is executed
 func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
-	if call.Type != models.TypeAcksync {
+	if call.Type != models.TypeDetached {
 		return nil
 	}
 	var err error
@@ -921,8 +921,9 @@ func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
 	pr.callHandleLock.Unlock()
 	if ch == nil {
 		err = models.ErrCallHandlerNotFound
+		return err
 	}
-	ch.enqueueAckSync(err)
+	ch.enqueueDetached(err)
 	return nil
 }
 
@@ -976,7 +977,7 @@ func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
 	}
 }
 
-func PureRunnerWithAcksync() PureRunnerOption {
+func PureRunnerWithDetached() PureRunnerOption {
 	return func(pr *pureRunner) error {
 		pr.AddCallListener(pr)
 		return nil

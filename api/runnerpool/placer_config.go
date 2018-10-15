@@ -13,13 +13,13 @@ type PlacerConfig struct {
 	PlacerTimeout time.Duration `json:"placer_timeout"`
 
 	// Maximum amount of time a placer can hold an ack sync request during runner attempts
-	PlacerAcksyncTimeout time.Duration `json:"placer_acksync_timeout"`
+	DetachedPlacerTimeout time.Duration `json:"detached_placer_timeout"`
 }
 
 func NewPlacerConfig() PlacerConfig {
 	return PlacerConfig{
-		RetryAllDelay:        10 * time.Millisecond,
-		PlacerTimeout:        360 * time.Second,
-		PlacerAcksyncTimeout: 30 * time.Second,
+		RetryAllDelay:         10 * time.Millisecond,
+		PlacerTimeout:         360 * time.Second,
+		DetachedPlacerTimeout: 30 * time.Second,
 	}
 }

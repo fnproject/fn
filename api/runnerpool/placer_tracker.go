@@ -21,8 +21,8 @@ type placerTracker struct {
 
 func NewPlacerTracker(requestCtx context.Context, cfg *PlacerConfig, callType string) *placerTracker {
 	placerTimeout := cfg.PlacerTimeout
-	if callType == models.TypeAcksync {
-		placerTimeout = cfg.PlacerAcksyncTimeout
+	if callType == models.TypeDetached {
+		placerTimeout = cfg.DetachedPlacerTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), placerTimeout)
 	return &placerTracker{

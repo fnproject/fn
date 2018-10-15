@@ -77,7 +77,7 @@ func TestCanExecuteFunction(t *testing.T) {
 	}
 }
 
-func TestCanExecuteAcksyncFunction(t *testing.T) {
+func TestCanExecuteDetachedFunction(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -109,7 +109,7 @@ func TestCanExecuteAcksyncFunction(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, models.TypeAcksync)
+	resp, err := callFN(ctx, u.String(), content, output, models.TypeDetached)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	}
 }
 
-func TestBasicConcurrentAcksyncExecution(t *testing.T) {
+func TestBasicConcurrentDetachedExecution(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -370,7 +370,7 @@ func TestBasicConcurrentAcksyncExecution(t *testing.T) {
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
 			<-latch
-			resp, err := callFN(ctx, u.String(), content, output, models.TypeAcksync)
+			resp, err := callFN(ctx, u.String(), content, output, models.TypeDetached)
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return
