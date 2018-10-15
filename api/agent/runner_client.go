@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
 	"time"
 
 	"google.golang.org/grpc"
@@ -21,6 +22,7 @@ import (
 	"github.com/fnproject/fn/grpcutil"
 
 	pb_empty "github.com/golang/protobuf/ptypes/empty"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -302,6 +304,7 @@ func receiveFromRunner(ctx context.Context, protocolClient pb.RunnerProtocol_Eng
 	defer close(done)
 
 	log := common.Logger(ctx).WithField("runner_addr", runnerAddress)
+	statusCode := int32(0)
 	isPartialWrite := false
 
 DataLoop:
@@ -325,6 +328,7 @@ DataLoop:
 					w.Header().Set(header.Key, header.Value)
 				}
 				if meta.Http.StatusCode > 0 {
+					statusCode = meta.Http.StatusCode
 					w.WriteHeader(int(meta.Http.StatusCode))
 				}
 			default:
@@ -349,7 +353,7 @@ DataLoop:
 
 		// Finish messages required for finish/finalize the processing.
 		case *pb.RunnerMsg_Finished:
-			log.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
+			logCallFinish(log, body, w.Header(), statusCode)
 			recordFinishStats(ctx, body.Finished)
 			if !body.Finished.Success {
 				err := parseError(body.Finished)
@@ -380,6 +384,15 @@ DataLoop:
 		}
 		tryQueueError(ErrorPureRunnerNoEOF, done)
 	}
+}
+
+func logCallFinish(log logrus.FieldLogger, msg *pb.RunnerMsg_Finished, headers http.Header, httpStatus int32) {
+	log.WithFields(logrus.Fields{
+		"RunnerSuccess":    msg.Finished.GetSuccess(),
+		"RunnerErrorCode":  msg.Finished.GetErrorCode(),
+		"RunnerHttpStatus": httpStatus,
+		"FnHttpStatus":     headers.Get("Fn-Http-Status"),
+	}).Infof("Call finished Details=%v ErrorStr=%v", msg.Finished.GetDetails(), msg.Finished.GetErrorStr())
 }
 
 var _ pool.Runner = &gRPCRunner{}
