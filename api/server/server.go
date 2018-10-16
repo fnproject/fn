@@ -731,13 +731,20 @@ func New(ctx context.Context, opts ...Option) *Server {
 func WithPrometheus() Option {
 	return func(ctx context.Context, s *Server) error {
 		reg := promclient.NewRegistry()
-		reg.MustRegister(promclient.NewProcessCollector(os.Getpid(), "fn"),
+		reg.MustRegister(promclient.NewProcessCollector(promclient.ProcessCollectorOpts{
+			PidFn:     func() (int, error) { return os.Getpid(), nil },
+			Namespace: "fn",
+		}),
 			promclient.NewGoCollector(),
 		)
 
 		for _, exeName := range getMonitoredCmdNames() {
 			san := promSanitizeMetricName(exeName)
-			err := reg.Register(promclient.NewProcessCollectorPIDFn(getPidCmd(exeName), san))
+
+			err := reg.Register(promclient.NewProcessCollector(promclient.ProcessCollectorOpts{
+				PidFn:     getPidCmd(exeName),
+				Namespace: san,
+			}))
 			if err != nil {
 				panic(err)
 			}

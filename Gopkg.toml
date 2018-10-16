@@ -81,3 +81,7 @@ ignored = ["github.com/fnproject/fn/cli",
 [[override]]
   name = "github.com/docker/libnetwork"
   revision = "0ae9b6f38f24f65567d4b46602502b33c95cf57a"
+
+[[constraint]]
+    name = "github.com/prometheus/client_golang"
+    version = "0.9.0-pre1"
