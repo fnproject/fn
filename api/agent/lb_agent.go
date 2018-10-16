@@ -300,7 +300,7 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 	return err
 }
 
-func (w *DetachedResponseWriter) Heaader() http.Header {
+func (w *DetachedResponseWriter) Header() http.Header {
 	return w.origin.Header()
 }
 
