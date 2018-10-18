@@ -66,6 +66,16 @@ func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	if t.format != nil {
+		// SpanContextToRequest will modify its Request argument, which is
+		// contrary to the contract for http.RoundTripper, so we need to
+		// pass it a copy of the Request.
+		// However, the Request struct itself was already copied by
+		// the WithContext calls above and so we just need to copy the header.
+		header := make(http.Header)
+		for k, v := range req.Header {
+			header[k] = v
+		}
+		req.Header = header
 		t.format.SpanContextToRequest(span.SpanContext(), req)
 	}
 

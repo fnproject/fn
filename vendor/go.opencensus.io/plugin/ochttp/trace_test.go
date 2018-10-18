@@ -79,6 +79,26 @@ func (t testPropagator) SpanContextToRequest(sc trace.SpanContext, req *http.Req
 	req.Header.Set("trace", hex.EncodeToString(buf.Bytes()))
 }
 
+func TestTransport_RoundTrip_Race(t *testing.T) {
+	// This tests that we don't modify the request in accordance with the
+	// specification for http.RoundTripper.
+	// We attempt to trigger a race by reading the request from a separate
+	// goroutine. If the request is modified by Transport, this should trigger
+	// the race detector.
+
+	transport := &testTransport{ch: make(chan *http.Request, 1)}
+	rt := &Transport{
+		Propagation: &testPropagator{},
+		Base:        transport,
+	}
+	req, _ := http.NewRequest("GET", "http://foo.com", nil)
+	go func() {
+		fmt.Println(*req)
+	}()
+	rt.RoundTrip(req)
+	_ = <-transport.ch
+}
+
 func TestTransport_RoundTrip(t *testing.T) {
 	ctx := context.Background()
 	ctx, parent := trace.StartSpan(ctx, "parent")

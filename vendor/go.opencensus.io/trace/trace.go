@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"go.opencensus.io/internal"
+	"go.opencensus.io/trace/tracestate"
 )
 
 // Span represents a span of a trace.  It has an associated SpanContext, and
@@ -88,6 +89,7 @@ type SpanContext struct {
 	TraceID      TraceID
 	SpanID       SpanID
 	TraceOptions TraceOptions
+	Tracestate   *tracestate.Tracestate
 }
 
 type contextKey struct{}
@@ -470,10 +472,20 @@ func init() {
 
 type defaultIDGenerator struct {
 	sync.Mutex
-	traceIDRand *rand.Rand
+
+	// Please keep these as the first fields
+	// so that these 8 byte fields will be aligned on addresses
+	// divisible by 8, on both 32-bit and 64-bit machines when
+	// performing atomic increments and accesses.
+	// See:
+	// * https://github.com/census-instrumentation/opencensus-go/issues/587
+	// * https://github.com/census-instrumentation/opencensus-go/issues/865
+	// * https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+	nextSpanID uint64
+	spanIDInc  uint64
+
 	traceIDAdd  [2]uint64
-	nextSpanID  uint64
-	spanIDInc   uint64
+	traceIDRand *rand.Rand
 }
 
 // NewSpanID returns a non-zero span ID from a randomly-chosen sequence.

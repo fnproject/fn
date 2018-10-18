@@ -26,7 +26,7 @@ import (
 	"go.opencensus.io/trace"
 )
 
-func TestSpanAnnotator(t *testing.T) {
+func TestSpanAnnotatingClientTrace(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		resp.Write([]byte("Hello, world!"))
 	}))
@@ -36,7 +36,7 @@ func TestSpanAnnotator(t *testing.T) {
 
 	trace.RegisterExporter(recorder)
 
-	tr := ochttp.Transport{NewClientTrace: ochttp.NewSpanAnnotator}
+	tr := ochttp.Transport{NewClientTrace: ochttp.NewSpanAnnotatingClientTrace}
 
 	req, err := http.NewRequest("POST", server.URL, strings.NewReader("req-body"))
 	if err != nil {
