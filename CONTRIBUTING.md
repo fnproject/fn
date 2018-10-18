@@ -51,9 +51,23 @@ asking for suggestions on how to address the documentation part.
 
 ## How to build and get up and running
 
+### Build Dependencies ###
+- [Go](https://golang.org/doc/install)
+- [Dep](https://github.com/golang/dep)
+
+### Getting the Repository ###
+
+`$ git clone https://github.com/fnproject/fn.git $GOPATH/src/github.com/fnproject/fn`
+
+Note that Go will require the exact path given above in order to build
+
 ### Build
 
 Requires Go >= 1.10.0.
+
+Change to the correct directory (if not already there):
+
+	$ cd $GOPATH/src/github.com/fnproject/fn
 
 The first time after you clone or after dependencies get updated, run:
 
