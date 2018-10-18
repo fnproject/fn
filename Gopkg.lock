@@ -389,10 +389,11 @@
     "tag",
     "trace",
     "trace/internal",
-    "trace/propagation"
+    "trace/propagation",
+    "trace/tracestate"
   ]
-  revision = "7b558058b7cc960667590e5413ef55157b06652e"
-  version = "v0.15.0"
+  revision = "b11f239c032624b045c4c2bfd3d1287b4012ce89"
+  version = "v0.16.0"
 
 [[projects]]
   branch = "master"
@@ -515,6 +516,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "085172e713199696f6628947f9bdee8e600c4cec8ab1e506d5e28d73457032d1"
+  inputs-digest = "f65e977957c5155795f2c37fb529bfa91704f76a3df6ec092d6b39b29db7684d"
   solver-name = "gps-cdcl"
   solver-version = 1

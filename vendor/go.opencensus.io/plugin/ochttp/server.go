@@ -69,15 +69,16 @@ type Handler struct {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var traceEnd, statsEnd func()
-	r, traceEnd = h.startTrace(w, r)
+	var tags addedTags
+	r, traceEnd := h.startTrace(w, r)
 	defer traceEnd()
-	w, statsEnd = h.startStats(w, r)
-	defer statsEnd()
+	w, statsEnd := h.startStats(w, r)
+	defer statsEnd(&tags)
 	handler := h.Handler
 	if handler == nil {
 		handler = http.DefaultServeMux
 	}
+	r = r.WithContext(context.WithValue(r.Context(), addedTagsKey{}, &tags))
 	handler.ServeHTTP(w, r)
 }
 
@@ -123,7 +124,7 @@ func (h *Handler) extractSpanContext(r *http.Request) (trace.SpanContext, bool) 
 	return h.Propagation.SpanContextFromRequest(r)
 }
 
-func (h *Handler) startStats(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, func()) {
+func (h *Handler) startStats(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, func(tags *addedTags)) {
 	ctx, _ := tag.New(r.Context(),
 		tag.Upsert(Host, r.URL.Host),
 		tag.Upsert(Path, r.URL.Path),
@@ -157,7 +158,9 @@ type trackingResponseWriter struct {
 // Compile time assertion for ResponseWriter interface
 var _ http.ResponseWriter = (*trackingResponseWriter)(nil)
 
-func (t *trackingResponseWriter) end() {
+var logTagsErrorOnce sync.Once
+
+func (t *trackingResponseWriter) end(tags *addedTags) {
 	t.endOnce.Do(func() {
 		if t.statusCode == 0 {
 			t.statusCode = 200
@@ -173,7 +176,10 @@ func (t *trackingResponseWriter) end() {
 		if t.reqSize >= 0 {
 			m = append(m, ServerRequestBytes.M(t.reqSize))
 		}
-		ctx, _ := tag.New(t.ctx, tag.Upsert(StatusCode, strconv.Itoa(t.statusCode)))
+		allTags := make([]tag.Mutator, len(tags.t)+1)
+		allTags[0] = tag.Upsert(StatusCode, strconv.Itoa(t.statusCode))
+		copy(allTags[1:], tags.t)
+		ctx, _ := tag.New(t.ctx, allTags...)
 		stats.Record(ctx, m...)
 	})
 }

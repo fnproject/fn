@@ -25,13 +25,18 @@ import (
 )
 
 func ExampleTransport() {
+	// import (
+	// 		"go.opencensus.io/plugin/ochttp"
+	//		"go.opencensus.io/stats/view"
+	// )
+
 	if err := view.Register(
-		// Register to a few default views.
+		// Register a few default views.
 		ochttp.ClientRequestCountByMethod,
 		ochttp.ClientResponseCountByStatusCode,
 		ochttp.ClientLatencyView,
 
-		// Register to a custom view.
+		// Register a custom view.
 		&view.View{
 			Name:        "httpclient_latency_by_hostpath",
 			TagKeys:     []tag.Key{ochttp.Host, ochttp.Path},
@@ -45,22 +50,27 @@ func ExampleTransport() {
 	client := &http.Client{
 		Transport: &ochttp.Transport{},
 	}
-	_ = client // use client to perform requests
+
+	// Use client to perform requests.
+	_ = client
 }
 
 var usersHandler http.Handler
 
 func ExampleHandler() {
-	// Enables OpenCensus for the default serve mux.
-	// By default, B3 propagation is used.
-	http.Handle("/users", usersHandler)
+	// import "go.opencensus.io/plugin/ochttp"
+
+	http.Handle("/users", ochttp.WithRouteTag(usersHandler, "/users"))
+
+	// If no handler is specified, the default mux is used.
 	log.Fatal(http.ListenAndServe("localhost:8080", &ochttp.Handler{}))
 }
 
 func ExampleHandler_mux() {
-	mux := http.NewServeMux()
-	mux.Handle("/users", usersHandler)
+	// import "go.opencensus.io/plugin/ochttp"
 
+	mux := http.NewServeMux()
+	mux.Handle("/users", ochttp.WithRouteTag(usersHandler, "/users"))
 	log.Fatal(http.ListenAndServe("localhost:8080", &ochttp.Handler{
 		Handler:     mux,
 		Propagation: &b3.HTTPFormat{},

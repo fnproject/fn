@@ -27,9 +27,16 @@ type spanAnnotator struct {
 	sp *trace.Span
 }
 
-// NewSpanAnnotator returns a httptrace.ClientTrace which annotates all emitted
-// httptrace events on the provided Span.
-func NewSpanAnnotator(_ *http.Request, s *trace.Span) *httptrace.ClientTrace {
+// TODO: Remove NewSpanAnnotator at the next release.
+
+// Deprecated: Use NewSpanAnnotatingClientTrace instead
+func NewSpanAnnotator(r *http.Request, s *trace.Span) *httptrace.ClientTrace {
+	return NewSpanAnnotatingClientTrace(r, s)
+}
+
+// NewSpanAnnotatingClientTrace returns a httptrace.ClientTrace which annotates
+// all emitted httptrace events on the provided Span.
+func NewSpanAnnotatingClientTrace(_ *http.Request, s *trace.Span) *httptrace.ClientTrace {
 	sa := spanAnnotator{sp: s}
 
 	return &httptrace.ClientTrace{

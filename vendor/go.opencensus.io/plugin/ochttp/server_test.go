@@ -65,11 +65,14 @@ func TestHandlerStatsCollection(t *testing.T) {
 			body := bytes.NewBuffer(make([]byte, test.reqSize))
 			r := httptest.NewRequest(test.method, test.target, body)
 			w := httptest.NewRecorder()
+			mux := http.NewServeMux()
+			mux.Handle("/request/", httpHandler(test.statusCode, test.respSize))
 			h := &Handler{
-				Handler: httpHandler(test.statusCode, test.respSize),
+				Handler: mux,
+				StartOptions: trace.StartOptions{
+					Sampler: trace.NeverSample(),
+				},
 			}
-			h.StartOptions.Sampler = trace.NeverSample()
-
 			for i := 0; i < test.count; i++ {
 				h.ServeHTTP(w, r)
 				totalCount++
