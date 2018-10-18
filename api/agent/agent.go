@@ -399,7 +399,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	}
 
 	logger := common.Logger(ctx)
-	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
+	logger.WithField("launcher_timeout", timeout).Debug("Hot function launcher starting")
 
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
@@ -421,7 +421,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		case <-ctx.Done(): // timed out
 			cancel()
 			if a.slotMgr.deleteSlotQueue(call.slots) {
-				logger.Info("Hot function launcher timed out")
+				logger.Debug("Hot function launcher timed out")
 				return
 			}
 		case notifyChan = <-call.slots.signaller:
@@ -1084,8 +1084,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	if res.Error() != nil {
 		errC <- res.Error() // TODO: race condition, no guaranteed delivery fix this...
 	}
-
-	logger.WithError(res.Error()).Info("hot function terminated")
+	if res.Error() != context.Canceled {
+		logger.WithError(res.Error()).Info("hot function terminated")
+	}
 }
 
 //checkSocketDestination verifies that the socket file created by the FDK is valid and permitted - notably verifying that any symlinks are relative to the socket dir
