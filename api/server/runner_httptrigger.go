@@ -112,15 +112,23 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 		realHeaders[k] = vs
 	}
 
-	// XXX(reed): simplify / add tests for these behaviors...
-	gatewayStatus := 200
-	if statusCode >= 400 {
-		gatewayStatus = 502
-	} else if fnStatus > 0 {
-		gatewayStatus = fnStatus
+	trw.inner.WriteHeader(determineFinalStatus(statusCode, fnStatus))
+}
+
+func determineFinalStatus(serviceStatus, userFnStatus int) int {
+	finalStatus := 200
+
+	if userFnStatus > 0 {
+		if userFnStatus >= 500 {
+			finalStatus = 502
+		} else {
+			finalStatus = userFnStatus
+		}
+	} else if serviceStatus > 0 {
+		finalStatus = serviceStatus
 	}
 
-	trw.inner.WriteHeader(gatewayStatus)
+	return finalStatus
 }
 
 var skipTriggerHeaders = map[string]bool{

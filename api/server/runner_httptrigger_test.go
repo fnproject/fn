@@ -11,12 +11,16 @@ import (
 	"context"
 	"os"
 
+	"reflect"
+
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
-	"reflect"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 )
 
 func envTweaker(name, value string) func() {
@@ -608,6 +612,64 @@ func TestTriggerRunnerMinimalConcurrentHotSync(t *testing.T) {
 			if err != nil {
 				t.Errorf("%v", err)
 			}
+		}
+	}
+}
+
+//Generally we want to return the user function status, only making an adjustment to
+//502 for 5xx codes. Otherwise, we return the code that our service has selected.
+//Failing any information, we just give it a 200.
+func TestFinalStatusSetting(t *testing.T) {
+	properties := gopter.NewProperties(nil)
+
+	properties.Property("userFnStatus takes precedent, with 5xx forced to 502", prop.ForAll(
+		func(serviceStatus, userFnStatus int) bool {
+			actualStatus := determineFinalStatus(serviceStatus, userFnStatus)
+
+			if userFnStatus >= 500 {
+				if actualStatus != 502 {
+					t.Errorf("UserFnStatus 5xx not forced to 502: %d, %d, %d", serviceStatus, userFnStatus, actualStatus)
+					return false
+				}
+				return true
+			} else if userFnStatus != actualStatus {
+				t.Errorf("UserFnStatus not returned: %d != %d", userFnStatus, actualStatus)
+				return false
+			}
+			return true
+		},
+		gen.Const(0),
+		gen.IntRange(1, 550),
+	))
+	properties.Property("Service status used if no userFnStatus", prop.ForAll(
+		func(serviceStatus, userFnStatus int) bool {
+			actualStatus := determineFinalStatus(serviceStatus, userFnStatus)
+
+			if serviceStatus != actualStatus {
+				t.Errorf("Service status not returned: %d != %d", serviceStatus, actualStatus)
+				return false
+			}
+			return true
+		},
+		gen.IntRange(1, 550),
+		gen.Const(0),
+	))
+
+	properties.TestingRun(t)
+
+	for i, test := range []struct {
+		serviceStatus  int
+		userFnStatus   int
+		expectedStatus int
+	}{
+		//default to 200
+		{0, 0, 200},
+		//userFnStatus 5xx forced to 502
+		{200, 500, 502},
+	} {
+		actualStatus := determineFinalStatus(test.serviceStatus, test.userFnStatus)
+		if test.expectedStatus != actualStatus {
+			t.Errorf("%d status expectation not matched: %d != %d", i, test.expectedStatus, actualStatus)
 		}
 	}
 }
