@@ -240,6 +240,12 @@
   version = "v1.1.5"
 
 [[projects]]
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
+  version = "v1.0.1"
+
+[[projects]]
   name = "github.com/leanovate/gopter"
   packages = [
     ".",
@@ -380,7 +386,7 @@
     ".",
     "hooks/syslog"
   ]
-  revision = "v1.0.6"
+  revision = "v1.1.0"
 
 [[projects]]
   name = "github.com/ugorji/go"
@@ -534,6 +540,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "102e2e1774bc95e6b8dab59856e21d446f4fb72fd1a39d563e8ccad7584be9c5"
+  inputs-digest = "0207422038192f007cc8d8c60e81b6b80438373ac16cdfd304b269f3caaf46e7"
   solver-name = "gps-cdcl"
   solver-version = 1

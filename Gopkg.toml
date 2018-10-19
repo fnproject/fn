@@ -47,7 +47,7 @@ ignored = ["github.com/fnproject/fn/cli",
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
-  revision= "v1.0.6"
+  revision= "v1.1.0"
 
 [[constraint]]
   # NOTE: locked for a reason - https://github.com/go-sql-driver/mysql/issues/657
