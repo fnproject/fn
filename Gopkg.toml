@@ -24,13 +24,18 @@ ignored = ["github.com/fnproject/fn/cli",
            "github.com/Microsoft/go-winio*",
            "github.com/Azure/go-ansiterm*"]
 
+[prune]
+  go-tests = true
+  unused-packages = true
+  non-go = true
+
 [[constraint]]
   name = "github.com/boltdb/bolt"
   revision = "fa5367d20c994db73282594be0146ab221657943"
 
 [[constraint]]
   name = "github.com/gin-gonic/gin"
-  version = "v1.2"
+  version = "v1.3.0"
 
 [[constraint]]
   branch = "master"
@@ -42,8 +47,7 @@ ignored = ["github.com/fnproject/fn/cli",
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
-  revision = "89742aefa4b206dcf400792f3bd35b542998eb3b"
-
+  revision= "v1.1.0"
 
 [[constraint]]
   # NOTE: locked for a reason - https://github.com/go-sql-driver/mysql/issues/657
@@ -56,11 +60,11 @@ ignored = ["github.com/fnproject/fn/cli",
 
 [[constraint]]
   name = "github.com/fsouza/go-dockerclient"
-  revision = "1b33efcb40bef3494af8bc6a1f73600f37a3c9d1"
+  revision = "v1.3.1"
 
 [[constraint]]
   name = "github.com/coreos/go-semver"
-  version = "0.2.0"
+  revision = "e214231b295a8ea9479f11b70b35d5acf3556d9b"
 
 [[constraint]]
   name = "go.opencensus.io"
@@ -72,7 +76,7 @@ ignored = ["github.com/fnproject/fn/cli",
 
 [[constraint]]
   name = "github.com/dchest/siphash"
-  version = "1.1.0"
+  revision = "v1.2.0"
 
 [[override]]
   name = "github.com/docker/docker"
@@ -83,5 +87,5 @@ ignored = ["github.com/fnproject/fn/cli",
   revision = "0ae9b6f38f24f65567d4b46602502b33c95cf57a"
 
 [[constraint]]
-    name = "github.com/prometheus/client_golang"
-    version = "0.9.0-pre1"
+  name = "github.com/prometheus/client_golang"
+  version = ">=0.9.0"
