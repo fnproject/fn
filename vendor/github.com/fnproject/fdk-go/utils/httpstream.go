@@ -81,33 +81,22 @@ func decapHeaders(ctx context.Context, r *http.Request) (_ context.Context, canc
 
 	// find things we need, and for http headers add them to the httph bucket
 
+	// TODO i guess it's a good idea to differentiate when it's an http gateway guy or not
+
 	for k, vs := range r.Header {
-		switch k {
-		case "Fn-Deadline":
-			deadline = vs[0]
-		case "Fn-Call-Id":
-			rctx.callId = vs[0]
-		case "Content-Type":
-			// just leave this one instead of deleting
-		default:
-			continue
-		}
-
-		if !strings.HasPrefix(k, "Fn-Http-") {
-			// XXX(reed): we need 2 header buckets on ctx, one for these and one for the 'original req' headers
-			// for now just nuke so the headers are clean...
-			continue
-		}
-
 		switch {
+		case k == "Fn-Deadline":
+			deadline = vs[0]
+		case k == "Fn-Call-Id":
+			rctx.callId = vs[0]
+		case k == "Content-Type":
+			rctx.HTTPHeader[k] = vs
 		case k == "Fn-Http-Request-Url":
 			rctx.RequestURL = vs[0]
 		case k == "Fn-Http-Method":
 			rctx.Method = vs[0]
 		case strings.HasPrefix(k, "Fn-Http-H-"):
-			for _, v := range vs {
-				rctx.HTTPHeader.Add(strings.TrimPrefix(k, "Fn-Http-H-"), v)
-			}
+			rctx.HTTPHeader[strings.TrimPrefix(k, "Fn-Http-H-")] = vs
 		default:
 			// XXX(reed): just delete it? how is it here? maybe log/panic
 		}
@@ -161,7 +150,7 @@ func sockPerm(phonySock, realSock string) {
 		log.Fatalln("error giving sock file a perm", err)
 	}
 
-	err = os.Link(phonySock, realSock)
+	err = os.Symlink(filepath.Base(phonySock),realSock)
 	if err != nil {
 		log.Fatalln("error linking fake sock to real sock", err)
 	}
