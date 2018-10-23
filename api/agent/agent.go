@@ -661,7 +661,6 @@ type hotSlot struct {
 	errC          <-chan error  // container error
 	container     *container    // TODO mask this
 	cfg           *Config
-	udsClient     http.Client
 	fatalErr      error
 	containerSpan trace.SpanContext
 }
@@ -784,8 +783,17 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 		swapBack := s.container.swap(nil, call.stderr, call.stderr, &call.Stats)
 		defer swapBack()
 
+		// Container udsWait is ready yet? We bundle this initialization
+		// time into call timeout in slot.exec() here.
+		select {
+		case <-s.container.udsAwait:
+		case <-ctx.Done():
+			errApp <- ctx.Err()
+			return
+		}
+
 		req := callToHTTPRequest(ctx, call)
-		resp, err := s.udsClient.Do(req)
+		resp, err := s.container.udsClient.Do(req)
 		if err != nil {
 			common.Logger(ctx).WithError(err).Error("Got error from UDS socket")
 			errApp <- models.NewAPIError(http.StatusBadGateway, errors.New("error receiving function response"))
@@ -989,29 +997,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	}
 	defer container.Close()
 
-	// NOTE: soon this isn't assigned in a branch...
-	var udsClient http.Client
-	udsAwait := make(chan error)
-	if call.Format == models.FormatHTTPStream {
-		// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
-		go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
-
-		udsClient = http.Client{
-			Transport: &http.Transport{
-				MaxIdleConns:        1,
-				MaxIdleConnsPerHost: 1,
-				// XXX(reed): other settings ?
-				IdleConnTimeout: 1 * time.Second,
-				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-					var d net.Dialer
-					return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), udsFilename))
-				},
-			},
-		}
-	} else {
-		close(udsAwait) // XXX(reed): short case first / kill this
-	}
-
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
@@ -1029,50 +1014,21 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
-	waiter, err := cookie.Run(ctx)
-	if err != nil {
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
-		return
-	}
+	ctx, shutdownContainer := context.WithCancel(ctx)
+	defer shutdownContainer() // close this if our waiter returns, to call off slots
 
 	// buffered, in case someone has slot when waiter returns but isn't yet listening
 	errC := make(chan error, 1)
 
-	ctx, shutdownContainer := context.WithCancel(ctx)
-	defer shutdownContainer() // close this if our waiter returns, to call off slots
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
-		// now we wait for the socket to be created before handing out any slots, need this
-		// here in case the container dies before making the sock we need to bail
-		select {
-		case err := <-udsAwait: // XXX(reed): need to leave a note about pairing ctx here?
-			// sends a nil error if all is good, we can proceed...
-			if err != nil {
-				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
-				return
-			}
-
-		case <-ctx.Done():
-			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: ctx.Err()})
-			return
-		}
-
 		for {
-			select { // make sure everything is up before trying to send slot
-			case <-ctx.Done(): // container shutdown
-				return
-			case <-a.shutWg.Closer(): // server shutdown
-				return
-			default: // ok
-			}
-
 			slot := &hotSlot{
 				done:          make(chan struct{}),
 				errC:          errC,
 				container:     container,
 				cfg:           &a.cfg,
-				udsClient:     udsClient,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot, evictor) {
@@ -1089,13 +1045,36 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		}
 	}()
 
-	res := waiter.Wait(ctx)
-	if res.Error() != nil {
-		errC <- res.Error() // TODO: race condition, no guaranteed delivery fix this...
+	if call.Format == models.FormatHTTPStream {
+		err := inotifyAwait(ctx, container.UDSAgentPath(), container.udsAwait, errC)
+		if tryQueueErr(errC, err) != nil {
+			return
+		}
+	} else {
+		close(container.udsAwait)
 	}
+
+	waiter, err := cookie.Run(ctx)
+	if tryQueueErr(errC, err) != nil {
+		return
+	}
+
+	res := waiter.Wait(ctx)
+	tryQueueErr(errC, res.Error())
+
 	if res.Error() != context.Canceled {
 		logger.WithError(res.Error()).Info("hot function terminated")
 	}
+}
+
+func tryQueueErr(errC chan error, err error) error {
+	if err != nil {
+		select {
+		case errC <- err:
+		default:
+		}
+	}
+	return err
 }
 
 //checkSocketDestination verifies that the socket file created by the FDK is valid and permitted - notably verifying that any symlinks are relative to the socket dir
@@ -1126,19 +1105,8 @@ func checkSocketDestination(filename string) error {
 
 	return nil
 }
-func inotifyUDS(ctx context.Context, iofsDir string, awaitUDS chan<- error) {
-	// XXX(reed): I forgot how to plumb channels temporarily forgive me for this sin (inotify will timeout, this is just bad programming)
-	err := inotifyAwait(ctx, iofsDir)
-	if err == nil {
-		err = checkSocketDestination(filepath.Join(iofsDir, udsFilename))
-	}
-	select {
-	case awaitUDS <- err:
-	case <-ctx.Done():
-	}
-}
 
-func inotifyAwait(ctx context.Context, iofsDir string) error {
+func inotifyAwait(ctx context.Context, iofsDir string, awaitUDS chan struct{}, errC chan error) error {
 	ctx, span := trace.StartSpan(ctx, "inotify_await")
 	defer span.End()
 
@@ -1146,33 +1114,45 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 	if err != nil {
 		return fmt.Errorf("error getting fsnotify watcher: %v", err)
 	}
-	defer func() {
+
+	closeWatcher := func() {
 		if err := fsWatcher.Close(); err != nil {
 			common.Logger(ctx).WithError(err).Error("Failed to close inotify watcher")
 		}
-	}()
+	}
 
 	err = fsWatcher.Add(iofsDir)
 	if err != nil {
+		closeWatcher()
 		return fmt.Errorf("error adding iofs dir to fswatcher: %v", err)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			// XXX(reed): damn it would sure be nice to tell users they didn't make a uds and that's why it timed out
-			return ctx.Err()
-		case err := <-fsWatcher.Errors:
-			return fmt.Errorf("error watching for iofs: %v", err)
-		case event := <-fsWatcher.Events:
-			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
+	go func() {
+		defer closeWatcher()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case err := <-fsWatcher.Errors:
+				tryQueueErr(errC, fmt.Errorf("error watching for iofs: %v", err))
+				return
+			case event := <-fsWatcher.Events:
+				common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
+				if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
 
-				// wait until the socket file is created by the container
-				return nil
+					err = checkSocketDestination(filepath.Join(iofsDir, udsFilename))
+					if err == nil {
+						close(awaitUDS)
+					} else {
+						tryQueueErr(errC, fmt.Errorf("error watching for iofs: %v", err))
+					}
+					return
+				}
 			}
 		}
-	}
+	}()
+
+	return nil
 }
 
 // runHotReq enqueues a free slot to slot queue manager and watches various timers and the consumer until
@@ -1274,6 +1254,9 @@ type container struct {
 	stdout io.Writer
 	stderr io.Writer
 
+	udsAwait  chan struct{}
+	udsClient http.Client
+
 	// swapMu protects the stats swapping
 	swapMu sync.Mutex
 	stats  *drivers.Stats
@@ -1342,7 +1325,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		iofs = &noopIOFS{}
 	}
 
-	return &container{
+	c := &container{
 		id:         id, // XXX we could just let docker generate ids...
 		image:      call.Image,
 		env:        map[string]string(call.Config),
@@ -1359,9 +1342,10 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 				{Name: "fn_id", Value: call.FnID},
 			},
 		},
-		stdin:  stdin,
-		stdout: stdout,
-		stderr: stderr,
+		stdin:    stdin,
+		stdout:   stdout,
+		stderr:   stderr,
+		udsAwait: make(chan struct{}),
 		close: func() {
 			stdin.Close()
 			stderr.Close()
@@ -1375,7 +1359,22 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 				common.Logger(ctx).WithError(err).Error("Error closing IOFS")
 			}
 		},
-	}, nil
+	}
+
+	c.udsClient = http.Client{
+		Transport: &http.Transport{
+			MaxIdleConns:        1,
+			MaxIdleConnsPerHost: 1,
+			// XXX(reed): other settings ?
+			IdleConnTimeout: 1 * time.Second,
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", filepath.Join(c.UDSAgentPath(), udsFilename))
+			},
+		},
+	}
+
+	return c, nil
 }
 
 func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.Stats) func() {
