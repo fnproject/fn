@@ -3,10 +3,11 @@ package common
 import (
 	"net/url"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"strings"
 )
 
 func SetLogFormat(format string) {
@@ -15,7 +16,7 @@ func SetLogFormat(format string) {
 	}
 
 	if format == "json" {
-		logrus.SetFormatter(&logrus.JSONFormatter{})
+		logrus.SetFormatter(&logrus.JSONFormatter{TimestampFormat: time.RFC3339Nano})
 	} else {
 		// show full timestamps
 		formatter := &logrus.TextFormatter{

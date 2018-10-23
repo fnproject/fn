@@ -50,6 +50,8 @@ func (t *TraceID) UnmarshalJSON(traceID []byte) error {
 	if len(traceID) < 3 {
 		return ErrValidTraceIDRequired
 	}
+	// A valid JSON string is encoded wrapped in double quotes. We need to trim
+	// these before converting the hex payload.
 	tID, err := TraceIDFromHex(string(traceID[1 : len(traceID)-1]))
 	if err != nil {
 		return err
