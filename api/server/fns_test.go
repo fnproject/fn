@@ -121,7 +121,6 @@ func TestFnUpdate(t *testing.T) {
 		{ds, ls, http.MethodPut, "/v2/fns/missing", `{ }`, http.StatusNotFound, models.ErrFnsNotFound},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "id": "nottheid" }`, http.StatusBadRequest, models.ErrFnsIDMismatch},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "image": "fnproject/test" }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "format": "http" }`, http.StatusOK, nil},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 1000 }`, http.StatusOK, nil},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "timeout": 10 }`, http.StatusOK, nil},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "idle_timeout": 10 }`, http.StatusOK, nil},
