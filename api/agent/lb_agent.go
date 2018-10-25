@@ -185,40 +185,40 @@ func (a *lbAgent) Submit(callI Call) error {
 	statsDequeue(ctx)
 	statsStartRun(ctx)
 
-	errPlace := make(chan error, 1)
+	if call.Type == models.TypeDetached {
+		return a.placeDetachCall(ctx, call)
+	}
+	return a.placeCall(ctx, call)
+}
 
+func (a *lbAgent) placeDetachCall(ctx context.Context, call *call) error {
+	errPlace := make(chan error, 1)
 	call.w = &DetachedResponseWriter{
 		origin: call.ResponseWriter(),
 		acked:  make(chan struct{}, 1),
 	}
-	isDetached := call.Type == models.TypeDetached
 	rw := call.w.(*DetachedResponseWriter)
-
-	go a.spawnPlaceCall(ctx, call, errPlace, isDetached)
-
-	for {
-		select {
-		case err := <-errPlace:
-			return err
-		case <-rw.acked:
-			// if it is a detached call  we return immediately otherwise we ignore the ack
-			// If it is not a detached call  we get the ack and we can use it to log info, stats etc.
-			if isDetached {
-				return nil
-			}
-		}
+	go a.spawnPlaceCall(ctx, call, errPlace)
+	select {
+	case err := <-errPlace:
+		return err
+	case <-rw.acked:
+		return nil
 	}
 }
 
-func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error, isDetached bool) {
-	if isDetached {
-		var cancel func()
-		ctx = common.BackgroundContext(ctx)
-		// 30 secs PlacerTimeout for Detached + call.Timeout (inside container) + 360 sec headroom
-		// to make sure we do not wait indefinitely, but also wait enough time for worst case.
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(360+call.Timeout)*time.Second)
-		defer cancel()
-	}
+func (a *lbAgent) placeCall(ctx context.Context, call *call) error {
+	err := a.placer.PlaceCall(a.rp, ctx, call)
+	return a.handleCallEnd(ctx, call, err, true)
+}
+
+func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error) {
+	var cancel func()
+	ctx = common.BackgroundContext(ctx)
+	// 30 secs PlacerTimeout for Detached + call.Timeout (inside container) + 360 sec headroom
+	// to make sure we do not wait indefinitely, but also wait enough time for worst case.
+	ctx, cancel = context.WithTimeout(ctx, time.Duration(360+call.Timeout)*time.Second)
+	defer cancel()
 	err := a.placer.PlaceCall(a.rp, ctx, call)
 	errCh <- a.handleCallEnd(ctx, call, err, true)
 }

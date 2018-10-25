@@ -598,15 +598,16 @@ func (pr *pureRunner) removeCallHandle(cID string) {
 
 func (pr *pureRunner) spawnSubmit(state *callHandle) {
 	go func() {
-		isDetached := state.c.Type == models.TypeDetached
-		// we keep track of the callHandle which will be used in the process to send the ack back
-		if isDetached {
-			pr.saveCallHandle(state)
-		}
 		err := pr.a.Submit(state.c)
-		if isDetached {
-			pr.removeCallHandle(state.c.Model().ID)
-		}
+		state.enqueueCallResponse(err)
+	}()
+}
+
+func (pr *pureRunner) spawnDetachSubmit(state *callHandle) {
+	go func() {
+		pr.saveCallHandle(state)
+		err := pr.a.Submit(state.c)
+		pr.removeCallHandle(state.c.Model().ID)
 		state.enqueueCallResponse(err)
 	}()
 }
@@ -658,7 +659,11 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		state.c.slotHashId = string(hashId[:])
 	}
 
-	pr.spawnSubmit(state)
+	if state.c.Type == models.TypeDetached {
+		pr.spawnDetachSubmit(state)
+	} else {
+		pr.spawnSubmit(state)
+	}
 	return nil
 }
 
