@@ -1002,6 +1002,12 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
+	ctx, shutdownContainer := context.WithCancel(ctx)
+	defer shutdownContainer() // close this if our waiter returns, to call off slots
+
+	// buffered, in case someone has slot when waiter returns but isn't yet listening
+	errC := make(chan error, 1)
+
 	var watcher *fsnotify.Watcher
 	// TODO: remove branching when old formats are cleaned up
 	if call.Format == models.FormatHTTPStream {
@@ -1011,16 +1017,20 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			return
 		}
 	}
-	defer inotifyClose(ctx, watcher)
-
-	ctx, shutdownContainer := context.WithCancel(ctx)
-	defer shutdownContainer() // close this if our waiter returns, to call off slots
-
-	// buffered, in case someone has slot when waiter returns but isn't yet listening
-	errC := make(chan error, 1)
 
 	go func() {
-		inotifyWait(ctx, logger, watcher, container.UDSAgentPath(), container.udsAwait, errC)
+		defer inotifyClose(ctx, watcher)
+
+		// TODO: remove branching when old formats are cleaned up
+		if call.Format == models.FormatHTTPStream {
+			err := inotifyWait(ctx, watcher, container.UDSAgentPath())
+			if tryQueueErr(logger, errC, err) != nil {
+				shutdownContainer()
+				return
+			}
+		}
+
+		close(container.udsAwait)
 	}()
 
 	go func() {
@@ -1120,36 +1130,24 @@ func inotifyCreate(ctx context.Context, iofsDir string) (*fsnotify.Watcher, erro
 	return fsWatcher, nil
 }
 
-func inotifyWait(ctx context.Context, logger logrus.FieldLogger, watcher *fsnotify.Watcher, iofsDir string, awaitUDS chan struct{}, errC chan error) {
-	// TODO: remove when old formats are cleaned up
-	if watcher == nil {
-		close(awaitUDS)
-		return
-	}
-
+func inotifyWait(ctx context.Context, watcher *fsnotify.Watcher, iofsDir string) error {
 	ctx, span := trace.StartSpan(ctx, "inotify_wait")
 	defer span.End()
-
-	defer inotifyClose(ctx, watcher)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case err := <-watcher.Errors:
-			tryQueueErr(logger, errC, fmt.Errorf("error watching for iofs: %v", err))
-			return
+			return fmt.Errorf("error watching for iofs: %v", err)
 		case event := <-watcher.Events:
 			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
-
 				err := checkSocketDestination(filepath.Join(iofsDir, udsFilename))
-				if err == nil {
-					close(awaitUDS)
-				} else {
-					tryQueueErr(logger, errC, fmt.Errorf("error watching for iofs: %v", err))
+				if err != nil {
+					return fmt.Errorf("error watching for iofs: %v", err)
 				}
-				return
+				return nil
 			}
 		}
 	}
