@@ -286,8 +286,49 @@ func (drv *DockerDriver) PrepareCookie(ctx context.Context, c drivers.Cookie) er
 		}
 	}
 
-	// discard removal error
-	return nil
+	mwOut, mwErr := cookie.task.Logger()
+	successChan := make(chan struct{})
+
+	cookie.waitCloser, err = drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
+		Container:    cookie.task.Id(),
+		InputStream:  cookie.task.Input(),
+		OutputStream: mwOut,
+		ErrorStream:  mwErr,
+		Success:      successChan,
+		Stream:       true,
+		Stdout:       true,
+		Stderr:       true,
+		Stdin:        true,
+	})
+	if err != nil {
+		return err
+	}
+
+	mon := make(chan struct{})
+
+	// We block here, since we would like to have stdin/stdout/stderr
+	// streams already attached before starting task and I/O.
+	// if AttachToContainerNonBlocking() returns no error, then we'll
+	// sync up with NB Attacher above before starting the task. However,
+	// we might leak our go-routine if AttachToContainerNonBlocking()
+	// Dial/HTTP does not honor the Success channel contract.
+	// Here we assume that if our context times out, then underlying
+	// go-routines in AttachToContainerNonBlocking() will unlock
+	// (or eventually timeout) once we tear down the container.
+	go func() {
+		<-successChan
+		successChan <- struct{}{}
+		close(mon)
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-mon:
+		cookie.statsCloser = make(chan struct{})
+		go drv.collectStats(ctx, cookie.statsCloser, cookie.task.Id(), cookie.task)
+	}
+
+	return ctx.Err()
 }
 
 func (drv *DockerDriver) removeContainer(ctx context.Context, container string) error {
@@ -370,93 +411,6 @@ func dockerMsg(derr *docker.Error) string {
 		return derr.Message
 	}
 	return v.Msg
-}
-
-// Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
-// The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
-func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
-
-	mwOut, mwErr := task.Logger()
-	successChan := make(chan struct{})
-
-	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
-		Container:    container,
-		InputStream:  task.Input(),
-		OutputStream: mwOut,
-		ErrorStream:  mwErr,
-		Success:      successChan,
-		Stream:       true,
-		Stdout:       true,
-		Stderr:       true,
-		Stdin:        true,
-	})
-
-	if err == nil {
-		mon := make(chan struct{})
-
-		// We block here, since we would like to have stdin/stdout/stderr
-		// streams already attached before starting task and I/O.
-		// if AttachToContainerNonBlocking() returns no error, then we'll
-		// sync up with NB Attacher above before starting the task. However,
-		// we might leak our go-routine if AttachToContainerNonBlocking()
-		// Dial/HTTP does not honor the Success channel contract.
-		// Here we assume that if our context times out, then underlying
-		// go-routines in AttachToContainerNonBlocking() will unlock
-		// (or eventually timeout) once we tear down the container.
-		go func() {
-			<-successChan
-			successChan <- struct{}{}
-			close(mon)
-		}()
-
-		select {
-		case <-ctx.Done():
-		case <-mon:
-		}
-	}
-
-	if err != nil && ctx.Err() == nil {
-		// ignore if ctx has errored, rewrite status lay below
-		return nil, err
-	}
-
-	// we want to stop trying to collect stats when the container exits
-	// collectStats will stop when stopSignal is closed or ctx is cancelled
-	stopSignal := make(chan struct{})
-	go drv.collectStats(ctx, stopSignal, container, task)
-
-	err = drv.startTask(ctx, container)
-	if err != nil && ctx.Err() == nil {
-		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
-		return nil, err
-	}
-
-	return &waitResult{
-		container: container,
-		waiter:    waiter,
-		drv:       drv,
-		done:      stopSignal,
-	}, nil
-}
-
-// waitResult implements drivers.WaitResult
-type waitResult struct {
-	container string
-	waiter    docker.CloseWaiter
-	drv       *DockerDriver
-	done      chan struct{}
-}
-
-// waitResult implements drivers.WaitResult
-func (w *waitResult) Wait(ctx context.Context) drivers.RunResult {
-	defer close(w.done)
-
-	// wait until container is stopped (or ctx is cancelled if sooner)
-	status, err := w.wait(ctx)
-	return &runResult{
-		status: status,
-		err:    err,
-	}
 }
 
 // Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled
@@ -604,48 +558,6 @@ func (drv *DockerDriver) awaitHealthcheck(ctx context.Context, container string)
 		time.Sleep(100 * time.Millisecond) // avoid spin loop in case docker is actually fast
 	}
 	return nil
-}
-
-func (w *waitResult) wait(ctx context.Context) (status string, err error) {
-	// wait retries internally until ctx is up, so we can ignore the error and
-	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
-	// a more prevalent case is calling wait & container already finished, so again ignore err.
-	exitCode, _ := w.drv.docker.WaitContainerWithContext(w.container, ctx)
-	defer RecordWaitContainerResult(ctx, exitCode)
-
-	w.waiter.Close()
-	err = w.waiter.Wait()
-	if err != nil {
-		// plumb up i/o errors (NOTE: which MAY be typed)
-		return drivers.StatusError, err
-	}
-
-	// check the context first, if it's done then exitCode is invalid iff zero
-	// (can't know 100% without inspecting, but that's expensive and this is a good guess)
-	// if exitCode is non-zero, we prefer that since it proves termination.
-	if exitCode == 0 {
-		select {
-		case <-ctx.Done(): // check if task was canceled or timed out
-			switch ctx.Err() {
-			case context.DeadlineExceeded:
-				return drivers.StatusTimeout, context.DeadlineExceeded
-			case context.Canceled:
-				return drivers.StatusCancelled, context.Canceled
-			}
-		default:
-		}
-	}
-
-	switch exitCode {
-	default:
-		return drivers.StatusError, models.NewAPIError(http.StatusBadGateway, fmt.Errorf("container exit code %d", exitCode))
-	case 0:
-		return drivers.StatusSuccess, nil
-	case 137: // OOM
-		common.Logger(ctx).Error("docker oom")
-		err := errors.New("container out of memory, you may want to raise fn.memory for this function (default: 128MB)")
-		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, err)
-	}
 }
 
 var _ drivers.Driver = &DockerDriver{}

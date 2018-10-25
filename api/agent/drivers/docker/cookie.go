@@ -3,10 +3,13 @@ package docker
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/models"
+
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 )
@@ -24,6 +27,12 @@ type cookie struct {
 	task drivers.ContainerTask
 	// pointer to docker driver
 	drv *DockerDriver
+
+	// terminate stats collector
+	statsCloser chan struct{}
+
+	// terminate the attached waiter
+	waitCloser docker.CloseWaiter
 }
 
 func (c *cookie) configureLogger(log logrus.FieldLogger) {
@@ -199,6 +208,14 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 
 // implements Cookie
 func (c *cookie) Close(ctx context.Context) error {
+	if c.statsCloser != nil {
+		close(c.statsCloser)
+		c.statsCloser = nil
+	}
+	if c.waitCloser != nil {
+		c.waitCloser.Close()
+		c.waitCloser = nil
+	}
 	err := c.drv.removeContainer(ctx, c.task.Id())
 	c.drv.unpickPool(c)
 	c.drv.unpickNetwork(c)
@@ -206,8 +223,38 @@ func (c *cookie) Close(ctx context.Context) error {
 }
 
 // implements Cookie
-func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
-	return c.drv.run(ctx, c.task.Id(), c.task)
+func (c *cookie) Run(ctx context.Context) error {
+	err := c.drv.startTask(ctx, c.task.Id())
+	if err != nil {
+		return err
+	}
+
+	exitCode, err := c.drv.docker.WaitContainerWithContext(c.task.Id(), ctx)
+	RecordWaitContainerResult(ctx, err, exitCode)
+
+	// terminate stats collector
+	if c.statsCloser != nil {
+		stats := c.statsCloser
+		c.statsCloser = nil
+		close(stats)
+	}
+
+	// terminate waiter
+	if c.waitCloser != nil {
+		closer := c.waitCloser
+		c.waitCloser = nil
+		closer.Close()
+
+		err = closer.Wait()
+		if err != nil {
+			return err
+		}
+	}
+
+	if exitCode != 0 {
+		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("container exit code %d", exitCode))
+	}
+	return ctx.Err()
 }
 
 // implements Cookie

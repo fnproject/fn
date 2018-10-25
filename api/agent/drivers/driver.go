@@ -24,16 +24,9 @@ type Cookie interface {
 	Close(ctx context.Context) error
 
 	// Run should execute task on the implementation.
-	// RunResult captures the result of task execution. This means if task
-	// execution fails due to a problem in the task, Run() MUST return a valid
-	// RunResult and nil as the error. The RunResult's Error() and Status()
-	// should be used to indicate failure.
-	// If the implementation itself suffers problems (lost of network, out of
-	// disk etc.), a nil RunResult and an error message is preferred.
-	//
 	// Run() MUST monitor the context. task cancellation is indicated by
 	// cancelling the context.
-	Run(ctx context.Context) (WaitResult, error)
+	Run(ctx context.Context) error
 
 	// Freeze the container to pause running processes
 	Freeze(ctx context.Context) error
@@ -46,14 +39,6 @@ type Cookie interface {
 	// yet called with the cookie, then this can be used to modify container
 	// create options.
 	ContainerOptions() interface{}
-}
-
-type WaitResult interface {
-	// Wait may be called to await the result of a container's execution. If the
-	// provided context is canceled and the container does not return first, the
-	// resulting status will be 'canceled'. If the provided context times out
-	// then the resulting status will be 'timeout'.
-	Wait(context.Context) RunResult
 }
 
 type Driver interface {
@@ -73,17 +58,6 @@ type Driver interface {
 
 	// close & shutdown the driver
 	Close() error
-}
-
-// RunResult indicates only the final state of the task.
-type RunResult interface {
-	// Error is an actionable/checkable error from the container, nil if
-	// Status() returns "success", otherwise non-nil
-	Error() error
-
-	// Status should return the current status of the task.
-	// Only valid options are {"error", "success", "timeout", "killed", "cancelled"}.
-	Status() string
 }
 
 // Logger Tags for container
@@ -223,19 +197,6 @@ func (s *Stats) Scan(value interface{}) error {
 	// otherwise, return an error
 	return fmt.Errorf("stats invalid db format: %T %T value, err: %v", value, bv, err)
 }
-
-// TODO: ensure some type is applied to these statuses.
-const (
-	// task statuses
-	StatusRunning   = "running"
-	StatusSuccess   = "success"
-	StatusError     = "error"
-	StatusTimeout   = "timeout"
-	StatusKilled    = "killed"
-	StatusCancelled = "cancelled"
-
-	defaultDomain = "docker.io"
-)
 
 type Config struct {
 	// TODO this should all be driver-specific config and not in the

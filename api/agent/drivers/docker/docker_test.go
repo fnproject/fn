@@ -62,19 +62,9 @@ func TestRunnerDocker(t *testing.T) {
 		t.Fatal("Couldn't prepare task test")
 	}
 
-	waiter, err := cookie.Run(ctx)
+	err = cookie.Run(ctx)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	result := waiter.Wait(ctx)
-	if result.Error() != nil {
-		t.Fatal(result.Error())
-	}
-
-	if result.Status() != "success" {
-		t.Fatalf("Test should successfully run the image: %s output: %s errors: %s",
-			result.Error(), output.String(), errors.String())
 	}
 }
 
@@ -176,19 +166,9 @@ func TestRunnerDockerStdin(t *testing.T) {
 		t.Fatal("Couldn't prepare task test")
 	}
 
-	waiter, err := cookie.Run(ctx)
+	err = cookie.Run(ctx)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	result := waiter.Wait(ctx)
-	if result.Error() != nil {
-		t.Fatal(result.Error())
-	}
-
-	if result.Status() != "success" {
-		t.Fatalf("Test should successfully run the image: %s output: %s errors: %s",
-			result.Error(), output.String(), errors.String())
 	}
 
 	expect := "italian parsley"

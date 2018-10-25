@@ -632,19 +632,7 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	call.requestState.UpdateState(ctx, RequestStateExec, call.slots)
 	call.containerState.UpdateState(ctx, ContainerStateBusy, call.slots)
 
-	waiter, err := s.cookie.Run(ctx)
-	if err != nil {
-		return err
-	}
-
-	res := waiter.Wait(ctx)
-	if res.Error() != nil {
-		// check for call error (oom/exit) and beam it up
-		return res.Error()
-	}
-
-	// nil or timed out
-	return ctx.Err()
+	return s.cookie.Run(ctx)
 }
 
 func (s *coldSlot) Close() error {
@@ -1014,11 +1002,26 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
+	var watcher *fsnotify.Watcher
+	// TODO: remove branching when old formats are cleaned up
+	if call.Format == models.FormatHTTPStream {
+		watcher, err = inotifyCreate(ctx, container.UDSAgentPath())
+		if err != nil {
+			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+			return
+		}
+	}
+	defer inotifyClose(ctx, watcher)
+
 	ctx, shutdownContainer := context.WithCancel(ctx)
 	defer shutdownContainer() // close this if our waiter returns, to call off slots
 
 	// buffered, in case someone has slot when waiter returns but isn't yet listening
 	errC := make(chan error, 1)
+
+	go func() {
+		inotifyWait(ctx, logger, watcher, container.UDSAgentPath(), container.udsAwait, errC)
+	}()
 
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
@@ -1045,30 +1048,15 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		}
 	}()
 
-	if call.Format == models.FormatHTTPStream {
-		err := inotifyAwait(ctx, container.UDSAgentPath(), container.udsAwait, errC)
-		if tryQueueErr(errC, err) != nil {
-			return
-		}
-	} else {
-		close(container.udsAwait)
-	}
-
-	waiter, err := cookie.Run(ctx)
-	if tryQueueErr(errC, err) != nil {
-		return
-	}
-
-	res := waiter.Wait(ctx)
-	tryQueueErr(errC, res.Error())
-
-	if res.Error() != context.Canceled {
-		logger.WithError(res.Error()).Info("hot function terminated")
-	}
+	tryQueueErr(logger, errC, cookie.Run(ctx))
 }
 
-func tryQueueErr(errC chan error, err error) error {
+// tryQueueErr is a helper function which attempts to queue an error to the slot error channel.
+func tryQueueErr(logger logrus.FieldLogger, errC chan error, err error) error {
 	if err != nil {
+		if err != context.Canceled {
+			logger.WithError(err).Info("hot function error")
+		}
 		select {
 		case errC <- err:
 		default:
@@ -1106,53 +1094,65 @@ func checkSocketDestination(filename string) error {
 	return nil
 }
 
-func inotifyAwait(ctx context.Context, iofsDir string, awaitUDS chan struct{}, errC chan error) error {
-	ctx, span := trace.StartSpan(ctx, "inotify_await")
+func inotifyClose(ctx context.Context, watcher *fsnotify.Watcher) {
+	if watcher != nil {
+		if err := watcher.Close(); err != nil {
+			common.Logger(ctx).WithError(err).Error("Failed to close inotify watcher")
+		}
+	}
+}
+
+func inotifyCreate(ctx context.Context, iofsDir string) (*fsnotify.Watcher, error) {
+	ctx, span := trace.StartSpan(ctx, "inotify_create")
 	defer span.End()
 
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("error getting fsnotify watcher: %v", err)
-	}
-
-	closeWatcher := func() {
-		if err := fsWatcher.Close(); err != nil {
-			common.Logger(ctx).WithError(err).Error("Failed to close inotify watcher")
-		}
+		return nil, fmt.Errorf("error getting fsnotify watcher: %v", err)
 	}
 
 	err = fsWatcher.Add(iofsDir)
 	if err != nil {
-		closeWatcher()
-		return fmt.Errorf("error adding iofs dir to fswatcher: %v", err)
+		inotifyClose(ctx, fsWatcher)
+		return nil, fmt.Errorf("error adding iofs dir to fswatcher: %v", err)
 	}
 
-	go func() {
-		defer closeWatcher()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case err := <-fsWatcher.Errors:
-				tryQueueErr(errC, fmt.Errorf("error watching for iofs: %v", err))
-				return
-			case event := <-fsWatcher.Events:
-				common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
-				if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
+	return fsWatcher, nil
+}
 
-					err = checkSocketDestination(filepath.Join(iofsDir, udsFilename))
-					if err == nil {
-						close(awaitUDS)
-					} else {
-						tryQueueErr(errC, fmt.Errorf("error watching for iofs: %v", err))
-					}
-					return
+func inotifyWait(ctx context.Context, logger logrus.FieldLogger, watcher *fsnotify.Watcher, iofsDir string, awaitUDS chan struct{}, errC chan error) {
+	// TODO: remove when old formats are cleaned up
+	if watcher == nil {
+		close(awaitUDS)
+		return
+	}
+
+	ctx, span := trace.StartSpan(ctx, "inotify_wait")
+	defer span.End()
+
+	defer inotifyClose(ctx, watcher)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-watcher.Errors:
+			tryQueueErr(logger, errC, fmt.Errorf("error watching for iofs: %v", err))
+			return
+		case event := <-watcher.Events:
+			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
+
+				err := checkSocketDestination(filepath.Join(iofsDir, udsFilename))
+				if err == nil {
+					close(awaitUDS)
+				} else {
+					tryQueueErr(logger, errC, fmt.Errorf("error watching for iofs: %v", err))
 				}
+				return
 			}
 		}
-	}()
-
-	return nil
+	}
 }
 
 // runHotReq enqueues a free slot to slot queue manager and watches various timers and the consumer until

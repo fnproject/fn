@@ -235,7 +235,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/default_dne_fn_id", ``, "POST", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/invoke/http_dne_fn_id", ``, "POST", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/invoke/http_dnereg_fn_id", ``, "POST", http.StatusInternalServerError, nil, "connection refused", nil},
-		{"/invoke/http_oom_fn_id", oomer, "POST", http.StatusBadGateway, nil, "container out of memory", nil},
+		{"/invoke/http_oom_fn_id", oomer, "POST", http.StatusBadGateway, nil, "container exit code 137", nil},
 		{"/invoke/http_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectHot},
 		{"/invoke/default_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectCold},
 		{"/invoke/json_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},

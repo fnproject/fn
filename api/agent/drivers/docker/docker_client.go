@@ -159,7 +159,7 @@ func makeTracker(ctx context.Context, name string) (context.Context, func()) {
 	}
 }
 
-func RecordWaitContainerResult(ctx context.Context, exitCode int) {
+func RecordWaitContainerResult(ctx context.Context, err error, exitCode int) {
 
 	// Tag the metric with error-code or context-cancel/deadline info
 	exitStr := fmt.Sprintf("exit_%d", exitCode)
@@ -170,6 +170,11 @@ func RecordWaitContainerResult(ctx context.Context, exitCode int) {
 		case context.Canceled:
 			exitStr = "ctx_canceled"
 		}
+	}
+
+	// check/report if wait container returned error
+	if exitCode == 0 && err != nil {
+		exitStr = "error"
 	}
 
 	newCtx, err := tag.New(ctx,

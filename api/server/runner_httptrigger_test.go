@@ -381,7 +381,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		{"/t/myapp/mydne", nil, ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/t/myapp/mydnehot", nil, ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/t/myapp/mydneregistry", nil, ``, "GET", http.StatusInternalServerError, nil, "connection refused", nil},
-		{"/t/myapp/myoom", nil, oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
+		{"/t/myapp/myoom", nil, oomer, "GET", http.StatusBadGateway, nil, "container exit code 137", nil},
 		{"/t/myapp/myhot", nil, multiLog, "GET", http.StatusOK, nil, "", multiLogExpectHot},
 		{"/t/myapp/", nil, multiLog, "GET", http.StatusOK, nil, "", multiLogExpectCold},
 		{"/t/myapp/mybigoutputjson", nil, bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
