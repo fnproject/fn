@@ -494,7 +494,8 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 			} else {
 				needMem, needCpu := tok.NeededCapacity()
 				notifyChans = a.evictor.PerformEviction(call.slotHashId, needMem, uint64(needCpu))
-				if len(notifyChans) == 0 {
+				// For Non-blocking mode, if there's nothing to evict, we emit 503.
+				if len(notifyChans) == 0 && isNB {
 					tryNotify(notifyChan, tok.Error())
 				}
 			}
