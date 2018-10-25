@@ -96,16 +96,23 @@ type ResourceToken interface {
 	// Close must be called by any thread that receives a token.
 	io.Closer
 	Error() error
+	NeededCapacity() (uint64, models.MilliCPUs)
 }
 
 type resourceToken struct {
 	once      sync.Once
 	err       error
+	needCpu   models.MilliCPUs
+	needMem   uint64
 	decrement func()
 }
 
 func (t *resourceToken) Error() error {
 	return t.err
+}
+
+func (t *resourceToken) NeededCapacity() (uint64, models.MilliCPUs) {
+	return t.needMem, t.needCpu
 }
 
 func (t *resourceToken) Close() error {
@@ -168,18 +175,29 @@ func (a *resourceTracker) allocResourcesLocked(memory uint64, cpuQuota models.Mi
 
 func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.MilliCPUs) ResourceToken {
 	if !a.IsResourcePossible(memory, cpuQuota) {
-		return &resourceToken{err: CapacityFull}
+		return &resourceToken{err: CapacityFull, needCpu: cpuQuota, needMem: memory}
 	}
 	memory = memory * Mem1MB
 
 	var t ResourceToken
+	var needMem uint64
+	var needCpu models.MilliCPUs
 
 	a.cond.L.Lock()
 
-	if !a.isResourceAvailableLocked(memory, cpuQuota) {
-		t = &resourceToken{err: CapacityFull}
-	} else {
+	availMem := a.ramTotal - a.ramUsed
+	availCPU := a.cpuTotal - a.cpuUsed
+
+	if availMem >= memory && availCPU >= uint64(cpuQuota) {
 		t = a.allocResourcesLocked(memory, cpuQuota)
+	} else {
+		if availMem < memory {
+			needMem = (memory - availMem) / Mem1MB
+		}
+		if availCPU < uint64(cpuQuota) {
+			needCpu = models.MilliCPUs(uint64(cpuQuota) - availCPU)
+		}
+		t = &resourceToken{err: CapacityFull, needCpu: needCpu, needMem: needMem}
 	}
 
 	a.cond.L.Unlock()

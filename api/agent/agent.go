@@ -452,6 +452,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	mem := call.Memory + uint64(call.TmpFsSize)
 
 	var notifyChans []chan struct{}
+	var tok ResourceToken
 
 	// WARNING: Tricky flow below. We are here because: isNewContainerNeeded is true,
 	// in other words, we need to launch a new container at this time due to high load.
@@ -471,12 +472,28 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	// Non-blocking mode only applies to cpu+mem, and if isNewContainerNeeded decided that we do not
 	// need to start a new container, then waiters will wait.
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
-		if tok != nil && tok.Error() != nil {
+	case tok = <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
+	case <-time.After(a.cfg.HotPoll):
+		// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
+		// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
+		// idle container. We do this by submitting a non-blocking request and evicting required
+		// amount of resources.
+		select {
+		case tok = <-a.resources.GetResourceToken(ctx, mem, call.CPUs, true):
+		case <-ctx.Done(): // timeout
+		case <-a.shutWg.Closer(): // server shutdown
+		}
+	case <-ctx.Done(): // timeout
+	case <-a.shutWg.Closer(): // server shutdown
+	}
+
+	if tok != nil {
+		if tok.Error() != nil {
 			if tok.Error() != CapacityFull {
 				tryNotify(notifyChan, tok.Error())
 			} else {
-				notifyChans = a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs))
+				needMem, needCpu := tok.NeededCapacity()
+				notifyChans = a.evictor.PerformEviction(call.slotHashId, needMem, uint64(needCpu))
 				if len(notifyChans) == 0 {
 					tryNotify(notifyChan, tok.Error())
 				}
@@ -490,17 +507,8 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 			// early return (do not allow container state to switch to ContainerStateDone)
 			return
 		}
-		if tok != nil {
-			statsUtilization(ctx, a.resources.GetUtilization())
-			tok.Close()
-		}
-		// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
-		// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
-		// idle container.
-	case <-time.After(a.cfg.HotPoll):
-		notifyChans = a.evictor.PerformEviction(call.slotHashId, mem, uint64(call.CPUs))
-	case <-ctx.Done(): // timeout
-	case <-a.shutWg.Closer(): // server shutdown
+		statsUtilization(ctx, a.resources.GetUtilization())
+		tok.Close()
 	}
 
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
