@@ -1,11 +1,13 @@
+export GO111MODULE=on
+export GOFLAGS=-mod=vendor
 # Just builds
-.PHONY: dep
+.PHONY: mod
 dep:
-	dep ensure --vendor-only
+	go mod vendor -v
 
-.PHONY: dep-up
+.PHONY: mod-up
 dep-up:
-	dep ensure
+	go get -u
 
 .PHONY: build
 build:
@@ -91,11 +93,11 @@ pull-images: img-mysql img-postgres img-minio img-busybox
 
 .PHONY: test-datastore
 test-datastore:
-	cd api/datastore && go test -v ./...
+	cd api/datastore && go test  ./...
 
 .PHONY: test-log-datastore
 test-log-datastore:
-	cd api/logs && go test -v ./...
+	cd api/logs && go test  ./...
 
 .PHONY: test-build-arm
 test-build-arm:
@@ -126,7 +128,7 @@ docker-test:
 	-v ${CURDIR}:/go/src/github.com/fnproject/fn \
 	-w /go/src/github.com/fnproject/fn \
 	fnproject/go:dev go test \
-	-v $(shell docker run --rm -ti -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn -e GOPATH=/go golang:alpine sh -c 'go list ./... | \
+	-v $(shell docker run --rm -ti -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn -e GOFLAGS -e GO111MODULE -e GOPATH=/go golang:alpine sh -c 'go list ./... | \
                                                                                                                                                           grep -v vendor | \
                                                                                                                                                           grep -v examples | \
                                                                                                                                                           grep -v test/fn-api-tests | \
@@ -134,4 +136,4 @@ docker-test:
                                                                                                                                                           grep -v images/fn-test-utils')
 
 .PHONY: all
-all: dep generate build
+all: mod generate build

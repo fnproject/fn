@@ -204,6 +204,21 @@ func (x *atomicTypeInfoSlice) store(p []rtid2ti) {
 }
 
 // --------------------------
+type atomicClsErr struct {
+	v clsErr
+}
+
+func (x *atomicClsErr) load() clsErr {
+	xp := unsafe.Pointer(&x.v)
+	return *(*clsErr)(atomic.LoadPointer(&xp))
+}
+
+func (x *atomicClsErr) store(p clsErr) {
+	xp := unsafe.Pointer(&x.v)
+	atomic.StorePointer(&xp, unsafe.Pointer(&p))
+}
+
+// --------------------------
 func (d *Decoder) raw(f *codecFnInfo, rv reflect.Value) {
 	urv := (*unsafeReflectValue)(unsafe.Pointer(&rv))
 	*(*[]byte)(urv.ptr) = d.rawBytes()
