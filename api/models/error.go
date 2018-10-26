@@ -155,6 +155,12 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Async functions are not supported on this server"),
 	}
+
+	// TODO consider removal. see rationale at uses, or remove if none.
+	ErrContainerExitedEarly = err{
+		code:  http.StatusBadGateway,
+		error: errors.New("container exited early, please ensure you are using the latest fdk / format and check the logs"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response

@@ -146,9 +146,13 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	dneRegistryFn := &models.Fn{ID: "dnereg_fn_id", Name: "dnereg_fn", AppID: app.ID, Image: rImgBs2, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	httpStreamFn := &models.Fn{ID: "http_stream_fn_id", Name: "http_stream_fn", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 
+	// TODO consider removing this instead of satisfying this test. it was here to help user experience during a transitional time in our lives where we decided to cut all our hair off and we hope you'll forget it.
+	// TODO also note that fnproject/hello should get killed whenever you do that. it is only here for the purposes of failing.
+	oldDefaultFn := &models.Fn{ID: "fail_fn", Name: "fail_fn", AppID: app.ID, Image: "fnproject/hello", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn},
+		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn, oldDefaultFn},
 	)
 	ls := logs.NewMock()
 
@@ -204,6 +208,9 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 		// XXX(reed): what are these?
 		{"/invoke/http_stream_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectHot},
+
+		// TODO consider removing this, see comment above the image
+		{"/invoke/fail_fn", ok, "POST", http.StatusBadGateway, nil, "container exited early, please ensure", nil},
 	}
 
 	callIds := make([]string, len(testCases))

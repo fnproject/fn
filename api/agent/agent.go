@@ -822,7 +822,10 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			}
 
 		case <-ctx.Done():
-			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: ctx.Err()})
+			// XXX(reed): this seems like a bad idea? why are we even handing out a
+			// bad slot? shouldn't we make the client wait for a valid one and maybe
+			// timeout? not in this PR, NOT TONIGHT!
+			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: models.ErrContainerExitedEarly})
 			return
 		}
 
@@ -858,8 +861,16 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	}()
 
 	res := waiter.Wait(ctx)
-	if res.Error() != nil {
-		errC <- res.Error() // TODO: race condition, no guaranteed delivery fix this...
+	if err := res.Error(); err != nil {
+		if err == context.Canceled {
+			// TODO consider removal after format biz mellows out (t-minus 30 days)
+			// we can turn this into a user visible error (for now) if the container
+			// exits because they are using the wrong format, say, and try to guess/
+			// help them out for now. context.Canceled only comes from container exit.
+			errC <- models.ErrContainerExitedEarly
+		} else {
+			errC <- err // TODO: race condition, no guaranteed delivery fix this... we can't really, if nobody is there it's working as intended for idle timeout?
+		}
 	}
 	if res.Error() != context.Canceled {
 		logger.WithError(res.Error()).Info("hot function terminated")
