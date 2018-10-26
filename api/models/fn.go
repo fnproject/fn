@@ -61,10 +61,6 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid Fn image"),
 	}
-	ErrFnsInvalidFormat = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invalid format on Fn"),
-	}
 	ErrFnsInvalidTimeout = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("timeout value is out of range, must be between 0 and %d", MaxTimeout),
@@ -107,11 +103,6 @@ type Fn struct {
 	CreatedAt common.DateTime `json:"created_at,omitempty" db:"created_at"`
 	// UpdatedAt is the UTC timestamp of the last time this func was modified.
 	UpdatedAt common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
-
-	// TODO wish to kill but not yet ?
-	// Format is the container protocol the function will accept,
-	// may be one of: json | http | cloudevent | default
-	Format string `json:"format" db:"format"`
 }
 
 // ResourceConfig specified resource constraints imposed on a function execution.
@@ -131,10 +122,6 @@ func (f *Fn) SetDefaults() {
 
 	if f.Memory == 0 {
 		f.Memory = DefaultMemory
-	}
-
-	if f.Format == "" {
-		f.Format = FormatDefault
 	}
 
 	if f.Config == nil {
@@ -179,12 +166,6 @@ func (f *Fn) Validate() error {
 
 	if f.Image == "" {
 		return ErrFnsMissingImage
-	}
-
-	switch f.Format {
-	case FormatDefault, FormatHTTP, FormatHTTPStream, FormatJSON, FormatCloudEvent:
-	default:
-		return ErrFnsInvalidFormat
 	}
 
 	if f.Timeout <= 0 || f.Timeout > MaxTimeout {
@@ -233,7 +214,6 @@ func (f1 *Fn) Equals(f2 *Fn) bool {
 	eq = eq && f1.AppID == f2.AppID
 	eq = eq && f1.Image == f2.Image
 	eq = eq && f1.Memory == f2.Memory
-	eq = eq && f1.Format == f2.Format
 	eq = eq && f1.Timeout == f2.Timeout
 	eq = eq && f1.IdleTimeout == f2.IdleTimeout
 	eq = eq && f1.Config.Equals(f2.Config)
@@ -255,7 +235,6 @@ func (f1 *Fn) EqualsWithAnnotationSubset(f2 *Fn) bool {
 	eq = eq && f1.AppID == f2.AppID
 	eq = eq && f1.Image == f2.Image
 	eq = eq && f1.Memory == f2.Memory
-	eq = eq && f1.Format == f2.Format
 	eq = eq && f1.Timeout == f2.Timeout
 	eq = eq && f1.IdleTimeout == f2.IdleTimeout
 	eq = eq && f1.Config.Equals(f2.Config)
@@ -285,9 +264,6 @@ func (f *Fn) Update(patch *Fn) {
 	}
 	if patch.IdleTimeout != 0 {
 		f.IdleTimeout = patch.IdleTimeout
-	}
-	if patch.Format != "" {
-		f.Format = patch.Format
 	}
 	if patch.Config != nil {
 		if f.Config == nil {

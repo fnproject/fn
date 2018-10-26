@@ -216,15 +216,18 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "CreateCookie"})
 
+	stdinOn := task.Input() != nil
+	// XXX(reed): we can do same with stderr/stdout
+
 	opts := docker.CreateContainerOptions{
 		Name: task.Id(),
 		Config: &docker.Config{
 			Image:        task.Image(),
-			OpenStdin:    true,
+			OpenStdin:    stdinOn,
+			StdinOnce:    stdinOn,
+			AttachStdin:  stdinOn,
 			AttachStdout: true,
-			AttachStdin:  true,
 			AttachStderr: true,
-			StdinOnce:    true,
 		},
 		HostConfig: &docker.HostConfig{
 			ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,

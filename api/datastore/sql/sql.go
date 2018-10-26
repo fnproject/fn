@@ -85,7 +85,6 @@ var tables = [...]string{
 	name varchar(256) NOT NULL,
 	app_id varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
-	format varchar(16) NOT NULL,
 	memory int NOT NULL,
 	timeout int NOT NULL,
 	idle_timeout int NOT NULL,
@@ -102,7 +101,7 @@ const (
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 
-	fnSelector   = `SELECT id,name,app_id,image,format,memory,timeout,idle_timeout,config,annotations,created_at,updated_at FROM fns`
+	fnSelector   = `SELECT id,name,app_id,image,memory,timeout,idle_timeout,config,annotations,created_at,updated_at FROM fns`
 	fnIDSelector = fnSelector + ` WHERE id=?`
 
 	triggerSelector   = `SELECT id,name,app_id,fn_id,type,source,annotations,created_at,updated_at FROM triggers`
@@ -549,7 +548,6 @@ func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn,
 				name,
 				app_id,
 				image,
-				format,
 				memory,
 				timeout,
 				idle_timeout,
@@ -563,7 +561,6 @@ func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn,
 				:name,
 				:app_id,
 				:image,
-				:format,
 				:memory,
 				:timeout,
 				:idle_timeout,
@@ -610,7 +607,6 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 		query = tx.Rebind(`UPDATE fns SET
 				name = :name,
 				image = :image,
-				format = :format,
 				memory = :memory,
 				timeout = :timeout,
 				idle_timeout = :idle_timeout,

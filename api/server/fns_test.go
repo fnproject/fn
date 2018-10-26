@@ -96,7 +96,6 @@ func TestFnCreate(t *testing.T) {
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingName},
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingImage},
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": " ", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidName},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "format": "wazzup" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidFormat},
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "idle_timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
 		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrInvalidMemory},
@@ -122,7 +121,6 @@ func TestFnUpdate(t *testing.T) {
 		{ds, ls, http.MethodPut, "/v2/fns/missing", `{ }`, http.StatusNotFound, models.ErrFnsNotFound},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "id": "nottheid" }`, http.StatusBadRequest, models.ErrFnsIDMismatch},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "image": "fnproject/test" }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "format": "http" }`, http.StatusOK, nil},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 1000 }`, http.StatusOK, nil},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "timeout": 10 }`, http.StatusOK, nil},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "idle_timeout": 10 }`, http.StatusOK, nil},
@@ -130,7 +128,6 @@ func TestFnUpdate(t *testing.T) {
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "annotations": {"k":"v"} }`, http.StatusOK, nil},
 
 		// test that partial update fails w/ same errors as create
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "format": "wazzup" }`, http.StatusBadRequest, models.ErrFnsInvalidFormat},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "timeout": 3601 }`, http.StatusBadRequest, models.ErrFnsInvalidTimeout},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "idle_timeout": 3601 }`, http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
 		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 100000000000000 }`, http.StatusBadRequest, models.ErrInvalidMemory},

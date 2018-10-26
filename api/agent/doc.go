@@ -7,7 +7,7 @@
 // create calls from various parameters and then execute those calls. An Agent
 // has a few roles:
 //	* manage the memory pool for a given server
-//	* manage the container lifecycle for calls (hot+cold)
+//	* manage the container lifecycle for calls
 //	* execute calls against containers
 //	* invoke Start and End for each call appropriately
 //	* check the mq for any async calls, and submit them

@@ -80,9 +80,9 @@ func TestRootMiddleware(t *testing.T) {
 	ds := datastore.NewMockInit(
 		[]*models.App{app1, app2},
 		[]*models.Fn{
-			{ID: "fn_id1", AppID: app1.ID, Image: "fnproject/hello"},
-			{ID: "fn_id2", AppID: app1.ID, Image: "fnproject/hello"},
-			{ID: "fn_id3", AppID: app2.ID, Image: "fnproject/hello"},
+			{ID: "fn_id1", AppID: app1.ID, Image: "fnproject/fn-test-utils"},
+			{ID: "fn_id2", AppID: app1.ID, Image: "fnproject/fn-test-utils"},
+			{ID: "fn_id3", AppID: app2.ID, Image: "fnproject/fn-test-utils"},
 		},
 	)
 
