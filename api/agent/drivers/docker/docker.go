@@ -51,15 +51,69 @@ func (r *runResult) Error() error   { return r.err }
 func (r *runResult) Status() string { return r.status }
 
 type DockerDriver struct {
-	cancel   func()
-	conf     drivers.Config
-	docker   dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
-	hostname string
-	auths    map[string]driverAuthConfig
-	pool     DockerPool
+	cancel     func()
+	conf       drivers.Config
+	docker     dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
+	hostname   string
+	auths      map[string]driverAuthConfig
+	pool       DockerPool
+	imageCache *Cache
 	// protects networks map
 	networksLock sync.Mutex
 	networks     map[string]uint64
+}
+
+// NewImageCleaner builds an evicter that loops every ImageCacheCleanInterval, checkes to see
+// if there is more space consumed then the maxSize allowed by configuration. If there is
+// NewImageCleaner checks the image cache for the list of evicitable images and then tries
+// in order of most evicitable to remove the image. If the disk consumption constraint is
+// satisfied the for loop breaks.
+func NewImageCleaner(context context.Context, dockerDriver *DockerDriver, maxSize int64) error {
+	opts := docker.RemoveImageOptions{}
+	duopts := docker.DiskUsageOptions{}
+	opts.Force = true
+	opts.NoPrune = false
+	opts.Context = context
+	logrus.Info("Starting image cleaner")
+	ticker := time.NewTicker(dockerDriver.conf.ImageCacheCleanInterval)
+	for {
+		select {
+		case <-context.Done():
+			return nil
+		case <-ticker.C:
+			du, err := dockerDriver.docker.DiskUsage(duopts)
+			if err != nil {
+				logrus.WithError(err).Error("attempting to check disk usage")
+			}
+			if du.LayersSize > maxSize {
+				toEvict := dockerDriver.imageCache.Evictable()
+				for _, i := range toEvict {
+					err := dockerDriver.docker.RemoveImage(i.image.ID, opts)
+					if err != nil {
+						logrus.WithError(err).Errorf("Could not remove image: %v because: %v", i, err)
+					} else {
+						dockerDriver.imageCache.Remove(i.image)
+					}
+
+					du, err := dockerDriver.docker.DiskUsage(duopts)
+					if du.LayersSize < maxSize {
+						break
+					}
+
+				}
+			}
+		}
+
+	}
+}
+
+func Contains(coll []docker.APIImages, item docker.APIImages) bool {
+	for _, image := range coll {
+		if image.ID == item.ID {
+			return true
+		}
+	}
+	return false
 }
 
 // implements drivers.Driver
@@ -102,11 +156,34 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		}
 	}
 
+	imagesBeforeLoad, err := driver.docker.ListImages(context.Background())
+
 	if conf.DockerLoadFile != "" {
 		err = loadDockerImages(driver, conf.DockerLoadFile)
 		if err != nil {
 			logrus.WithError(err).Fatalf("cannot load docker images in %s", conf.DockerLoadFile)
 		}
+	}
+
+	if conf.MaxImageCacheSize != 0 {
+		driver.imageCache = NewCache()
+
+		go func(context context.Context) {
+			images, err := driver.docker.ListImages(context)
+			if err != nil {
+				logrus.WithError(err).Fatalf("cannot list docker images %s", err)
+			}
+			for _, i := range images {
+				if Contains(imagesBeforeLoad, i) {
+					driver.imageCache.Add(i)
+				} else {
+					driver.imageCache.Add(i)
+					driver.imageCache.Lock(i.ID, "baseimage")
+				}
+			}
+		}(context.Background())
+
+		go NewImageCleaner(context.Background(), driver, int64(conf.MaxImageCacheSize))
 	}
 
 	return driver
@@ -246,6 +323,10 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 		drv:  drv,
 	}
 
+	if drv.imageCache != nil {
+		drv.imageCache.Lock(task.Image(), cookie)
+	}
+
 	cookie.configureLogger(log)
 	cookie.configureMem(log)
 	cookie.configureCmd(log)
@@ -289,6 +370,10 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 	_, stdinOff := task.Input().(common.NoopReadWriteCloser)
 	_, stdoutOff := stdout.(common.NoopReadWriteCloser)
 	_, stderrOff := stderr.(common.NoopReadWriteCloser)
+
+	if drv.imageCache != nil {
+		drv.imageCache.Mark(container)
+	}
 
 	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
 		Container:    container,

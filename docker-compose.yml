@@ -59,6 +59,7 @@ services:
       FN_MQ_URL: "redis://mq:6379/"
       FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
       FN_DOCKER_NETWORKS: "fn-network"
+      FN_MAX_IMAGE_CACHE_SIZE: "2000000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   grafana:

@@ -219,6 +219,9 @@ func (c *cookie) Close(ctx context.Context) error {
 	}
 	c.drv.unpickPool(c)
 	c.drv.unpickNetwork(c)
+	if c.drv.imageCache != nil {
+		c.drv.imageCache.Unlock(c.task.Image(), c)
+	}
 	return err
 }
 

@@ -81,6 +81,8 @@ func setUpSystem() (*state, error) {
 	state.memory = os.Getenv(agent.EnvMaxTotalMemory)
 	os.Setenv(agent.EnvMaxTotalMemory, strconv.FormatUint(256*1024*1024, 10))
 
+	os.Setenv(agent.EnvMaxImageCacheSize, strconv.FormatUint(1000*1024*1024, 10))
+
 	pr0, err := SetUpPureRunnerNode(ctx, 0)
 	if err != nil {
 		return state, err

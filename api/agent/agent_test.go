@@ -288,6 +288,87 @@ func TestGetCallFromModelRoundTripACall(t *testing.T) {
 	}
 }
 
+func TestImageCache(t *testing.T) {
+	app := &models.App{ID: "app_id", Name: "myapp"}
+
+	path := "/"
+	const timeout = 1
+	const idleTimeout = 20
+	const memory = 256
+	CPUs := models.MilliCPUs(200)
+	method := "GET"
+	url := "http://127.0.0.1:8080/r/" + app.Name + path
+	payload := "payload"
+	typ := "async"
+	contentType := "suberb_type"
+	contentLength := strconv.FormatInt(int64(len(payload)), 10)
+	config := map[string]string{
+		"FN_APP_NAME": app.Name,
+		"FN_PATH":     path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_CPUS":     CPUs.String(),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
+		"DOUBLE_VAR":  "BIZ, BAZ",
+	}
+	headers := map[string][]string{
+		// FromRequest would insert these from original HTTP request
+		"Content-Type":   {contentType},
+		"Content-Length": {contentLength},
+	}
+
+	cm := &models.Call{
+		AppID:       app.ID,
+		AppName:     app.Name,
+		Config:      config,
+		Headers:     headers,
+		Type:        typ,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		CPUs:        CPUs,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
+
+	// FromModel doesn't need a datastore, for now...
+	ls := logs.NewMock()
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatalf("bad config %+v", cfg)
+	}
+
+	cfg.MaxImageCacheSize = 1024 * 1024 * 1024
+
+	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	defer checkClose(t, a)
+
+	callI, err := a.GetCall(FromModel(cm))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// make sure headers seem reasonable
+	req := callI.(*call).req
+
+	// These should be here based on payload length and/or fn_header_* original headers
+	expectedHeaders := make(http.Header)
+	expectedHeaders.Set("Content-Type", contentType)
+	expectedHeaders.Set("Content-Length", strconv.FormatInt(int64(len(payload)), 10))
+
+	checkExpectedHeaders(t, expectedHeaders, req.Header)
+
+	var b bytes.Buffer
+	io.Copy(&b, req.Body)
+
+	if b.String() != payload {
+		t.Fatal("expected payload to match, but it was a lie")
+	}
+}
+
 func TestLoggerIsStringerAndWorks(t *testing.T) {
 	// TODO test limit writer, logrus writer, etc etc
 

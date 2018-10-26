@@ -216,17 +216,20 @@ func WithCallOverrider(fn CallOverrider) Option {
 // NewDockerDriver creates a default docker driver from agent config
 func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 	return drivers.New("docker", drivers.Config{
-		DockerNetworks:       cfg.DockerNetworks,
-		DockerLoadFile:       cfg.DockerLoadFile,
-		ServerVersion:        cfg.MinDockerVersion,
-		PreForkPoolSize:      cfg.PreForkPoolSize,
-		PreForkImage:         cfg.PreForkImage,
-		PreForkCmd:           cfg.PreForkCmd,
-		PreForkUseOnce:       cfg.PreForkUseOnce,
-		PreForkNetworks:      cfg.PreForkNetworks,
-		MaxTmpFsInodes:       cfg.MaxTmpFsInodes,
-		EnableReadOnlyRootFs: !cfg.DisableReadOnlyRootFs,
-		MaxRetries:           cfg.MaxDockerRetries,
+		DockerNetworks:          cfg.DockerNetworks,
+		DockerLoadFile:          cfg.DockerLoadFile,
+		ServerVersion:           cfg.MinDockerVersion,
+		PreForkPoolSize:         cfg.PreForkPoolSize,
+		PreForkImage:            cfg.PreForkImage,
+		PreForkCmd:              cfg.PreForkCmd,
+		PreForkUseOnce:          cfg.PreForkUseOnce,
+		PreForkNetworks:         cfg.PreForkNetworks,
+		MaxRetries:              cfg.MaxDockerRetries,
+		MaxTmpFsInodes:          cfg.MaxTmpFsInodes,
+		MaxImageCacheSize:       cfg.MaxImageCacheSize,
+		ImageCacheCleanInterval: cfg.ImageCacheCleanInterval,
+		EnableReadOnlyRootFs:    !cfg.DisableReadOnlyRootFs,
+		EnableTini:              !cfg.DisableTini,
 	})
 }
 
