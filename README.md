@@ -20,7 +20,7 @@ Fn is an event-driven, open source, [Functions-as-a-Service (FaaS)](https://gith
 * Written in Go
 * Simple yet powerful extensibility
 
-The fastest way to experience Fn is to follow the quickstart below, or you can jump right to our [full documentation](https://github.com/fnproject/docs), [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger_v2.yml), or hit us up in our [Slack Community](http://slack.fnproject.io)!
+The fastest way to experience Fn is to follow the quickstart below, or you can jump right to our [full documentation](https://github.com/fnproject/docs), [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger_v2.yml), or hit us up in our [Slack Community](http://slack.fnproject.io) or [Community Page](https://github.com/fnproject/docs/blob/master/COMMUNITY.md)!
 
 
 ## Quickstart
@@ -121,6 +121,7 @@ That's it! You just deployed your first function and called it. Try updating the
 ## Get Involved
 
 * Join our [Slack Community](http://slack.fnproject.io)
+* See our new [Community Page](https://github.com/fnproject/docs/blob/master/COMMUNITY.md)
 * Learn how to [contribute](CONTRIBUTING.md)
 * See [issues](https://github.com/fnproject/fn/issues) for issues you can help with
 * Join us at one of our [Fn Events](http://events.fnproject.io) or even speak at one!
