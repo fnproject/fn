@@ -10,7 +10,7 @@ The Fn maintainers take security seriously. If you discover a security
 issue, please bring it to their attention right away!
 
 Please **DO NOT** file a public issue, instead send your report privately to
-[TODO@fnproject.io](mailto:TODO@fnproject.io). Please have as the
+[security@fnproject.io](mailto:security@fnproject.io). Please have as the
 subject `[FN SECURITY BUG]: $your_title`.
 
 Security reports are greatly appreciated and we will publicly thank you for
