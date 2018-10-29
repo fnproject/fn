@@ -156,6 +156,11 @@ var (
 		error: errors.New("Async functions are not supported on this server"),
 	}
 
+	ErrDetachUnsupported = err{
+		code:  http.StatusNotImplemented,
+		error: errors.New("Detach call functions are not supported on this server"),
+	}
+
 	ErrCallHandlerNotFound = err{
 		code:  http.StatusInternalServerError,
 		error: errors.New("Unable to find the call handle"),

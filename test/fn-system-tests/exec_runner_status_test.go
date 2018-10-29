@@ -14,17 +14,21 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runnerpool"
+	"github.com/fnproject/fn/api/server"
 )
 
 func callFN(ctx context.Context, u string, content io.Reader, output io.Writer, invokeType string) (*http.Response, error) {
 	method := "POST"
 
 	req, err := http.NewRequest(method, u, content)
+	q := req.URL.Query()
+	q.Add("type", invokeType)
+	req.URL.RawQuery = q.Encode()
+
 	if err != nil {
 		return nil, fmt.Errorf("error running fn: %s", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Fn-Invoke-Type", invokeType)
 
 	req = req.WithContext(ctx)
 
@@ -74,7 +78,7 @@ func TestCannotExecuteStatusImage(t *testing.T) {
 	content := bytes.NewBuffer([]byte(`status`))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
+	resp, err := callFN(ctx, u.String(), content, output, server.InvokeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}

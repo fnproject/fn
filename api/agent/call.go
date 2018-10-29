@@ -73,8 +73,6 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			}
 		}
 
-		invokeType := validateFnInvokeType(req.Header.Get("Fn-Invoke-Type"))
-
 		if fn.Format == "" {
 			fn.Format = models.FormatDefault
 		}
@@ -97,7 +95,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			ID:    id,
 			Image: fn.Image,
 			// Delay: 0,
-			Type:   invokeType,
+			Type:   models.TypeSync,
 			Format: fn.Format,
 			// Payload: TODO,
 			Priority:    new(int32), // TODO this is crucial, apparently
@@ -123,14 +121,6 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 		c.req = req
 		return nil
 	}
-}
-
-// we just support sync and detached calls, the default value is sync call
-func validateFnInvokeType(invokeType string) string {
-	if invokeType == models.TypeDetached {
-		return models.TypeDetached
-	}
-	return models.TypeSync
 }
 
 func buildConfig(app *models.App, fn *models.Fn, path string) models.Config {
@@ -219,6 +209,14 @@ func WithTrigger(t *models.Trigger) CallOpt {
 func WithWriter(w io.Writer) CallOpt {
 	return func(c *call) error {
 		c.w = w
+		return nil
+	}
+}
+
+// InvokeDetached mark a call to be a detached call
+func InvokeDetached() CallOpt {
+	return func(c *call) error {
+		c.Model().Type = models.TypeDetached
 		return nil
 	}
 }

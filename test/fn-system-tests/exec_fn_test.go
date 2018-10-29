@@ -13,6 +13,7 @@ import (
 
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/server"
 )
 
 // TODO deprecate with routes
@@ -49,7 +50,7 @@ func TestCanExecuteFunction(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
+	resp, err := callFN(ctx, u.String(), content, output, server.InvokeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -109,7 +110,7 @@ func TestCanExecuteDetachedFunction(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, models.TypeDetached)
+	resp, err := callFN(ctx, u.String(), content, output, server.InvokeDetach)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
+	resp, err := callFN(ctx, u.String(), content, output, server.InvokeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -202,7 +203,7 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
+	resp, err := callFN(ctx, u.String(), content, output, server.InvokeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -252,7 +253,7 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
+	resp, err := callFN(ctx, u.String(), content, output, server.InvokeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -305,7 +306,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
 			<-latch
-			resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
+			resp, err := callFN(ctx, u.String(), content, output, server.InvokeSync)
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return
@@ -370,7 +371,7 @@ func TestBasicConcurrentDetachedExecution(t *testing.T) {
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
 			<-latch
-			resp, err := callFN(ctx, u.String(), content, output, models.TypeDetached)
+			resp, err := callFN(ctx, u.String(), content, output, server.InvokeDetach)
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return

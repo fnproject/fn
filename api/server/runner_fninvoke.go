@@ -19,6 +19,11 @@ var (
 	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
+const (
+	InvokeSync   = "sync"
+	InvokeDetach = "detach"
+)
+
 // implements http.ResponseWriter
 // this little guy buffers responses from user containers and lets them still
 // set headers and such without us risking writing partial output [as much, the
@@ -49,8 +54,6 @@ func (s *Server) handleFnInvokeCall(c *gin.Context) {
 // handleTriggerHTTPFunctionCall2 executes the function and returns an error
 // Requires the following in the context:
 func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
-	//	log := common.Logger(c.Request.Context())
-
 	fn, err := s.lbReadAccess.GetFnByID(c, c.Param(api.ParamFnID))
 	if err != nil {
 		return err
@@ -61,6 +64,11 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 		return err
 	}
 
+	// we use a querystring param to define the invoke as detached we can set a completely different
+	// endpoint if we prefer.
+	if c.Query("type") == InvokeDetach {
+		return s.ServeFnInvokeDetached(c, app, fn)
+	}
 	return s.ServeFnInvoke(c, app, fn)
 }
 

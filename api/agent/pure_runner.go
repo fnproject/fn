@@ -554,6 +554,7 @@ type pureRunner struct {
 	status         statusTracker
 	callHandleMap  map[string]*callHandle
 	callHandleLock sync.Mutex
+	enableDetach   bool
 }
 
 // implements Agent
@@ -660,10 +661,15 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	}
 
 	if state.c.Type == models.TypeDetached {
+		if !pr.enableDetach {
+			err = models.ErrDetachUnsupported
+			state.enqueueCallResponse(err)
+			return err
+		}
 		pr.spawnDetachSubmit(state)
-	} else {
-		pr.spawnSubmit(state)
+		return nil
 	}
+	pr.spawnSubmit(state)
 	return nil
 }
 
@@ -985,6 +991,7 @@ func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
 func PureRunnerWithDetached() PureRunnerOption {
 	return func(pr *pureRunner) error {
 		pr.AddCallListener(pr)
+		pr.enableDetach = true
 		return nil
 	}
 }

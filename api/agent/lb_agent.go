@@ -29,10 +29,33 @@ type lbAgent struct {
 }
 
 type DetachedResponseWriter struct {
-	http.ResponseWriter
-	origin http.ResponseWriter
-	acked  chan struct{}
+	Headers http.Header
+	Status  int
+	acked   chan struct{}
 }
+
+func (w *DetachedResponseWriter) Header() http.Header {
+	return w.Headers
+}
+
+func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
+	return len(data), nil
+}
+
+func (w *DetachedResponseWriter) WriteHeader(statusCode int) {
+	w.Status = statusCode
+	w.acked <- struct{}{}
+}
+
+func NewDetachedResponseWriter(h http.Header, statusCode int) *DetachedResponseWriter {
+	return &DetachedResponseWriter{
+		Headers: h,
+		Status:  statusCode,
+		acked:   make(chan struct{}, 1),
+	}
+}
+
+var _ http.ResponseWriter = new(DetachedResponseWriter) // keep the compiler happy
 
 type LBAgentOption func(*lbAgent) error
 
@@ -193,10 +216,6 @@ func (a *lbAgent) Submit(callI Call) error {
 
 func (a *lbAgent) placeDetachCall(ctx context.Context, call *call) error {
 	errPlace := make(chan error, 1)
-	call.w = &DetachedResponseWriter{
-		origin: call.ResponseWriter(),
-		acked:  make(chan struct{}, 1),
-	}
 	rw := call.w.(*DetachedResponseWriter)
 	go a.spawnPlaceCall(ctx, call, errPlace)
 	select {
@@ -298,19 +317,6 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 		statsErrors(ctx)
 	}
 	return err
-}
-
-func (w *DetachedResponseWriter) Header() http.Header {
-	return w.origin.Header()
-}
-
-func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
-	return w.origin.Write(data)
-}
-
-func (w *DetachedResponseWriter) WriteHeader(statusCode int) {
-	w.origin.WriteHeader(statusCode)
-	w.acked <- struct{}{}
 }
 
 var _ Agent = &lbAgent{}
