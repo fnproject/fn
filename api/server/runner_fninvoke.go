@@ -19,11 +19,6 @@ var (
 	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
-const (
-	InvokeSync   = "sync"
-	InvokeDetach = "detach"
-)
-
 // implements http.ResponseWriter
 // this little guy buffers responses from user containers and lets them still
 // set headers and such without us risking writing partial output [as much, the
@@ -64,9 +59,7 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 		return err
 	}
 
-	// we use a querystring param to define the invoke as detached we can set a completely different
-	// endpoint if we prefer.
-	if c.Query("type") == InvokeDetach {
+	if c.Request.Header.Get("Fn-Invoke-Type") == models.TypeDetached {
 		return s.ServeFnInvokeDetached(c, app, fn)
 	}
 	return s.ServeFnInvoke(c, app, fn)
