@@ -737,6 +737,29 @@ func newSizerRespWriter(max uint64, rw http.ResponseWriter) http.ResponseWriter 
 
 func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
+// nannyHotContainer is a helper function to monitor initialization channel, container context as well as
+// agent shutdown during the lifetime of the container.
+func (a *agent) nannyHotContainer(ctx context.Context, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}) {
+	defer cancel()
+
+	// Start monitoring initialization phase
+	select {
+	case <-initialized: // good, container is ready
+	case <-ctx.Done():
+	case <-a.shutWg.Closer():
+	case <-evictor.C: // eviction
+		return
+	case <-time.After(a.cfg.HotStartTimeout): // init timeout
+		return
+	}
+
+	// Start monitoring agent shutdown
+	select {
+	case <-a.shutWg.Closer():
+	case <-ctx.Done():
+	}
+}
+
 func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
@@ -744,107 +767,105 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
 	defer span.End()
 
-	// IMPORTANT: evict token is deleted *after* resource token in defer statements below.
-	// This ordering allows resource token to be freed first, which means once evict token
-	// is deleted, eviction is considered to be completed.
+	var container *container
+	var cookie drivers.Cookie
+	var waiter drivers.WaitResult
+	var runRes drivers.RunResult
+	var queueErr error
+
+	id := id.New().String()
+	logger := logrus.WithFields(logrus.Fields{"id": id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
+	ctx, cancel := context.WithCancel(common.WithLogger(ctx, logger))
+
+	initialized := make(chan struct{})
 	evictor := a.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
-	defer a.evictor.DeleteEvictToken(evictor)
 
 	statsUtilization(ctx, a.resources.GetUtilization())
+	state.UpdateState(ctx, ContainerStateStart, call.slots)
+	evictor.SetEvictable(true)
+
+	// stack unwind spelled out with strict ordering below.
 	defer func() {
+		// IMPORTANT: we do not emit eviction errors to slot queue. Remember evictions occur
+		// in cases of overcapacity. If an accidental eviction occurs, then the client
+		// will have to wait hot poll period to spawn a new container.
+		if queueErr == nil && !evictor.isEvicted() {
+			select {
+			case <-initialized:
+			default:
+				queueErr = models.ErrContainerExitedEarly
+			}
+		}
+
+		// was there an error we would like to reflect back to slot queue?
+		if queueErr != nil {
+			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: queueErr})
+		}
+
+		if runRes != nil && runRes.Error() != context.Canceled {
+			logger.WithError(runRes.Error()).Info("hot function terminated")
+		}
+
+		// shutdown the container and related I/O operations and go routines
+		cancel()
+
+		// IMPORTANT: for release cookie (remove container), make sure ctx below has no timeout.
+		if cookie != nil {
+			cookie.Close(common.BackgroundContext(ctx))
+		}
+
+		if container != nil {
+			container.Close()
+		}
+
+		lastState := state.GetState()
+		state.UpdateState(ctx, ContainerStateDone, call.slots)
+
+		tok.Close() // release cpu/mem
+
+		// IMPORTANT: evict token is deleted *after* resource token.
+		// This ordering allows resource token to be freed first, which means once evict token
+		// is deleted, eviction is considered to be completed.
+		a.evictor.DeleteEvictToken(evictor)
+
 		statsUtilization(ctx, a.resources.GetUtilization())
+		if evictor.isEvicted() {
+			statsContainerEvicted(ctx, lastState)
+		}
 	}()
 
-	defer tok.Close() // IMPORTANT: this MUST get called
+	go a.nannyHotContainer(ctx, cancel, evictor, initialized)
 
-	state.UpdateState(ctx, ContainerStateStart, call.slots)
-	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
-
-	container, err := newHotContainer(ctx, call, &a.cfg)
-	if err != nil {
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+	container, queueErr = newHotContainer(ctx, call, &a.cfg, id, logger, initialized)
+	if queueErr != nil {
 		return
 	}
-	defer container.Close()
-
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
-	ctx = common.WithLogger(ctx, logger)
-
-	ctx, cancel := context.WithTimeout(common.BackgroundContext(ctx), a.cfg.HotStartTimeout)
-	defer cancel()
-
-	cookie, err := a.driver.CreateCookie(ctx, container)
-	if err != nil {
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+	cookie, queueErr = a.driver.CreateCookie(ctx, container)
+	if queueErr != nil {
 		return
 	}
-
-	// WARNING: we wait forever.
-	defer cookie.Close(common.BackgroundContext(ctx))
-
-	shouldPull, err := cookie.ValidateImage(ctx)
-	if err != nil {
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+	queueErr = a.driver.PrepareCookie(ctx, cookie)
+	if queueErr != nil {
 		return
 	}
-
-	if shouldPull {
-		err = cookie.PullImage(ctx)
-		if err != nil {
-			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
-			return
-		}
-	}
-
-	err = cookie.CreateContainer(ctx)
-	if err != nil {
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
-		return
-	}
-
-	cancel()
-	ctx, shutdownContainer := context.WithCancel(common.BackgroundContext(ctx))
-	defer shutdownContainer() // close this if our waiter returns, to call off slots, needs to follow cookie.Close so the cookie crumbles
-
-	udsAwait := make(chan error)
-	// start our listener before starting the container, so we don't miss the pretty things whispered in our ears
-	// make sure this thread has the shutdownContainer context in case the container exits
-	go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
-
-	waiter, err := cookie.Run(ctx)
-	if err != nil {
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+	waiter, queueErr = cookie.Run(ctx)
+	if queueErr != nil {
 		return
 	}
 
 	go func() {
-		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
+		defer cancel() // also close if we get an agent shutdown / idle timeout
 
-		// now we wait for the socket to be created before handing out any slots, need this
-		// here in case the container dies before making the sock we need to bail
+		// INIT BARRIER HERE
 		select {
-		case err := <-udsAwait: // XXX(reed): need to leave a note about pairing ctx here?
-			// sends a nil error if all is good, we can proceed...
-			if err != nil {
-				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
-				return
-			}
-
+		case <-initialized:
 		case <-ctx.Done():
-			// XXX(reed): this seems like a bad idea? why are we even handing out a
-			// bad slot? shouldn't we make the client wait for a valid one and maybe
-			// timeout? not in this PR, NOT TONIGHT!
-			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: models.ErrContainerExitedEarly})
 			return
 		}
 
 		for {
-			select { // make sure everything is up before trying to send slot
-			case <-ctx.Done(): // container shutdown
+			if ctx.Err() != nil {
 				return
-			case <-a.shutWg.Closer(): // server shutdown
-				return
-			default: // ok
 			}
 
 			slot := &hotSlot{
@@ -867,10 +888,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		}
 	}()
 
-	res := waiter.Wait(ctx)
-	if res.Error() != context.Canceled {
-		logger.WithError(res.Error()).Info("hot function terminated")
-	}
+	runRes = waiter.Wait(ctx)
 }
 
 //checkSocketDestination verifies that the socket file created by the FDK is valid and permitted - notably verifying that any symlinks are relative to the socket dir
@@ -901,19 +919,8 @@ func checkSocketDestination(filename string) error {
 
 	return nil
 }
-func inotifyUDS(ctx context.Context, iofsDir string, awaitUDS chan<- error) {
-	// XXX(reed): I forgot how to plumb channels temporarily forgive me for this sin (inotify will timeout, this is just bad programming)
-	err := inotifyAwait(ctx, iofsDir)
-	if err == nil {
-		err = checkSocketDestination(filepath.Join(iofsDir, udsFilename))
-	}
-	select {
-	case awaitUDS <- err:
-	case <-ctx.Done():
-	}
-}
 
-func inotifyAwait(ctx context.Context, iofsDir string) error {
+func inotifyAwait(ctx context.Context, iofsDir string, logger logrus.FieldLogger, initialized chan struct{}) error {
 	ctx, span := trace.StartSpan(ctx, "inotify_await")
 	defer span.End()
 
@@ -921,32 +928,45 @@ func inotifyAwait(ctx context.Context, iofsDir string) error {
 	if err != nil {
 		return fmt.Errorf("error getting fsnotify watcher: %v", err)
 	}
-	defer func() {
-		if err := fsWatcher.Close(); err != nil {
-			common.Logger(ctx).WithError(err).Error("Failed to close inotify watcher")
-		}
-	}()
 
 	err = fsWatcher.Add(iofsDir)
 	if err != nil {
+		if err := fsWatcher.Close(); err != nil {
+			logger.WithError(err).Error("Failed to close inotify watcher")
+		}
 		return fmt.Errorf("error adding iofs dir to fswatcher: %v", err)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			// XXX(reed): damn it would sure be nice to tell users they didn't make a uds and that's why it timed out
-			return ctx.Err()
-		case err := <-fsWatcher.Errors:
-			return fmt.Errorf("error watching for iofs: %v", err)
-		case event := <-fsWatcher.Events:
-			common.Logger(ctx).WithField("event", event).Debug("fsnotify event")
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
-				// wait until the socket file is created by the container
-				return nil
+	go func() {
+		ctx, span := trace.StartSpan(ctx, "inotify_await_poller")
+		defer span.End()
+
+		defer func() {
+			if err := fsWatcher.Close(); err != nil {
+				logger.WithError(err).Error("Failed to close inotify watcher")
+			}
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+			case err := <-fsWatcher.Errors:
+				logger.WithError(err).Error("error watching for iofs")
+			case event := <-fsWatcher.Events:
+				logger.WithField("event", event).Debug("fsnotify event")
+				if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
+					err := checkSocketDestination(filepath.Join(iofsDir, udsFilename))
+					if err != nil {
+						logger.WithError(err).Error("Failed to check socket destination")
+					} else {
+						close(initialized)
+					}
+				}
 			}
 		}
-	}
+	}()
+
+	return nil
 }
 
 // runHotReq enqueues a free slot to slot queue manager and watches various timers and the consumer until
@@ -956,7 +976,6 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	var err error
 	isFrozen := false
-	isEvictEvent := false
 
 	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
@@ -980,7 +999,6 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		select {
 		case <-s.trigger: // slot already consumed
 		case <-ctx.Done(): // container shutdown
-		case <-a.shutWg.Closer(): // server shutdown
 		case <-idleTimer.C:
 		case <-freezeTimer.C:
 			if !isFrozen {
@@ -995,8 +1013,6 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 			}
 			continue
 		case <-evictor.C:
-			logger.Debug("attempting hot function eviction")
-			isEvictEvent = true
 		}
 		break
 	}
@@ -1008,9 +1024,6 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	// otherwise continue processing the request
 	if call.slots.acquireSlot(s) {
 		slot.Close()
-		if isEvictEvent {
-			statsContainerEvicted(ctx, state.GetState())
-		}
 		return false
 	}
 
@@ -1058,8 +1071,27 @@ type container struct {
 }
 
 //newHotContainer creates a container that can be used for multiple sequential events
-func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, error) {
-	id := id.New().String()
+func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, logger logrus.FieldLogger, initialized chan struct{}) (*container, error) {
+
+	var iofs iofs
+	var err error
+
+	if cfg.IOFSEnableTmpfs {
+		iofs, err = newTmpfsIOFS(ctx, cfg)
+	} else {
+		iofs, err = newDirectoryIOFS(ctx, cfg)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	err = inotifyAwait(ctx, iofs.AgentPath(), logger, initialized)
+	if err != nil {
+		if err := iofs.Close(); err != nil {
+			logger.WithError(err).Error("Error closing IOFS")
+		}
+		return nil, err
+	}
 
 	stderr := common.NewGhostWriter()
 	stdout := common.NewGhostWriter()
@@ -1094,18 +1126,6 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 
 	stdout.Swap(newLineWriterWithBuffer(buf1, soc))
 	stderr.Swap(newLineWriterWithBuffer(buf2, sec))
-
-	var iofs iofs
-	var err error
-	if cfg.IOFSEnableTmpfs {
-		iofs, err = newTmpfsIOFS(ctx, cfg)
-	} else {
-		iofs, err = newDirectoryIOFS(ctx, cfg)
-	}
-
-	if err != nil {
-		return nil, err
-	}
 
 	return &container{
 		id:         id, // XXX we could just let docker generate ids...
@@ -1144,10 +1164,8 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 			for _, b := range bufs {
 				bufPool.Put(b)
 			}
-			// iofs.Close MUST be called here or we will leak directories and/or tmpfs mounts!
-			if err = iofs.Close(); err != nil {
-				// Note: This is logged with the context of the container creation
-				common.Logger(ctx).WithError(err).Error("Error closing IOFS")
+			if err := iofs.Close(); err != nil {
+				logger.WithError(err).Error("Error closing IOFS")
 			}
 		},
 	}, nil
