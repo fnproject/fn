@@ -934,6 +934,9 @@ func buildFilterFnQuery(filter *models.FnFilter) (string, []interface{}, error) 
 		}
 		args = where(&b, args, "name>?", string(s))
 	}
+	if filter.Name != "" {
+		args = where(&b, args, "name=?", filter.Name)
+	}
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`)
 	if filter.PerPage > 0 {
