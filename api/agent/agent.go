@@ -28,9 +28,9 @@ import (
 )
 
 const (
-	removeTimeout = 1 * time.Minute // docker remove
-	prepTimeout   = 2 * time.Minute // docker create+pull
-	pauseTimeout  = 5 * time.Second // docker pause/unpause
+	removeTimeout = 10 * time.Minute // docker remove
+	prepTimeout   = 10 * time.Minute // docker create+pull
+	pauseTimeout  = 5 * time.Second  // docker pause/unpause
 )
 
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
