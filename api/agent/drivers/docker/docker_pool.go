@@ -45,7 +45,8 @@ const (
 	LimitPerSec = 10
 	LimitBurst  = 20
 
-	ShutdownTimeout = time.Duration(1) * time.Second
+	ShutdownTimeout   = time.Duration(1) * time.Second
+	InitializeTimeout = time.Duration(30) * time.Second
 )
 
 type poolTask struct {
@@ -165,6 +166,9 @@ func (pool *dockerPool) Close() error {
 func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriver, task *poolTask) {
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
+
+	ctx, cancel := context.WithTimeout(ctx, InitializeTimeout)
+	defer cancel()
 
 	err := driver.ensureImage(ctx, task)
 	if err != nil {
