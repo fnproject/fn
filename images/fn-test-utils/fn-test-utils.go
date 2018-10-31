@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +40,8 @@ type AppRequest struct {
 	IsDebug bool `json:"isDebug,omitempty"`
 	// simulate crash
 	IsCrash bool `json:"isCrash,omitempty"`
+	// shutdown UDS after request
+	IsShutdown bool `json:"isShutdown,omitempty"`
 	// read a file from disk
 	ReadFile string `json:"readFile,omitempty"`
 	// fill created with with zero bytes of specified size
@@ -81,6 +84,8 @@ var Leaks []*[]byte
 // Hold is memory to hold on to at every request, new requests overwrite it.
 var Hold []byte
 
+var GlobCancel context.CancelFunc
+
 // AppResponse is the output of this function, in JSON
 type AppResponse struct {
 	Request AppRequest        `json:"request"`
@@ -109,15 +114,14 @@ func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	if req.InvalidResponse {
 		_, err := io.Copy(out, strings.NewReader(InvalidResponseStr))
 		if err != nil {
-			log.Printf("io copy error %v", err)
-			panic(err.Error())
+			log.Fatalf("io copy error %v", err)
 		}
 	}
 
 	finalizeRequest(out, req, resp)
 	err := postProcessRequest(req, out)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("post process error %v", err)
 	}
 }
 
@@ -289,6 +293,11 @@ func postProcessRequest(request *AppRequest, out io.Writer) error {
 		log.Printf("PostProcess PostErrGarbage %s", request.PostErrGarbage)
 	}
 
+	if request.IsShutdown && GlobCancel != nil {
+		log.Printf("PostProcess Shutting down UDS")
+		GlobCancel()
+	}
+
 	return nil
 }
 
@@ -297,7 +306,29 @@ func main() {
 		log.Printf("Container starting")
 	}
 
-	fdk.Handle(fdk.HandlerFunc(AppHandler)) // XXX(reed): can extract & instrument
+	// simulate long initialization
+	if sleeper := os.Getenv("ENABLE_INIT_DELAY_MSEC"); sleeper != "" {
+		log.Printf("Container start sleep %v", sleeper)
+		delay, err := strconv.ParseInt(sleeper, 10, 64)
+		if err != nil {
+			log.Fatalf("cannot parse ENABLE_INIT_DELAY_MSEC %v", err)
+		}
+		time.Sleep(time.Millisecond * time.Duration(delay))
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	GlobCancel = cancel
+	fdk.HandleContext(ctx, fdk.HandlerFunc(AppHandler)) // XXX(reed): can extract & instrument
+
+	// simulate long exit
+	if sleeper := os.Getenv("ENABLE_EXIT_DELAY_MSEC"); sleeper != "" {
+		log.Printf("Container end sleep %v", sleeper)
+		delay, err := strconv.ParseInt(sleeper, 10, 64)
+		if err != nil {
+			log.Fatalf("cannot parse ENABLE_EXIT_DELAY_MSEC %v", err)
+		}
+		time.Sleep(time.Millisecond * time.Duration(delay))
+	}
 
 	if os.Getenv("ENABLE_FOOTER") != "" {
 		log.Printf("Container ending")
