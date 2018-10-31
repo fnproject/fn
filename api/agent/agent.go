@@ -775,7 +775,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
-	defer cookie.Close(ctx)
+	defer cookie.Close(common.BackgroundContext(ctx))
 
 	err = a.driver.PrepareCookie(ctx, cookie)
 	if err != nil {

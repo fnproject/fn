@@ -386,10 +386,7 @@ func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthCon
 }
 
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
-	// extract the span, but do not keep the context, since the enclosing context
-	// may be timed out, and we still want to remove the container. TODO in caller? who cares?
-	ctx := common.BackgroundContext(opts.Context)
-	ctx, closer := makeTracker(ctx, "docker_remove_container")
+	ctx, closer := makeTracker(opts.Context, "docker_remove_container")
 	defer closer()
 
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
