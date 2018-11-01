@@ -44,9 +44,6 @@ const (
 const (
 	LimitPerSec = 10
 	LimitBurst  = 20
-
-	ShutdownTimeout   = time.Duration(1) * time.Second
-	InitializeTimeout = time.Duration(30) * time.Second
 )
 
 type poolTask struct {
@@ -167,9 +164,6 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
 
-	ctx, cancel := context.WithTimeout(ctx, InitializeTimeout)
-	defer cancel()
-
 	err := driver.ensureImage(ctx, task)
 	if err != nil {
 		log.WithError(err).Info("prefork pool image pull failed")
@@ -258,15 +252,11 @@ func (pool *dockerPool) performReadyState(ctx context.Context, driver *DockerDri
 }
 
 func (pool *dockerPool) performTeardown(ctx context.Context, driver *DockerDriver, task *poolTask) {
-
-	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
-	defer cancel()
-
 	removeOpts := docker.RemoveContainerOptions{
 		ID:            task.Id(),
 		Force:         true,
 		RemoveVolumes: true,
-		Context:       ctx,
+		Context:       context.Background(),
 	}
 
 	driver.docker.RemoveContainer(removeOpts)

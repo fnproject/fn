@@ -28,8 +28,7 @@ import (
 )
 
 const (
-	removeTimeout = 10 * time.Minute // docker remove
-	pauseTimeout  = 5 * time.Second  // docker pause/unpause
+	pauseTimeout = 5 * time.Second // docker pause/unpause
 )
 
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
@@ -781,11 +780,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
-	defer func() {
-		ctx, cancel := context.WithTimeout(common.BackgroundContext(ctx), removeTimeout)
-		cookie.Close(ctx)
-		cancel()
-	}()
+	// WARNING: we wait forever.
+	defer cookie.Close(common.BackgroundContext(ctx))
 
 	err = a.driver.PrepareCookie(ctx, cookie)
 	if err != nil {
