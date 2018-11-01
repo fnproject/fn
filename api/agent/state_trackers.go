@@ -27,7 +27,6 @@ type ContainerState interface {
 	UpdateState(ctx context.Context, newState ContainerStateType, slots *slotQueue)
 	GetState() string
 }
-
 type RequestState interface {
 	UpdateState(ctx context.Context, newState RequestStateType, slots *slotQueue)
 }

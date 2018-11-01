@@ -747,33 +747,35 @@ func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
 // nannyHotContainer is a helper function to monitor initialization channel, container context as well as
 // agent shutdown during the lifetime of the container.
-func (a *agent) nannyHotContainer(ctx context.Context, callerCtx context.Context, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}) {
+func (a *agent) nannyHotContainer(ctx context.Context, callerCtx context.Context, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, pulled chan struct{}) {
 	defer cancel()
 
-	timer := time.NewTimer(a.cfg.HotStartTimeout)
+	timer := time.NewTimer(a.cfg.HotPullTimeout)
 	defer timer.Stop()
 
-	// Start monitoring initialization phase
+	// Start monitoring initialization phase. Here we expect to see "pulled" completion first,
+	// followed by "initialized".
 InitPhase:
 	for {
 		select {
+		case <-pulled: // docker-pull completed. Let's install a new timer for UDS/initialize
+			timer.Stop()
+			timer = time.NewTimer(a.cfg.HotStartTimeout)
+			pulled = make(chan struct{}) // block 'pulled' after this point
 		case <-initialized: // good, container is ready
 			break InitPhase
 		case <-ctx.Done(): // container shutdown
 			return
 		case <-a.shutWg.Closer(): // agent shutdown
 			return
-		case <-callerCtx.Done(): // original caller disconnected?
+		case <-callerCtx.Done(): // original caller disconnected or serviced by another container?
 			evictor.SetEvictable(true)
+			callerCtx = context.Background() // block 'callerCtx' after this point
 		case <-evictor.C: // eviction
 			return
 		case <-timer.C: // init timeout
 			return
 		}
-
-		// we need to perform SetEvictable(true) once, let's lose
-		// the original caller ctx and use something that never gets cancelled.
-		callerCtx = context.Background()
 	}
 
 	timer.Stop()
@@ -803,6 +805,7 @@ func (a *agent) runHot(callerCtx context.Context, call *call, tok ResourceToken,
 	ctx, cancel := context.WithCancel(common.WithLogger(ctx, logger))
 
 	initialized := make(chan struct{})
+	pulled := make(chan struct{})
 	evictor := a.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
 	statsUtilization(ctx, a.resources.GetUtilization())
@@ -858,7 +861,7 @@ func (a *agent) runHot(callerCtx context.Context, call *call, tok ResourceToken,
 		}
 	}()
 
-	go a.nannyHotContainer(ctx, callerCtx, cancel, evictor, initialized)
+	go a.nannyHotContainer(ctx, callerCtx, cancel, evictor, initialized, pulled)
 
 	container, queueErr = newHotContainer(ctx, call, &a.cfg, id, logger, initialized)
 	if queueErr != nil {
@@ -872,6 +875,7 @@ func (a *agent) runHot(callerCtx context.Context, call *call, tok ResourceToken,
 	if queueErr != nil {
 		return
 	}
+	close(pulled)
 	waiter, queueErr = cookie.Run(ctx)
 	if queueErr != nil {
 		return
