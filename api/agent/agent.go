@@ -29,7 +29,6 @@ import (
 
 const (
 	removeTimeout = 10 * time.Minute // docker remove
-	prepTimeout   = 10 * time.Minute // docker create+pull
 	pauseTimeout  = 5 * time.Second  // docker pause/unpause
 )
 
@@ -773,7 +772,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
-	ctx, cancel := context.WithTimeout(common.BackgroundContext(ctx), prepTimeout)
+	ctx, cancel := context.WithTimeout(common.BackgroundContext(ctx), a.cfg.HotStartTimeout)
 	defer cancel()
 
 	cookie, err := a.driver.CreateCookie(ctx, container)
