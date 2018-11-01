@@ -974,8 +974,10 @@ func inotifyAwait(ctx context.Context, iofsDir string, logger logrus.FieldLogger
 		for {
 			select {
 			case <-ctx.Done():
+				return
 			case err := <-fsWatcher.Errors:
 				logger.WithError(err).Error("error watching for iofs")
+				return
 			case event := <-fsWatcher.Events:
 				logger.WithField("event", event).Debug("fsnotify event")
 				if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
@@ -985,6 +987,7 @@ func inotifyAwait(ctx context.Context, iofsDir string, logger logrus.FieldLogger
 					} else {
 						close(initialized)
 					}
+					return
 				}
 			}
 		}
