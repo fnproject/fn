@@ -44,8 +44,6 @@ const (
 const (
 	LimitPerSec = 10
 	LimitBurst  = 20
-
-	ShutdownTimeout = time.Duration(1) * time.Second
 )
 
 type poolTask struct {
@@ -254,15 +252,11 @@ func (pool *dockerPool) performReadyState(ctx context.Context, driver *DockerDri
 }
 
 func (pool *dockerPool) performTeardown(ctx context.Context, driver *DockerDriver, task *poolTask) {
-
-	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
-	defer cancel()
-
 	removeOpts := docker.RemoveContainerOptions{
 		ID:            task.Id(),
 		Force:         true,
 		RemoveVolumes: true,
-		Context:       ctx,
+		Context:       context.Background(),
 	}
 
 	driver.docker.RemoveContainer(removeOpts)

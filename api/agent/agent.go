@@ -27,6 +27,10 @@ import (
 	"os"
 )
 
+const (
+	pauseTimeout = 5 * time.Second // docker pause/unpause
+)
+
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
 // TODO async calls need to add route.Headers as well
 // TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
@@ -764,10 +768,11 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	}
 	defer container.Close()
 
-	// XXX(reed): we need to timeout the cookie create / prepare since docker client doesn't have timeout anymore,
-	// and handle cookie close having a timed out context it still needs to delete the thing. fun stuff
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
+
+	ctx, cancel := context.WithTimeout(common.BackgroundContext(ctx), a.cfg.HotStartTimeout)
+	defer cancel()
 
 	cookie, err := a.driver.CreateCookie(ctx, container)
 	if err != nil {
@@ -775,7 +780,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
-	defer cookie.Close(ctx)
+	// WARNING: we wait forever.
+	defer cookie.Close(common.BackgroundContext(ctx))
 
 	err = a.driver.PrepareCookie(ctx, cookie)
 	if err != nil {
@@ -783,7 +789,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		return
 	}
 
-	ctx, shutdownContainer := context.WithCancel(ctx)
+	cancel()
+	ctx, shutdownContainer := context.WithCancel(common.BackgroundContext(ctx))
 	defer shutdownContainer() // close this if our waiter returns, to call off slots, needs to follow cookie.Close so the cookie crumbles
 
 	udsAwait := make(chan error)
@@ -978,7 +985,9 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		case <-idleTimer.C:
 		case <-freezeTimer.C:
 			if !isFrozen {
+				ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
 				err = cookie.Freeze(ctx)
+				cancel()
 				if err != nil {
 					return false
 				}
@@ -1009,7 +1018,9 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	// In case, timer/acquireSlot failure landed us here, make
 	// sure to unfreeze.
 	if isFrozen {
+		ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
 		err = cookie.Unfreeze(ctx)
+		cancel()
 		if err != nil {
 			return false
 		}
