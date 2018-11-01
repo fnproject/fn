@@ -359,17 +359,30 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 
 	call.slots, isNew = a.slotMgr.getSlotQueue(call.slotHashId)
 	call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
-	if isNew {
-		go a.hotLauncher(ctx, call)
+
+	// setup slot caller with a ctx that gets cancelled once waitHot() is completed.
+	// This allows runHot() to detect if original caller has been serviced by
+	// another container or if original caller was disconnected.
+	caller := &slotCaller{}
+	{
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		caller.ctx = ctx
+		caller.notify = make(chan error)
 	}
-	s, err := a.waitHot(ctx, call)
+
+	if isNew {
+		go a.hotLauncher(ctx, call, caller)
+	}
+	s, err := a.waitHot(ctx, call, caller)
 	return s, err
 }
 
 // hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
 // containers if needed. Upon shutdown or activity timeout, hotLauncher exits and during exit,
 // it destroys the slot queue.
-func (a *agent) hotLauncher(ctx context.Context, call *call) {
+func (a *agent) hotLauncher(ctx context.Context, call *call, caller *slotCaller) {
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
 	// we destroy the hot queue.
@@ -388,12 +401,9 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	ctx, span := trace.StartSpan(ctx, "agent_hot_launcher")
 	defer span.End()
 
-	var notifyChan chan error
-
 	for {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
-		a.checkLaunch(ctx, call, notifyChan)
-		notifyChan = nil
+		a.checkLaunch(ctx, call, *caller)
 
 		select {
 		case <-a.shutWg.Closer(): // server shutdown
@@ -405,7 +415,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 				logger.Debug("Hot function launcher timed out")
 				return
 			}
-		case notifyChan = <-call.slots.signaller:
+		case caller = <-call.slots.signaller:
 			cancel()
 		}
 	}
@@ -420,7 +430,7 @@ func tryNotify(notifyChan chan error, err error) {
 	}
 }
 
-func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan error) {
+func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) {
 	curStats := call.slots.getStats()
 	isNB := a.cfg.EnableNBResourceTracker
 	if !isNewContainerNeeded(&curStats) {
@@ -471,19 +481,19 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	if tok != nil {
 		if tok.Error() != nil {
 			if tok.Error() != CapacityFull {
-				tryNotify(notifyChan, tok.Error())
+				tryNotify(caller.notify, tok.Error())
 			} else {
 				needMem, needCpu := tok.NeededCapacity()
 				notifyChans = a.evictor.PerformEviction(call.slotHashId, needMem, uint64(needCpu))
 				// For Non-blocking mode, if there's nothing to evict, we emit 503.
 				if len(notifyChans) == 0 && isNB {
-					tryNotify(notifyChan, tok.Error())
+					tryNotify(caller.notify, tok.Error())
 				}
 			}
 		} else if a.shutWg.AddSession(1) {
 			go func() {
 				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
-				a.runHot(ctx, call, tok, state)
+				a.runHot(caller.ctx, call, tok, state)
 				a.shutWg.DoneSession()
 			}()
 			// early return (do not allow container state to switch to ContainerStateDone)
@@ -510,7 +520,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 }
 
 // waitHot pings and waits for a hot container from the slot queue
-func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
+func (a *agent) waitHot(ctx context.Context, call *call, caller *slotCaller) (Slot, error) {
 	ctx, span := trace.StartSpan(ctx, "agent_wait_hot")
 	defer span.End()
 
@@ -519,15 +529,13 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 
 	ch := call.slots.startDequeuer(ctx)
 
-	notifyChan := make(chan error)
-
 	// 1) if we can get a slot immediately, grab it.
 	// 2) if we don't, send a signaller every x msecs until we do.
 
 	sleep := 1 * time.Microsecond // pad, so time.After doesn't send immediately
 	for {
 		select {
-		case err := <-notifyChan:
+		case err := <-caller.notify:
 			return nil, err
 		case s := <-ch:
 			if call.slots.acquireSlot(s) {
@@ -550,7 +558,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		sleep = a.cfg.HotPoll
 		// send a notification to launchHot()
 		select {
-		case call.slots.signaller <- notifyChan:
+		case call.slots.signaller <- caller:
 		default:
 		}
 	}
@@ -739,19 +747,36 @@ func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
 // nannyHotContainer is a helper function to monitor initialization channel, container context as well as
 // agent shutdown during the lifetime of the container.
-func (a *agent) nannyHotContainer(ctx context.Context, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}) {
+func (a *agent) nannyHotContainer(ctx context.Context, callerCtx context.Context, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}) {
 	defer cancel()
 
+	timer := time.NewTimer(a.cfg.HotStartTimeout)
+	defer timer.Stop()
+
 	// Start monitoring initialization phase
-	select {
-	case <-initialized: // good, container is ready
-	case <-ctx.Done():
-	case <-a.shutWg.Closer():
-	case <-evictor.C: // eviction
-		return
-	case <-time.After(a.cfg.HotStartTimeout): // init timeout
-		return
+InitPhase:
+	for {
+		select {
+		case <-initialized: // good, container is ready
+			break InitPhase
+		case <-ctx.Done(): // container shutdown
+			return
+		case <-a.shutWg.Closer(): // agent shutdown
+			return
+		case <-callerCtx.Done(): // original caller disconnected?
+			evictor.SetEvictable(true)
+		case <-evictor.C: // eviction
+			return
+		case <-timer.C: // init timeout
+			return
+		}
+
+		// we need to perform SetEvictable(true) once, let's lose
+		// the original caller ctx and use something that never gets cancelled.
+		callerCtx = context.Background()
 	}
+
+	timer.Stop()
 
 	// Start monitoring agent shutdown
 	select {
@@ -760,10 +785,10 @@ func (a *agent) nannyHotContainer(ctx context.Context, cancel context.CancelFunc
 	}
 }
 
-func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
+func (a *agent) runHot(callerCtx context.Context, call *call, tok ResourceToken, state ContainerState) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = common.BackgroundContext(ctx)
+	ctx := common.BackgroundContext(callerCtx)
 	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
 	defer span.End()
 
@@ -782,7 +807,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 
 	statsUtilization(ctx, a.resources.GetUtilization())
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
-	evictor.SetEvictable(true)
 
 	// stack unwind spelled out with strict ordering below.
 	defer func() {
@@ -834,7 +858,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		}
 	}()
 
-	go a.nannyHotContainer(ctx, cancel, evictor, initialized)
+	go a.nannyHotContainer(ctx, callerCtx, cancel, evictor, initialized)
 
 	container, queueErr = newHotContainer(ctx, call, &a.cfg, id, logger, initialized)
 	if queueErr != nil {
