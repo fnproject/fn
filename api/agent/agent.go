@@ -1010,7 +1010,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	if call.slots.acquireSlot(s) {
 		slot.Close()
 		if isEvictEvent {
-			statsContainerEvicted(ctx)
+			statsContainerEvicted(ctx, state.GetState())
 		}
 		return false
 	}

@@ -25,6 +25,7 @@ type requestState struct {
 
 type ContainerState interface {
 	UpdateState(ctx context.Context, newState ContainerStateType, slots *slotQueue)
+	GetState() string
 }
 type RequestState interface {
 	UpdateState(ctx context.Context, newState RequestStateType, slots *slotQueue)
@@ -56,6 +57,16 @@ const (
 	ContainerStateDone                             // exited/failed/done
 	ContainerStateMax
 )
+
+var containerStateKeys = [ContainerStateMax]string{
+	"none",
+	"wait",
+	"start",
+	"idle",
+	"paused",
+	"busy",
+	"done",
+}
 
 var containerGaugeKeys = [ContainerStateMax]string{
 	"",
@@ -106,6 +117,16 @@ func (c *requestState) UpdateState(ctx context.Context, newState RequestStateTyp
 
 func isIdleState(state ContainerStateType) bool {
 	return state == ContainerStateIdle || state == ContainerStatePaused
+}
+
+func (c *containerState) GetState() string {
+	var res ContainerStateType
+
+	c.lock.Lock()
+	res = c.state
+	c.lock.Unlock()
+
+	return containerStateKeys[res]
 }
 
 func (c *containerState) UpdateState(ctx context.Context, newState ContainerStateType, slots *slotQueue) {

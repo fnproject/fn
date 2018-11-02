@@ -10,6 +10,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+)
+
+var (
+	containerStateKey = common.MakeKey("container_state")
 )
 
 func statsCalls(ctx context.Context) {
@@ -60,7 +65,14 @@ func statsLBAgentRunnerExecLatency(ctx context.Context, dur time.Duration) {
 	stats.Record(ctx, runnerExecLatencyMeasure.M(int64(dur/time.Millisecond)))
 }
 
-func statsContainerEvicted(ctx context.Context) {
+func statsContainerEvicted(ctx context.Context, containerState string) {
+	ctx, err := tag.New(ctx,
+		tag.Upsert(containerStateKey, containerState),
+	)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
 	stats.Record(ctx, containerEvictedMeasure.M(0))
 }
 
@@ -226,8 +238,17 @@ func RegisterContainerViews(tagKeys []string, latencyDist []float64) {
 		}
 	}
 
+	// add container state tag for evictions
+	evictTags := make([]string, 0, len(tagKeys)+1)
+	evictTags = append(evictTags, "container_state")
+	for _, key := range tagKeys {
+		if key != "container_state" {
+			evictTags = append(evictTags, key)
+		}
+	}
+
 	err := view.Register(
-		common.CreateView(containerEvictedMeasure, view.Count(), tagKeys),
+		common.CreateView(containerEvictedMeasure, view.Count(), evictTags),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
