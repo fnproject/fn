@@ -561,7 +561,6 @@ type hotSlot struct {
 	done          chan struct{} // signal we are done with slot
 	container     *container    // TODO mask this
 	cfg           *Config
-	udsClient     http.Client
 	fatalErr      error
 	containerSpan trace.SpanContext
 }
@@ -669,7 +668,7 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 		defer swapBack()
 
 		req := callToHTTPRequest(ctx, call)
-		resp, err := s.udsClient.Do(req)
+		resp, err := s.container.udsClient.Do(req)
 		if err != nil {
 			common.Logger(ctx).WithError(err).Error("Got error from UDS socket")
 			errApp <- models.NewAPIError(http.StatusBadGateway, errors.New("error receiving function response"))
@@ -798,19 +797,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	// make sure this thread has the shutdownContainer context in case the container exits
 	go inotifyUDS(ctx, container.UDSAgentPath(), udsAwait)
 
-	udsClient := http.Client{
-		Transport: &http.Transport{
-			MaxIdleConns:        1,
-			MaxIdleConnsPerHost: 1,
-			// XXX(reed): other settings ?
-			IdleConnTimeout: 1 * time.Second,
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", filepath.Join(container.UDSAgentPath(), udsFilename))
-			},
-		},
-	}
-
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
@@ -851,7 +837,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				done:          make(chan struct{}),
 				container:     container,
 				cfg:           &a.cfg,
-				udsClient:     udsClient,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot, evictor) {
@@ -1051,6 +1036,8 @@ type container struct {
 	stdout io.Writer
 	stderr io.Writer
 
+	udsClient http.Client
+
 	// swapMu protects the stats swapping
 	swapMu sync.Mutex
 	stats  *drivers.Stats
@@ -1125,6 +1112,18 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config) (*container, 
 		},
 		stdout: stdout,
 		stderr: stderr,
+		udsClient: http.Client{
+			Transport: &http.Transport{
+				MaxIdleConns:        1,
+				MaxIdleConnsPerHost: 1,
+				// XXX(reed): other settings ?
+				IdleConnTimeout: 1 * time.Second,
+				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+					var d net.Dialer
+					return d.DialContext(ctx, "unix", filepath.Join(iofs.AgentPath(), udsFilename))
+				},
+			},
+		},
 		close: func() {
 			stderr.Close()
 			stdout.Close()
