@@ -49,8 +49,6 @@ github.com/docker/go-units v0.3.3/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDD
 github.com/docker/libnetwork v0.8.0-dev.2.0.20180222171459-0ae9b6f38f24/go.mod h1:93m0aTqz6z+g32wla4l4WxTrdtvBRmVzYRkYvasA5Z8=
 github.com/docker/libnetwork v0.8.0-dev.2.0.20180608203834-19279f049241 h1:+ebE/hCU02srkeIg8Vp/vlUp182JapYWtXzV+bCeR2I=
 github.com/docker/libnetwork v0.8.0-dev.2.0.20180608203834-19279f049241/go.mod h1:93m0aTqz6z+g32wla4l4WxTrdtvBRmVzYRkYvasA5Z8=
-github.com/ericfode/go-noop v0.0.0-20181102164120-13a4778a6693 h1:1runeyQ8autMth1RKlaPQuwR/Fjc6StAZTj71e+lzh0=
-github.com/ericfode/go-noop v0.0.0-20181102164120-13a4778a6693/go.mod h1:Fn/uqRs03YHgzrDkW2wxz58VmsSK2Uee5RrzM4u/8xE=
 github.com/fnproject/fdk-go v0.0.0-20180927181437-1c783fe49625 h1:6N/izedQATvePgX3EVMO9SIKbh1ZNmTl8B1Pnc5kU6Y=
 github.com/fnproject/fdk-go v0.0.0-20180927181437-1c783fe49625/go.mod h1:hzkP3qqXx+1pRBh2QVKr1I+jJ+5xrHIlh5z59XKZ/k0=
 github.com/fnproject/fdk-go v0.0.0-20181025170718-26ed643bea68 h1:T1Lm0ByviRKOUocQfjkVJ8EtinhJYwGVaoTQa2XVET0=
