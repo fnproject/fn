@@ -37,6 +37,7 @@ type Config struct {
 	IOFSAgentPath           string        `json:"iofs_path"`
 	IOFSMountRoot           string        `json:"iofs_mount_root"`
 	IOFSOpts                string        `json:"iofs_opts"`
+	MaxDockerRetries        uint64        `json:"max_docker_retries"`
 }
 
 const (
@@ -121,6 +122,7 @@ func NewConfig() (*Config, error) {
 		MaxLogSize:       1 * 1024 * 1024,
 		PreForkImage:     "busybox",
 		PreForkCmd:       "tail -f /dev/null",
+		MaxDockerRetries: 10,
 	}
 
 	var err error
