@@ -565,15 +565,6 @@ definitions:
         description: "Function configuration key values."
         additionalProperties:
           type: string
-      format:
-        enum:
-          - default
-          - http
-          - http-stream
-          - json
-          - cloudevent
-        description: "Payload format sent into function."
-        type: string
       annotations:
         type: object
         description: "Func annotations - this is a map of annotations attached to this func, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes."

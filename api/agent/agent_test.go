@@ -78,7 +78,6 @@ func TestCallConfigurationRequest(t *testing.T) {
 	const idleTimeout = 20
 	const memory = 256
 	typ := "sync"
-	format := "default"
 
 	cfg := models.Config{"APP_VAR": "FOO"}
 	rCfg := models.Config{"FN_VAR": "BAR"}
@@ -89,7 +88,6 @@ func TestCallConfigurationRequest(t *testing.T) {
 		AppID:  app.ID,
 		Config: rCfg,
 		Image:  image,
-		Format: format,
 		ResourceConfig: models.ResourceConfig{Timeout: timeout,
 			IdleTimeout: idleTimeout,
 			Memory:      memory,
@@ -163,7 +161,6 @@ func TestCallConfigurationRequest(t *testing.T) {
 	}
 
 	expectedConfig := map[string]string{
-		"FN_FORMAT": format,
 		"FN_MEMORY": strconv.Itoa(memory),
 		"FN_TYPE":   typ,
 		"APP_VAR":   "FOO",
@@ -203,9 +200,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := "payload"
 	typ := "sync"
-	format := "default"
 	cfg := models.Config{
-		"FN_FORMAT": format,
 		"FN_MEMORY": strconv.Itoa(memory),
 		"FN_TYPE":   typ,
 		"APP_VAR":   "FOO",
@@ -217,7 +212,6 @@ func TestCallConfigurationModel(t *testing.T) {
 		Config:      cfg,
 		Image:       image,
 		Type:        typ,
-		Format:      format,
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
@@ -374,10 +368,10 @@ func TestSubmitError(t *testing.T) {
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`
 	typ := "sync"
-	format := "default"
 	config := map[string]string{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": app.Name,
+		"FN_LISTENER": "unix:" + filepath.Join(iofsDockerMountDest, udsFilename),
+		"FN_APP_ID":   app.ID,
+		"FN_FN_ID":    fn.ID,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
@@ -391,7 +385,6 @@ func TestSubmitError(t *testing.T) {
 		Config:      config,
 		Image:       image,
 		Type:        typ,
-		Format:      format,
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
@@ -448,9 +441,8 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 	// response writer with sync, and also test that this works with async + log
 	app := &models.App{ID: "app_id"}
 	fn := &models.Fn{
-		ID:     "fn_id",
-		Image:  "fnproject/fn-test-utils",
-		Format: "http", // this _is_ the test
+		ID:    "fn_id",
+		Image: "fnproject/fn-test-utils",
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     5,
 			IdleTimeout: 10,
@@ -515,7 +507,6 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 		FnID:        id.New().String(),
 		Image:       "fnproject/fn-test-utils",
 		Type:        "sync",
-		Format:      "http",
 		Timeout:     1,
 		IdleTimeout: 2,
 		Memory:      math.MaxUint64,
@@ -539,10 +530,9 @@ func TestTmpFsRW(t *testing.T) {
 	app := &models.App{ID: "app_id"}
 
 	fn := &models.Fn{
-		ID:     "fn_id",
-		AppID:  app.ID,
-		Image:  "fnproject/fn-test-utils",
-		Format: "http", // this _is_ the test
+		ID:    "fn_id",
+		AppID: app.ID,
+		Image: "fnproject/fn-test-utils",
 		ResourceConfig: models.ResourceConfig{Timeout: 5,
 			IdleTimeout: 10,
 			Memory:      128,
@@ -629,10 +619,9 @@ func TestTmpFsSize(t *testing.T) {
 	app := &models.App{ID: "app_id", Name: appName}
 
 	fn := &models.Fn{
-		ID:     "fn_id",
-		AppID:  app.ID,
-		Image:  "fnproject/fn-test-utils",
-		Format: "http", // this _is_ the test
+		ID:    "fn_id",
+		AppID: app.ID,
+		Image: "fnproject/fn-test-utils",
 		ResourceConfig: models.ResourceConfig{Timeout: 5,
 			IdleTimeout: 10,
 			Memory:      64,
@@ -734,11 +723,9 @@ func testCall() *models.Call {
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 	payload := "payload"
 	typ := "sync"
-	format := "http"
 	contentType := "suberb_type"
 	contentLength := strconv.FormatInt(int64(len(payload)), 10)
 	config := map[string]string{
-		"FN_FORMAT":  format,
 		"FN_MEMORY":  strconv.Itoa(memory),
 		"FN_TYPE":    typ,
 		"APP_VAR":    "FOO",
@@ -757,7 +744,6 @@ func testCall() *models.Call {
 		Headers:     headers,
 		Image:       image,
 		Type:        typ,
-		Format:      format,
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
@@ -790,16 +776,14 @@ func TestPipesAreClear(t *testing.T) {
 
 	ca := testCall()
 	ca.Type = "sync"
-	ca.Format = "http"
 	ca.IdleTimeout = 60 // keep this bad boy alive
 	ca.Timeout = 4      // short
 	app := &models.App{ID: ca.AppID}
 
 	fn := &models.Fn{
-		AppID:  ca.AppID,
-		ID:     ca.FnID,
-		Image:  ca.Image,
-		Format: ca.Format,
+		AppID: ca.AppID,
+		ID:    ca.FnID,
+		Image: ca.Image,
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     ca.Timeout,
 			IdleTimeout: ca.IdleTimeout,
@@ -925,17 +909,15 @@ func (r *delayReader) Read(b []byte) (int, error) {
 	return r.Reader.Read(b)
 }
 
-func TestPipesDontMakeSpuriousCalls(t *testing.T) {
-	// if we swap out the pipes between tasks really fast, we need to ensure that
-	// there are no spurious reads on the container's input that give us a bad
-	// task output (i.e. 2nd task should succeed). if this test is fussing up,
-	// make sure input swapping out is not racing, it is very likely not the test
-	// that is finicky since this is a totally normal happy path (run 2 hot tasks
-	// in the same container in a row).
+func TestCallsDontInterlace(t *testing.T) {
+	// this runs a task that times out and then writes bytes after the timeout,
+	// and then runs another task before those bytes are written. the 2nd task
+	// should be successful using the same container, and the 1st task should
+	// time out and its bytes shouldn't interfere with the 2nd task (this should
+	// be a totally normal happy path).
 
 	call := testCall()
 	call.Type = "sync"
-	call.Format = "http"
 	call.IdleTimeout = 60 // keep this bad boy alive
 	call.Timeout = 4      // short
 	app := &models.App{Name: "myapp"}
@@ -943,10 +925,9 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	app.ID = call.AppID
 
 	fn := &models.Fn{
-		ID:     "fn_id",
-		AppID:  call.AppID,
-		Image:  call.Image,
-		Format: call.Format,
+		ID:    "fn_id",
+		AppID: call.AppID,
+		Image: call.Image,
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     call.Timeout,
 			IdleTimeout: call.IdleTimeout,
@@ -1028,7 +1009,6 @@ func TestNBIOResourceTracker(t *testing.T) {
 
 	call := testCall()
 	call.Type = "sync"
-	call.Format = "http"
 	call.IdleTimeout = 60
 	call.Timeout = 30
 	call.Memory = 50
@@ -1037,10 +1017,9 @@ func TestNBIOResourceTracker(t *testing.T) {
 	app.ID = call.AppID
 
 	fn := &models.Fn{
-		ID:     call.FnID,
-		AppID:  call.AppID,
-		Image:  call.Image,
-		Format: call.Format,
+		ID:    call.FnID,
+		AppID: call.AppID,
+		Image: call.Image,
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     call.Timeout,
 			IdleTimeout: call.IdleTimeout,
@@ -1116,7 +1095,6 @@ func TestDockerAuthExtn(t *testing.T) {
 		FnID:        id.New().String(),
 		Image:       "fnproject/fn-test-utils",
 		Type:        "sync",
-		Format:      "http",
 		Timeout:     1,
 		IdleTimeout: 2,
 	}

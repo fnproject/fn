@@ -18,19 +18,6 @@ const (
 	TypeDetached = "detached"
 )
 
-const (
-	// FormatDefault ...
-	FormatDefault = "default"
-	// FormatHTTP ...
-	FormatHTTP = "http"
-	// FormatHTTPStream
-	FormatHTTPStream = "http-stream"
-	// FormatJSON ...
-	FormatJSON = "json"
-	// FormatCloudEvent ...
-	FormatCloudEvent = "cloudevent"
-)
-
 var possibleStatuses = [...]string{"delayed", "queued", "running", "success", "error", "cancelled"}
 
 // Call is a representation of a specific invocation of a fn.
@@ -85,9 +72,6 @@ type Call struct {
 
 	// Type indicates whether a task is to be run synchronously or asynchronously.
 	Type string `json:"type,omitempty" db:"-"`
-
-	// Format is the format to pass input into the function.
-	Format string `json:"format,omitempty" db:"-"`
 
 	// Payload for the call. This is only used by async calls, to store their input.
 	// TODO should we copy it into here too for debugging sync?

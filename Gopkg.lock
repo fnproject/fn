@@ -123,11 +123,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/fnproject/fdk-go"
-  packages = [
-    ".",
-    "utils"
-  ]
-  revision = "1c783fe496250a3e27445273fb43cace6fd4ee2b"
+  packages = ["."]
+  revision = "26ed643bea6837eb6ca757e0d98155b42e13e1dc"
 
 [[projects]]
   name = "github.com/fsnotify/fsnotify"
@@ -540,6 +537,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a6f29cb7dbfcd61088fb70a6121b6d8e0c00728f3408bc5c1fba592a429bbd40"
+  inputs-digest = "29320b0a848b793142b3429289a8ff2e9223af4178b76145afeee6796f61bdc4"
   solver-name = "gps-cdcl"
   solver-version = 1

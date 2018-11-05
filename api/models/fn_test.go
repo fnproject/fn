@@ -43,7 +43,6 @@ func fnFieldGenerators(t *testing.T) map[string]gopter.Gen {
 	fieldGens["Annotations"] = annotationGenerator()
 	fieldGens["CreatedAt"] = datetimeGenerator()
 	fieldGens["UpdatedAt"] = datetimeGenerator()
-	fieldGens["Format"] = gen.AlphaString()
 
 	fnFieldCount := fnReflectType().NumField()
 

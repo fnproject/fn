@@ -29,10 +29,9 @@ func TestCallGet(t *testing.T) {
 	call := &models.Call{
 		FnID:  fn.ID,
 		ID:    id.New().String(),
-		Image: "fnproject/hello",
+		Image: "fnproject/fn-test-utils",
 		// Delay: 0,
-		Type:   "sync",
-		Format: "default",
+		Type: "sync",
 		// Payload: TODO,
 		Priority:    new(int32), // TODO this is crucial, apparently
 		Timeout:     30,
@@ -98,10 +97,9 @@ func TestCallList(t *testing.T) {
 	call := &models.Call{
 		FnID:  fn.ID,
 		ID:    id.New().String(),
-		Image: "fnproject/hello",
+		Image: "fnproject/fn-test-utils",
 		// Delay: 0,
-		Type:   "sync",
-		Format: "default",
+		Type: "sync",
 		// Payload: TODO,
 		Priority:    new(int32), // TODO this is crucial, apparently
 		Timeout:     30,

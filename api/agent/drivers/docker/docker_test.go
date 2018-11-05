@@ -18,13 +18,11 @@ type taskDockerTest struct {
 	errors io.Writer
 }
 
-func (f *taskDockerTest) Command() string { return "" }
-func (f *taskDockerTest) EnvVars() map[string]string {
-	return map[string]string{"FN_FORMAT": "default"}
-}
+func (f *taskDockerTest) Command() string                         { return "" }
+func (f *taskDockerTest) EnvVars() map[string]string              { return map[string]string{} }
 func (f *taskDockerTest) Id() string                              { return f.id }
 func (f *taskDockerTest) Group() string                           { return "" }
-func (f *taskDockerTest) Image() string                           { return "fnproject/fn-test-utils" }
+func (f *taskDockerTest) Image() string                           { return "hello-world" }
 func (f *taskDockerTest) Timeout() time.Duration                  { return 30 * time.Second }
 func (f *taskDockerTest) Logger() (stdout, stderr io.Writer)      { return f.output, f.errors }
 func (f *taskDockerTest) WriteStat(context.Context, drivers.Stat) { /* TODO */ }
@@ -153,16 +151,14 @@ func TestRunnerDockerVersion(t *testing.T) {
 	}
 }
 
-func TestRunnerDockerStdin(t *testing.T) {
+func TestRunnerDockerStdout(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})
 	ctx := context.Background()
-
-	input := `{"echoContent": "italian parsley", "isDebug": true}`
 
 	var output bytes.Buffer
 	var errors bytes.Buffer
 
-	task := &taskDockerTest{"test-docker-stdin", bytes.NewBufferString(input), &output, &errors}
+	task := &taskDockerTest{"test-docker-stdin", bytes.NewBufferString(""), &output, &errors}
 
 	cookie, err := dkr.CreateCookie(ctx, task)
 	if err != nil {
@@ -191,7 +187,8 @@ func TestRunnerDockerStdin(t *testing.T) {
 			result.Error(), output.String(), errors.String())
 	}
 
-	expect := "italian parsley"
+	// if hello world image changes, change dis
+	expect := "Hello from Docker!"
 	got := output.String()
 	if !strings.Contains(got, expect) {
 		t.Errorf("Test expected output to contain '%s', got '%s'", expect, got)

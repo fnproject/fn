@@ -112,11 +112,6 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 		return
 	}
 
-	// TODO if the task is cold and doesn't require reading STDIN, it could
-	// run but we may not listen for output since the task timed out. these
-	// are at least once semantics, which is really preferable to at most
-	// once, so let's do it for now
-
 	err = a.Submit(call)
 	if err != nil {
 		// NOTE: these could be errors / timeouts from the call that we're

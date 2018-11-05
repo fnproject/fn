@@ -20,8 +20,6 @@ import (
 )
 
 const (
-	retryTimeout    = 10 * time.Minute
-	pauseTimeout    = 5 * time.Second
 	eventRetryDelay = 1 * time.Second
 )
 
@@ -43,7 +41,6 @@ type dockerClient interface {
 	UnpauseContainer(id string, ctx context.Context) error
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	InspectImage(ctx context.Context, name string) (*docker.Image, error)
-	InspectContainerWithContext(container string, ctx context.Context) (*docker.Container, error)
 	Stats(opts docker.StatsOptions) error
 	Info(ctx context.Context) (*docker.DockerInfo, error)
 	LoadImages(ctx context.Context, filePath string) error
@@ -386,14 +383,8 @@ func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthCon
 }
 
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
-	// extract the span, but do not keep the context, since the enclosing context
-	// may be timed out, and we still want to remove the container. TODO in caller? who cares?
-	ctx := common.BackgroundContext(opts.Context)
-	ctx, closer := makeTracker(ctx, "docker_remove_container")
+	ctx, closer := makeTracker(opts.Context, "docker_remove_container")
 	defer closer()
-
-	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
-	defer cancel()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "RemoveContainer")
 	err = d.retry(ctx, logger, func() error {
@@ -407,9 +398,6 @@ func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) 
 	ctx, closer := makeTracker(ctx, "docker_pause_container")
 	defer closer()
 
-	ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
-	defer cancel()
-
 	logger := common.Logger(ctx).WithField("docker_cmd", "PauseContainer")
 	err = d.retry(ctx, logger, func() error {
 		err = d.docker.PauseContainer(id)
@@ -421,9 +409,6 @@ func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) 
 func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error) {
 	ctx, closer := makeTracker(ctx, "docker_unpause_container")
 	defer closer()
-
-	ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
-	defer cancel()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "UnpauseContainer")
 	err = d.retry(ctx, logger, func() error {
@@ -437,30 +422,12 @@ func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.I
 	ctx, closer := makeTracker(ctx, "docker_inspect_image")
 	defer closer()
 
-	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
-	defer cancel()
-
 	logger := common.Logger(ctx).WithField("docker_cmd", "InspectImage")
 	err = d.retry(ctx, logger, func() error {
 		i, err = d.docker.InspectImage(name)
 		return err
 	})
 	return i, err
-}
-
-func (d *dockerWrap) InspectContainerWithContext(container string, ctx context.Context) (c *docker.Container, err error) {
-	ctx, closer := makeTracker(ctx, "docker_inspect_container")
-	defer closer()
-
-	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
-	defer cancel()
-
-	logger := common.Logger(ctx).WithField("docker_cmd", "InspectContainer")
-	err = d.retry(ctx, logger, func() error {
-		c, err = d.docker.InspectContainerWithContext(container, ctx)
-		return err
-	})
-	return c, err
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {

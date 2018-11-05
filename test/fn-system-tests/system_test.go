@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/drivers"
@@ -13,6 +14,7 @@ import (
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/server"
 	_ "github.com/fnproject/fn/api/server/defaultexts"
+	"github.com/gin-gonic/gin"
 
 	// We need docker client here, since we have a custom driver that wraps generic
 	// docker driver.
@@ -445,3 +447,14 @@ func (d *customDriver) Close() error {
 }
 
 var _ drivers.Driver = &customDriver{}
+
+// capture logs so they shut up when things are fine
+func setLogBuffer() *bytes.Buffer {
+	var buf bytes.Buffer
+	buf.WriteByte('\n')
+	logrus.SetOutput(&buf)
+	gin.DefaultErrorWriter = &buf
+	gin.DefaultWriter = &buf
+	log.SetOutput(&buf)
+	return &buf
+}

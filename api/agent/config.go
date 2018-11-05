@@ -16,6 +16,7 @@ type Config struct {
 	FreezeIdle              time.Duration `json:"freeze_idle_msecs"`
 	HotPoll                 time.Duration `json:"hot_poll_msecs"`
 	HotLauncherTimeout      time.Duration `json:"hot_launcher_timeout_msecs"`
+	HotStartTimeout         time.Duration `json:"hot_start_timeout_msecs"`
 	AsyncChewPoll           time.Duration `json:"async_chew_poll_msecs"`
 	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
 	MaxLogSize              uint64        `json:"max_log_size_bytes"`
@@ -48,8 +49,10 @@ const (
 	// EnvHotPoll is the interval to ping for a slot manager thread to check if a container should be
 	// launched for a given function
 	EnvHotPoll = "FN_HOT_POLL_MSECS"
-	// EnvHotLauncherTimeout is the timeout for a hot container to become available for use
+	// EnvHotLauncherTimeout is the timeout for a hot container queue to persist if idle
 	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
+	// EnvHotStartTimeout is the timeout for a hot container to become available for use including docker-pull
+	EnvHotStartTimeout = "FN_HOT_START_TIMEOUT_MSECS"
 	// EnvAsyncChewPoll is the interval to poll the queue that contains async function invocations
 	EnvAsyncChewPoll = "FN_ASYNC_CHEW_POLL_MSECS"
 	// EnvMaxResponseSize is the maximum number of bytes that a function may return from an invocation
@@ -125,6 +128,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvMsecs(err, EnvFreezeIdle, &cfg.FreezeIdle, 50*time.Millisecond)
 	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, DefaultHotPoll)
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
+	err = setEnvMsecs(err, EnvHotStartTimeout, &cfg.HotStartTimeout, time.Duration(10)*time.Minute)
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)

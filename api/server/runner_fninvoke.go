@@ -74,17 +74,14 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 	// buffer the response before writing it out to client to prevent partials from trying to stream
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	bufWriter := syncResponseWriter{
+	writer := syncResponseWriter{
 		headers: resp.Header(),
 		status:  200,
 		Buffer:  buf,
 	}
 
-	var writer http.ResponseWriter = &bufWriter
-	writer = &jsonContentTypeTrapper{ResponseWriter: writer}
-
 	opts := []agent.CallOpt{
-		agent.WithWriter(writer), // XXX (reed): order matters [for now]
+		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
 		agent.FromHTTPFnRequest(app, fn, req),
 	}
 	if trig != nil {
@@ -103,47 +100,14 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 
 	// because we can...
 	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
+	writer.Header().Add("Fn-Call-Id", call.Model().ID) // XXX(reed): move to before Submit when adding streaming
 
 	// buffered response writer traps status (so we can add headers), we need to write it still
-	if bufWriter.status > 0 {
-		resp.WriteHeader(bufWriter.status)
+	if writer.status > 0 {
+		resp.WriteHeader(writer.status)
 	}
 
 	io.Copy(resp, buf)
 	bufPool.Put(buf) // at this point, submit returned without timing out, so we can re-use this one
 	return nil
-}
-
-// TODO kill this thing after removing tests for http/json/default formats
-type jsonContentTypeTrapper struct {
-	http.ResponseWriter
-	committed bool
-}
-
-var _ http.ResponseWriter = new(jsonContentTypeTrapper) // nice compiler errors
-
-func (j *jsonContentTypeTrapper) Write(b []byte) (int, error) {
-	if !j.committed {
-		// override default content type detection behavior to add json
-		j.detectContentType(b)
-	}
-	j.committed = true
-
-	// write inner
-	return j.ResponseWriter.Write(b)
-}
-
-func (j *jsonContentTypeTrapper) detectContentType(b []byte) {
-	if j.Header().Get("Content-Type") == "" {
-		// see http.DetectContentType
-		var contentType string
-		jsonPrefix := [1]byte{'{'} // stack allocated
-		if bytes.HasPrefix(b, jsonPrefix[:]) {
-			// try to detect json, since DetectContentType isn't a hipster.
-			contentType = "application/json; charset=utf-8"
-		} else {
-			contentType = http.DetectContentType(b)
-		}
-		j.Header().Set("Content-Type", contentType)
-	}
 }

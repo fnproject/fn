@@ -15,9 +15,13 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
-// TODO deprecate with routes
-
 func TestCanExecuteFunction(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -25,10 +29,9 @@ func TestCanExecuteFunction(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -120,6 +123,12 @@ func TestCanExecuteDetachedFunction(t *testing.T) {
 }
 
 func TestCanExecuteBigOutput(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -127,10 +136,9 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -170,6 +178,12 @@ func TestCanExecuteBigOutput(t *testing.T) {
 }
 
 func TestCanExecuteTooBigOutput(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -177,10 +191,9 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -220,6 +233,12 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 }
 
 func TestCanExecuteEmptyOutput(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -227,10 +246,9 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -269,6 +287,12 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 }
 
 func TestBasicConcurrentExecution(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -276,10 +300,9 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -46,45 +45,10 @@ type CallOverrider func(*models.Call, map[string]string) (map[string]string, err
 // TODO build w/o closures... lazy
 type CallOpt func(c *call) error
 
-const (
-	ceMimeType = "application/cloudevents+json"
-	// static path for all fn invocations
-	invokePath = "/invoke"
-)
-
 // Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
 	return func(c *call) error {
-		ctx := req.Context()
-
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil && contentType != "" {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v %v", contentType, err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				fn.Format = models.FormatCloudEvent
-			}
-		}
-
-		if fn.Format == "" {
-			fn.Format = models.FormatDefault
-		}
-
 		id := id.New().String()
-
-		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
-		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
-		if rw, ok := c.w.(http.ResponseWriter); ok {
-			rw.Header().Add("FN_CALL_ID", id)
-			rw.Header().Add("Fn-Call-Id", id)
-		}
 
 		var syslogURL string
 		if app.SyslogURL != nil {
@@ -95,8 +59,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			ID:    id,
 			Image: fn.Image,
 			// Delay: 0,
-			Type:   models.TypeSync,
-			Format: fn.Format,
+			Type: models.TypeSync,
 			// Payload: TODO,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     fn.Timeout,
@@ -104,7 +67,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			TmpFsSize:   0, // TODO clean up this
 			Memory:      fn.Memory,
 			CPUs:        0, // TODO clean up this
-			Config:      buildConfig(app, fn, invokePath),
+			Config:      buildConfig(app, fn),
 			// TODO - this wasn't really the intention here (that annotations would naturally cascade
 			// but seems to be necessary for some runner behaviour
 			Annotations: app.Annotations.MergeChange(fn.Annotations),
@@ -123,7 +86,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 	}
 }
 
-func buildConfig(app *models.App, fn *models.Fn, path string) models.Config {
+func buildConfig(app *models.App, fn *models.Fn) models.Config {
 	conf := make(models.Config, 8+len(app.Config)+len(fn.Config))
 	for k, v := range app.Config {
 		conf[k] = v
@@ -132,16 +95,12 @@ func buildConfig(app *models.App, fn *models.Fn, path string) models.Config {
 		conf[k] = v
 	}
 
-	conf["FN_FORMAT"] = fn.Format
-	if fn.Format == models.FormatHTTPStream { // TODO should be always soon...
-		conf["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
-	}
-	conf["FN_APP_NAME"] = app.Name
-	conf["FN_PATH"] = path
-	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
+	// XXX(reed): add trigger id to request headers on call?
+
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", fn.Memory)
 	conf["FN_TYPE"] = "sync"
 	conf["FN_FN_ID"] = fn.ID
+	conf["FN_APP_ID"] = app.ID
 
 	return conf
 }
@@ -271,6 +230,13 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, models.ErrCallResourceTooBig
 	}
 
+	if c.Call.Config == nil {
+		c.Call.Config = make(models.Config)
+	}
+	c.Call.Config["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
+	c.Call.Config["FN_FORMAT"] = "http-stream" // TODO: remove this after fdk's forget what it means
+	// TODO we could set type here too, for now, or anything else not based in fn/app/trigger config
+
 	setupCtx(&c)
 
 	c.handler = a.da
@@ -295,18 +261,14 @@ func setupCtx(c *call) {
 type call struct {
 	*models.Call
 
-	// IsCloudEvent flag whether this was ingested as a cloud event. This may become the default or only way.
-	IsCloudEvent bool `json:"is_cloud_event"`
-
-	handler        CallHandler
-	w              io.Writer
-	req            *http.Request
-	stderr         io.ReadWriteCloser
-	ct             callTrigger
-	slots          *slotQueue
-	requestState   RequestState
-	containerState ContainerState
-	slotHashId     string
+	handler      CallHandler
+	w            io.Writer
+	req          *http.Request
+	stderr       io.ReadWriteCloser
+	ct           callTrigger
+	slots        *slotQueue
+	requestState RequestState
+	slotHashId   string
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string

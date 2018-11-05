@@ -5,17 +5,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	fdk "github.com/fnproject/fdk-go"
-	fdkutils "github.com/fnproject/fdk-go/utils"
 )
 
 const (
@@ -41,6 +40,8 @@ type AppRequest struct {
 	IsDebug bool `json:"isDebug,omitempty"`
 	// simulate crash
 	IsCrash bool `json:"isCrash,omitempty"`
+	// shutdown UDS after request
+	IsShutdown bool `json:"isShutdown,omitempty"`
 	// read a file from disk
 	ReadFile string `json:"readFile,omitempty"`
 	// fill created with with zero bytes of specified size
@@ -83,6 +84,8 @@ var Leaks []*[]byte
 // Hold is memory to hold on to at every request, new requests overwrite it.
 var Hold []byte
 
+var GlobCancel context.CancelFunc
+
 // AppResponse is the output of this function, in JSON
 type AppResponse struct {
 	Request AppRequest        `json:"request"`
@@ -111,15 +114,14 @@ func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	if req.InvalidResponse {
 		_, err := io.Copy(out, strings.NewReader(InvalidResponseStr))
 		if err != nil {
-			log.Printf("io copy error %v", err)
-			panic(err.Error())
+			log.Fatalf("io copy error %v", err)
 		}
 	}
 
 	finalizeRequest(out, req, resp)
 	err := postProcessRequest(req, out)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("post process error %v", err)
 	}
 }
 
@@ -157,19 +159,16 @@ func finalizeRequest(out io.Writer, req *AppRequest, resp *AppResponse) {
 
 func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppResponse) {
 
-	fnctx := fdk.Context(ctx)
+	fnctx := fdk.GetContext(ctx)
 
 	var request AppRequest
 	json.NewDecoder(in).Decode(&request)
 
 	if request.IsDebug {
-		format, _ := os.LookupEnv("FN_FORMAT")
 		log.Printf("BeginOfLogs")
-		log.Printf("Received format %v", format)
 		log.Printf("Received request %#v", request)
-		log.Printf("Received headers %v", fnctx.Header)
-		log.Printf("Received http headers %v", fnctx.HTTPHeader)
-		log.Printf("Received config %v", fnctx.Config)
+		log.Printf("Received headers %v", fnctx.Header())
+		log.Printf("Received config %v", fnctx.Config())
 	}
 
 	// simulate load if requested
@@ -235,26 +234,23 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 
 	if request.ExpectHeaders != nil {
 		for name, header := range request.ExpectHeaders {
-			if strings.HasPrefix(name, "Fn-Http-H-") {
-				// if it's an http header, make sure our other bucket works.
-				// idk this seems like a weird good idea, maybe we should only test/expose one or the other...
-				if h2 := fnctx.HTTPHeader.Get(strings.TrimPrefix(name, "Fn-Http-H-")); header[0] != h2 {
-					log.Fatalf("Expected http header `%s` to be `%s` but was `%s`.",
-						name, header[0], h2)
-				}
-			}
-			if h2 := fnctx.Header.Get(name); header[0] != h2 {
+			if h2 := fnctx.Header().Get(name); header[0] != h2 {
 				log.Fatalf("Expected header `%s` to be `%s` but was `%s`",
 					name, header[0], h2)
 			}
 		}
 	}
 
+	if _, ok := ctx.Deadline(); !ok {
+		// XXX(reed): we should plumb the timeout and test it's approximately right but who has time for that?
+		log.Fatalf("fdk should set deadline, go fix fdk-go immediately you")
+	}
+
 	resp := AppResponse{
 		Data:    data,
 		Request: request,
-		Headers: fnctx.Header,
-		Config:  fnctx.Config,
+		Headers: fnctx.Header(),
+		Config:  fnctx.Config(),
 		Trailer: make([]string, 0, request.TrailerRepeat),
 	}
 
@@ -297,6 +293,11 @@ func postProcessRequest(request *AppRequest, out io.Writer) error {
 		log.Printf("PostProcess PostErrGarbage %s", request.PostErrGarbage)
 	}
 
+	if request.IsShutdown && GlobCancel != nil {
+		log.Printf("PostProcess Shutting down UDS")
+		GlobCancel()
+	}
+
 	return nil
 }
 
@@ -305,174 +306,33 @@ func main() {
 		log.Printf("Container starting")
 	}
 
-	format, _ := os.LookupEnv("FN_FORMAT")
-	testDo(format, os.Stdin, os.Stdout)
+	// simulate long initialization
+	if sleeper := os.Getenv("ENABLE_INIT_DELAY_MSEC"); sleeper != "" {
+		log.Printf("Container start sleep %v", sleeper)
+		delay, err := strconv.ParseInt(sleeper, 10, 64)
+		if err != nil {
+			log.Fatalf("cannot parse ENABLE_INIT_DELAY_MSEC %v", err)
+		}
+		time.Sleep(time.Millisecond * time.Duration(delay))
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	GlobCancel = cancel
+	fdk.HandleContext(ctx, fdk.HandlerFunc(AppHandler)) // XXX(reed): can extract & instrument
+
+	// simulate long exit
+	if sleeper := os.Getenv("ENABLE_EXIT_DELAY_MSEC"); sleeper != "" {
+		log.Printf("Container end sleep %v", sleeper)
+		delay, err := strconv.ParseInt(sleeper, 10, 64)
+		if err != nil {
+			log.Fatalf("cannot parse ENABLE_EXIT_DELAY_MSEC %v", err)
+		}
+		time.Sleep(time.Millisecond * time.Duration(delay))
+	}
 
 	if os.Getenv("ENABLE_FOOTER") != "" {
 		log.Printf("Container ending")
 	}
-}
-
-func testDo(format string, in io.Reader, out io.Writer) {
-	ctx := fdkutils.BuildCtx()
-	switch format {
-	case "http":
-		testDoHTTP(ctx, in, out)
-	case "json":
-		testDoJSON(ctx, in, out)
-	case "default":
-		fdkutils.DoDefault(fdk.HandlerFunc(AppHandler), ctx, in, out)
-	case "http-stream":
-		fdk.Handle(fdk.HandlerFunc(AppHandler)) // XXX(reed): can extract & instrument
-	default:
-		panic("unknown format (fdk-go): " + format)
-	}
-}
-
-// doHTTP runs a loop, reading http requests from in and writing
-// http responses to out
-func testDoHTTP(ctx context.Context, in io.Reader, out io.Writer) {
-	var buf bytes.Buffer
-	// maps don't get down-sized, so we can reuse this as it's likely that the
-	// user sends in the same amount of headers over and over (but still clear
-	// b/w runs) -- buf uses same principle
-	hdr := make(http.Header)
-
-	for {
-		err := testDoHTTPOnce(ctx, in, out, &buf, hdr)
-		if err != nil {
-			panic("testDoHTTPOnce: " + err.Error())
-		}
-	}
-}
-
-func testDoJSON(ctx context.Context, in io.Reader, out io.Writer) {
-	var buf bytes.Buffer
-	hdr := make(http.Header)
-
-	for {
-		err := testDoJSONOnce(ctx, in, out, &buf, hdr)
-		if err != nil {
-			panic("testDoJSONOnce: " + err.Error())
-		}
-	}
-}
-
-func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
-	buf.Reset()
-	fdkutils.ResetHeaders(hdr)
-	var resp fdkutils.Response
-	resp.Writer = buf
-	resp.Status = 200
-	resp.Header = hdr
-
-	var jsonRequest fdkutils.JsonIn
-	var appRequest *AppRequest
-	err := json.NewDecoder(in).Decode(&jsonRequest)
-	if err != nil {
-		// stdin now closed
-		if err == io.EOF {
-			log.Printf("json decoder read EOF %v", err)
-			return err
-		}
-		resp.Status = http.StatusInternalServerError
-		_, err = io.WriteString(resp, fmt.Sprintf(`{"error": %v}`, err.Error()))
-		if err != nil {
-			log.Printf("json write string error %v", err)
-			return err
-		}
-	} else {
-		fdkutils.SetHeaders(ctx, jsonRequest.Protocol.Headers)
-		ctx, cancel := fdkutils.CtxWithDeadline(ctx, jsonRequest.Deadline)
-		defer cancel()
-
-		appReq, appResp := processRequest(ctx, strings.NewReader(jsonRequest.Body))
-		finalizeRequest(&resp, appReq, appResp)
-
-		if appReq.InvalidResponse {
-			io.Copy(out, strings.NewReader(InvalidResponseStr))
-		}
-
-		appRequest = appReq
-	}
-
-	jsonResponse := getJSONResp(buf, &resp, &jsonRequest)
-
-	b, err := json.Marshal(jsonResponse)
-	if err != nil {
-		log.Printf("json marshal error %v", err)
-		return err
-	}
-
-	_, err = out.Write(b)
-	if err != nil {
-		log.Printf("json write error %v", err)
-		return err
-	}
-
-	return postProcessRequest(appRequest, out)
-}
-
-// copy of fdk.GetJSONResp but with sugar for stupid jason's little fields
-func getJSONResp(buf *bytes.Buffer, fnResp *fdkutils.Response, req *fdkutils.JsonIn) *fdkutils.JsonOut {
-	return &fdkutils.JsonOut{
-		Body:        buf.String(),
-		ContentType: fnResp.Header.Get("Content-Type"),
-		Protocol: fdkutils.CallResponseHTTP{
-			StatusCode: fnResp.Status,
-			Headers:    fnResp.Header,
-		},
-	}
-}
-
-func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
-	buf.Reset()
-	fdkutils.ResetHeaders(hdr)
-	var resp fdkutils.Response
-	resp.Writer = buf
-	resp.Status = 200
-	resp.Header = hdr
-
-	var appRequest *AppRequest
-	req, err := http.ReadRequest(bufio.NewReader(in))
-	if err != nil {
-		// stdin now closed
-		if err == io.EOF {
-			log.Printf("http read EOF %v", err)
-			return err
-		}
-		// TODO it would be nice if we could let the user format this response to their preferred style..
-		resp.Status = http.StatusInternalServerError
-		_, err = io.WriteString(resp, err.Error())
-		if err != nil {
-			log.Printf("http write string error %v", err)
-			return err
-		}
-	} else {
-		fnDeadline := fdkutils.Context(ctx).Header.Get("FN_DEADLINE")
-		ctx, cancel := fdkutils.CtxWithDeadline(ctx, fnDeadline)
-		defer cancel()
-		fdkutils.SetHeaders(ctx, req.Header)
-
-		appReq, appResp := processRequest(ctx, req.Body)
-		finalizeRequest(&resp, appReq, appResp)
-
-		if appReq.InvalidResponse {
-			io.Copy(out, strings.NewReader(InvalidResponseStr))
-		}
-
-		appRequest = appReq
-	}
-
-	hResp := fdkutils.GetHTTPResp(buf, &resp, req)
-
-	err = hResp.Write(out)
-	if err != nil {
-		log.Printf("http response write error %v", err)
-		return err
-	}
-
-	return postProcessRequest(appRequest, out)
 }
 
 func getChunk(size int) []byte {

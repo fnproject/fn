@@ -216,21 +216,23 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "CreateCookie"})
 
+	stdinOn := task.Input() != nil
+	// XXX(reed): we can do same with stderr/stdout
+
 	opts := docker.CreateContainerOptions{
 		Name: task.Id(),
 		Config: &docker.Config{
 			Image:        task.Image(),
-			OpenStdin:    true,
+			OpenStdin:    stdinOn,
+			StdinOnce:    stdinOn,
+			AttachStdin:  stdinOn,
 			AttachStdout: true,
-			AttachStdin:  true,
 			AttachStderr: true,
-			StdinOnce:    true,
 		},
 		HostConfig: &docker.HostConfig{
 			ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,
 			Init:           drv.conf.EnableTini,
 		},
-		Context: ctx,
 	}
 
 	cookie := &cookie{
@@ -273,6 +275,7 @@ func (drv *DockerDriver) PrepareCookie(ctx context.Context, c drivers.Cookie) er
 		return err
 	}
 
+	cookie.opts.Context = ctx
 	_, err = drv.docker.CreateContainer(cookie.opts)
 	if err != nil {
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
@@ -574,36 +577,7 @@ func (drv *DockerDriver) startTask(ctx context.Context, container string) error 
 			return err
 		}
 	}
-
-	// see if there's any healthcheck, and if so, wait for it to complete
-	return drv.awaitHealthcheck(ctx, container)
-}
-
-func (drv *DockerDriver) awaitHealthcheck(ctx context.Context, container string) error {
-	// inspect the container and check if there is any health check presented,
-	// if there is, then wait for it to move to healthy before returning.
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		cont, err := drv.docker.InspectContainerWithContext(container, ctx)
-		if err != nil {
-			// TODO unknown fiddling to be had
-			return err
-		}
-
-		// if no health check for this image (""), or it's healthy, then stop waiting.
-		// state machine is "starting" -> "healthy" | "unhealthy"
-		if cont.State.Health.Status == "" || cont.State.Health.Status == "healthy" {
-			break
-		}
-
-		time.Sleep(100 * time.Millisecond) // avoid spin loop in case docker is actually fast
-	}
-	return nil
+	return err
 }
 
 func (w *waitResult) wait(ctx context.Context) (status string, err error) {

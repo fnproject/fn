@@ -292,8 +292,6 @@ func getSlotQueueKey(call *call) string {
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.Image))
 	hash.Write(unsafeBytes("\x00"))
-	hash.Write(unsafeBytes(call.Format))
-	hash.Write(unsafeBytes("\x00"))
 
 	// these are all static in size we only need to delimit the whole block of them
 	var byt [8]byte

@@ -20,9 +20,8 @@ var testApp = &models.App{
 }
 
 var testFn = &models.Fn{
-	ID:     id.New().String(),
-	Image:  "fnproject/fn-test-utils",
-	Format: "http",
+	ID:    id.New().String(),
+	Image: "fnproject/fn-test-utils",
 }
 
 func SetupTestCall(t *testing.T, ctx context.Context, ls models.LogStore) *models.Call {
