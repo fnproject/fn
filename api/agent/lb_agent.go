@@ -30,7 +30,7 @@ type lbAgent struct {
 
 type DetachedResponseWriter struct {
 	Headers http.Header
-	Status  int
+	status  int
 	acked   chan struct{}
 }
 
@@ -43,14 +43,18 @@ func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
 }
 
 func (w *DetachedResponseWriter) WriteHeader(statusCode int) {
-	w.Status = statusCode
+	w.status = statusCode
 	w.acked <- struct{}{}
+}
+
+func (w *DetachedResponseWriter) Status() int {
+	return w.status
 }
 
 func NewDetachedResponseWriter(h http.Header, statusCode int) *DetachedResponseWriter {
 	return &DetachedResponseWriter{
 		Headers: h,
-		Status:  statusCode,
+		status:  statusCode,
 		acked:   make(chan struct{}, 1),
 	}
 }

@@ -19,6 +19,12 @@ var (
 	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
+// ResponseBuffer  implements http.ResponseWriter
+type ResponseBuffer interface {
+	http.ResponseWriter
+	Status() int
+}
+
 // implements http.ResponseWriter
 // this little guy buffers responses from user containers and lets them still
 // set headers and such without us risking writing partial output [as much, the
@@ -34,6 +40,7 @@ var _ http.ResponseWriter = new(syncResponseWriter) // nice compiler errors
 
 func (s *syncResponseWriter) Header() http.Header  { return s.headers }
 func (s *syncResponseWriter) WriteHeader(code int) { s.status = code }
+func (s *syncResponseWriter) Status() int          { return s.status }
 
 // handleFnInvokeCall executes the function, for router handlers
 func (s *Server) handleFnInvokeCall(c *gin.Context) {
@@ -59,9 +66,6 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 		return err
 	}
 
-	if c.Request.Header.Get("Fn-Invoke-Type") == models.TypeDetached {
-		return s.ServeFnInvokeDetached(c, app, fn)
-	}
 	return s.ServeFnInvoke(c, app, fn)
 }
 
@@ -74,19 +78,20 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 	// buffer the response before writing it out to client to prevent partials from trying to stream
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	writer := syncResponseWriter{
-		headers: resp.Header(),
-		status:  200,
-		Buffer:  buf,
-	}
+	isDetached := req.Header.Get("Fn-Invoke-Type") == models.TypeDetached
 
-	opts := []agent.CallOpt{
-		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromHTTPFnRequest(app, fn, req),
+	var writer ResponseBuffer
+
+	if isDetached {
+		writer = agent.NewDetachedResponseWriter(resp.Header(), 202)
+	} else {
+		writer = &syncResponseWriter{
+			headers: resp.Header(),
+			status:  200,
+			Buffer:  buf,
+		}
 	}
-	if trig != nil {
-		opts = append(opts, agent.WithTrigger(trig))
-	}
+	opts := getCallOptions(req, app, fn, trig, writer)
 
 	call, err := s.agent.GetCall(opts...)
 	if err != nil {
@@ -103,11 +108,36 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 	writer.Header().Add("Fn-Call-Id", call.Model().ID) // XXX(reed): move to before Submit when adding streaming
 
 	// buffered response writer traps status (so we can add headers), we need to write it still
-	if writer.status > 0 {
-		resp.WriteHeader(writer.status)
+	if writer.Status() > 0 {
+		resp.WriteHeader(writer.Status())
+	}
+
+	if isDetached {
+		return nil
 	}
 
 	io.Copy(resp, buf)
 	bufPool.Put(buf) // at this point, submit returned without timing out, so we can re-use this one
 	return nil
+}
+
+func getCallOptions(req *http.Request, app *models.App, fn *models.Fn, trig *models.Trigger, rw http.ResponseWriter) []agent.CallOpt {
+	var opts []agent.CallOpt
+	if req.Header.Get("Fn-Invoke-Type") == models.TypeDetached {
+		opts = []agent.CallOpt{
+			agent.WithWriter(rw), // XXX (reed): order matters [for now]
+			agent.FromHTTPFnRequest(app, fn, req),
+			agent.InvokeDetached(),
+		}
+	} else {
+		opts = []agent.CallOpt{
+			agent.WithWriter(rw), // XXX (reed): order matters [for now]
+			agent.FromHTTPFnRequest(app, fn, req),
+		}
+	}
+
+	if trig != nil {
+		opts = append(opts, agent.WithTrigger(trig))
+	}
+	return opts
 }
