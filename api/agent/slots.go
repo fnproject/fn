@@ -45,7 +45,7 @@ type slotToken struct {
 
 type slotCaller struct {
 	notify chan error      // notification to caller
-	ctx    context.Context // caller context
+	done   <-chan struct{} // caller done
 }
 
 // LIFO queue that exposes input/output channels along

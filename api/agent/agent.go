@@ -368,7 +368,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		caller.ctx = ctx
+		caller.done = ctx.Done()
 		caller.notify = make(chan error)
 	}
 
@@ -493,7 +493,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 		} else if a.shutWg.AddSession(1) {
 			go func() {
 				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
-				a.runHot(caller.ctx, call, tok, state)
+				a.runHot(ctx, caller, call, tok, state)
 				a.shutWg.DoneSession()
 			}()
 			// early return (do not allow container state to switch to ContainerStateDone)
@@ -747,7 +747,7 @@ func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
 // nannyHotContainer is a helper function to monitor initialization channel, container context as well as
 // agent shutdown during the lifetime of the container.
-func (a *agent) nannyHotContainer(ctx context.Context, callerCtx context.Context, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, pulled chan struct{}) {
+func (a *agent) nannyHotContainer(ctx context.Context, caller slotCaller, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, pulled chan struct{}) {
 	defer cancel()
 
 	timer := time.NewTimer(a.cfg.HotPullTimeout)
@@ -768,9 +768,9 @@ InitPhase:
 			return
 		case <-a.shutWg.Closer(): // agent shutdown
 			return
-		case <-callerCtx.Done(): // original caller disconnected or serviced by another container?
+		case <-caller.done: // original caller disconnected or serviced by another container?
 			evictor.SetEvictable(true)
-			callerCtx = context.Background() // block 'callerCtx' after this point
+			caller.done = make(chan struct{}) // block 'doneChan' after this point
 		case <-evictor.C: // eviction
 			return
 		case <-timer.C: // init timeout
@@ -780,17 +780,18 @@ InitPhase:
 
 	timer.Stop()
 
-	// Start monitoring agent shutdown
+	// Start monitoring agent/container shutdown. Here we block and keep on monitoring. This is to collapse
+	// shutWg close channel into ctx Done. Rest of the code can monitor ctx only.
 	select {
 	case <-a.shutWg.Closer():
 	case <-ctx.Done():
 	}
 }
 
-func (a *agent) runHot(callerCtx context.Context, call *call, tok ResourceToken, state ContainerState) {
+func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok ResourceToken, state ContainerState) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx := common.BackgroundContext(callerCtx)
+	ctx = common.BackgroundContext(ctx)
 	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
 	defer span.End()
 
@@ -861,9 +862,9 @@ func (a *agent) runHot(callerCtx context.Context, call *call, tok ResourceToken,
 		}
 	}()
 
-	go a.nannyHotContainer(ctx, callerCtx, cancel, evictor, initialized, pulled)
+	go a.nannyHotContainer(ctx, caller, cancel, evictor, initialized, pulled)
 
-	container, queueErr = newHotContainer(ctx, call, &a.cfg, id, logger, initialized)
+	container, queueErr = newHotContainer(ctx, call, &a.cfg, id, initialized)
 	if queueErr != nil {
 		return
 	}
@@ -948,10 +949,15 @@ func checkSocketDestination(filename string) error {
 	return nil
 }
 
-func inotifyAwait(ctx context.Context, iofsDir string, logger logrus.FieldLogger, initialized chan struct{}) error {
+func inotifyAwait(ctx context.Context, iofsDir string, initialized chan struct{}) error {
 	ctx, span := trace.StartSpan(ctx, "inotify_await")
 	defer span.End()
 
+	logger := common.Logger(ctx)
+
+	// Here we create the fs notify (inotify) synchronously and once that is
+	// setup, then fork off our async go-routine. Basically fsnotify should be enabled
+	// before we launch the container in order not to miss any events.
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("error getting fsnotify watcher: %v", err)
@@ -1102,10 +1108,12 @@ type container struct {
 }
 
 //newHotContainer creates a container that can be used for multiple sequential events
-func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, logger logrus.FieldLogger, initialized chan struct{}) (*container, error) {
+func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, initialized chan struct{}) (*container, error) {
 
 	var iofs iofs
 	var err error
+
+	logger := common.Logger(ctx)
 
 	if cfg.IOFSEnableTmpfs {
 		iofs, err = newTmpfsIOFS(ctx, cfg)
@@ -1116,7 +1124,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, lo
 		return nil, err
 	}
 
-	err = inotifyAwait(ctx, iofs.AgentPath(), logger, initialized)
+	err = inotifyAwait(ctx, iofs.AgentPath(), initialized)
 	if err != nil {
 		if err := iofs.Close(); err != nil {
 			logger.WithError(err).Error("Error closing IOFS")

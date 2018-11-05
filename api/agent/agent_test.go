@@ -1219,7 +1219,7 @@ func TestDockerAuthExtn(t *testing.T) {
 
 	ctx := context.TODO()
 
-	c, err := newHotContainer(ctx, call, cfg, id.New().String(), logrus.StandardLogger(), make(chan struct{}))
+	c, err := newHotContainer(ctx, call, cfg, id.New().String(), make(chan struct{}))
 	if err != nil {
 		t.Fatal("got unexpected err: ", err)
 	}
@@ -1236,7 +1236,7 @@ func TestDockerAuthExtn(t *testing.T) {
 	extn["FN_REGISTRY_TOKEN"] = "TestRegistryToken"
 	call.extensions = extn
 
-	c, err = newHotContainer(ctx, call, cfg, id.New().String(), logrus.StandardLogger(), make(chan struct{}))
+	c, err = newHotContainer(ctx, call, cfg, id.New().String(), make(chan struct{}))
 	if err != nil {
 		t.Fatal("got unexpected err: ", err)
 	}
