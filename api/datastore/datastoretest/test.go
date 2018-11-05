@@ -734,9 +734,8 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 			if len(fns.Items) != 1 {
 				t.Fatalf("expected result count to be 1, got %d", len(fns.Items))
-			} else if !gendFns[0].EqualsWithAnnotationSubset(fns.Items[0]) {
-				// t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", gendFns[0].Name, fns.Items[0].Name)
-				t.Fatalf("expected function list to contain function %s, got %#v", f1.Name, fns)
+			} else if !f1.EqualsWithAnnotationSubset(fns.Items[0]) {
+				t.Fatalf("expected function list to contain function %s, got %#v", f1.Name, fns.Items[0].Name)
 			}
 		})
 
