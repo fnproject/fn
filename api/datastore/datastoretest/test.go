@@ -727,6 +727,16 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			} else if !gendFns[2].EqualsWithAnnotationSubset(fns.Items[1]) {
 				t.Fatalf("expected `func.Name` to be `%#v` but it was `%#v`", gendFns[2], fns.Items[1])
 			}
+
+			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, Name: f1.Name})
+			if err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+			if len(fns.Items) != 1 {
+				t.Fatalf("expected result count to be 1, got %d", len(fns.Items))
+			} else if !f1.EqualsWithAnnotationSubset(fns.Items[0]) {
+				t.Fatalf("expected function list to contain function %s, got %#v", f1.Name, fns.Items[0].Name)
+			}
 		})
 
 		t.Run("delete with empty fn name", func(t *testing.T) {
