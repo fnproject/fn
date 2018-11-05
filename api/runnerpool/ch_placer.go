@@ -5,6 +5,7 @@ package runnerpool
 
 import (
 	"context"
+	"time"
 
 	"github.com/fnproject/fn/api/models"
 
@@ -22,12 +23,15 @@ func NewCHPlacer(cfg *PlacerConfig) Placer {
 		cfg: *cfg,
 	}
 }
+func (p *chPlacer) Config() PlacerConfig {
+	return p.cfg
+}
 
 // This borrows the CH placement algorithm from the original FNLB.
 // Because we ask a runner to accept load (queuing on the LB rather than on the nodes), we don't use
 // the LB_WAIT to drive placement decisions: runners only accept work if they have the capacity for it.
-func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
-	state := NewPlacerTracker(ctx, &p.cfg, call.Model().Type)
+func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall, placerTimeout time.Duration) error {
+	state := NewPlacerTracker(ctx, &p.cfg, placerTimeout)
 	defer state.HandleDone()
 
 	key := call.Model().FnID

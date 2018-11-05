@@ -227,18 +227,19 @@ func (a *lbAgent) placeDetachCall(ctx context.Context, call *call) error {
 }
 
 func (a *lbAgent) placeCall(ctx context.Context, call *call) error {
-	err := a.placer.PlaceCall(a.rp, ctx, call)
+	err := a.placer.PlaceCall(a.rp, ctx, call, a.placer.Config().PlacerTimeout)
 	return a.handleCallEnd(ctx, call, err, true)
 }
 
 func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error) {
 	var cancel func()
 	ctx = common.BackgroundContext(ctx)
-	// 30 secs PlacerTimeout for Detached + call.Timeout (inside container) + 360 sec headroom
-	// to make sure we do not wait indefinitely, but also wait enough time for worst case.
-	ctx, cancel = context.WithTimeout(ctx, time.Duration(360+call.Timeout)*time.Second)
+	placerTimeout := a.placer.Config().DetachedPlacerTimeout
+	// PlacerTimeout for Detached + call.Timeout (inside container)
+	ctx, cancel = context.WithTimeout(ctx, placerTimeout+time.Duration(call.Timeout)*time.Second)
 	defer cancel()
-	err := a.placer.PlaceCall(a.rp, ctx, call)
+
+	err := a.placer.PlaceCall(a.rp, ctx, call, placerTimeout)
 	errCh <- a.handleCallEnd(ctx, call, err, true)
 }
 

@@ -88,10 +88,9 @@ func TestCanExecuteDetachedFunction(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
@@ -364,10 +363,9 @@ func TestBasicConcurrentDetachedExecution(t *testing.T) {
 	app = ensureApp(t, app)
 
 	fn := &models.Fn{
-		AppID:  app.ID,
-		Name:   id.New().String(),
-		Image:  image,
-		Format: format,
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
 		ResourceConfig: models.ResourceConfig{
 			Memory: memory,
 		},
