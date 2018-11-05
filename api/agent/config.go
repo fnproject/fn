@@ -122,7 +122,6 @@ func NewConfig() (*Config, error) {
 		MaxLogSize:       1 * 1024 * 1024,
 		PreForkImage:     "busybox",
 		PreForkCmd:       "tail -f /dev/null",
-		MaxDockerRetries: 10,
 	}
 
 	var err error

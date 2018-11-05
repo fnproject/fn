@@ -59,6 +59,11 @@ func newClient(ctx context.Context, maxRetries uint64) dockerClient {
 		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
 	}
 
+	// punch in default if not set
+	if maxRetries == 0 {
+		maxRetries = 10
+	}
+
 	go listenEventLoop(ctx, client)
 	return &dockerWrap{docker: client, maxRetries: maxRetries}
 }
