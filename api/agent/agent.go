@@ -761,7 +761,7 @@ InitPhase:
 		case <-pulled: // docker-pull completed. Let's install a new timer for UDS/initialize
 			timer.Stop()
 			timer = time.NewTimer(a.cfg.HotStartTimeout)
-			pulled = make(chan struct{}) // block 'pulled' after this point
+			pulled = nil // block 'pulled' after this point
 		case <-initialized: // good, container is ready
 			break InitPhase
 		case <-ctx.Done(): // container shutdown
@@ -770,7 +770,7 @@ InitPhase:
 			return
 		case <-caller.done: // original caller disconnected or serviced by another container?
 			evictor.SetEvictable(true)
-			caller.done = make(chan struct{}) // block 'doneChan' after this point
+			caller.done = nil // block 'doneChan' after this point
 		case <-evictor.C: // eviction
 			return
 		case <-timer.C: // init timeout
