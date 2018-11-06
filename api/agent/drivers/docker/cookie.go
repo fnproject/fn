@@ -24,6 +24,9 @@ type cookie struct {
 	task drivers.ContainerTask
 	// pointer to docker driver
 	drv *DockerDriver
+
+	// do we need to remove container at exit?
+	isCreated bool
 }
 
 func (c *cookie) configureLogger(log logrus.FieldLogger) {
@@ -199,7 +202,10 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 
 // implements Cookie
 func (c *cookie) Close(ctx context.Context) error {
-	err := c.drv.removeContainer(ctx, c.task.Id())
+	var err error
+	if c.isCreated {
+		err = c.drv.removeContainer(ctx, c.task.Id())
+	}
 	c.drv.unpickPool(c)
 	c.drv.unpickNetwork(c)
 	return err

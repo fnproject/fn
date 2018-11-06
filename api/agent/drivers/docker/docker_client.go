@@ -47,7 +47,7 @@ type dockerClient interface {
 }
 
 // TODO: switch to github.com/docker/engine-api
-func newClient(ctx context.Context) dockerClient {
+func newClient(ctx context.Context, maxRetries uint64) dockerClient {
 	// TODO this was much easier, don't need special settings at the moment
 	// docker, err := docker.NewClient(conf.Docker)
 	client, err := docker.NewClientFromEnv()
@@ -59,12 +59,18 @@ func newClient(ctx context.Context) dockerClient {
 		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
 	}
 
+	// punch in default if not set
+	if maxRetries == 0 {
+		maxRetries = 10
+	}
+
 	go listenEventLoop(ctx, client)
-	return &dockerWrap{client}
+	return &dockerWrap{docker: client, maxRetries: maxRetries}
 }
 
 type dockerWrap struct {
-	docker *docker.Client
+	docker     *docker.Client
+	maxRetries uint64
 }
 
 var (
@@ -210,13 +216,13 @@ func RegisterViews(tagKeys []string, latencyDist []float64) {
 }
 
 func (d *dockerWrap) retry(ctx context.Context, logger logrus.FieldLogger, f func() error) error {
-	var i int
+	var i uint64
 	var err error
 	defer func() { stats.Record(ctx, dockerRetriesMeasure.M(int64(i))) }()
 
 	var b common.Backoff
 	// 10 retries w/o change to backoff is ~13s if ops take ~0 time
-	for ; i < 10; i++ {
+	for ; i < d.maxRetries; i++ {
 		select {
 		case <-ctx.Done():
 			stats.Record(ctx, dockerTimeoutMeasure.M(0))

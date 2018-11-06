@@ -80,7 +80,7 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 	driver := &DockerDriver{
 		cancel:   cancel,
 		conf:     conf,
-		docker:   newClient(ctx),
+		docker:   newClient(ctx, conf.MaxRetries),
 		hostname: hostname,
 		auths:    auths,
 	}
@@ -274,6 +274,11 @@ func (drv *DockerDriver) PrepareCookie(ctx context.Context, c drivers.Cookie) er
 	if err != nil {
 		return err
 	}
+
+	// here let's assume we have created container, logically this should be after 'CreateContainer', but we
+	// are not 100% sure that *any* failure to CreateContainer does not ever leave a container around especially
+	// going through fsouza+docker-api.
+	cookie.isCreated = true
 
 	cookie.opts.Context = ctx
 	_, err = drv.docker.CreateContainer(cookie.opts)
