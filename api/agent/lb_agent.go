@@ -231,19 +231,20 @@ func (a *lbAgent) placeDetachCall(ctx context.Context, call *call) error {
 }
 
 func (a *lbAgent) placeCall(ctx context.Context, call *call) error {
-	err := a.placer.PlaceCall(a.rp, ctx, call, a.placer.Config().PlacerTimeout)
+	err := a.placer.PlaceCall(ctx, a.rp, call, a.placer.PlacerTimeout())
 	return a.handleCallEnd(ctx, call, err, true)
 }
 
 func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error) {
 	var cancel func()
 	ctx = common.BackgroundContext(ctx)
-	placerTimeout := a.placer.Config().DetachedPlacerTimeout
-	// PlacerTimeout for Detached + call.Timeout (inside container)
-	ctx, cancel = context.WithTimeout(ctx, placerTimeout+time.Duration(call.Timeout)*time.Second)
+	placerTimeout := a.placer.DetachedPlacerTimeout()
+	// PlacerTimeout for Detached + call.Timeout (inside container) + headroom for docker-pull, gRPC network retrasmit etc.)
+	newCtxTimeout := placerTimeout + time.Duration(call.Timeout) + a.cfg.DetachedHeadRoom/1000 // DetachedHeadRoom is in msec
+	ctx, cancel = context.WithTimeout(ctx, newCtxTimeout*time.Second)
 	defer cancel()
 
-	err := a.placer.PlaceCall(a.rp, ctx, call, placerTimeout)
+	err := a.placer.PlaceCall(ctx, a.rp, call, placerTimeout)
 	errCh <- a.handleCallEnd(ctx, call, err, true)
 }
 

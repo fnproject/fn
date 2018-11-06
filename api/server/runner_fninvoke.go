@@ -78,10 +78,9 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 	// buffer the response before writing it out to client to prevent partials from trying to stream
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	isDetached := req.Header.Get("Fn-Invoke-Type") == models.TypeDetached
-
 	var writer ResponseBuffer
 
+	isDetached := req.Header.Get("Fn-Invoke-Type") == models.TypeDetached
 	if isDetached {
 		writer = agent.NewDetachedResponseWriter(resp.Header(), 202)
 	} else {
@@ -123,17 +122,11 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 
 func getCallOptions(req *http.Request, app *models.App, fn *models.Fn, trig *models.Trigger, rw http.ResponseWriter) []agent.CallOpt {
 	var opts []agent.CallOpt
+	opts = append(opts, agent.WithWriter(rw)) // XXX (reed): order matters [for now]
+	opts = append(opts, agent.FromHTTPFnRequest(app, fn, req))
+
 	if req.Header.Get("Fn-Invoke-Type") == models.TypeDetached {
-		opts = []agent.CallOpt{
-			agent.WithWriter(rw), // XXX (reed): order matters [for now]
-			agent.FromHTTPFnRequest(app, fn, req),
-			agent.InvokeDetached(),
-		}
-	} else {
-		opts = []agent.CallOpt{
-			agent.WithWriter(rw), // XXX (reed): order matters [for now]
-			agent.FromHTTPFnRequest(app, fn, req),
-		}
+		opts = append(opts, agent.InvokeDetached())
 	}
 
 	if trig != nil {

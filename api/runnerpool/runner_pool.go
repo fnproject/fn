@@ -14,8 +14,9 @@ import (
 // Placer implements a placement strategy for calls that are load-balanced
 // across runners in a pool
 type Placer interface {
-	PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall, placerTimeout time.Duration) error
-	Config() PlacerConfig
+	PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall, placerTimeout time.Duration) error
+	PlacerTimeout() time.Duration
+	DetachedPlacerTimeout() time.Duration
 }
 
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
