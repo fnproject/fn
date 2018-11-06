@@ -10,10 +10,6 @@ services:
   logstore:
     hostname: logstore
     image: minio/minio
-    networks:
-      - fn-network
-    ports:
-      - "9091:9000"
     environment:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=password
@@ -23,10 +19,6 @@ services:
   db:
     image: "mysql:5.7.22"
     restart: always
-    networks:
-      - fn-network
-    ports:
-      - "3306:3306"
     environment:
       - "MYSQL_DATABASE=funcs"
       - "MYSQL_ROOT_PASSWORD=root"
@@ -35,68 +27,74 @@ services:
   mq:
     image: "redis"
     restart: always
-    networks:
-      - fn-network
-    ports:
-      - "6379:6379"
-  fnserver:
+  api:
     restart: always
     depends_on:
       - mq
       - db
       - logstore
-    build: .
-    networks:
-      - fn-network
+    build:
+      context: .
+      dockerfile: images/api/Dockerfile
     ports:
       - "8080:8080"
-    links:
-      - "db"
-      - "mq"
-      - "logstore"
     environment:
       FN_DB_URL: "mysql://root:root@tcp(db:3306)/funcs"
       FN_MQ_URL: "redis://mq:6379/"
       FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
+      FN_PUBLIC_LB_URL: "http://127.0.0.1:8081"
+  lb:
+    restart: always
+    depends_on:
+      - db
+      - runner
+      - logstore
+    build:
+      context: .
+      dockerfile: images/lb/Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
+      FN_RUNNER_API_URL: "http://api:8080/"
+      FN_RUNNER_ADDRESSES: "runner:9190"
+  runner:
+    restart: always
+    build:
+      context: .
+      dockerfile: images/runner/Dockerfile
+    networks:
+      - default
+      - fn-network
+    environment:
+      FN_IOFS_PATH: /app/data/iofs
+      FN_IOFS_DOCKER_PATH: ${PWD}/data/iofs
       FN_DOCKER_NETWORKS: "fn-network"
     volumes:
+      - ./data/iofs:/app/data/iofs
       - /var/run/docker.sock:/var/run/docker.sock
   grafana:
     image: grafana/grafana
     restart: always
-    networks:
-      - fn-network
     ports:
       - "3000:3000"
-    links:
-      - fnserver
-      - prometheus
     depends_on:
-      - fnserver
       - prometheus
   prometheus:
     image: prom/prometheus
     restart: always
     depends_on:
-      - fnserver
-    networks:
-      - fn-network
-    ports:
-      - "9090:9090"
-    links:
-      - fnserver
+      - api
+      - lb
+      - runner
     volumes:
       - ./examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml
   fnserver-ui:
     depends_on:
-      - fnserver
+      - api
     image: fnproject/ui
     restart: always
-    networks:
-      - fn-network
     ports:
       - "4000:4000"
-    links:
-      - "fnserver"
     environment:
       - FN_API_URL=http://fnserver:8080
