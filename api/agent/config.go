@@ -134,7 +134,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
 	err = setEnvMsecs(err, EnvHotStartTimeout, &cfg.HotStartTimeout, time.Duration(10)*time.Minute)
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
-	err = setEnvMsecs(err, EnvDetachedHeadroom, &cfg.DetachedHeadRoom, time.Duration(360000)*time.Millisecond)
+	err = setEnvMsecs(err, EnvDetachedHeadroom, &cfg.DetachedHeadRoom, time.Duration(360)*time.Second)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)

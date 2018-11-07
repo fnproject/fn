@@ -240,8 +240,8 @@ func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan err
 	ctx = common.BackgroundContext(ctx)
 	placerTimeout := a.placer.DetachedPlacerTimeout()
 	// PlacerTimeout for Detached + call.Timeout (inside container) + headroom for docker-pull, gRPC network retrasmit etc.)
-	newCtxTimeout := placerTimeout + time.Duration(call.Timeout) + a.cfg.DetachedHeadRoom/1000 // DetachedHeadRoom is in msec
-	ctx, cancel = context.WithTimeout(ctx, newCtxTimeout*time.Second)
+	newCtxTimeout := placerTimeout + time.Duration(call.Timeout)*time.Second + a.cfg.DetachedHeadRoom
+	ctx, cancel = context.WithTimeout(ctx, newCtxTimeout)
 	defer cancel()
 
 	err := a.placer.PlaceCall(ctx, a.rp, call, placerTimeout)
