@@ -821,7 +821,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			select {
 			case <-initialized:
 			default:
-				queueErr = models.ErrContainerExitedEarly
+				queueErr = models.ErrContainerInitFail
 			}
 		}
 

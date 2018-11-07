@@ -436,6 +436,48 @@ type dummyReader struct {
 	io.Reader
 }
 
+func TestHungFDK(t *testing.T) {
+	app := &models.App{ID: "app_id"}
+	fn := &models.Fn{
+		ID:     "fn_id",
+		Image:  "fnproject/fn-test-utils",
+		Config: models.Config{"ENABLE_INIT_DELAY_MSEC": "5000"},
+		ResourceConfig: models.ResourceConfig{
+			Timeout:     5,
+			IdleTimeout: 10,
+			Memory:      128,
+		},
+	}
+
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
+
+	ls := logs.NewMock()
+	cfg, err := NewConfig()
+	cfg.MaxDockerRetries = 1
+	cfg.HotStartTimeout = time.Duration(3) * time.Second
+	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	defer checkClose(t, a)
+
+	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(`{}`)})
+	if err != nil {
+		t.Fatal("unexpected error building request", err)
+	}
+
+	var out bytes.Buffer
+	callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&out))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err == nil {
+		t.Fatal("submit should error!")
+	}
+	if err != models.ErrContainerInitFail {
+		t.Fatalf("unexpected error %v", err)
+	}
+}
+
 func TestDockerPullHungRepo(t *testing.T) {
 	hung, cancel := context.WithCancel(context.Background())
 	garbageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -467,7 +509,7 @@ func TestDockerPullHungRepo(t *testing.T) {
 	ls := logs.NewMock()
 	cfg, err := NewConfig()
 	cfg.MaxDockerRetries = 1
-	cfg.HotStartTimeout = time.Duration(5) * time.Second
+	cfg.HotPullTimeout = time.Duration(5) * time.Second
 	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
 
