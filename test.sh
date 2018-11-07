@@ -6,12 +6,13 @@ export CONTEXT="fn_basic_tests"
 source ./helpers.sh
 remove_containers ${CONTEXT}
 
+export GOFLAGS=-mod=vendor
 export POSTGRES_URL=$(spawn_postgres ${CONTEXT})
 export MYSQL_URL=$(spawn_mysql ${CONTEXT})
 export MINIO_URL=$(spawn_minio ${CONTEXT})
 export FN_DS_DB_PING_MAX_RETRIES=60
 
-go test -v $(go list ./... | \
+go test $(go list ./... | \
     grep -v vendor | \
     grep -v examples | \
     grep -v test/fn-api-tests | \

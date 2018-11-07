@@ -94,6 +94,23 @@ func isEmptyValue(v reflect.Value, tinfos *TypeInfos, deref, checkStruct bool) b
 // }
 
 // --------------------------
+type atomicClsErr struct {
+	v atomic.Value
+}
+
+func (x *atomicClsErr) load() clsErr {
+	i := x.v.Load()
+	if i == nil {
+		return clsErr{}
+	}
+	return i.(clsErr)
+}
+
+func (x *atomicClsErr) store(p clsErr) {
+	x.v.Store(p)
+}
+
+// --------------------------
 type atomicTypeInfoSlice struct { // expected to be 2 words
 	v atomic.Value
 }
