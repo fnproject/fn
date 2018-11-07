@@ -251,7 +251,6 @@ type Config struct {
 	PreForkNetworks      string `json:"pre_fork_networks"`
 	MaxTmpFsInodes       uint64 `json:"max_tmpfs_inodes"`
 	EnableReadOnlyRootFs bool   `json:"enable_readonly_rootfs"`
-	EnableTini           bool   `json:"enable_tini"`
 	MaxRetries           uint64 `json:"max_retries"`
 }
 

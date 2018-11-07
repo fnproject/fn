@@ -231,7 +231,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 		},
 		HostConfig: &docker.HostConfig{
 			ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,
-			Init:           drv.conf.EnableTini,
+			Init:           true,
 		},
 	}
 
