@@ -31,7 +31,6 @@ type Config struct {
 	EnableNBResourceTracker bool          `json:"enable_nb_resource_tracker"`
 	MaxTmpFsInodes          uint64        `json:"max_tmpfs_inodes"`
 	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
-	DisableTini             bool          `json:"disable_tini"`
 	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
 	IOFSEnableTmpfs         bool          `json:"iofs_enable_tmpfs"`
 	IOFSAgentPath           string        `json:"iofs_path"`
@@ -83,8 +82,6 @@ const (
 	EnvMaxTmpFsInodes = "FN_MAX_TMPFS_INODES"
 	// EnvDisableReadOnlyRootFs makes the root fs for a container have rw permissions, by default it is read only
 	EnvDisableReadOnlyRootFs = "FN_DISABLE_READONLY_ROOTFS"
-	// EnvDisableTini runs containers without using the --init option, for tini pid 1 action
-	EnvDisableTini = "FN_DISABLE_TINI"
 	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
 	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
 
