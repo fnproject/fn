@@ -748,22 +748,22 @@ func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 // nannyHotContainer is a helper function to monitor the container to enforce two different timeouts during
 // initialization. After initialization, the nanny blocks until container exits or agent is shutdown. This
 // simplifies rest of the hot container code (which only needs to monitor initialized and ctx channels)
-func (a *agent) nannyHotContainer(ctx context.Context, caller slotCaller, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, udsWait <-chan error, pulled <-chan struct{}, errQueue chan error) {
+func (a *agent) nannyHotContainer(ctx context.Context, caller slotCaller, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, udsWait <-chan error, created <-chan struct{}, errQueue chan error) {
 	// Once nanny is done, we terminate the container and related go routines
 	defer cancel()
 
 	timer := time.NewTimer(a.cfg.HotPullTimeout)
 	defer timer.Stop()
 
-	// Start monitoring initialization phase. Here we expect to see "pulled" completion first,
+	// Start monitoring initialization phase. Here we expect to see "created" completion first,
 	// followed by "initialized".
 InitPhase:
 	for {
 		select {
-		case <-pulled: // docker-pull completed. Let's install a new timer for UDS/initialize
+		case <-created: // docker-pull + docker-create completed. Let's install a new timer for UDS/initialize
 			timer.Stop()
 			timer = time.NewTimer(a.cfg.HotStartTimeout)
-			pulled = nil // block 'pulled' after this point
+			created = nil // block 'created' after this point
 		case err := <-udsWait:
 			if tryQueueErr(err, errQueue) != nil {
 				return // init failure
@@ -779,7 +779,7 @@ InitPhase:
 		case <-evictor.C: // eviction
 			return
 		case <-timer.C: // init timeout
-			if pulled != nil {
+			if created != nil {
 				tryQueueErr(models.ErrDockerPullTimeout, errQueue)
 			} else {
 				tryQueueErr(models.ErrContainerInitTimeout, errQueue)
@@ -788,6 +788,7 @@ InitPhase:
 		}
 	}
 
+	// Signal initialization to the consumers
 	close(initialized)
 	timer.Stop()
 
@@ -799,6 +800,7 @@ InitPhase:
 	}
 }
 
+// Try to queue an error to the error channel if possible.
 func tryQueueErr(err error, ch chan error) error {
 	if err != nil {
 		select {
@@ -807,15 +809,6 @@ func tryQueueErr(err error, ch chan error) error {
 		}
 	}
 	return err
-}
-
-func getQueueErr(ch <-chan error) error {
-	select {
-	case err := <-ch:
-		return err
-	default:
-	}
-	return nil
 }
 
 func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok ResourceToken, state ContainerState) {
@@ -835,10 +828,10 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	logger := logrus.WithFields(logrus.Fields{"id": id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx, cancel := context.WithCancel(common.WithLogger(ctx, logger))
 
-	initialized := make(chan struct{})
-	udsWait := make(chan error, 1)
-	pulled := make(chan struct{})
-	errQueue := make(chan error, 1)
+	initialized := make(chan struct{}) // initialized means (docker pulled, container is created/started, uds is ready)
+	udsWait := make(chan error, 1)     // track UDS state and errors
+	created := make(chan struct{})     // track docker pull + docker create, etc. completion
+	errQueue := make(chan error, 1)    // errors to be reflected back to the slot queue
 
 	evictor := a.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
@@ -857,8 +850,10 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 				tryQueueErr(models.ErrContainerInitFail, errQueue)
 			}
 
-			if err := getQueueErr(errQueue); err != nil {
+			select {
+			case err := <-errQueue:
 				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+			default:
 			}
 		}
 
@@ -895,7 +890,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		}
 	}()
 
-	go a.nannyHotContainer(ctx, caller, cancel, evictor, initialized, udsWait, pulled, errQueue)
+	go a.nannyHotContainer(ctx, caller, cancel, evictor, initialized, udsWait, created, errQueue)
 
 	container, err = newHotContainer(ctx, call, &a.cfg, id, udsWait)
 	if tryQueueErr(err, errQueue) != nil {
@@ -909,7 +904,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
-	close(pulled)
+	close(created) // signal docker pull + create completed.
 	waiter, err = cookie.Run(ctx)
 	if tryQueueErr(err, errQueue) != nil {
 		return
