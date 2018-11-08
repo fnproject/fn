@@ -7,9 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,11 +25,8 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
-	"net"
-	"os"
-	"path/filepath"
 )
 
 func init() {
@@ -436,22 +437,6 @@ type dummyReader struct {
 	io.Reader
 }
 
-func TestPlainDoEvict(t *testing.T) {
-
-}
-
-func TestPlainNoEvict(t *testing.T) {
-
-}
-
-func TestHungFDKDoEvict(t *testing.T) {
-
-}
-
-func TestHungFDKNoEvict(t *testing.T) {
-
-}
-
 func TestHungFDK(t *testing.T) {
 	app := &models.App{ID: "app_id"}
 	fn := &models.Fn{
@@ -492,14 +477,6 @@ func TestHungFDK(t *testing.T) {
 	if err != models.ErrContainerInitFail {
 		t.Fatalf("unexpected error %v", err)
 	}
-}
-
-func TestDockerPullHungDoEvict(t *testing.T) {
-
-}
-
-func TestDockerPullHungNoEvict(t *testing.T) {
-
 }
 
 func TestDockerPullHungRepo(t *testing.T) {
@@ -552,8 +529,7 @@ func TestDockerPullHungRepo(t *testing.T) {
 	if err == nil {
 		t.Fatal("submit should error!")
 	}
-	errS := err.Error()
-	if !strings.HasPrefix(errS, "Failed to pull image ") || !strings.Contains(errS, "context deadline exceeded") {
+	if err != models.ErrDockerPullTimeoutServerBusy {
 		t.Fatalf("unexpected error %v", err)
 	}
 }
@@ -601,7 +577,7 @@ func TestDockerPullBadRepo(t *testing.T) {
 	if err == nil {
 		t.Fatal("submit should error!")
 	}
-	if !strings.HasPrefix(err.Error(), "Failed to pull image ") {
+	if !models.IsAPIError(err) || !strings.HasPrefix(err.Error(), "Failed to pull image ") {
 		t.Fatalf("unexpected error %v", err)
 	}
 }
@@ -1285,7 +1261,7 @@ func TestDockerAuthExtn(t *testing.T) {
 
 	ctx := context.TODO()
 
-	c, err := newHotContainer(ctx, call, cfg, id.New().String(), make(chan struct{}))
+	c, err := newHotContainer(ctx, call, cfg, id.New().String(), make(chan error, 1))
 	if err != nil {
 		t.Fatal("got unexpected err: ", err)
 	}
@@ -1302,7 +1278,7 @@ func TestDockerAuthExtn(t *testing.T) {
 	extn["FN_REGISTRY_TOKEN"] = "TestRegistryToken"
 	call.extensions = extn
 
-	c, err = newHotContainer(ctx, call, cfg, id.New().String(), make(chan struct{}))
+	c, err = newHotContainer(ctx, call, cfg, id.New().String(), make(chan error, 1))
 	if err != nil {
 		t.Fatal("got unexpected err: ", err)
 	}

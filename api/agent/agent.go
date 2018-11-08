@@ -748,7 +748,7 @@ func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 // nannyHotContainer is a helper function to monitor the container to enforce two different timeouts during
 // initialization. After initialization, the nanny blocks until container exits or agent is shutdown. This
 // simplifies rest of the hot container code (which only needs to monitor initialized and ctx channels)
-func (a *agent) nannyHotContainer(ctx context.Context, caller slotCaller, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, pulled chan struct{}) {
+func (a *agent) nannyHotContainer(ctx context.Context, caller slotCaller, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, udsWait <-chan error, pulled <-chan struct{}, errQueue chan error) {
 	// Once nanny is done, we terminate the container and related go routines
 	defer cancel()
 
@@ -764,8 +764,11 @@ InitPhase:
 			timer.Stop()
 			timer = time.NewTimer(a.cfg.HotStartTimeout)
 			pulled = nil // block 'pulled' after this point
-		case <-initialized: // good, container is ready
-			break InitPhase
+		case err := <-udsWait:
+			if tryQueueErr(err, errQueue) != nil {
+				return // init failure
+			}
+			break InitPhase // good, UDS is ready
 		case <-ctx.Done(): // container shutdown
 			return
 		case <-a.shutWg.Closer(): // agent shutdown
@@ -776,10 +779,16 @@ InitPhase:
 		case <-evictor.C: // eviction
 			return
 		case <-timer.C: // init timeout
+			if pulled != nil {
+				tryQueueErr(models.ErrDockerPullTimeoutServerBusy, errQueue)
+			} else {
+				tryQueueErr(models.ErrContainerInitFail, errQueue)
+			}
 			return
 		}
 	}
 
+	close(initialized)
 	timer.Stop()
 
 	// Start monitoring agent/container shutdown. Here we block and keep on monitoring. This is to collapse
@@ -788,6 +797,25 @@ InitPhase:
 	case <-a.shutWg.Closer():
 	case <-ctx.Done():
 	}
+}
+
+func tryQueueErr(err error, ch chan error) error {
+	if err != nil {
+		select {
+		case ch <- err:
+		default:
+		}
+	}
+	return err
+}
+
+func getQueueErr(ch <-chan error) error {
+	select {
+	case err := <-ch:
+		return err
+	default:
+	}
+	return nil
 }
 
 func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok ResourceToken, state ContainerState) {
@@ -801,14 +829,17 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	var cookie drivers.Cookie
 	var waiter drivers.WaitResult
 	var runRes drivers.RunResult
-	var queueErr error
+	var err error
 
 	id := id.New().String()
 	logger := logrus.WithFields(logrus.Fields{"id": id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx, cancel := context.WithCancel(common.WithLogger(ctx, logger))
 
 	initialized := make(chan struct{})
+	udsWait := make(chan error, 1)
 	pulled := make(chan struct{})
+	errQueue := make(chan error, 1)
+
 	evictor := a.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
 	statsUtilization(ctx, a.resources.GetUtilization())
@@ -819,17 +850,10 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		// IMPORTANT: we do not emit eviction errors to slot queue. Remember evictions occur
 		// in cases of overcapacity. If an accidental eviction occurs, then the client
 		// will have to wait hot poll period to spawn a new container.
-		if queueErr == nil && !evictor.isEvicted() {
-			select {
-			case <-initialized:
-			default:
-				queueErr = models.ErrContainerInitFail
+		if !evictor.isEvicted() {
+			if err := getQueueErr(errQueue); err != nil {
+				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 			}
-		}
-
-		// was there an error we would like to reflect back to slot queue?
-		if queueErr != nil {
-			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: queueErr})
 		}
 
 		if runRes != nil && runRes.Error() != context.Canceled {
@@ -860,27 +884,28 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 
 		statsUtilization(ctx, a.resources.GetUtilization())
 		if evictor.isEvicted() {
+			logger.Debugf("Hot function evicted")
 			statsContainerEvicted(ctx, lastState)
 		}
 	}()
 
-	go a.nannyHotContainer(ctx, caller, cancel, evictor, initialized, pulled)
+	go a.nannyHotContainer(ctx, caller, cancel, evictor, initialized, udsWait, pulled, errQueue)
 
-	container, queueErr = newHotContainer(ctx, call, &a.cfg, id, initialized)
-	if queueErr != nil {
+	container, err = newHotContainer(ctx, call, &a.cfg, id, udsWait)
+	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
-	cookie, queueErr = a.driver.CreateCookie(ctx, container)
-	if queueErr != nil {
+	cookie, err = a.driver.CreateCookie(ctx, container)
+	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
-	queueErr = a.driver.PrepareCookie(ctx, cookie)
-	if queueErr != nil {
+	err = a.driver.PrepareCookie(ctx, cookie)
+	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
 	close(pulled)
-	waiter, queueErr = cookie.Run(ctx)
-	if queueErr != nil {
+	waiter, err = cookie.Run(ctx)
+	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
 
@@ -951,7 +976,7 @@ func checkSocketDestination(filename string) error {
 	return nil
 }
 
-func inotifyAwait(ctx context.Context, iofsDir string, initialized chan struct{}) error {
+func inotifyAwait(ctx context.Context, iofsDir string, udsWait chan error) error {
 	ctx, span := trace.StartSpan(ctx, "inotify_await")
 	defer span.End()
 
@@ -989,6 +1014,7 @@ func inotifyAwait(ctx context.Context, iofsDir string, initialized chan struct{}
 				return
 			case err := <-fsWatcher.Errors:
 				logger.WithError(err).Error("error watching for iofs")
+				udsWait <- err
 				return
 			case event := <-fsWatcher.Events:
 				logger.WithField("event", event).Debug("fsnotify event")
@@ -996,8 +1022,9 @@ func inotifyAwait(ctx context.Context, iofsDir string, initialized chan struct{}
 					err := checkSocketDestination(filepath.Join(iofsDir, udsFilename))
 					if err != nil {
 						logger.WithError(err).Error("Failed to check socket destination")
+						udsWait <- models.ErrContainerInitFail
 					} else {
-						close(initialized)
+						close(udsWait)
 					}
 					return
 				}
@@ -1110,7 +1137,7 @@ type container struct {
 }
 
 //newHotContainer creates a container that can be used for multiple sequential events
-func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, initialized chan struct{}) (*container, error) {
+func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, udsWait chan error) (*container, error) {
 
 	var iofs iofs
 	var err error
@@ -1126,7 +1153,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, in
 		return nil, err
 	}
 
-	err = inotifyAwait(ctx, iofs.AgentPath(), initialized)
+	err = inotifyAwait(ctx, iofs.AgentPath(), udsWait)
 	if err != nil {
 		if err := iofs.Close(); err != nil {
 			logger.WithError(err).Error("Error closing IOFS")
