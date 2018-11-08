@@ -679,7 +679,7 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
 		resp, err := s.container.udsClient.Do(req)
 		if err != nil {
 			common.Logger(ctx).WithError(err).Error("Got error from UDS socket")
-			errApp <- models.NewAPIError(http.StatusBadGateway, errors.New("error receiving function response"))
+			errApp <- models.ErrFunctionResponse
 			return
 		}
 		common.Logger(ctx).WithField("resp", resp).Debug("Got resp from UDS socket")
@@ -780,9 +780,9 @@ InitPhase:
 			return
 		case <-timer.C: // init timeout
 			if pulled != nil {
-				tryQueueErr(models.ErrDockerPullTimeoutServerBusy, errQueue)
+				tryQueueErr(models.ErrDockerPullTimeout, errQueue)
 			} else {
-				tryQueueErr(models.ErrContainerInitFail, errQueue)
+				tryQueueErr(models.ErrContainerInitTimeout, errQueue)
 			}
 			return
 		}
@@ -851,6 +851,12 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		// in cases of overcapacity. If an accidental eviction occurs, then the client
 		// will have to wait hot poll period to spawn a new container.
 		if !evictor.isEvicted() {
+			select {
+			case <-initialized:
+			default:
+				tryQueueErr(models.ErrContainerInitFail, errQueue)
+			}
+
 			if err := getQueueErr(errQueue); err != nil {
 				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 			}
@@ -1013,6 +1019,9 @@ func inotifyAwait(ctx context.Context, iofsDir string, udsWait chan error) error
 			case <-ctx.Done():
 				return
 			case err := <-fsWatcher.Errors:
+				// TODO: We do not know if these cases would be due to customer container/FDK
+				// fault or some kind of service/runner issue. As conservative choice,
+				// we reflect back a non API error, which means a 500 back to user.
 				logger.WithError(err).Error("error watching for iofs")
 				udsWait <- err
 				return
@@ -1021,6 +1030,8 @@ func inotifyAwait(ctx context.Context, iofsDir string, udsWait chan error) error
 				if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepath.Join(iofsDir, udsFilename) {
 					err := checkSocketDestination(filepath.Join(iofsDir, udsFilename))
 					if err != nil {
+						// This case is more like a bad FDK/container, so let's reflect this back to
+						// clients as container init fail.
 						logger.WithError(err).Error("Failed to check socket destination")
 						udsWait <- models.ErrContainerInitFail
 					} else {

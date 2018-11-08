@@ -474,7 +474,7 @@ func TestHungFDK(t *testing.T) {
 	if err == nil {
 		t.Fatal("submit should error!")
 	}
-	if err != models.ErrContainerInitFail {
+	if err != models.ErrContainerInitTimeout {
 		t.Fatalf("unexpected error %v", err)
 	}
 }
@@ -529,7 +529,7 @@ func TestDockerPullHungRepo(t *testing.T) {
 	if err == nil {
 		t.Fatal("submit should error!")
 	}
-	if err != models.ErrDockerPullTimeoutServerBusy {
+	if err != models.ErrDockerPullTimeout {
 		t.Fatalf("unexpected error %v", err)
 	}
 }

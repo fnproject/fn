@@ -109,6 +109,68 @@ func execFn(input string, fn *models.Fn, app *models.App, a Agent, tmsec int) er
 	return err
 }
 
+func TestBadContainer1(t *testing.T) {
+	a, err := getAgent()
+	if err != nil {
+		t.Fatal("cannot create agent")
+	}
+	defer checkClose(t, a)
+
+	fn := getFn(0)
+	fn.Config = models.Config{"ENABLE_INIT_EXIT": "0"}
+
+	err = execFn(`{"sleepTime": 8000}`, fn, getApp(), a, 20000)
+	if err != models.ErrContainerInitFail {
+		t.Fatalf("submit unexpected error! %v", err)
+	}
+}
+
+func TestBadContainer2(t *testing.T) {
+	a, err := getAgent()
+	if err != nil {
+		t.Fatal("cannot create agent")
+	}
+	defer checkClose(t, a)
+
+	fn := getFn(0)
+	fn.Config = models.Config{"ENABLE_INIT_EXIT": "0", "ENABLE_INIT_DELAY_MSEC": "200"}
+
+	err = execFn(`{"sleepTime": 8000}`, fn, getApp(), a, 20000)
+	if err != models.ErrContainerInitFail {
+		t.Fatalf("submit unexpected error! %v", err)
+	}
+}
+
+func TestBadContainer3(t *testing.T) {
+	a, err := getAgent()
+	if err != nil {
+		t.Fatal("cannot create agent")
+	}
+	defer checkClose(t, a)
+
+	fn := getFn(0)
+
+	err = execFn(`{"isCrash": true }`, fn, getApp(), a, 20000)
+	if err != models.ErrFunctionResponse {
+		t.Fatalf("submit unexpected error! %v", err)
+	}
+}
+
+func TestBadContainer4(t *testing.T) {
+	a, err := getAgent()
+	if err != nil {
+		t.Fatal("cannot create agent")
+	}
+	defer checkClose(t, a)
+
+	fn := getFn(0)
+
+	err = execFn(`{"isExit": true, "exitCode": 0 }`, fn, getApp(), a, 20000)
+	if err != models.ErrFunctionResponse {
+		t.Fatalf("submit unexpected error! %v", err)
+	}
+}
+
 // Eviction will NOT take place since the first container is busy
 func TestPlainNoEvict(t *testing.T) {
 	a, err := getAgent()
@@ -184,7 +246,7 @@ func TestHungFDKNoEvict(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		err := execFn(`{"sleepTime": 0}`, getFn(11000), getApp(), a, 20000)
-		if err != models.ErrContainerInitFail {
+		if err != models.ErrContainerInitTimeout {
 			t.Fatalf("submit unexpected error! %v", err)
 		}
 	}()
@@ -288,7 +350,7 @@ func TestDockerPullHungNoEvict(t *testing.T) {
 		fn.Image = strings.TrimPrefix(dockerSrv.URL, "http://") + "/" + fn.Image
 
 		err := execFn(`{"sleepTime": 0}`, fn, getApp(), a, 20000)
-		if err != models.ErrDockerPullTimeoutServerBusy {
+		if err != models.ErrDockerPullTimeout {
 			t.Fatalf("unexpected error %v", err)
 		}
 	}()
