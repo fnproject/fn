@@ -745,9 +745,11 @@ func newSizerRespWriter(max uint64, rw http.ResponseWriter) http.ResponseWriter 
 
 func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
-// nannyHotContainer is a helper function to monitor initialization channel, container context as well as
-// agent shutdown during the lifetime of the container.
+// nannyHotContainer is a helper function to monitor the container to enforce two different timeouts during
+// initialization. After initialization, the nanny blocks until container exits or agent is shutdown. This
+// simplifies rest of the hot container code (which only needs to monitor initialized and ctx channels)
 func (a *agent) nannyHotContainer(ctx context.Context, caller slotCaller, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, pulled chan struct{}) {
+	// Once nanny is done, we terminate the container and related go routines
 	defer cancel()
 
 	timer := time.NewTimer(a.cfg.HotPullTimeout)

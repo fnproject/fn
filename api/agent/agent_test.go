@@ -436,6 +436,22 @@ type dummyReader struct {
 	io.Reader
 }
 
+func TestPlainDoEvict(t *testing.T) {
+
+}
+
+func TestPlainNoEvict(t *testing.T) {
+
+}
+
+func TestHungFDKDoEvict(t *testing.T) {
+
+}
+
+func TestHungFDKNoEvict(t *testing.T) {
+
+}
+
 func TestHungFDK(t *testing.T) {
 	app := &models.App{ID: "app_id"}
 	fn := &models.Fn{
@@ -476,6 +492,14 @@ func TestHungFDK(t *testing.T) {
 	if err != models.ErrContainerInitFail {
 		t.Fatalf("unexpected error %v", err)
 	}
+}
+
+func TestDockerPullHungDoEvict(t *testing.T) {
+
+}
+
+func TestDockerPullHungNoEvict(t *testing.T) {
+
 }
 
 func TestDockerPullHungRepo(t *testing.T) {
