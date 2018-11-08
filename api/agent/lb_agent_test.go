@@ -164,7 +164,7 @@ func TestOneRunner(t *testing.T) {
 	call := &mockRunnerCall{model: modelCall}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
 	defer cancel()
-	err := placer.PlaceCall(ctx, rp, call, cfg.PlacerTimeout)
+	err := placer.PlaceCall(ctx, rp, call)
 	if err != nil {
 		t.Fatalf("Failed to place call on runner %v", err)
 	}
@@ -180,7 +180,7 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
 	defer cancel()
-	err := placer.PlaceCall(ctx, rp, call, cfg.PlacerTimeout)
+	err := placer.PlaceCall(ctx, rp, call)
 	if err == nil {
 		t.Fatal("Call should have timed out")
 	}
@@ -198,7 +198,7 @@ func TestDetachedPlacerTimeout(t *testing.T) {
 	call := &mockRunnerCall{model: modelCall}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
 	defer cancel()
-	err := placer.PlaceCall(ctx, nil, call, cfg.DetachedPlacerTimeout)
+	err := placer.PlaceCall(ctx, nil, call)
 	if err == nil {
 		t.Fatal("Detached call should have time out because of the expiration of the placement timeout")
 	}
@@ -222,7 +222,7 @@ func TestRRRunner(t *testing.T) {
 			modelCall := &models.Call{Type: models.TypeSync}
 			call := &mockRunnerCall{model: modelCall}
 
-			err := placer.PlaceCall(ctx, rp, call, cfg.PlacerTimeout)
+			err := placer.PlaceCall(ctx, rp, call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
 			}
@@ -259,7 +259,7 @@ func TestEnforceLbTimeout(t *testing.T) {
 			modelCall := &models.Call{Type: models.TypeSync}
 			call := &mockRunnerCall{model: modelCall}
 
-			err := placer.PlaceCall(ctx, rp, call, cfg.PlacerTimeout)
+			err := placer.PlaceCall(ctx, rp, call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
 			}

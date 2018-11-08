@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -14,9 +13,8 @@ import (
 // Placer implements a placement strategy for calls that are load-balanced
 // across runners in a pool
 type Placer interface {
-	PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall, placerTimeout time.Duration) error
-	PlacerTimeout() time.Duration
-	DetachedPlacerTimeout() time.Duration
+	PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall) error
+	GetPlacerConfig() PlacerConfig
 }
 
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call

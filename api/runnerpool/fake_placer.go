@@ -17,18 +17,14 @@ func NewFakeDetachedPlacer(cfg *PlacerConfig, st time.Duration) Placer {
 	}
 }
 
-func (p *fakeDetachedPlacer) PlacerTimeout() time.Duration {
-	return p.cfg.PlacerTimeout
-}
-
-func (p *fakeDetachedPlacer) DetachedPlacerTimeout() time.Duration {
-	return p.cfg.DetachedPlacerTimeout
+func (p *fakeDetachedPlacer) GetPlacerConfig() PlacerConfig {
+	return p.cfg
 }
 
 // PlaceCall for the fakeDetachedPlacer  just sleeps for a period of time to let the placer context to time out.
 // It returns the context exceeded error only if the placer context times out and the request context is still valid
-func (p *fakeDetachedPlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall, placerTimeout time.Duration) error {
-	state := NewPlacerTracker(ctx, &p.cfg, placerTimeout)
+func (p *fakeDetachedPlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall) error {
+	state := NewPlacerTracker(ctx, &p.cfg, call)
 	defer state.HandleDone()
 	time.Sleep(p.sleeptime)
 	if state.placerCtx.Err() != nil && state.requestCtx.Err() == nil {
