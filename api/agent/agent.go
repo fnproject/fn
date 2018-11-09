@@ -606,20 +606,11 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	call.req = call.req.WithContext(ctx) // TODO this is funny biz reed is bad
 
-	errApp := s.dispatch(ctx, call)
-
-	select {
-	case err := <-errApp: // from dispatch
-		if err != nil {
-			if models.IsAPIError(err) {
-				s.trySetError(err)
-			}
-		}
-		return err
-	case <-ctx.Done(): // call timeout
-		s.trySetError(ctx.Err())
-		return ctx.Err()
+	err := s.dispatch(ctx, call)
+	if err != nil {
+		s.trySetError(err)
 	}
+	return err
 }
 
 var removeHeaders = map[string]bool{
@@ -632,7 +623,7 @@ var removeHeaders = map[string]bool{
 	"authorization":     true,
 }
 
-func callToHTTPRequest(ctx context.Context, call *call) *http.Request {
+func createUDSRequest(ctx context.Context, call *call) *http.Request {
 	req, err := http.NewRequest("POST", "http://localhost/call", call.req.Body)
 	if err != nil {
 		common.Logger(ctx).WithError(err).Error("somebody put a bad url in the call http request. 10 lashes.")
@@ -661,45 +652,38 @@ func callToHTTPRequest(ctx context.Context, call *call) *http.Request {
 	return req
 }
 
-func (s *hotSlot) dispatch(ctx context.Context, call *call) chan error {
-	// TODO we can't trust that resp.Write doesn't timeout, even if the http
-	// client should respect the request context (right?) so we still need this (right?)
-	errApp := make(chan error, 1)
+func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
+	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
+	defer span.End()
 
+	// TODO it's possible we can get rid of this (after getting rid of logs API) - may need for call id/debug mode still
+	swapBack := s.container.swap(call.stderr, call.stderr, &call.Stats)
+	defer swapBack()
+
+	resp, err := s.container.udsClient.Do(createUDSRequest(ctx, call))
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if err != nil {
+		common.Logger(ctx).WithError(err).Error("Got error from UDS socket")
+		return models.NewAPIError(http.StatusBadGateway, errors.New("error receiving function response"))
+	}
+	common.Logger(ctx).WithField("resp", resp).Debug("Got resp from UDS socket")
+
+	// if ctx is canceled/timedout, then we close the body to unlock writeResp() below
+	defer resp.Body.Close()
+
+	ioErrChan := make(chan error, 1)
 	go func() {
-		ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
-		defer span.End()
-
-		// TODO it's possible we can get rid of this (after getting rid of logs API) - may need for call id/debug mode still
-		// TODO there's a timeout race for swapping this back if the container doesn't get killed for timing out, and don't you forget it
-		swapBack := s.container.swap(call.stderr, call.stderr, &call.Stats)
-		defer swapBack()
-
-		req := callToHTTPRequest(ctx, call)
-		resp, err := s.container.udsClient.Do(req)
-		if err != nil {
-			common.Logger(ctx).WithError(err).Error("Got error from UDS socket")
-			errApp <- models.ErrFunctionResponse
-			return
-		}
-		common.Logger(ctx).WithField("resp", resp).Debug("Got resp from UDS socket")
-
-		// if ctx is canceled/timedout, then we close the body to unlock writeResp() below
-		defer resp.Body.Close()
-
-		ioErrChan := make(chan error, 1)
-		go func() {
-			ioErrChan <- writeResp(s.cfg.MaxResponseSize, resp, call.w)
-		}()
-
-		select {
-		case ioErr := <-ioErrChan:
-			errApp <- ioErr
-		case <-ctx.Done():
-			errApp <- ctx.Err()
-		}
+		ioErrChan <- writeResp(s.cfg.MaxResponseSize, resp, call.w)
 	}()
-	return errApp
+
+	select {
+	case ioErr := <-ioErrChan:
+		return ioErr
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func writeResp(max uint64, resp *http.Response, w io.Writer) error {
