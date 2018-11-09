@@ -87,20 +87,6 @@ type nopCloser struct {
 
 func (n *nopCloser) Close() error { return nil }
 
-type nullReadWriter struct {
-	io.ReadCloser
-}
-
-func (n nullReadWriter) Close() error {
-	return nil
-}
-func (n nullReadWriter) Read(b []byte) (int, error) {
-	return 0, io.EOF
-}
-func (n nullReadWriter) Write(b []byte) (int, error) {
-	return len(b), io.EOF
-}
-
 // multiWriteCloser ignores all errors from inner writers. you say, oh, this is a bad idea?
 // yes, well, we were going to silence them all individually anyway, so let's not be shy about it.
 // the main thing we need to ensure is that every close is called, even if another errors.
