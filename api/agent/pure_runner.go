@@ -44,16 +44,25 @@ import (
 
 	The flow of events is as follows:
 
-	1) LB sends ClientMsg_Try to runner
-	2) Runner allocates its resources and sends an ACK: RunnerMsg_Acknowledged
-	3) LB sends ClientMsg_Data messages with an EOF for last message set.
-	4) Runner upon receiving with ClientMsg_Data calls agent.Submit()
-	5) agent.Submit starts reading data from callHandle io.PipeReader, this reads
-		data from LB via gRPC receiver (inQueue).
-	6) agent.Submit starts sending data via callHandle http.ResponseWriter interface,
-		which is pushed to gRPC sender (outQueue) to the LB.
-	7) agent.Submit() completes, this means, the Function I/O is now completed.
-	8) Runner finalizes gRPC session with RunnerMsg_Finished to LB.
+	LB:
+
+	1) LB sends ClientMsg_TryCall to runner
+	2) LB sends ClientMsg_DataFrame messages with an EOF for last message set.
+	3) LB receives RunnerMsg_CallResultStart for http status and headers
+	4) LB receives RunnerMsg_DataFrame messages for http body with an EOF for last message set.
+	8) LB receives RunnerMsg_CallFinished as the final message.
+
+	LB can be interrupted with RunnerMsg_CallFinished anytime. If this is a NACK, presence of 503
+	means LB can retry the call.
+
+	Runner:
+
+	1) Runner upon receiving ClientMsg_TryCall calls agent.Submit()
+	2) Runner allocates its resources but can send a NACK: RunnerMsg_Finished if it cannot service the call in time.
+	3) agent.Submit starts reading data from callHandle io.PipeReader, this reads
+		data from LB via gRPC receiver (inQueue). The http reader detects headers/data
+		and sends RunnerMsg_CallResultStart and/or RunnerMsg_DataFrame messages to LB.
+	4) agent.Submit() completes, this means, the Function I/O is now completed. Runner sends RunnerMsg_Finished
 
 */
 

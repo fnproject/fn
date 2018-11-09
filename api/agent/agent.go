@@ -14,8 +14,6 @@ import (
 
 	"path/filepath"
 
-	"os"
-
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -26,6 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
+	"os"
 )
 
 const (
