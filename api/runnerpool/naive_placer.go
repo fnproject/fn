@@ -23,9 +23,12 @@ func NewNaivePlacer(cfg *PlacerConfig) Placer {
 	}
 }
 
-func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
+func (sp *naivePlacer) GetPlacerConfig() PlacerConfig {
+	return sp.cfg
+}
 
-	state := NewPlacerTracker(ctx, &sp.cfg)
+func (sp *naivePlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall) error {
+	state := NewPlacerTracker(ctx, &sp.cfg, call)
 	defer state.HandleDone()
 
 	var runnerPoolErr error

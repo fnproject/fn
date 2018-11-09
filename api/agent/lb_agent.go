@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
@@ -25,6 +27,39 @@ type lbAgent struct {
 	callOverrider CallOverrider
 	shutWg        *common.WaitGroup
 }
+
+type DetachedResponseWriter struct {
+	Headers http.Header
+	status  int
+	acked   chan struct{}
+}
+
+func (w *DetachedResponseWriter) Header() http.Header {
+	return w.Headers
+}
+
+func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
+	return len(data), nil
+}
+
+func (w *DetachedResponseWriter) WriteHeader(statusCode int) {
+	w.status = statusCode
+	w.acked <- struct{}{}
+}
+
+func (w *DetachedResponseWriter) Status() int {
+	return w.status
+}
+
+func NewDetachedResponseWriter(h http.Header, statusCode int) *DetachedResponseWriter {
+	return &DetachedResponseWriter{
+		Headers: h,
+		status:  statusCode,
+		acked:   make(chan struct{}, 1),
+	}
+}
+
+var _ http.ResponseWriter = new(DetachedResponseWriter) // keep the compiler happy
 
 type LBAgentOption func(*lbAgent) error
 
@@ -177,8 +212,41 @@ func (a *lbAgent) Submit(callI Call) error {
 	statsDequeue(ctx)
 	statsStartRun(ctx)
 
-	err = a.placer.PlaceCall(a.rp, ctx, call)
+	if call.Type == models.TypeDetached {
+		return a.placeDetachCall(ctx, call)
+	}
+	return a.placeCall(ctx, call)
+}
+
+func (a *lbAgent) placeDetachCall(ctx context.Context, call *call) error {
+	errPlace := make(chan error, 1)
+	rw := call.w.(*DetachedResponseWriter)
+	go a.spawnPlaceCall(ctx, call, errPlace)
+	select {
+	case err := <-errPlace:
+		return err
+	case <-rw.acked:
+		return nil
+	}
+}
+
+func (a *lbAgent) placeCall(ctx context.Context, call *call) error {
+	err := a.placer.PlaceCall(ctx, a.rp, call)
 	return a.handleCallEnd(ctx, call, err, true)
+}
+
+func (a *lbAgent) spawnPlaceCall(ctx context.Context, call *call, errCh chan error) {
+	var cancel func()
+	ctx = common.BackgroundContext(ctx)
+	cfg := a.placer.GetPlacerConfig()
+
+	// PlacerTimeout for Detached + call.Timeout (inside container) + headroom for docker-pull, gRPC network retrasmit etc.)
+	newCtxTimeout := cfg.DetachedPlacerTimeout + time.Duration(call.Timeout)*time.Second + a.cfg.DetachedHeadRoom
+	ctx, cancel = context.WithTimeout(ctx, newCtxTimeout)
+	defer cancel()
+
+	err := a.placer.PlaceCall(ctx, a.rp, call)
+	errCh <- a.handleCallEnd(ctx, call, err, true)
 }
 
 // setRequestGetBody sets GetBody function on the given http.Request if it is missing.  GetBody allows

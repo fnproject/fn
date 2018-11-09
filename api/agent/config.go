@@ -18,6 +18,7 @@ type Config struct {
 	HotLauncherTimeout      time.Duration `json:"hot_launcher_timeout_msecs"`
 	HotStartTimeout         time.Duration `json:"hot_start_timeout_msecs"`
 	AsyncChewPoll           time.Duration `json:"async_chew_poll_msecs"`
+	DetachedHeadRoom        time.Duration `json:"detached_head_room_msecs"`
 	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
 	MaxLogSize              uint64        `json:"max_log_size_bytes"`
 	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
@@ -94,6 +95,9 @@ const (
 	// EnvIOFSOpts are the options to set when mounting the iofs directory for unix socket files
 	EnvIOFSOpts = "FN_IOFS_OPTS"
 
+	// EnvDetachedHeadroom is the extra room we want to give to a detached function to run.
+	EnvDetachedHeadroom = "FN_EXECUTION_HEADROOM"
+
 	// MaxMsDisabled is used to determine whether mr freeze is lying in wait. TODO remove this manuever
 	MaxMsDisabled = time.Duration(math.MaxInt64)
 
@@ -128,6 +132,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
 	err = setEnvMsecs(err, EnvHotStartTimeout, &cfg.HotStartTimeout, time.Duration(10)*time.Minute)
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
+	err = setEnvMsecs(err, EnvDetachedHeadroom, &cfg.DetachedHeadRoom, time.Duration(360)*time.Second)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)

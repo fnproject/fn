@@ -52,7 +52,7 @@ func TestCanExecuteFunction(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output)
+	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -77,6 +77,47 @@ func TestCanExecuteFunction(t *testing.T) {
 	wine, err := getConfigContent("FN_WINE", output.Bytes())
 	if err != nil || wine != "1982 Margaux" {
 		t.Fatalf("getConfigContent/FN_WINE check failed (%v) on %v", err, output)
+	}
+}
+
+func TestCanExecuteDetachedFunction(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
+	}
+	fn = ensureFn(t, fn)
+
+	lb, err := LB()
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+	u := url.URL{
+		Scheme: "http",
+		Host:   lb,
+	}
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
+
+	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
+	content := bytes.NewBuffer([]byte(body))
+	output := &bytes.Buffer{}
+
+	resp, err := callFN(ctx, u.String(), content, output, models.TypeDetached)
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
 	}
 }
 
@@ -118,7 +159,7 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output)
+	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -173,7 +214,7 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output)
+	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -228,7 +269,7 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := callFN(ctx, u.String(), content, output)
+	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -286,7 +327,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
 			<-latch
-			resp, err := callFN(ctx, u.String(), content, output)
+			resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return
@@ -298,6 +339,65 @@ func TestBasicConcurrentExecution(t *testing.T) {
 				return
 			}
 			if resp.StatusCode != http.StatusOK {
+				results <- fmt.Errorf("StatusCode check failed on %v", resp.StatusCode)
+				return
+			}
+
+			results <- nil
+		}()
+	}
+	close(latch)
+	for i := 0; i < concurrentFuncs; i++ {
+		err := <-results
+		if err != nil {
+			t.Fatalf("Error in basic concurrency execution test: %v", err)
+		}
+	}
+}
+
+func TestBasicConcurrentDetachedExecution(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
+	}
+	fn = ensureFn(t, fn)
+
+	lb, err := LB()
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+	u := url.URL{
+		Scheme: "http",
+		Host:   lb,
+	}
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
+
+	results := make(chan error)
+	latch := make(chan struct{})
+	concurrentFuncs := 10
+	for i := 0; i < concurrentFuncs; i++ {
+		go func() {
+			body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
+			content := bytes.NewBuffer([]byte(body))
+			output := &bytes.Buffer{}
+			<-latch
+			resp, err := callFN(ctx, u.String(), content, output, models.TypeDetached)
+			if err != nil {
+				results <- fmt.Errorf("Got unexpected error: %v", err)
+				return
+			}
+
+			if resp.StatusCode != http.StatusAccepted {
 				results <- fmt.Errorf("StatusCode check failed on %v", resp.StatusCode)
 				return
 			}

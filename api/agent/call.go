@@ -59,7 +59,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			ID:    id,
 			Image: fn.Image,
 			// Delay: 0,
-			Type: "sync",
+			Type: models.TypeSync,
 			// Payload: TODO,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     fn.Timeout,
@@ -168,6 +168,14 @@ func WithTrigger(t *models.Trigger) CallOpt {
 func WithWriter(w io.Writer) CallOpt {
 	return func(c *call) error {
 		c.w = w
+		return nil
+	}
+}
+
+// InvokeDetached mark a call to be a detached call
+func InvokeDetached() CallOpt {
+	return func(c *call) error {
+		c.Model().Type = models.TypeDetached
 		return nil
 	}
 }

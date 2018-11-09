@@ -13,7 +13,8 @@ import (
 // Placer implements a placement strategy for calls that are load-balanced
 // across runners in a pool
 type Placer interface {
-	PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error
+	PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall) error
+	GetPlacerConfig() PlacerConfig
 }
 
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
