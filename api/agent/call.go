@@ -172,6 +172,14 @@ func WithWriter(w io.Writer) CallOpt {
 	}
 }
 
+// WithLogger sets stderr to the provided one
+func WithLogger(w io.ReadWriteCloser) CallOpt {
+	return func(c *call) error {
+		c.stderr = w
+		return nil
+	}
+}
+
 // InvokeDetached mark a call to be a detached call
 func InvokeDetached() CallOpt {
 	return func(c *call) error {
@@ -198,8 +206,6 @@ func WithExtensions(extensions map[string]string) CallOpt {
 }
 
 // GetCall builds a Call that can be used to submit jobs to the agent.
-//
-// TODO where to put this? async and sync both call this
 func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	var c call
 
@@ -241,8 +247,11 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.handler = a.da
 	c.ct = a
-	// TODO(reed): is line writer is vulnerable to attack?
-	c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
+	if c.stderr == nil {
+		// TODO(reed): is line writer is vulnerable to attack?
+		// XXX(reed): forcing this as default is not great / configuring it isn't great either. reconsider.
+		c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
+	}
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)

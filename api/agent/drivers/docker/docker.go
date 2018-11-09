@@ -216,18 +216,20 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "CreateCookie"})
 
-	stdinOn := task.Input() != nil
-	// XXX(reed): we can do same with stderr/stdout
+	_, stdinOff := task.Input().(common.NoopReadWriteCloser)
+	stdout, stderr := task.Logger()
+	_, stdoutOff := stdout.(common.NoopReadWriteCloser)
+	_, stderrOff := stderr.(common.NoopReadWriteCloser)
 
 	opts := docker.CreateContainerOptions{
 		Name: task.Id(),
 		Config: &docker.Config{
 			Image:        task.Image(),
-			OpenStdin:    stdinOn,
-			StdinOnce:    stdinOn,
-			AttachStdin:  stdinOn,
-			AttachStdout: true,
-			AttachStderr: true,
+			OpenStdin:    !stdinOff,
+			StdinOnce:    !stdinOff,
+			AttachStdin:  !stdinOff,
+			AttachStdout: !stdoutOff,
+			AttachStderr: !stderrOff,
 		},
 		HostConfig: &docker.HostConfig{
 			ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,
@@ -387,6 +389,11 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 	mwOut, mwErr := task.Logger()
 	successChan := make(chan struct{})
 
+	_, stdinOff := task.Input().(common.NoopReadWriteCloser)
+	stdout, stderr := task.Logger()
+	_, stdoutOff := stdout.(common.NoopReadWriteCloser)
+	_, stderrOff := stderr.(common.NoopReadWriteCloser)
+
 	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
 		Container:    container,
 		InputStream:  task.Input(),
@@ -394,9 +401,9 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		ErrorStream:  mwErr,
 		Success:      successChan,
 		Stream:       true,
-		Stdout:       true,
-		Stderr:       true,
-		Stdin:        true,
+		Stdout:       !stdoutOff,
+		Stderr:       !stderrOff,
+		Stdin:        !stdinOff,
 	})
 
 	if err == nil {
