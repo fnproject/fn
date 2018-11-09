@@ -104,8 +104,6 @@ test-build-arm:
 	GOARCH=arm GOARM=7 $(MAKE) build
 	GOARCH=arm64 $(MAKE) build
 
-
-protos: api/agent/grpc/runner.pb.go
 %.pb.go: %.proto
 	protoc --proto_path=$(@D) --proto_path=./vendor --go_out=plugins=grpc:$(@D) $<
 
