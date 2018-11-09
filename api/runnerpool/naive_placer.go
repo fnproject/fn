@@ -23,16 +23,12 @@ func NewNaivePlacer(cfg *PlacerConfig) Placer {
 	}
 }
 
-func (sp *naivePlacer) PlacerTimeout() time.Duration {
-	return sp.cfg.PlacerTimeout
+func (sp *naivePlacer) GetPlacerConfig() PlacerConfig {
+	return sp.cfg
 }
 
-func (sp *naivePlacer) DetachedPlacerTimeout() time.Duration {
-	return sp.cfg.DetachedPlacerTimeout
-}
-
-func (sp *naivePlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall, placerTimeout time.Duration) error {
-	state := NewPlacerTracker(ctx, &sp.cfg, placerTimeout)
+func (sp *naivePlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall) error {
+	state := NewPlacerTracker(ctx, &sp.cfg, call)
 	defer state.HandleDone()
 
 	var runnerPoolErr error
