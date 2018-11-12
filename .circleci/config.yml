@@ -50,9 +50,7 @@ jobs:
 
       # Rebuild fnserver if necessary
       - run: |
-          if [[ -n "$FN_NEEDED" ]]; then
-            make test -j $(nproc)
-          fi
+          make test -j $(nproc)
 
       - deploy:
           command: |
@@ -64,7 +62,5 @@ jobs:
               if [[ -n "$DIND_NEEDED" ]]; then
                 make release-dind
               fi
-              if [[ -n "$FN_NEEDED" ]]; then
-                make release-fnserver
-              fi
+              make release-fnserver
             fi
