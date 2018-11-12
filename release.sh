@@ -32,6 +32,9 @@ git tag -f -a "$version" -m "version $version"
 git push
 git push origin $version
 
+git tag -f -a "v$version" -m "version $version"
+git push origin v$version
+
 # Push the version bump and tags laid down previously
 gtag=$image-$version
 git push
