@@ -25,6 +25,7 @@ type Config struct {
 	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
 	MaxTotalMemory          uint64        `json:"max_total_memory_bytes"`
 	MaxFsSize               uint64        `json:"max_fs_size_mb"`
+	DisableTini             bool          `json:"disable_tini"`
 	PreForkPoolSize         uint64        `json:"pre_fork_pool_size"`
 	PreForkImage            string        `json:"pre_fork_image"`
 	PreForkCmd              string        `json:"pre_fork_pool_cmd"`
@@ -168,6 +169,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvBool(err, EnvEnableNBResourceTracker, &cfg.EnableNBResourceTracker)
 	err = setEnvBool(err, EnvDisableReadOnlyRootFs, &cfg.DisableReadOnlyRootFs)
 	err = setEnvBool(err, EnvDisableDebugUserLogs, &cfg.DisableDebugUserLogs)
+	err = setEnvBool(err, EnvDisableTini, &cfg.DisableTini)
 
 	if err != nil {
 		return cfg, err
