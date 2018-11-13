@@ -243,18 +243,20 @@ const (
 type Config struct {
 	// TODO this should all be driver-specific config and not in the
 	// driver package itself. fix if we ever one day try something else
-	Docker               string `json:"docker"`
-	DockerNetworks       string `json:"docker_networks"`
-	DockerLoadFile       string `json:"docker_load_file"`
-	ServerVersion        string `json:"server_version"`
-	PreForkPoolSize      uint64 `json:"pre_fork_pool_size"`
-	PreForkImage         string `json:"pre_fork_image"`
-	PreForkCmd           string `json:"pre_fork_cmd"`
-	PreForkUseOnce       uint64 `json:"pre_fork_use_once"`
-	PreForkNetworks      string `json:"pre_fork_networks"`
-	MaxTmpFsInodes       uint64 `json:"max_tmpfs_inodes"`
-	EnableReadOnlyRootFs bool   `json:"enable_readonly_rootfs"`
-	MaxRetries           uint64 `json:"max_retries"`
+	Docker                  string        `json:"docker"`
+	DockerNetworks          string        `json:"docker_networks"`
+	DockerLoadFile          string        `json:"docker_load_file"`
+	ServerVersion           string        `json:"server_version"`
+	PreForkPoolSize         uint64        `json:"pre_fork_pool_size"`
+	PreForkImage            string        `json:"pre_fork_image"`
+	PreForkCmd              string        `json:"pre_fork_cmd"`
+	PreForkUseOnce          uint64        `json:"pre_fork_use_once"`
+	PreForkNetworks         string        `json:"pre_fork_networks"`
+	MaxTmpFsInodes          uint64        `json:"max_tmpfs_inodes"`
+	MaxImageCacheSize       uint64        `json:"max_image_cache_size"`
+	ImageCacheCleanInterval time.Duration `json:"image_cache_clean_interval"`
+	EnableReadOnlyRootFs    bool          `json:"enable_readonly_rootfs"`
+	MaxRetries              uint64        `json:"max_retries"`
 }
 
 func average(samples []Stat) (Stat, bool) {
