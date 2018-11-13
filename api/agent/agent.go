@@ -228,8 +228,7 @@ func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 		MaxTmpFsInodes:          cfg.MaxTmpFsInodes,
 		MaxImageCacheSize:       cfg.MaxImageCacheSize,
 		ImageCacheCleanInterval: cfg.ImageCacheCleanInterval,
-		EnableReadOnlyRootFs:    !cfg.DisableReadOnlyRootFs,
-		EnableTini:              !cfg.DisableTini,
+		EnableReadOnlyRootFs:    !cfg.DisableReadOnlyRootFs
 	})
 }
 

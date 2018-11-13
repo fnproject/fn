@@ -25,7 +25,6 @@ type Config struct {
 	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
 	MaxTotalMemory          uint64        `json:"max_total_memory_bytes"`
 	MaxFsSize               uint64        `json:"max_fs_size_mb"`
-	DisableTini             bool          `json:"disable_tini"`
 	PreForkPoolSize         uint64        `json:"pre_fork_pool_size"`
 	PreForkImage            string        `json:"pre_fork_image"`
 	PreForkCmd              string        `json:"pre_fork_pool_cmd"`
@@ -88,10 +87,7 @@ const (
 	// EnvMaxTmpFsInodes is the maximum number of inodes for /tmp in a container
 	EnvMaxTmpFsInodes = "FN_MAX_TMPFS_INODES"
 	// EnvDisableReadOnlyRootFs makes the root fs for a container have rw permissions, by default it is read only
-	EnvDisableReadOnlyRootFs = "FN_DISABLE_READONLY_ROOTFS" // EnvDisableTini runs containers without using the --init option, for tini pid 1 action
-
-	EnvDisableTini = "FN_DISABLE_TINI"
-	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
+	EnvDisableReadOnlyRootFs = "FN_DISABLE_READONLY_ROOTFS" 	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
 	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
 	// EnvIOFSEnableTmpfs enables creating a per-container tmpfs mount for the IOFS
 	EnvIOFSEnableTmpfs = "FN_IOFS_TMPFS"
