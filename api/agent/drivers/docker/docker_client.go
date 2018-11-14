@@ -479,7 +479,7 @@ func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
 }
 
 func (d *dockerWrap) DiskUsage(opts docker.DiskUsageOptions) (du *docker.DiskUsage, err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_disk_free")
+	ctx, closer := makeTracker(opts.Context, "docker_disk_usage")
 	defer closer()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "DiskUsage")
