@@ -157,7 +157,9 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		}
 	}
 
-	imagesBeforeLoad, err := driver.docker.ListImages(context.Background())
+	liopts := docker.ListImagesOptions{All:false}
+	liopts.Context = context.Background()
+	imagesBeforeLoad, err := driver.docker.ListImages(liopts)
 
 	if conf.DockerLoadFile != "" {
 		err = loadDockerImages(driver, conf.DockerLoadFile)
@@ -170,7 +172,9 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		driver.imageCache = NewCache()
 
 		go func(context context.Context) {
-			images, err := driver.docker.ListImages(context)
+			liopts := docker.ListImagesOptions{All:false}
+			liopts.Context = context
+			images, err := driver.docker.ListImages(liopts)
 			if err != nil {
 				logrus.WithError(err).Fatalf("cannot list docker images %s", err)
 			}
