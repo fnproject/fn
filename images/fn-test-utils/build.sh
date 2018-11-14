@@ -1,2 +1,2 @@
 set -e
-docker build  -t fnproject/fn-test-utils:latest .
+docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/fn-test-utils:latest .
