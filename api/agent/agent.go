@@ -745,58 +745,24 @@ func newSizerRespWriter(max uint64, rw http.ResponseWriter) http.ResponseWriter 
 
 func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
-// nannyHotContainer is a helper function to monitor the container to enforce two different timeouts during
-// initialization. After initialization, the nanny blocks until container exits or agent is shutdown. This
-// simplifies rest of the hot container code (which only needs to monitor initialized and ctx channels)
-func (a *agent) nannyHotContainer(ctx context.Context, caller slotCaller, cancel context.CancelFunc, evictor *EvictToken, initialized chan struct{}, udsWait <-chan error, created <-chan struct{}, errQueue chan error) {
-	// Once nanny is done, we terminate the container and related go routines
-	defer cancel()
-
-	timer := time.NewTimer(a.cfg.HotPullTimeout)
-	defer timer.Stop()
-
-	// Start monitoring initialization phase. Here we expect to see "created" completion first,
-	// followed by "initialized".
-InitPhase:
+func (a *agent) waitInitialize(ctx context.Context, caller slotCaller, evictor *EvictToken, udsWait <-chan error) (bool, error) {
 	for {
 		select {
-		case <-created: // docker-pull + docker-create completed. Let's install a new timer for UDS/initialize
-			timer.Stop()
-			timer = time.NewTimer(a.cfg.HotStartTimeout)
-			created = nil // block 'created' after this point
 		case err := <-udsWait:
-			if tryQueueErr(err, errQueue) != nil {
-				return // init failure
+			if err != nil {
+				return false, err
 			}
-			break InitPhase // good, UDS is ready
+			return true, nil
 		case <-ctx.Done(): // container shutdown
-			return
+			return false, nil
 		case <-a.shutWg.Closer(): // agent shutdown
-			return
+			return false, nil
 		case <-caller.done: // original caller disconnected or serviced by another container?
 			evictor.SetEvictable(true)
 			caller.done = nil // block 'doneChan' after this point
 		case <-evictor.C: // eviction
-			return
-		case <-timer.C: // init timeout
-			if created != nil {
-				tryQueueErr(models.ErrDockerPullTimeout, errQueue)
-			} else {
-				tryQueueErr(models.ErrContainerInitTimeout, errQueue)
-			}
-			return
+			return false, nil
 		}
-	}
-
-	// Signal initialization to the consumers
-	close(initialized)
-	timer.Stop()
-
-	// Start monitoring agent/container shutdown. Here we block and keep on monitoring. This is to collapse
-	// shutWg close channel into ctx Done. Rest of the code can monitor ctx only.
-	select {
-	case <-a.shutWg.Closer():
-	case <-ctx.Done():
 	}
 }
 
@@ -830,7 +796,6 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 
 	initialized := make(chan struct{}) // initialized means (docker pulled, container is created/started, uds is ready)
 	udsWait := make(chan error, 1)     // track UDS state and errors
-	created := make(chan struct{})     // track docker pull + docker create, etc. completion
 	errQueue := make(chan error, 1)    // errors to be reflected back to the slot queue
 
 	evictor := a.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
@@ -890,21 +855,50 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		}
 	}()
 
-	go a.nannyHotContainer(ctx, caller, cancel, evictor, initialized, udsWait, created, errQueue)
+	go func() {
+		isInitialized, err := a.waitInitialize(ctx, caller, evictor, udsWait)
+		if err != nil {
+			tryQueueErr(err, errQueue)
+		}
+		if isInitialized {
+			close(initialized)
+		} else {
+			cancel()
+		}
+	}()
 
 	container, err = newHotContainer(ctx, call, &a.cfg, id, udsWait)
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
+
 	cookie, err = a.driver.CreateCookie(ctx, container)
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
-	err = a.driver.PrepareCookie(ctx, cookie)
+
+	needsPull, err := cookie.ValidateImage(ctx)
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
-	close(created) // signal docker pull + create completed.
+
+	if needsPull {
+		ctx, cancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
+		err = cookie.PullImage(ctx)
+		if err != nil && ctx.Err() != nil {
+			err = models.ErrDockerPullTimeout
+		}
+		cancel()
+		if tryQueueErr(err, errQueue) != nil {
+			return
+		}
+	}
+
+	err = cookie.CreateContainer(ctx)
+	if tryQueueErr(err, errQueue) != nil {
+		return
+	}
+
 	waiter, err = cookie.Run(ctx)
 	if tryQueueErr(err, errQueue) != nil {
 		return
@@ -916,7 +910,12 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		// INIT BARRIER HERE
 		select {
 		case <-initialized:
+		case <-a.shutWg.Closer(): // agent shutdown
+			return
 		case <-ctx.Done():
+			return
+		case <-time.After(a.cfg.HotStartTimeout):
+			tryQueueErr(models.ErrContainerInitTimeout, errQueue)
 			return
 		}
 
@@ -1071,6 +1070,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		select {
 		case <-s.trigger: // slot already consumed
 		case <-ctx.Done(): // container shutdown
+		case <-a.shutWg.Closer(): // agent shutdown
 		case <-idleTimer.C:
 		case <-freezeTimer.C:
 			if !isFrozen {
