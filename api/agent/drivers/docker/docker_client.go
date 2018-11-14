@@ -41,7 +41,7 @@ type dockerClient interface {
 	UnpauseContainer(id string, ctx context.Context) error
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	InspectImage(ctx context.Context, name string) (*docker.Image, error)
-	ListImages(ctx context.Context) ([]docker.APIImages, error)
+	ListImages(opts docker.ListImagesOptions) ([]docker.APIImages, error)
 	RemoveImage(id string, opts docker.RemoveImageOptions) error
 	Stats(opts docker.StatsOptions) error
 	Info(ctx context.Context) (*docker.DockerInfo, error)
@@ -311,13 +311,13 @@ func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) error {
 	})
 }
 
-func (d *dockerWrap) ListImages(ctx context.Context) (imgs []docker.APIImages, err error) {
-	ctx, closer := makeTracker(ctx, "list_docker_images")
+func (d *dockerWrap) ListImages(opts docker.ListImagesOptions) (imgs []docker.APIImages, err error) {
+	ctx, closer := makeTracker(opts.Context, "docker_list_images")
 	defer closer()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "ListImages")
 	err = d.retry(ctx, logger, func() error {
-		imgs, err = d.docker.ListImages(docker.ListImagesOptions{All: false})
+		imgs, err = d.docker.ListImages(opts)
 		return err
 	})
 
