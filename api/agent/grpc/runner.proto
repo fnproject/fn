@@ -75,6 +75,7 @@ message RunnerStatus {
     bool cached = 11; // true if status response was provided from cache
     uint64 requestsReceived = 12; // number of requests received by runner
     uint64 requestsHandled = 13; // number of requests processed by runner without NACK
+    uint64 kdumpsOnDisk = 14; // number of kdumps on local disk
 }
 
 service RunnerProtocol {

@@ -120,6 +120,7 @@ func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStat
 		RequestsReceived:   status.RequestsReceived,
 		RequestsHandled:    status.RequestsHandled,
 		StatusFailed:       status.Failed,
+		KdumpsOnDisk:       status.KdumpsOnDisk,
 		Cached:             status.Cached,
 		StatusId:           status.Id,
 		Details:            status.Details,
