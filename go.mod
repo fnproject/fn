@@ -11,7 +11,7 @@ require (
 	github.com/docker/docker v0.7.3-0.20180904180028-c3e32938430e // indirect
 	github.com/fnproject/fdk-go v0.0.0-20181025170718-26ed643bea68
 	github.com/fsnotify/fsnotify v1.4.7
-	github.com/fsouza/go-dockerclient v1.3.1
+	github.com/fsouza/go-dockerclient v1.3.2-0.20181102000906-311c4469e611
 	github.com/garyburd/redigo v1.6.0
 	github.com/gin-contrib/cors v0.0.0-20170318125340-cf4846e6a636
 	github.com/gin-contrib/sse v0.0.0-20170109093832-22d885f9ecc7 // indirect

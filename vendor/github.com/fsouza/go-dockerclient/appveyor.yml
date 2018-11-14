@@ -6,7 +6,7 @@ environment:
   GOPATH: c:\gopath
   matrix:
     - GOVERSION: 1.10.3
-    - GOVERSION: 1.11
+    - GOVERSION: 1.11.1
 install:
   - set PATH=%GOPATH%\bin;c:\go\bin;%PATH%
   - rmdir c:\go /s /q

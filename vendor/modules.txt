@@ -80,7 +80,7 @@ github.com/docker/libnetwork/ipamutils
 github.com/fnproject/fdk-go
 # github.com/fsnotify/fsnotify v1.4.7
 github.com/fsnotify/fsnotify
-# github.com/fsouza/go-dockerclient v1.3.1
+# github.com/fsouza/go-dockerclient v1.3.2-0.20181102000906-311c4469e611
 github.com/fsouza/go-dockerclient
 github.com/fsouza/go-dockerclient/internal/archive
 github.com/fsouza/go-dockerclient/internal/jsonmessage
