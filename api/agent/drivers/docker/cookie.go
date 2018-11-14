@@ -2,13 +2,19 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"path"
 	"strings"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/models"
+
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 )
 
 // A cookie identifies a unique request to run a task.
@@ -27,6 +33,11 @@ type cookie struct {
 
 	// do we need to remove container at exit?
 	isCreated bool
+
+	imgReg      string
+	imgRepo     string
+	imgTag      string
+	imgAuthConf *docker.AuthConfiguration
 }
 
 func (c *cookie) configureLogger(log logrus.FieldLogger) {
@@ -228,7 +239,7 @@ func (c *cookie) Freeze(ctx context.Context) error {
 
 	err := c.drv.docker.PauseContainer(c.task.Id(), ctx)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("error pausing container")
+		log.WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("error pausing container")
 	}
 	return err
 }
@@ -240,9 +251,110 @@ func (c *cookie) Unfreeze(ctx context.Context) error {
 
 	err := c.drv.docker.UnpauseContainer(c.task.Id(), ctx)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("error unpausing container")
+		log.WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("error unpausing container")
 	}
 	return err
+}
+
+func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "ValidateImage"})
+	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker auth and inspect image")
+
+	// ask for docker creds before looking for image, as the tasker may need to
+	// validate creds even if the image is downloaded.
+	config := findRegistryConfig(c.imgReg, c.drv.auths)
+
+	if task, ok := c.task.(Auther); ok {
+		_, span := trace.StartSpan(ctx, "docker_auth")
+		authConfig, err := task.DockerAuth()
+		span.End()
+		if err != nil {
+			return false, err
+		}
+		if authConfig != nil {
+			config = authConfig
+		}
+	}
+
+	c.imgAuthConf = config
+
+	// see if we already have it
+	_, err := c.drv.docker.InspectImage(ctx, c.task.Image())
+	if err == docker.ErrNoSuchImage {
+		return true, nil
+	}
+	return false, err
+}
+
+func (c *cookie) PullImage(ctx context.Context) error {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "PullImage"})
+
+	cfg := c.imgAuthConf
+	if cfg == nil {
+		log.Fatal("invalid usage: call ValidateImage first")
+	}
+
+	repo := path.Join(c.imgReg, c.imgRepo)
+
+	log = common.Logger(ctx).WithFields(logrus.Fields{"registry": cfg.ServerAddress, "username": cfg.Username, "image": c.task.Image()})
+	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker pull")
+
+	err := c.drv.docker.PullImage(docker.PullImageOptions{Repository: repo, Tag: c.imgTag, Context: ctx}, *cfg)
+	if err != nil {
+		log.WithError(err).Error("Failed to pull image")
+
+		// TODO need to inspect for hub or network errors and pick; for now, assume
+		// 500 if not a docker error
+		msg := err.Error()
+		code := http.StatusInternalServerError
+		if dErr, ok := err.(*docker.Error); ok {
+			msg = dockerMsg(dErr)
+			code = dErr.Status // 401/404
+		}
+
+		return models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", c.task.Image(), msg))
+	}
+
+	return nil
+}
+
+func (c *cookie) CreateContainer(ctx context.Context) error {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "CreateContainer"})
+	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker create container")
+
+	// here let's assume we have created container, logically this should be after 'CreateContainer', but we
+	// are not 100% sure that *any* failure to CreateContainer does not ever leave a container around especially
+	// going through fsouza+docker-api.
+	c.isCreated = true
+
+	c.opts.Context = ctx
+	_, err := c.drv.docker.CreateContainer(c.opts)
+	if err != nil {
+		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
+		if err != docker.ErrContainerAlreadyExists {
+			log.WithError(err).Error("Could not create container")
+			// NOTE: if the container fails to create we don't really want to show to user since they aren't directly configuring the container
+			return err
+		}
+	}
+
+	return nil
+}
+
+// removes docker err formatting: 'API Error (code) {"message":"..."}'
+func dockerMsg(derr *docker.Error) string {
+	// derr.Message is a JSON response from docker, which has a "message" field we want to extract if possible.
+	// this is pretty lame, but it is what it is
+	var v struct {
+		Msg string `json:"message"`
+	}
+
+	err := json.Unmarshal([]byte(derr.Message), &v)
+	if err != nil {
+		// If message was not valid JSON, the raw body is still better than nothing.
+		return derr.Message
+	}
+	return v.Msg
 }
 
 var _ drivers.Cookie = &cookie{}

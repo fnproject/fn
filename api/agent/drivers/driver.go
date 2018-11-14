@@ -41,6 +41,16 @@ type Cookie interface {
 	// Unfreeze a frozen container to unpause frozen processes
 	Unfreeze(ctx context.Context) error
 
+	// Validate/Inspect and Authenticate image. Returns true if the image needs
+	// to be pulled and non-nil error if validation/auth/inspection fails.
+	ValidateImage(ctx context.Context) (bool, error)
+
+	// Pull the image.
+	PullImage(ctx context.Context) error
+
+	// Create container which can be Run() later
+	CreateContainer(ctx context.Context) error
+
 	// Fetch driver specific container configuration. Use this to
 	// access the container create options. If Driver.Prepare() is not
 	// yet called with the cookie, then this can be used to modify container
@@ -61,14 +71,7 @@ type Driver interface {
 	// Callers should Close the cookie regardless of whether they prepare or run it.
 	CreateCookie(ctx context.Context, task ContainerTask) (Cookie, error)
 
-	// PrepareCookie can be used in order to do any preparation that a specific driver
-	// may need to do before running the task, and can be useful to put
-	// preparation that the task can recover from into (i.e. if pulling an image
-	// fails because a registry is down, the task doesn't need to be failed).  It
-	// returns a cookie that can be used to execute the task.
-	// Callers should Close the cookie regardless of whether they run it.
-	//
-	// The returned cookie should respect the task's timeout when it is run.
+	// Obsoleted. No-Op
 	PrepareCookie(ctx context.Context, cookie Cookie) error
 
 	// close & shutdown the driver
