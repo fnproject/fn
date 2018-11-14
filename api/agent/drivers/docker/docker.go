@@ -157,7 +157,7 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		}
 	}
 
-	liopts := docker.ListImagesOptions{All:false}
+	liopts := docker.ListImagesOptions{All: false}
 	liopts.Context = context.Background()
 	imagesBeforeLoad, err := driver.docker.ListImages(liopts)
 
@@ -172,7 +172,7 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		driver.imageCache = NewCache()
 
 		go func(context context.Context) {
-			liopts := docker.ListImagesOptions{All:false}
+			liopts := docker.ListImagesOptions{All: false}
 			liopts.Context = context
 			images, err := driver.docker.ListImages(liopts)
 			if err != nil {
