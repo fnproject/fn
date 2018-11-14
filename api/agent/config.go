@@ -87,7 +87,8 @@ const (
 	// EnvMaxTmpFsInodes is the maximum number of inodes for /tmp in a container
 	EnvMaxTmpFsInodes = "FN_MAX_TMPFS_INODES"
 	// EnvDisableReadOnlyRootFs makes the root fs for a container have rw permissions, by default it is read only
-	EnvDisableReadOnlyRootFs = "FN_DISABLE_READONLY_ROOTFS" 	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
+	EnvDisableReadOnlyRootFs = "FN_DISABLE_READONLY_ROOTFS"	
+	// EnvDisableDebugUserLogs disables user function logs being logged at level debug. wise to enable for production.
 	EnvDisableDebugUserLogs = "FN_DISABLE_DEBUG_USER_LOGS"
 	// EnvIOFSEnableTmpfs enables creating a per-container tmpfs mount for the IOFS
 	EnvIOFSEnableTmpfs = "FN_IOFS_TMPFS"
