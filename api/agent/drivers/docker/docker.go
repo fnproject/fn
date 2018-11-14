@@ -74,6 +74,7 @@ func NewImageCleaner(context context.Context, dockerDriver *DockerDriver, maxSiz
 	opts.Force = true
 	opts.NoPrune = false
 	opts.Context = context
+	duopts.Context = context
 	logrus.Info("Starting image cleaner")
 	ticker := time.NewTicker(dockerDriver.conf.ImageCacheCleanInterval)
 	for {
