@@ -253,10 +253,10 @@ type Config struct {
 	PreForkUseOnce          uint64        `json:"pre_fork_use_once"`
 	PreForkNetworks         string        `json:"pre_fork_networks"`
 	MaxTmpFsInodes          uint64        `json:"max_tmpfs_inodes"`
-	MaxImageCacheSize       uint64        `json:"max_image_cache_size"`
-	ImageCacheCleanInterval time.Duration `json:"image_cache_clean_interval"`
 	EnableReadOnlyRootFs    bool          `json:"enable_readonly_rootfs"`
 	MaxRetries              uint64        `json:"max_retries"`
+	MaxImageCacheSize       uint64        `json:"max_image_cache_size"`
+	ImageCacheCleanInterval time.Duration `json:"image_cache_clean_interval"`
 }
 
 func average(samples []Stat) (Stat, bool) {
