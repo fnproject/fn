@@ -31,7 +31,14 @@ var (
 		code:  http.StatusServiceUnavailable,
 		error: errors.New("Timed out - server too busy"),
 	}
-
+	ErrDockerPullTimeout = err{
+		code:  http.StatusServiceUnavailable,
+		error: errors.New("Docker pull timed out"),
+	}
+	ErrContainerInitTimeout = err{
+		code:  http.StatusServiceUnavailable,
+		error: errors.New("Container initialization timed out, please ensure you are using the latest fdk / format and check the logs"),
+	}
 	ErrUnsupportedMediaType = err{
 		code:  http.StatusUnsupportedMediaType,
 		error: errors.New("Content Type not supported")}
@@ -122,6 +129,10 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("function response too large"),
 	}
+	ErrFunctionResponse = err{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("error receiving function response"),
+	}
 	ErrRequestContentTooBig = err{
 		code:  http.StatusRequestEntityTooLarge,
 		error: fmt.Errorf("Request content too large"),
@@ -150,7 +161,6 @@ var (
 		code:  http.StatusTooManyRequests,
 		error: errors.New("Too many requests submitted"),
 	}
-
 	ErrAsyncUnsupported = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Async functions are not supported on this server"),
@@ -166,10 +176,9 @@ var (
 		error: errors.New("Unable to find the call handle"),
 	}
 
-	// TODO consider removal. see rationale at uses, or remove if none.
-	ErrContainerExitedEarly = err{
+	ErrContainerInitFail = err{
 		code:  http.StatusBadGateway,
-		error: errors.New("container exited early, please ensure you are using the latest fdk / format and check the logs"),
+		error: errors.New("container failed to initialize, please ensure you are using the latest fdk / format and check the logs"),
 	}
 )
 

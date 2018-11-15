@@ -210,7 +210,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/http_stream_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectHot},
 
 		// TODO consider removing this, see comment above the image
-		{"/invoke/fail_fn", ok, "POST", http.StatusBadGateway, nil, "container exited early, please ensure", nil},
+		{"/invoke/fail_fn", ok, "POST", http.StatusBadGateway, nil, "container failed to initialize", nil},
 	}
 
 	callIds := make([]string, len(testCases))

@@ -40,6 +40,10 @@ type AppRequest struct {
 	IsDebug bool `json:"isDebug,omitempty"`
 	// simulate crash
 	IsCrash bool `json:"isCrash,omitempty"`
+	// abrupt exit code
+	ExitCode int `json:"exitCode,omitempty"`
+	// enable abrupt exit
+	IsExit bool `json:"isExit,omitempty"`
 	// shutdown UDS after request
 	IsShutdown bool `json:"isShutdown,omitempty"`
 	// read a file from disk
@@ -232,6 +236,11 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		log.Fatalln("Crash requested")
 	}
 
+	if request.IsExit {
+		log.Printf("Exit requested %+v", request.ExitCode)
+		os.Exit(request.ExitCode)
+	}
+
 	if request.ExpectHeaders != nil {
 		for name, header := range request.ExpectHeaders {
 			if h2 := fnctx.Header().Get(name); header[0] != h2 {
@@ -314,6 +323,15 @@ func main() {
 			log.Fatalf("cannot parse ENABLE_INIT_DELAY_MSEC %v", err)
 		}
 		time.Sleep(time.Millisecond * time.Duration(delay))
+	}
+
+	if initExit := os.Getenv("ENABLE_INIT_EXIT"); initExit != "" {
+		log.Printf("Container start exit %v", initExit)
+		exitCode, err := strconv.ParseInt(initExit, 10, 64)
+		if err != nil {
+			log.Fatalf("cannot parse ENABLE_INIT_EXIT %v", err)
+		}
+		os.Exit(int(exitCode))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

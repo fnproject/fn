@@ -43,6 +43,11 @@ type slotToken struct {
 	isBusy  uint32
 }
 
+type slotCaller struct {
+	notify chan error      // notification to caller
+	done   <-chan struct{} // caller done
+}
+
 // LIFO queue that exposes input/output channels along
 // with runner/waiter tracking for agent
 type slotQueue struct {
@@ -50,7 +55,7 @@ type slotQueue struct {
 	cond      *sync.Cond
 	slots     []*slotToken
 	nextId    uint64
-	signaller chan chan error
+	signaller chan *slotCaller
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -67,7 +72,7 @@ func NewSlotQueue(key string) *slotQueue {
 		key:       key,
 		cond:      sync.NewCond(new(sync.Mutex)),
 		slots:     make([]*slotToken, 0),
-		signaller: make(chan chan error, 1),
+		signaller: make(chan *slotCaller, 1),
 	}
 
 	return obj
