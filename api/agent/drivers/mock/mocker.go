@@ -43,9 +43,25 @@ func (c *cookie) Unfreeze(context.Context) error {
 	return nil
 }
 
-func (c *cookie) Close(context.Context) error { return nil }
+func (c *cookie) ValidateImage(context.Context) (bool, error) {
+	return false, nil
+}
 
-func (c *cookie) ContainerOptions() interface{} { return nil }
+func (c *cookie) PullImage(context.Context) error {
+	return nil
+}
+
+func (c *cookie) CreateContainer(context.Context) error {
+	return nil
+}
+
+func (c *cookie) Close(context.Context) error {
+	return nil
+}
+
+func (c *cookie) ContainerOptions() interface{} {
+	return nil
+}
 
 func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 	c.m.count++

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"runtime"
 	"strings"
 	"sync"
@@ -138,7 +139,9 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 		networks = append(networks, "")
 	}
 
-	pool.wg.Add(int(conf.PreForkPoolSize))
+	pool.wg.Add(1 + int(conf.PreForkPoolSize))
+	pullGate := make(chan struct{}, 1)
+
 	for i := 0; i < int(conf.PreForkPoolSize); i++ {
 
 		task := &poolTask{
@@ -148,9 +151,10 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 			netMode: networks[i%len(networks)],
 		}
 
-		go pool.nannyContainer(ctx, driver, task)
+		go pool.nannyContainer(ctx, driver, task, pullGate)
 	}
 
+	go pool.prepareImage(ctx, driver, conf.PreForkImage, pullGate)
 	return pool
 }
 
@@ -163,12 +167,6 @@ func (pool *dockerPool) Close() error {
 func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriver, task *poolTask) {
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
-
-	err := driver.ensureImage(ctx, task)
-	if err != nil {
-		log.WithError(err).Info("prefork pool image pull failed")
-		return
-	}
 
 	containerOpts := docker.CreateContainerOptions{
 		Name: task.Id(),
@@ -202,7 +200,7 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 	// ignore failure here
 	driver.docker.RemoveContainer(removeOpts)
 
-	_, err = driver.docker.CreateContainer(containerOpts)
+	_, err := driver.docker.CreateContainer(containerOpts)
 	if err != nil {
 		log.WithError(err).Info("prefork pool container create failed")
 		return
@@ -262,9 +260,49 @@ func (pool *dockerPool) performTeardown(ctx context.Context, driver *DockerDrive
 	driver.docker.RemoveContainer(removeOpts)
 }
 
-func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver, task *poolTask) {
+func (pool *dockerPool) prepareImage(ctx context.Context, driver *DockerDriver, img string, pullGate chan struct{}) {
+	defer pool.wg.Done()
+	defer close(pullGate)
+
+	log := common.Logger(ctx)
+
+	imgReg, imgRepo, imgTag := drivers.ParseImage(img)
+	opts := docker.PullImageOptions{Repository: path.Join(imgReg, imgRepo), Tag: imgTag, Context: ctx}
+	config := findRegistryConfig(imgReg, driver.auths)
+
+	for ctx.Err() != nil {
+		err := pool.limiter.Wait(ctx)
+		if err != nil {
+			// should not really happen unless ctx has a deadline or burst is 0.
+			log.WithError(err).Fatal("prefork pool rate limiter failed")
+		}
+
+		_, err = driver.docker.InspectImage(ctx, img)
+		if err == nil {
+			return
+		}
+		if err != docker.ErrNoSuchImage {
+			log.WithError(err).Fatal("prefork pool image inspect failed")
+		}
+
+		err = driver.docker.PullImage(opts, *config)
+		if err == nil {
+			return
+		}
+
+		log.WithError(err).Error("Failed to pull image")
+	}
+}
+
+func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver, task *poolTask, pullGate chan struct{}) {
 	defer pool.performTeardown(ctx, driver, task)
 	defer pool.wg.Done()
+
+	// wait for image pull
+	select {
+	case <-ctx.Done():
+	case <-pullGate:
+	}
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
 
@@ -275,7 +313,7 @@ func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver
 			err := pool.limiter.Wait(ctx)
 			if err != nil {
 				// should not really happen unless ctx has a deadline or burst is 0.
-				log.WithError(err).Info("prefork pool rate limiter failed")
+				log.WithError(err).Fatal("prefork pool rate limiter failed")
 				break
 			}
 		}

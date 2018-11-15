@@ -2,14 +2,12 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
 	"os"
-	"path"
 	"strings"
 	"sync"
 	"time"
@@ -154,6 +152,11 @@ func (drv *DockerDriver) Close() error {
 	return err
 }
 
+// Obsoleted.
+func (drv *DockerDriver) PrepareCookie(ctx context.Context, cookie drivers.Cookie) error {
+	return nil
+}
+
 func (drv *DockerDriver) pickPool(ctx context.Context, c *cookie) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "tryUsePool"})
 
@@ -259,43 +262,9 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 	// Order is important, Hostname doesn't play well with Network config
 	cookie.configureHostname(log)
 
+	cookie.imgReg, cookie.imgRepo, cookie.imgTag = drivers.ParseImage(task.Image())
+
 	return cookie, nil
-}
-
-func (drv *DockerDriver) PrepareCookie(ctx context.Context, c drivers.Cookie) error {
-
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "PrepareCookie"})
-	cookie, ok := c.(*cookie)
-	if !ok {
-		return errors.New("unknown cookie implementation")
-	}
-
-	err := drv.ensureImage(ctx, cookie.task)
-	if err != nil {
-		return err
-	}
-
-	// here let's assume we have created container, logically this should be after 'CreateContainer', but we
-	// are not 100% sure that *any* failure to CreateContainer does not ever leave a container around especially
-	// going through fsouza+docker-api.
-	cookie.isCreated = true
-
-	cookie.opts.Context = ctx
-	_, err = drv.docker.CreateContainer(cookie.opts)
-	if err != nil {
-		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
-		if err != docker.ErrContainerAlreadyExists {
-			log.WithFields(logrus.Fields{"call_id": cookie.task.Id(), "command": cookie.opts.Config.Cmd, "memory": cookie.opts.Config.Memory,
-				"cpu_quota": cookie.task.CPUs(), "hostname": cookie.opts.Config.Hostname, "name": cookie.opts.Name,
-				"image": cookie.opts.Config.Image, "volumes": cookie.opts.Config.Volumes, "binds": cookie.opts.HostConfig.Binds, "container": cookie.opts.Name,
-			}).WithError(err).Error("Could not create container")
-			// NOTE: if the container fails to create we don't really want to show to user since they aren't directly configuring the container
-			return err
-		}
-	}
-
-	// discard removal error
-	return nil
 }
 
 func (drv *DockerDriver) removeContainer(ctx context.Context, container string) error {
@@ -306,78 +275,6 @@ func (drv *DockerDriver) removeContainer(ctx context.Context, container string) 
 		logrus.WithError(err).WithFields(logrus.Fields{"container": container}).Error("error removing container")
 	}
 	return nil
-}
-
-func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.ContainerTask) error {
-	reg, repo, tag := drivers.ParseImage(task.Image())
-
-	// ask for docker creds before looking for image, as the tasker may need to
-	// validate creds even if the image is downloaded.
-
-	config := findRegistryConfig(reg, drv.auths)
-
-	if task, ok := task.(Auther); ok {
-		var err error
-		_, span := trace.StartSpan(ctx, "docker_auth")
-		authConfig, err := task.DockerAuth()
-		span.End()
-		if err != nil {
-			return err
-		}
-		if authConfig != nil {
-			config = authConfig
-		}
-	}
-
-	globalRepo := path.Join(reg, repo)
-
-	// see if we already have it, if not, pull it
-	_, err := drv.docker.InspectImage(ctx, task.Image())
-	if err == docker.ErrNoSuchImage {
-		err = drv.pullImage(ctx, task, *config, globalRepo, tag)
-	}
-
-	return err
-}
-
-func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTask, config docker.AuthConfiguration, globalRepo, tag string) error {
-	log := common.Logger(ctx)
-
-	log.WithFields(logrus.Fields{"registry": config.ServerAddress, "username": config.Username, "image": task.Image()}).Info("Pulling image")
-
-	err := drv.docker.PullImage(docker.PullImageOptions{Repository: globalRepo, Tag: tag, Context: ctx}, config)
-	if err != nil {
-		log.WithFields(logrus.Fields{"registry": config.ServerAddress, "username": config.Username, "image": task.Image()}).WithError(err).Error("Failed to pull image")
-
-		// TODO need to inspect for hub or network errors and pick; for now, assume
-		// 500 if not a docker error
-		msg := err.Error()
-		code := http.StatusInternalServerError
-		if dErr, ok := err.(*docker.Error); ok {
-			msg = dockerMsg(dErr)
-			code = dErr.Status // 401/404
-		}
-
-		return models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", task.Image(), msg))
-	}
-
-	return nil
-}
-
-// removes docker err formatting: 'API Error (code) {"message":"..."}'
-func dockerMsg(derr *docker.Error) string {
-	// derr.Message is a JSON response from docker, which has a "message" field we want to extract if possible.
-	// this is pretty lame, but it is what it is
-	var v struct {
-		Msg string `json:"message"`
-	}
-
-	err := json.Unmarshal([]byte(derr.Message), &v)
-	if err != nil {
-		// If message was not valid JSON, the raw body is still better than nothing.
-		return derr.Message
-	}
-	return v.Msg
 }
 
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.

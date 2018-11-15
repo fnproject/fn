@@ -55,9 +55,20 @@ func TestRunnerDocker(t *testing.T) {
 
 	defer cookie.Close(ctx)
 
-	err = dkr.PrepareCookie(ctx, cookie)
+	shouldPull, err := cookie.ValidateImage(ctx)
 	if err != nil {
-		t.Fatal("Couldn't prepare task test")
+		t.Fatal("Couldn't validate image test")
+	}
+	if shouldPull {
+		err = cookie.PullImage(ctx)
+		if err != nil {
+			t.Fatal("Couldn't pull image test")
+		}
+	}
+
+	err = cookie.CreateContainer(ctx)
+	if err != nil {
+		t.Fatal("Couldn't create container test")
 	}
 
 	waiter, err := cookie.Run(ctx)
@@ -95,22 +106,11 @@ func TestRunnerDockerNetworks(t *testing.T) {
 
 	defer cookie1.Close(ctx)
 
-	err = dkr.PrepareCookie(ctx, cookie1)
-	if err != nil {
-		t.Fatal("Couldn't prepare task1 test")
-	}
-
 	cookie2, err := dkr.CreateCookie(ctx, task2)
 	if err != nil {
 		t.Fatal("Couldn't create task2 cookie")
 	}
 
-	defer cookie2.Close(ctx)
-
-	err = dkr.PrepareCookie(ctx, cookie2)
-	if err != nil {
-		t.Fatal("Couldn't prepare task2 test")
-	}
 	defer cookie2.Close(ctx)
 
 	c1 := cookie1.(*cookie)
@@ -167,9 +167,19 @@ func TestRunnerDockerStdout(t *testing.T) {
 
 	defer cookie.Close(ctx)
 
-	err = dkr.PrepareCookie(ctx, cookie)
+	shouldPull, err := cookie.ValidateImage(ctx)
 	if err != nil {
-		t.Fatal("Couldn't prepare task test")
+		t.Fatal("Couldn't validate image test")
+	}
+	if shouldPull {
+		err = cookie.PullImage(ctx)
+		if err != nil {
+			t.Fatal("Couldn't pull image test")
+		}
+	}
+	err = cookie.CreateContainer(ctx)
+	if err != nil {
+		t.Fatal("Couldn't create container test")
 	}
 
 	waiter, err := cookie.Run(ctx)

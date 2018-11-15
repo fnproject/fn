@@ -782,7 +782,21 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	// WARNING: we wait forever.
 	defer cookie.Close(common.BackgroundContext(ctx))
 
-	err = a.driver.PrepareCookie(ctx, cookie)
+	shouldPull, err := cookie.ValidateImage(ctx)
+	if err != nil {
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+		return
+	}
+
+	if shouldPull {
+		err = cookie.PullImage(ctx)
+		if err != nil {
+			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+			return
+		}
+	}
+
+	err = cookie.CreateContainer(ctx)
 	if err != nil {
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 		return
