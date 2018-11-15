@@ -37,7 +37,7 @@ func TestBadRequests(t *testing.T) {
 	}{
 		{"/invoke/notfn", "", "", http.StatusNotFound, models.ErrFnsNotFound},
 	} {
-		request := createRequest(t, "POST", test.path, strings.NewReader(test.body))
+		request := createRequest(t, http.MethodPost, test.path, strings.NewReader(test.body))
 		request.Header = map[string][]string{"Content-Type": []string{test.contentType}}
 		_, rec := routerRequest2(t, srv.Router, request)
 
@@ -100,7 +100,7 @@ func TestFnInvokeRunnerExecEmptyBody(t *testing.T) {
 		t.Run(fmt.Sprintf("%d_%s", i, strings.Replace(test.path, "/", "_", -1)), func(t *testing.T) {
 			trx := fmt.Sprintf("_trx_%d_", i)
 			body := strings.NewReader(strings.Replace(emptyBody, "_TRX_ID_", trx, 1))
-			_, rec := routerRequest(t, srv.Router, "POST", test.path, body)
+			_, rec := routerRequest(t, srv.Router, http.MethodPost, test.path, body)
 			respBytes, _ := ioutil.ReadAll(rec.Body)
 			respBody := string(respBytes)
 			maxBody := len(respBody)
@@ -192,25 +192,25 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		expectedErrSubStr  string
 		expectedLogsSubStr []string
 	}{
-		{"/invoke/http_stream_fn_id", ok, "POST", http.StatusOK, expHeaders, "", nil},
+		{"/invoke/http_stream_fn_id", ok, http.MethodPost, http.StatusOK, expHeaders, "", nil},
 		// NOTE: we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
-		{"/invoke/http_stream_fn_id", respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
-		{"/invoke/http_stream_fn_id", crasher, "POST", http.StatusBadGateway, expHeaders, "error receiving function response", nil},
+		{"/invoke/http_stream_fn_id", respTypeLie, http.MethodPost, http.StatusOK, expCTHeaders, "", nil},
+		{"/invoke/http_stream_fn_id", crasher, http.MethodPost, http.StatusBadGateway, expHeaders, "error receiving function response", nil},
 		// XXX(reed): we could stop buffering function responses so that we can stream things?
-		{"/invoke/http_stream_fn_id", bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},
-		{"/invoke/http_stream_fn_id", smalloutput, "POST", http.StatusOK, expHeaders, "", nil},
+		{"/invoke/http_stream_fn_id", bigoutput, http.MethodPost, http.StatusBadGateway, nil, "function response too large", nil},
+		{"/invoke/http_stream_fn_id", smalloutput, http.MethodPost, http.StatusOK, expHeaders, "", nil},
 		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
-		{"/invoke/http_stream_fn_id", oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},
-		{"/invoke/http_stream_fn_id", bigbuf, "POST", http.StatusRequestEntityTooLarge, nil, "", nil},
+		{"/invoke/http_stream_fn_id", oomer, http.MethodPost, http.StatusBadGateway, nil, "error receiving function response", nil},
+		{"/invoke/http_stream_fn_id", bigbuf, http.MethodPost, http.StatusRequestEntityTooLarge, nil, "", nil},
 
-		{"/invoke/dne_fn_id", ``, "POST", http.StatusNotFound, nil, "pull access denied", nil},
-		{"/invoke/dnereg_fn_id", ``, "POST", http.StatusInternalServerError, nil, "connection refused", nil},
+		{"/invoke/dne_fn_id", ``, http.MethodPost, http.StatusNotFound, nil, "pull access denied", nil},
+		{"/invoke/dnereg_fn_id", ``, http.MethodPost, http.StatusInternalServerError, nil, "connection refused", nil},
 
 		// XXX(reed): what are these?
-		{"/invoke/http_stream_fn_id", multiLog, "POST", http.StatusOK, nil, "", multiLogExpectHot},
+		{"/invoke/http_stream_fn_id", multiLog, http.MethodPost, http.StatusOK, nil, "", multiLogExpectHot},
 
 		// TODO consider removing this, see comment above the image
-		{"/invoke/fail_fn", ok, "POST", http.StatusBadGateway, nil, "container failed to initialize", nil},
+		{"/invoke/fail_fn", ok, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
 	}
 
 	callIds := make([]string, len(testCases))
@@ -309,9 +309,9 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/invoke/http-stream", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
-		{"/invoke/http-stream", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
-		{"/invoke/bigmem", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, "POST", http.StatusBadRequest, nil},
+		{"/invoke/http-stream", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, http.MethodPost, http.StatusGatewayTimeout, nil},
+		{"/invoke/http-stream", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, http.MethodPost, http.StatusOK, nil},
+		{"/invoke/bigmem", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, http.MethodPost, http.StatusBadRequest, nil},
 	} {
 		t.Run(fmt.Sprintf("%d_%s", i, strings.Replace(test.path, "/", "_", -1)), func(t *testing.T) {
 			trx := fmt.Sprintf("_trx_%d_", i)
@@ -374,7 +374,8 @@ func TestInvokeRunnerMinimalConcurrentHotSync(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/invoke/fn_id", `{"sleepTime": 100, "isDebug": true}`, "POST", http.StatusOK, nil},
+		{"/invoke/fn_id", `{"sleepTime": 100, "isDebug": true}`, http.MethodPost, http.StatusOK, nil},
+		{"/invoke/fn_id", `{"sleepTime": 100, "isDebug": true}`, http.MethodPut, http.StatusMethodNotAllowed, nil},
 	} {
 		errs := make(chan error)
 		numCalls := 4

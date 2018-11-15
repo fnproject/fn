@@ -1166,7 +1166,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 		if !s.noFnInvokeEndpoint {
 			lbFnInvokeGroup := engine.Group("/invoke")
-			lbFnInvokeGroup.POST("/:fnID", s.handleFnInvokeCall)
+			lbFnInvokeGroup.Any("/:fnID", s.handleFnInvokeCall)
 		}
 	}
 
