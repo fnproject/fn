@@ -771,8 +771,9 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	logger := logrus.WithFields(logrus.Fields{"id": id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx, cancel := context.WithCancel(common.WithLogger(ctx, logger))
 
-	udsWait := make(chan error, 1)  // track UDS state and errors
-	errQueue := make(chan error, 1) // errors to be reflected back to the slot queue
+	initialized := make(chan struct{}) // when closed, container is ready to handle requests
+	udsWait := make(chan error, 1)     // track UDS state and errors
+	errQueue := make(chan error, 1)    // errors to be reflected back to the slot queue
 
 	evictor := a.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
 
@@ -784,8 +785,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		// IMPORTANT: we ignore any errors due to eviction and do not reflect these to clients.
 		if !evictor.isEvicted() {
 			select {
-			case err := <-udsWait:
-				tryQueueErr(err, errQueue)
+			case <-initialized:
 			default:
 				tryQueueErr(models.ErrContainerInitFail, errQueue)
 			}
@@ -825,13 +825,16 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		}
 	}()
 
-	// Monitor initialization and evictability.
+	// Monitor initialization and evictability. Closes 'initialized' channel
+	// to hand over the processing to main request processing go-routine
 	go func() {
 		for {
 			select {
 			case err := <-udsWait:
 				if tryQueueErr(err, errQueue) != nil {
 					cancel()
+				} else {
+					close(initialized)
 				}
 				return
 			case <-ctx.Done(): // container shutdown
@@ -886,15 +889,13 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		return
 	}
 
+	// Main request processing go-routine
 	go func() {
 		defer cancel() // also close if we get an agent shutdown / idle timeout
 
-		// INIT BARRIER HERE.
+		// INIT BARRIER HERE. Wait for the initialization go-routine signal
 		select {
-		case err := <-udsWait:
-			if tryQueueErr(err, errQueue) != nil {
-				return
-			}
+		case <-initialized:
 		case <-a.shutWg.Closer(): // agent shutdown
 			return
 		case <-ctx.Done():
