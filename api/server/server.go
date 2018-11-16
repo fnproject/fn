@@ -1171,15 +1171,15 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
-		url := c.Request.URL.String()
-		for _, p := range c.Params {
-			url = strings.Replace(url, p.Value, ":"+p.Key, 1)
-		}
-
 		var err models.APIError
-		for _, route := range engine.Routes() {
-			if route.Path == url {
-				err = models.ErrMethodNotAllowed
+		parts := strings.Split(c.Request.URL.Path, "/")
+		if len(parts) > 1 {
+			domain := parts[1]
+			engine.Routes()
+			for _, route := range engine.Routes() {
+				if strings.HasPrefix(route.Path, "/"+domain) {
+					err = models.ErrMethodNotAllowed
+				}
 			}
 		}
 
