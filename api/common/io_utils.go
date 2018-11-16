@@ -5,6 +5,20 @@ import (
 	"sync"
 )
 
+// NoopReadWriteCloser implements io.ReadWriteCloser, discarding all bytes, Read always returns EOF
+type NoopReadWriteCloser struct{}
+
+var _ io.ReadWriteCloser = NoopReadWriteCloser{}
+
+// Read implements io.Reader
+func (n NoopReadWriteCloser) Read(b []byte) (int, error) { return 0, io.EOF }
+
+// Write implements io.Writer
+func (n NoopReadWriteCloser) Write(b []byte) (int, error) { return len(b), nil }
+
+// Close implements io.Closer
+func (n NoopReadWriteCloser) Close() error { return nil }
+
 type clampWriter struct {
 	w           io.Writer
 	remaining   int64

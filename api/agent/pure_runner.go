@@ -649,7 +649,8 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	c.StartedAt = common.DateTime(time.Time{})
 	c.CompletedAt = common.DateTime(time.Time{})
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
+	agentCall, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
+		WithLogger(common.NoopReadWriteCloser{}),
 		WithWriter(state),
 		WithContext(state.ctx),
 		WithExtensions(tc.GetExtensions()),
@@ -659,14 +660,14 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		return err
 	}
 
-	state.c = agent_call.(*call)
+	state.c = agentCall.(*call)
 	if tc.SlotHashId != "" {
-		hashId, err := hex.DecodeString(tc.SlotHashId)
+		hashID, err := hex.DecodeString(tc.SlotHashId)
 		if err != nil {
 			state.enqueueCallResponse(err)
 			return err
 		}
-		state.c.slotHashId = string(hashId[:])
+		state.c.slotHashId = string(hashID[:])
 	}
 
 	if state.c.Type == models.TypeDetached {
@@ -784,14 +785,15 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	recorder := httptest.NewRecorder()
 	player := ioutil.NopCloser(strings.NewReader(c.Payload))
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, player),
+	agentCall, err := pr.a.GetCall(FromModelAndInput(&c, player),
+		WithLogger(common.NoopReadWriteCloser{}),
 		WithWriter(recorder),
 		WithContext(execCtx),
 	)
 
 	if err == nil {
 		var mcall *call
-		mcall = agent_call.(*call)
+		mcall = agentCall.(*call)
 		err = pr.a.Submit(mcall)
 	}
 
