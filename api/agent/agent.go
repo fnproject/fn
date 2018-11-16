@@ -661,6 +661,9 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 	defer swapBack()
 
 	resp, err := s.container.udsClient.Do(createUDSRequest(ctx, call))
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -669,9 +672,6 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 		return models.NewAPIError(http.StatusBadGateway, errors.New("error receiving function response"))
 	}
 	common.Logger(ctx).WithField("resp", resp).Debug("Got resp from UDS socket")
-
-	// if ctx is canceled/timedout, then we close the body to unlock writeResp() below
-	defer resp.Body.Close()
 
 	ioErrChan := make(chan error, 1)
 	go func() {
