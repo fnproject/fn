@@ -1171,23 +1171,15 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
-		var err models.APIError
-		parts := strings.Split(c.Request.URL.Path, "/")
-		if len(parts) > 1 {
-			domain := parts[1]
-			engine.Routes()
-			for _, route := range engine.Routes() {
-				if strings.HasPrefix(route.Path, "/"+domain) {
-					err = models.ErrMethodNotAllowed
-				}
-			}
-		}
+		var e models.APIError = models.ErrPathNotFound
+		err := models.NewAPIError(e.Code(), fmt.Errorf("%v: %s %s", e.Error(), c.Request.Method, c.Request.URL.Path))
+		handleErrorResponse(c, err)
+	})
 
-		// default to 404
-		if err == nil {
-			err = models.ErrPathNotFound
-		}
-		err = models.NewAPIError(err.Code(), fmt.Errorf("%v: %s %s", err.Error(), c.Request.Method, c.Request.URL.Path))
+	engine.HandleMethodNotAllowed = true
+	engine.NoMethod(func(c *gin.Context) {
+		var e models.APIError = models.ErrMethodNotAllowed
+		err := models.NewAPIError(e.Code(), fmt.Errorf("%v: %s %s", e.Error(), c.Request.Method, c.Request.URL.Path))
 		handleErrorResponse(c, err)
 	})
 
