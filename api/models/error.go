@@ -138,6 +138,14 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("error receiving function response"),
 	}
+	ErrFunctionFailed = err{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("function failed"),
+	}
+	ErrFunctionInvalidResponse = err{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("invalid function response"),
+	}
 	ErrRequestContentTooBig = err{
 		code:  http.StatusRequestEntityTooLarge,
 		error: fmt.Errorf("Request content too large"),

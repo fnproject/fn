@@ -220,7 +220,7 @@ func (a *lbAgent) Submit(callI Call) error {
 
 func (a *lbAgent) placeDetachCall(ctx context.Context, call *call) error {
 	errPlace := make(chan error, 1)
-	rw := call.w.(*DetachedResponseWriter)
+	rw := call.respWriter.(*DetachedResponseWriter)
 	go a.spawnPlaceCall(ctx, call, errPlace)
 	select {
 	case err := <-errPlace:

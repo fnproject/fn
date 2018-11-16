@@ -605,12 +605,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	})
 
 	call.req = call.req.WithContext(ctx) // TODO this is funny biz reed is bad
-
-	err := s.dispatch(ctx, call)
-	if err != nil {
-		s.trySetError(err)
-	}
-	return err
+	return s.dispatch(ctx, call)
 }
 
 var removeHeaders = map[string]bool{
@@ -661,54 +656,76 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 	defer swapBack()
 
 	resp, err := s.container.udsClient.Do(createUDSRequest(ctx, call))
-	if resp != nil {
-		defer resp.Body.Close()
-	}
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
 	if err != nil {
-		common.Logger(ctx).WithError(err).Error("Got error from UDS socket")
-		return models.NewAPIError(http.StatusBadGateway, errors.New("error receiving function response"))
+		// IMPORTANT: Container contract: If http-uds errors/timeout, container cannot continue
+		s.trySetError(err)
+		// first filter out timeouts
+		if ctx.Err() == context.DeadlineExceeded {
+			return context.DeadlineExceeded
+		}
+		return models.ErrFunctionResponse
 	}
+	defer resp.Body.Close()
+
 	common.Logger(ctx).WithField("resp", resp).Debug("Got resp from UDS socket")
 
 	ioErrChan := make(chan error, 1)
 	go func() {
-		ioErrChan <- writeResp(s.cfg.MaxResponseSize, resp, call.w)
+		ioErrChan <- s.writeResp(ctx, s.cfg.MaxResponseSize, resp, call.respWriter)
 	}()
 
 	select {
 	case ioErr := <-ioErrChan:
 		return ioErr
 	case <-ctx.Done():
+		if ctx.Err() == context.DeadlineExceeded {
+			// IMPORTANT: Container contract: If http-uds timeout, container cannot continue
+			s.trySetError(ctx.Err())
+		}
 		return ctx.Err()
 	}
 }
 
-func writeResp(max uint64, resp *http.Response, w io.Writer) error {
+func (s *hotSlot) writeResp(ctx context.Context, max uint64, resp *http.Response, w io.Writer) error {
 	rw, ok := w.(http.ResponseWriter)
 	if !ok {
+		// WARNING: this bypasses container contract translation. Assuming this is
+		// async mode, where we are storing response in call.stderr.
 		w = common.NewClampWriter(w, max, models.ErrFunctionResponseTooBig)
 		return resp.Write(w)
 	}
 
+	// IMPORTANT: Container contract: Enforce 200/502/504 expections
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// FDK processed the request OK
+	case http.StatusBadGateway:
+		// FDK detected failure, container can continue
+		return models.ErrFunctionFailed
+	case http.StatusGatewayTimeout:
+		// FDK detected timeout, respond as if ctx expired, this gets translated & handled in handleCallEnd()
+		return context.DeadlineExceeded
+	default:
+		// Any other code. Possible FDK failure. We shutdown the container
+		s.trySetError(fmt.Errorf("FDK Error, invalid status code %d", resp.StatusCode))
+		return models.ErrFunctionInvalidResponse
+	}
+
 	rw = newSizerRespWriter(max, rw)
+	rw.WriteHeader(http.StatusOK)
 
+	// WARNING: is the following header copy safe?
 	// if we're writing directly to the response writer, we need to set headers
-	// and status code, and only copy the body. resp.Write would copy a full
+	// and only copy the body. resp.Write would copy a full
 	// http request into the response body (not what we want).
-
 	for k, vs := range resp.Header {
 		for _, v := range vs {
 			rw.Header().Add(k, v)
 		}
 	}
-	if resp.StatusCode > 0 {
-		rw.WriteHeader(resp.StatusCode)
-	}
-	_, err := io.Copy(rw, resp.Body)
-	return err
+
+	_, ioErr := io.Copy(rw, resp.Body)
+	return ioErr
 }
 
 // XXX(reed): this is a remnant of old io.pipe plumbing, we need to get rid of
