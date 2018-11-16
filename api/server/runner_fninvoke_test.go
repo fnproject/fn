@@ -211,7 +211,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 		// TODO consider removing this, see comment above the image
 		{"/invoke/fail_fn", ok, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
-		{"/invoke/fn_id", ok, http.MethodPut, http.StatusMethodNotAllowed, nil, "only HTTP POST", nil},
+		{"/invoke/fn_id", ok, http.MethodPut, http.StatusMethodNotAllowed, nil, "Method not allowed", nil},
 	}
 
 	callIds := make([]string, len(testCases))

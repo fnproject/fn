@@ -25,7 +25,7 @@ paths:
        200:
          description: "Function successfully invoked."
        405:
-         description: "Method not allowed, only HTTP POST supported."
+         description: "Method not allowed"
          schema:
            $ref: '#/definitions/Error'
        default:

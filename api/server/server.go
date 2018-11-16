@@ -1166,14 +1166,28 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 		if !s.noFnInvokeEndpoint {
 			lbFnInvokeGroup := engine.Group("/invoke")
-			lbFnInvokeGroup.Any("/:fnID", s.handleFnInvokeCall)
+			lbFnInvokeGroup.POST("/:fnID", s.handleFnInvokeCall)
 		}
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
-		var err error
-		var e models.APIError = models.ErrPathNotFound
-		err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
+		url := c.Request.URL.String()
+		for _, p := range c.Params {
+			url = strings.Replace(url, p.Value, ":"+p.Key, 1)
+		}
+
+		var err models.APIError
+		for _, route := range engine.Routes() {
+			if route.Path == url {
+				err = models.ErrMethodNotAllowed
+			}
+		}
+
+		// default to 404
+		if err == nil {
+			err = models.ErrPathNotFound
+		}
+		err = models.NewAPIError(err.Code(), fmt.Errorf("%v: %s %s", err.Error(), c.Request.Method, c.Request.URL.Path))
 		handleErrorResponse(c, err)
 	})
 
