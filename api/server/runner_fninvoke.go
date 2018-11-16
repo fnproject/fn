@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -46,9 +45,7 @@ func (s *syncResponseWriter) Status() int          { return s.status }
 // handleFnInvokeCall executes the function, for router handlers
 func (s *Server) handleFnInvokeCall(c *gin.Context) {
 	if c.Request.Method != http.MethodPost {
-		handleErrorResponse(c, models.NewAPIError(http.StatusMethodNotAllowed,
-			errors.New("Method not allowed, only HTTP POST supported.")),
-		)
+		handleErrorResponse(c, models.ErrInvokePostOnly)
 		return
 	}
 	fnID := c.Param(api.ParamFnID)

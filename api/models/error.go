@@ -14,6 +14,11 @@ const (
 )
 
 var (
+	ErrInvokePostOnly = err{
+		code:  http.StatusMethodNotAllowed,
+		error: errors.New("Method not allowed, only HTTP POST supported"),
+	}
+
 	ErrInvalidJSON = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid JSON"),

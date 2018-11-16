@@ -211,6 +211,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 		// TODO consider removing this, see comment above the image
 		{"/invoke/fail_fn", ok, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
+		{"/invoke/fn_id", ok, http.MethodPut, http.StatusMethodNotAllowed, nil, "only HTTP POST", nil},
 	}
 
 	callIds := make([]string, len(testCases))
@@ -375,7 +376,6 @@ func TestInvokeRunnerMinimalConcurrentHotSync(t *testing.T) {
 		expectedHeaders map[string][]string
 	}{
 		{"/invoke/fn_id", `{"sleepTime": 100, "isDebug": true}`, http.MethodPost, http.StatusOK, nil},
-		{"/invoke/fn_id", `{"sleepTime": 100, "isDebug": true}`, http.MethodPut, http.StatusMethodNotAllowed, nil},
 	} {
 		errs := make(chan error)
 		numCalls := 4
