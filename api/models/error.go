@@ -14,6 +14,11 @@ const (
 )
 
 var (
+	ErrMethodNotAllowed = err{
+		code:  http.StatusMethodNotAllowed,
+		error: errors.New("Method not allowed"),
+	}
+
 	ErrInvalidJSON = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid JSON"),

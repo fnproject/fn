@@ -1171,9 +1171,15 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
-		var err error
 		var e models.APIError = models.ErrPathNotFound
-		err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
+		err := models.NewAPIError(e.Code(), fmt.Errorf("%v: %s %s", e.Error(), c.Request.Method, c.Request.URL.Path))
+		handleErrorResponse(c, err)
+	})
+
+	engine.HandleMethodNotAllowed = true
+	engine.NoMethod(func(c *gin.Context) {
+		var e models.APIError = models.ErrMethodNotAllowed
+		err := models.NewAPIError(e.Code(), fmt.Errorf("%v: %s %s", e.Error(), c.Request.Method, c.Request.URL.Path))
 		handleErrorResponse(c, err)
 	})
 

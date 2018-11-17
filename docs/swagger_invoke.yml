@@ -24,6 +24,10 @@ paths:
      responses:
        200:
          description: "Function successfully invoked."
+       405:
+         description: "Method not allowed"
+         schema:
+           $ref: '#/definitions/Error'
        default:
           description: "An unexpected error occurred."
           schema:
