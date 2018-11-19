@@ -34,9 +34,8 @@ type Call interface {
 
 	// End will be called immediately after attempting a call execution,
 	// regardless of whether the execution failed or not. An error will be passed
-	// to End, which if nil indicates a successful execution. Any error returned
-	// from End will be returned as the error from Submit.
-	End(ctx context.Context, err error) error
+	// to End, which if nil indicates a successful execution.
+	End(ctx context.Context, err error)
 }
 
 // Interceptor in GetCall
@@ -325,27 +324,15 @@ func (c *call) Start(ctx context.Context) error {
 	c.StartedAt = common.DateTime(time.Now())
 	c.Status = "running"
 
-	if c.Type == models.TypeAsync {
-		// XXX (reed): make sure MQ reservation is lengthy. to skirt MQ semantics,
-		// we could add a new message to MQ w/ delay of call.Timeout and delete the
-		// old one (in that order), after marking the call as running in the db
-		// (see below)
-
-		// XXX (reed): should we store the updated started_at + status? we could
-		// use this so that if we pick up a call from mq and find its status is
-		// running to avoid running the call twice and potentially mark it as
-		// errored (built in long running task detector, so to speak...)
-
-		err := c.handler.Start(ctx, c.Model())
-		if err != nil {
-			return err // let another thread try this
-		}
+	err := c.handler.Start(ctx, c.Model())
+	if err != nil {
+		return err // let another thread try this
 	}
 
 	return c.ct.fireBeforeCall(ctx, c.Model())
 }
 
-func (c *call) End(ctx context.Context, errIn error) error {
+func (c *call) End(ctx context.Context, errIn error) {
 	ctx, span := trace.StartSpan(ctx, "agent_call_end")
 	defer span.End()
 
@@ -373,7 +360,6 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	c.stderr.Close()
 
 	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
-		return err
+		common.Logger(ctx).WithError(err).Error("error in fireAfterCall")
 	}
-	return errIn // original error, important for use in sync call returns
 }

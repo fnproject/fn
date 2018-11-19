@@ -131,9 +131,11 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 
 	// TODO change this to only delete message if the status change fails b/c it already ran
 	// after messaging semantics change
-	if err := s.mq.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
-		handleErrorResponse(c, err)
-		return
+	if call.Type == models.TypeAsync {
+		if err := s.mq.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
+			handleErrorResponse(c, err)
+			return
+		}
 	}
 	//}
 	//handleV1ErrorResponse(c, err)
