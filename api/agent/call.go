@@ -333,12 +333,7 @@ func (c *call) Start(ctx context.Context) error {
 		}
 	}
 
-	err := c.ct.fireBeforeCall(ctx, c.Model())
-	if err != nil {
-		return fmt.Errorf("BeforeCall: %v", err)
-	}
-
-	return nil
+	return c.ct.fireBeforeCall(ctx, c.Model())
 }
 
 func (c *call) End(ctx context.Context, errIn error) error {
@@ -369,8 +364,7 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	c.stderr.Close()
 
 	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
-		return fmt.Errorf("AfterCall: %v", err)
+		return err
 	}
-
 	return errIn // original error, important for use in sync call returns
 }
