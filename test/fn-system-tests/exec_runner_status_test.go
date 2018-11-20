@@ -118,7 +118,7 @@ func TestExecuteRunnerStatus(t *testing.T) {
 		t.Fatalf("Creating Node Pool failed %v", err)
 	}
 
-	runners, err := pool.Runners(&zoo)
+	runners, err := pool.Runners(context.Background(), &zoo)
 	if err != nil {
 		t.Fatalf("Getting Runners from Pool failed %v", err)
 	}
