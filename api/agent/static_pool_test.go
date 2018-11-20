@@ -45,7 +45,7 @@ func TestNewStaticPool(t *testing.T) {
 	addrs := []string{"127.0.0.1:8080", "127.0.0.1:8081"}
 	np := setupStaticPool(addrs)
 
-	runners, err := np.Runners(nil)
+	runners, err := np.Runners(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Failed to list runners %v", err)
 	}
@@ -62,7 +62,7 @@ func TestNewStaticPool(t *testing.T) {
 func TestEmptyPool(t *testing.T) {
 	np := setupStaticPool(nil).(*staticRunnerPool)
 
-	runners, err := np.Runners(nil)
+	runners, err := np.Runners(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Failed to list runners %v", err)
 	}
