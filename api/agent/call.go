@@ -167,7 +167,7 @@ func WithTrigger(t *models.Trigger) CallOpt {
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
 	return func(c *call) error {
-		c.w = w
+		c.respWriter = w
 		return nil
 	}
 }
@@ -252,10 +252,10 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		// XXX(reed): forcing this as default is not great / configuring it isn't great either. reconsider.
 		c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
 	}
-	if c.w == nil {
+	if c.respWriter == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
-		c.w = c.stderr
+		c.respWriter = c.stderr
 	}
 
 	return &c, nil
@@ -271,7 +271,7 @@ type call struct {
 	*models.Call
 
 	handler      CallHandler
-	w            io.Writer
+	respWriter   io.Writer
 	req          *http.Request
 	stderr       io.ReadWriteCloser
 	ct           callTrigger
@@ -304,7 +304,7 @@ func (c *call) RequestBody() io.ReadCloser {
 }
 
 func (c *call) ResponseWriter() http.ResponseWriter {
-	return c.w.(http.ResponseWriter)
+	return c.respWriter.(http.ResponseWriter)
 }
 
 func (c *call) StdErr() io.ReadWriteCloser {
