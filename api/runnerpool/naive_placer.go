@@ -34,7 +34,7 @@ func (sp *naivePlacer) PlaceCall(ctx context.Context, rp RunnerPool, call Runner
 	var runnerPoolErr error
 	for {
 		var runners []Runner
-		runners, runnerPoolErr = rp.Runners(call)
+		runners, runnerPoolErr = rp.Runners(ctx, call)
 
 		for j := 0; j < len(runners) && !state.IsDone(); j++ {
 

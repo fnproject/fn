@@ -46,7 +46,7 @@ func newMockRunnerPool(rf pool.MTLSRunnerFactory, runnerAddrs []string) *mockRun
 	}
 }
 
-func (rp *mockRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
+func (rp *mockRunnerPool) Runners(ctx context.Context, call pool.RunnerCall) ([]pool.Runner, error) {
 	return rp.runners, nil
 }
 

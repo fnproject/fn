@@ -39,7 +39,7 @@ func NewStaticRunnerPool(runnerAddresses []string, tlsConf *tls.Config, runnerFa
 	}
 }
 
-func (rp *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
+func (rp *staticRunnerPool) Runners(ctx context.Context, call pool.RunnerCall) ([]pool.Runner, error) {
 	r := make([]pool.Runner, len(rp.runners))
 	copy(r, rp.runners)
 	return r, nil
