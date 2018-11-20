@@ -152,9 +152,12 @@ func (da *directDataAccess) Start(ctx context.Context, mCall *models.Call) error
 	// error. If it is successful, don't do anything - the message will be
 	// removed when the call Finish'es.
 
-	// At the moment we don't have the queued/running/finished mechanics so we
-	// remove the message here.
-	return da.mq.Delete(ctx, mCall)
+	if mCall.Type == models.TypeAsync {
+		// At the moment we don't have the queued/running/finished mechanics so we
+		// remove the message here.
+		return da.mq.Delete(ctx, mCall)
+	}
+	return nil
 }
 
 func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stderr io.Reader, async bool) error {

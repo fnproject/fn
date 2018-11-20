@@ -94,8 +94,10 @@ func (cl *client) Start(ctx context.Context, c *models.Call) error {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_start")
 	defer span.End()
 
-	err := cl.do(ctx, c, nil, "POST", noQuery, "runner", "start")
-	return err
+	if c.Type == models.TypeAsync {
+		return cl.do(ctx, c, nil, "POST", noQuery, "runner", "start")
+	}
+	return nil
 }
 
 func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async bool) error {
