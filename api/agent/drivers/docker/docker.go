@@ -283,19 +283,18 @@ func (drv *DockerDriver) removeContainer(ctx context.Context, container string) 
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
 
-	mwOut, mwErr := task.Logger()
+	stdout, stderr := task.Logger()
 	successChan := make(chan struct{})
 
 	_, stdinOff := task.Input().(common.NoopReadWriteCloser)
-	stdout, stderr := task.Logger()
 	_, stdoutOff := stdout.(common.NoopReadWriteCloser)
 	_, stderrOff := stderr.(common.NoopReadWriteCloser)
 
 	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
 		Container:    container,
 		InputStream:  task.Input(),
-		OutputStream: mwOut,
-		ErrorStream:  mwErr,
+		OutputStream: stdout,
+		ErrorStream:  stderr,
 		Success:      successChan,
 		Stream:       true,
 		Stdout:       !stdoutOff,
