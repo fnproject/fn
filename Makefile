@@ -55,10 +55,6 @@ fn-test-utils: checkfmt
 test-middleware: test-basic
 	cd examples/middleware && go build
 
-.PHONY: test-extensions
-test-extensions: test-basic
-	cd examples/extensions && go build
-
 .PHONY: test-basic
 test-basic: checkfmt pull-images fn-test-utils fn-status-checker
 	./test.sh
