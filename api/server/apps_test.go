@@ -325,7 +325,6 @@ func TestAppUpdate(t *testing.T) {
 			}
 
 			if test.expectedError != nil {
-				fmt.Printf("resp: %s", rec.Body)
 				resp := getErrorResponse(t, rec)
 
 				if !strings.Contains(resp.Message, test.expectedError.Error()) {

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	_ "github.com/fnproject/fn/api/agent/drivers/docker"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -1354,5 +1355,67 @@ func TestCheckSocketDestination(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestContainerDisableIO(t *testing.T) {
+	modelCall := &models.Call{
+		AppID:       id.New().String(),
+		FnID:        id.New().String(),
+		Image:       "fnproject/fn-test-utils",
+		Type:        "sync",
+		Timeout:     1,
+		IdleTimeout: 2,
+	}
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatalf("bad config %+v", cfg)
+	}
+
+	ls := logs.NewMock()
+	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	defer checkClose(t, a)
+
+	// NOTE: right now we disable stdin by default so this test should pass.
+	// if you're adding back stdin and this fails, that is why.
+	// NOTE: specify noop as the logger, stdout will get sent to stderr,
+	// and we should get back a noop writer from the container for both.
+	callIf, err := a.GetCall(FromModel(modelCall),
+		WithLogger(common.NoopReadWriteCloser{}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := callIf.(*call)
+
+	ctx := context.TODO()
+
+	errC := make(chan error, 10)
+
+	c := newHotContainer(ctx, call, cfg, id.New().String(), errC)
+	if c == nil {
+		err := <-errC
+		t.Fatal("got unexpected err: ", err)
+	}
+
+	// we need to test that our concrete container type returns the noop
+	// writers and readers to the docker driver (ie no decorators), which
+	// the docker driver currently uses to disable stdin/stdout/stderr at
+	// the container level (save some bytes)
+
+	stdin := c.Input()
+	stdout, stderr := c.Logger()
+
+	_, stdinOff := stdin.(common.NoopReadWriteCloser)
+	_, stdoutOff := stdout.(common.NoopReadWriteCloser)
+	_, stderrOff := stderr.(common.NoopReadWriteCloser)
+
+	if !stdinOff {
+		t.Error("stdin is enabled, stdin should be disabled")
+	}
+	if !stdoutOff {
+		t.Error("stdout is enabled, stdout should be disabled")
+	}
+	if !stderrOff {
+		t.Error("stderr is enabled, stderr should be disabled")
+	}
 }
