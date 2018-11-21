@@ -1230,14 +1230,21 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, ud
 }
 
 func (c *container) swap(stderr io.Writer, cs *drivers.Stats) func() {
-	ostderr := c.stderr.(common.GhostWriter).Swap(stderr)
+	// if they aren't using a ghost writer, the logs are disabled, we can skip swapping
+	gw, ok := c.stderr.(common.GhostWriter)
+	var ostderr io.Writer
+	if ok {
+		ostderr = gw.Swap(stderr)
+	}
 	c.swapMu.Lock()
 	ocs := c.stats
 	c.stats = cs
 	c.swapMu.Unlock()
 
 	return func() {
-		c.stderr.(common.GhostWriter).Swap(ostderr)
+		if ostderr != nil {
+			c.stderr.(common.GhostWriter).Swap(ostderr)
+		}
 		c.swapMu.Lock()
 		c.stats = ocs
 		c.swapMu.Unlock()
