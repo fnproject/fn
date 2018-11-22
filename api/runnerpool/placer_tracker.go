@@ -63,22 +63,24 @@ func (tr *placerTracker) TryRunner(r Runner, call RunnerCall) (bool, error) {
 		// Too Busy is super common case, we track it separately
 		if err == models.ErrCallTimeoutServerBusy {
 			stats.Record(tr.requestCtx, retryTooBusyCountMeasure.M(0))
-		} else {
+		} else if tr.requestCtx.Err() != err {
+			// only record retry due to an error if client did not abort/cancel/timeout
 			stats.Record(tr.requestCtx, retryErrorCountMeasure.M(0))
 		}
 
 	} else {
 
-		// Only log unusual (except for too-busy) errors for isPlaced (customer impacting) calls
-		if err != nil && err != models.ErrCallTimeoutServerBusy {
+		// Only log unusual errors for isPlaced (customer impacting) calls
+		if err != nil && tr.requestCtx.Err() != err {
 			logger := common.Logger(ctx).WithField("runner_addr", r.Address())
 			logger.WithError(err).Errorf("Failed during call placement")
 		}
-
-		if err != nil {
-			stats.Record(tr.requestCtx, placedErrorCountMeasure.M(0))
-		} else {
+		if err == nil {
 			stats.Record(tr.requestCtx, placedOKCountMeasure.M(0))
+		} else if tr.requestCtx.Err() == err {
+			stats.Record(tr.requestCtx, placedAbortCountMeasure.M(0))
+		} else {
+			stats.Record(tr.requestCtx, placedErrorCountMeasure.M(0))
 		}
 
 		// Call is now committed. In other words, it was 'run'. We are done.
@@ -93,8 +95,10 @@ func (tr *placerTracker) TryRunner(r Runner, call RunnerCall) (bool, error) {
 func (tr *placerTracker) HandleDone() {
 
 	// Cancel Exit Path / Client cancelled/timedout
-	if tr.requestCtx.Err() != nil {
+	if tr.requestCtx.Err() == context.Canceled {
 		stats.Record(tr.requestCtx, cancelCountMeasure.M(0))
+	} else if tr.requestCtx.Err() == context.DeadlineExceeded {
+		stats.Record(tr.requestCtx, timeoutCountMeasure.M(0))
 	}
 
 	// This means our placer timed out. We ignore tr.isPlaced calls

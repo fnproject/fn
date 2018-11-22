@@ -17,8 +17,10 @@ var (
 	errorPoolCountMeasure    = common.MakeMeasure("lb_placer_rp_error_count", "LB Placer RunnerPool RunnerList Error Count", "")
 	emptyPoolCountMeasure    = common.MakeMeasure("lb_placer_rp_empty_count", "LB Placer RunnerPool RunnerList Empty Count", "")
 	cancelCountMeasure       = common.MakeMeasure("lb_placer_client_cancelled_count", "LB Placer Client Cancel Count", "")
+	timeoutCountMeasure      = common.MakeMeasure("lb_placer_client_timeout_count", "LB Placer Client Timeout Count", "")
 	placerTimeoutMeasure     = common.MakeMeasure("lb_placer_timeout_count", "LB Placer Timeout Count", "")
 	placedErrorCountMeasure  = common.MakeMeasure("lb_placer_placed_error_count", "LB Placer Placed Call Count With Errors", "")
+	placedAbortCountMeasure  = common.MakeMeasure("lb_placer_placed_abort_count", "LB Placer Placed Call Count With Client Timeout/Cancel", "")
 	placedOKCountMeasure     = common.MakeMeasure("lb_placer_placed_ok_count", "LB Placer Placed Call Count Without Errors", "")
 	retryTooBusyCountMeasure = common.MakeMeasure("lb_placer_retry_busy_count", "LB Placer Retry Count - Too Busy", "")
 	retryErrorCountMeasure   = common.MakeMeasure("lb_placer_retry_error_count", "LB Placer Retry Count - Errors", "")
@@ -70,9 +72,11 @@ func RegisterPlacerViews(tagKeys []string, latencyDist []float64) {
 		common.CreateView(attemptCountMeasure, view.Distribution(0, 2, 3, 4, 8, 16, 32, 64, 128, 256), tagKeys),
 		common.CreateView(errorPoolCountMeasure, view.Count(), tagKeys),
 		common.CreateView(emptyPoolCountMeasure, view.Count(), tagKeys),
+		common.CreateView(timeoutCountMeasure, view.Count(), tagKeys),
 		common.CreateView(cancelCountMeasure, view.Count(), tagKeys),
 		common.CreateView(placerTimeoutMeasure, view.Count(), tagKeys),
 		common.CreateView(placedErrorCountMeasure, view.Count(), tagKeys),
+		common.CreateView(placedAbortCountMeasure, view.Count(), tagKeys),
 		common.CreateView(placedOKCountMeasure, view.Count(), tagKeys),
 		common.CreateView(retryTooBusyCountMeasure, view.Count(), tagKeys),
 		common.CreateView(retryErrorCountMeasure, view.Count(), tagKeys),
