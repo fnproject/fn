@@ -542,6 +542,7 @@ type statusTracker struct {
 	inflight         int32
 	requestsReceived uint64
 	requestsHandled  uint64
+	kdumpsOnDisk     uint64
 	imageName        string
 
 	// lock protects expiry/cache/wait fields below. RunnerStatus ptr itself
@@ -899,6 +900,7 @@ func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatu
 	cachePtr.Active = atomic.LoadInt32(&pr.status.inflight)
 	cachePtr.RequestsReceived = atomic.LoadUint64(&pr.status.requestsReceived)
 	cachePtr.RequestsHandled = atomic.LoadUint64(&pr.status.requestsHandled)
+	cachePtr.KdumpsOnDisk = atomic.LoadUint64(&pr.status.kdumpsOnDisk)
 	now = time.Now()
 
 	// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
@@ -993,6 +995,19 @@ func PureRunnerWithStatusImage(imgName string) PureRunnerOption {
 			return fmt.Errorf("Duplicate status image configuration old=%s new=%s", pr.status.imageName, imgName)
 		}
 		pr.status.imageName = imgName
+		return nil
+	}
+}
+
+// PureRunnerWithKdumpsOnDisk returns a PureRunnerOption that indicates that
+// kdumps have been found on disk.  The argument numKdump is a counter that
+// indicates how many dumps were on disk at the time the runner was created.
+func PureRunnerWithKdumpsOnDisk(numKdumps uint64) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		if pr.status.kdumpsOnDisk != 0 {
+			return fmt.Errorf("Duplicate kdump count configuration! old=%d new=%d", pr.status.kdumpsOnDisk, numKdumps)
+		}
+		pr.status.kdumpsOnDisk = numKdumps
 		return nil
 	}
 }
