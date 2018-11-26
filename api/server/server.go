@@ -119,6 +119,9 @@ const (
 	// EnvMaxRequestSize sets the limit in bytes for any API request's length.
 	EnvMaxRequestSize = "FN_MAX_REQUEST_SIZE"
 
+	// EnvEnableAdminProfiler is used to enable the profiler for the admin API
+	EnvEnableAdminProfiler = "FN_ENABLE_ADMIN_PROFILER"
+
 	// DefaultLogFormat is text
 	DefaultLogFormat = "text"
 
@@ -1099,7 +1102,14 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		admin.GET("/metrics", gin.WrapH(s.promExporter))
 	}
 
-	profilerSetup(admin, "/debug")
+	profilerEnabled, err := strconv.ParseBool(getEnv(EnvEnableAdminProfiler, "true"))
+	if err != nil {
+		profilerEnabled = true
+	}
+
+	if profilerEnabled {
+		profilerSetup(admin, "/debug")
+	}
 
 	// Pure runners don't have any route, they have grpc
 	switch s.nodeType {
