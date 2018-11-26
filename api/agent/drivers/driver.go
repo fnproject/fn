@@ -257,6 +257,7 @@ type Config struct {
 	MaxRetries              uint64        `json:"max_retries"`
 	MaxImageCacheSize       uint64        `json:"max_image_cache_size"`
 	ImageCacheCleanInterval time.Duration `json:"image_cache_clean_interval"`
+	RequiredImages          string        `json:"required_images"`
 }
 
 func average(samples []Stat) (Stat, bool) {

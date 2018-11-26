@@ -41,6 +41,8 @@ type Config struct {
 	MaxDockerRetries        uint64        `json:"max_docker_retries"`
 	MaxImageCacheSize       uint64        `json:"max_image_cache_size"`
 	ImageCacheCleanInterval time.Duration `json:"image_cache_clean_interval"`
+	RequiredImages          string        `json:"required_images"`
+
 }
 
 const (
@@ -106,6 +108,10 @@ const (
 	EnvMaxImageCacheSize = "FN_MAX_IMAGE_CACHE_SIZE"
 	// EnvImageCacheCleanInterval How often the image cache cleans.
 	EnvImageCacheCleanInterval = "FN_IMAGE_CACHE_CLEAN_INTERVAL"
+
+	// A comma sperated list of image ids. Used to lock them in the image LRU so that they don't get deleted.
+	EnvRequiredImages = "FN_REQUIRED_IMAGES"
+
 	// MaxMsDisabled is used to determine whether mr freeze is lying in wait. TODO remove this manuever
 	MaxMsDisabled = time.Duration(math.MaxInt64)
 
@@ -166,6 +172,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvBool(err, EnvEnableNBResourceTracker, &cfg.EnableNBResourceTracker)
 	err = setEnvBool(err, EnvDisableReadOnlyRootFs, &cfg.DisableReadOnlyRootFs)
 	err = setEnvBool(err, EnvDisableDebugUserLogs, &cfg.DisableDebugUserLogs)
+	err = setEnvStr(err, EnvRequiredImages, &cfg.RequiredImages)
 
 	if err != nil {
 		return cfg, err

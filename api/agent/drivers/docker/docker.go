@@ -108,10 +108,17 @@ func NewImageCleaner(context context.Context, dockerDriver *DockerDriver, maxSiz
 	}
 }
 
-func Contains(coll []docker.APIImages, item docker.APIImages) bool {
+func ListOfImageIDs(collstr string) []string {
+	res := strings.Split(collstr, ",")
+	return res
+}
+
+func Contains(coll []string, item docker.APIImages) bool {
 	for _, image := range coll {
-		if image.ID == item.ID {
-			return true
+		for _, tag := range item.RepoTags {
+			if tag == image {
+				return true
+			}
 		}
 	}
 	return false
@@ -158,8 +165,8 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 	}
 
 	liopts := docker.ListImagesOptions{All: false}
+	requiredImages := ListOfImageIDs(conf.RequiredImages)
 	liopts.Context = context.Background()
-	imagesBeforeLoad, err := driver.docker.ListImages(liopts)
 
 	if conf.DockerLoadFile != "" {
 		err = loadDockerImages(driver, conf.DockerLoadFile)
@@ -175,11 +182,12 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 			liopts := docker.ListImagesOptions{All: false}
 			liopts.Context = context
 			images, err := driver.docker.ListImages(liopts)
+
 			if err != nil {
 				logrus.WithError(err).Fatalf("cannot list docker images %s", err)
 			}
 			for _, i := range images {
-				if Contains(imagesBeforeLoad, i) {
+				if Contains(requiredImages, i) {
 					driver.imageCache.Add(i)
 				} else {
 					driver.imageCache.Add(i)
