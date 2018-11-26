@@ -45,7 +45,7 @@ func (s *syncResponseWriter) Status() int          { return s.status }
 // handleFnInvokeCall executes the function, for router handlers
 func (s *Server) handleFnInvokeCall(c *gin.Context) {
 	fnID := c.Param(api.ParamFnID)
-	ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"fnID": fnID})
+	ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"fn_id": fnID})
 	c.Request = c.Request.WithContext(ctx)
 	err := s.handleFnInvokeCall2(c)
 	if err != nil {
