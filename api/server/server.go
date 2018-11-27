@@ -1090,6 +1090,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	admin := s.AdminRouter
 	// now for extensible middleware
 	engine.Use(s.rootMiddlewareWrapper())
+	// extensible middleware for the admin API
+	admin.Use(s.apiMiddlewareWrapper())
 
 	engine.GET("/", handlePing)
 	admin.GET("/version", handleVersion)
