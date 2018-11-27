@@ -136,8 +136,6 @@ func NewConfig() (*Config, error) {
 		MaxLogSize:              1 * 1024 * 1024,
 		PreForkImage:            "busybox",
 		PreForkCmd:              "tail -f /dev/null",
-		MaxImageCacheSize:       0,
-		ImageCacheCleanInterval: 0,
 	}
 
 	var err error
