@@ -15,6 +15,55 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
+func TestInitTimeoutContainer(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	app := &models.App{Name: id.New().String()}
+	app = ensureApp(t, app)
+
+	fn := &models.Fn{
+		AppID: app.ID,
+		Name:  id.New().String(),
+		Image: image,
+		ResourceConfig: models.ResourceConfig{
+			Memory: memory,
+		},
+	}
+	fn.Config = models.Config{"ENABLE_INIT_DELAY_MSEC": "10000"}
+
+	fn = ensureFn(t, fn)
+
+	lb, err := LB()
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+	u := url.URL{
+		Scheme: "http",
+		Host:   lb,
+	}
+	u.Path = path.Join(u.Path, "invoke", fn.ID)
+
+	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
+	content := bytes.NewBuffer([]byte(body))
+	output := &bytes.Buffer{}
+
+	resp, err := callFN(ctx, u.String(), content, output, models.TypeSync)
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusGatewayTimeout {
+		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
+	}
+}
+
 func TestCanExecuteFunction(t *testing.T) {
 	buf := setLogBuffer()
 	defer func() {

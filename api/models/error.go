@@ -41,7 +41,7 @@ var (
 		error: errors.New("Docker pull timed out"),
 	}
 	ErrContainerInitTimeout = err{
-		code:  http.StatusServiceUnavailable,
+		code:  http.StatusGatewayTimeout,
 		error: errors.New("Container initialization timed out, please ensure you are using the latest fdk / format and check the logs"),
 	}
 	ErrUnsupportedMediaType = err{
