@@ -71,7 +71,6 @@ type DockerDriver struct {
 func NewImageCleaner(context context.Context, dockerDriver *DockerDriver, maxSize int64) error {
 	opts := docker.RemoveImageOptions{}
 	duopts := docker.DiskUsageOptions{}
-	opts.Force = true
 	opts.NoPrune = false
 	opts.Context = context
 	duopts.Context = context
@@ -164,11 +163,7 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		}
 	}
 
-	liopts := docker.ListImagesOptions{All: false}
-	requiredImages := ListOfImageIDs(conf.RequiredImages)
-	liopts.Context = context.Background()
-
-	if conf.DockerLoadFile != "" {
+		if conf.DockerLoadFile != "" {
 		err = loadDockerImages(driver, conf.DockerLoadFile)
 		if err != nil {
 			logrus.WithError(err).Fatalf("cannot load docker images in %s", conf.DockerLoadFile)
@@ -176,9 +171,13 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 	}
 
 	if conf.MaxImageCacheSize != 0 {
-		driver.imageCache = NewCache()
+		cacheContext, cacheCancle := context.WithCancel(context.Background())
+
+		driver.imageCache = NewCache(cacheContext, cacheCancle)
+
 
 		go func(context context.Context) {
+			requiredImages := ListOfImageIDs(conf.RequiredImages)
 			liopts := docker.ListImagesOptions{All: false}
 			liopts.Context = context
 			images, err := driver.docker.ListImages(liopts)
@@ -189,14 +188,15 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 			for _, i := range images {
 				if Contains(requiredImages, i) {
 					driver.imageCache.Add(i)
+					driver.imageCache.Lock(i.ID, "baseimage")
 				} else {
 					driver.imageCache.Add(i)
-					driver.imageCache.Lock(i.ID, "baseimage")
 				}
 			}
-		}(context.Background())
 
-		go NewImageCleaner(context.Background(), driver, int64(conf.MaxImageCacheSize))
+			go NewImageCleaner(context, driver, int64(conf.MaxImageCacheSize))
+		}(cacheContext)
+
 	}
 
 	return driver
@@ -238,6 +238,9 @@ func (drv *DockerDriver) Close() error {
 	}
 	if drv.cancel != nil {
 		drv.cancel()
+	}
+	if drv.imageCache != nil {
+		drv.imageCache.cancel()
 	}
 	return err
 }

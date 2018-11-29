@@ -15,8 +15,9 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"context"
 
-	d "github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 )
 
@@ -26,6 +27,8 @@ import (
 type Cache struct {
 	mu      sync.Mutex
 	cache   EntryByAge
+	context context.Context
+	cancel  context.CancelFunc
 	maxSize int64
 }
 
@@ -35,24 +38,24 @@ type Entry struct {
 	lastUsed time.Time
 	locked   map[*interface{}]*interface{}
 	uses     int64
-	image    d.APIImages
+	image    docker.APIImages
 }
 
-// The score is the time since last use divided by the number of total uses.
+// Score is the time since last use divided by the number of total uses.
 func (e Entry) Score() int64 {
 	age := time.Now().Sub(e.lastUsed)
 	return age.Nanoseconds() / e.uses
 }
 
-// Type to wrap the Entry list so that sort works.
+// EntryByAge wraps the Entry list so that sort works.
 type EntryByAge []Entry
 
 func (a EntryByAge) Len() int           { return len(a) }
 func (a EntryByAge) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a EntryByAge) Less(i, j int) bool { return a[i].Score() < a[j].Score() }
 
-// NewEntry constructs a an entry from a docker d.APIImages object.
-func NewEntry(value d.APIImages) Entry {
+// NewEntry constructs a an entry from a docker docker.APIImages object.
+func NewEntry(value docker.APIImages) Entry {
 	return Entry{
 		lastUsed: time.Now(),
 		locked:   make(map[*interface{}]*interface{}),
@@ -61,23 +64,25 @@ func NewEntry(value d.APIImages) Entry {
 }
 
 // NewCache returns a new cache with the provided maximum items.
-func NewCache() *Cache {
+func NewCache(c context.Context, cancelf context.CancelFunc) *Cache {
 	return &Cache{
 		cache: make(EntryByAge, 0),
+		context: c,
+		cancel: cancelf,
 		mu:    sync.Mutex{},
 	}
 }
 
 // Public method for checking to see if an image in in the list.
 // Equlivilance is determined by image.ID. This method locks.
-func (c *Cache) Contains(value d.APIImages) bool {
+func (c *Cache) Contains(value docker.APIImages) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.contains(value)
 }
 
 // Helper for contains that does not lock. Used by other imageCache methods internally.
-func (c *Cache) contains(value d.APIImages) bool {
+func (c *Cache) contains(value docker.APIImages) bool {
 	for _, i := range c.cache {
 		if i.image.ID == value.ID {
 			return true
@@ -108,7 +113,7 @@ func (c *Cache) mark(ID string) error {
 }
 
 // Remove deletes an image from the list. Also grabs a smaller portion of the slice.
-func (c *Cache) Remove(value d.APIImages) error {
+func (c *Cache) Remove(value docker.APIImages) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for idx, i := range c.cache {
@@ -174,7 +179,7 @@ func (c *Cache) unlock(ID string, key interface{}) {
 }
 
 // Add puts a value into the cache or marks it as used if it is already present. Thread Safe.
-func (c *Cache) Add(value d.APIImages) {
+func (c *Cache) Add(value docker.APIImages) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	logrus.Debugf("value: %v", value)
@@ -207,4 +212,10 @@ func (c *Cache) Len() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return len(c.cache)
+}
+
+
+// Stop the context the cleaning loop runs in.
+func (c *Cache) Cancle() {
+	c.cancel()
 }
