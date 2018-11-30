@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	containerStateKey = common.MakeKey("container_state")
-	callStatusKey     = common.MakeKey("call_status")
+	containerStateKey    = common.MakeKey("container_state")
+	callStatusKey        = common.MakeKey("call_status")
+	containerUDSStateKey = common.MakeKey("container_uds_state")
 )
 
 func statsCalls(ctx context.Context) {
@@ -64,6 +65,22 @@ func statsLBAgentRunnerSchedLatency(ctx context.Context, dur time.Duration) {
 
 func statsLBAgentRunnerExecLatency(ctx context.Context, dur time.Duration) {
 	stats.Record(ctx, runnerExecLatencyMeasure.M(int64(dur/time.Millisecond)))
+}
+
+func statsContainerUDSInitLatency(ctx context.Context, start time.Time, end time.Time, containerUDSState string) {
+	if end.Before(start) {
+		return
+	}
+
+	ctx, err := tag.New(ctx,
+		tag.Upsert(containerUDSStateKey, containerUDSState),
+	)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	dur := end.Sub(start)
+	stats.Record(ctx, containerUDSInitLatencyMeasure.M(int64(dur/time.Millisecond)))
 }
 
 func statsContainerEvicted(ctx context.Context, containerState string) {
@@ -129,7 +146,8 @@ const (
 	errorsMetricName     = "errors"
 	serverBusyMetricName = "server_busy"
 
-	containerEvictedMetricName = "container_evictions"
+	containerEvictedMetricName        = "container_evictions"
+	containerUDSInitLatencyMetricName = "container_uds_init_latency"
 
 	utilCpuUsedMetricName  = "util_cpu_used"
 	utilCpuAvailMetricName = "util_cpu_avail"
@@ -160,7 +178,8 @@ var (
 	utilMemUsedMeasure  = common.MakeMeasure(utilMemUsedMetricName, "agent memory in use", "By")
 	utilMemAvailMeasure = common.MakeMeasure(utilMemAvailMetricName, "agent memory available", "By")
 
-	containerEvictedMeasure = common.MakeMeasure(containerEvictedMetricName, "containers evicted", "")
+	containerEvictedMeasure        = common.MakeMeasure(containerEvictedMetricName, "containers evicted", "")
+	containerUDSInitLatencyMeasure = common.MakeMeasure(containerUDSInitLatencyMetricName, "container UDS Init-Wait Latency", "msecs")
 
 	// Reported By LB: How long does a runner scheduler wait for a committed call? eg. wait/launch/pull containers
 	runnerSchedLatencyMeasure = common.MakeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
@@ -271,8 +290,18 @@ func RegisterContainerViews(tagKeys []string, latencyDist []float64) {
 		}
 	}
 
+	// add container uds_state tag for uds-wait
+	udsInitTags := make([]string, 0, len(tagKeys)+1)
+	udsInitTags = append(udsInitTags, "container_uds_state")
+	for _, key := range tagKeys {
+		if key != "container_uds_state" {
+			udsInitTags = append(udsInitTags, key)
+		}
+	}
+
 	err := view.Register(
 		common.CreateView(containerEvictedMeasure, view.Count(), evictTags),
+		common.CreateView(containerUDSInitLatencyMeasure, view.Distribution(latencyDist...), udsInitTags),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
