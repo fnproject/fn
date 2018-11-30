@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -61,4 +62,7 @@ type RunnerCall interface {
 	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser
 	Model() *models.Call
+	// For metrics/stats, add special accounting for time spent in customer code
+	AddUserExecutionTime(dur time.Duration)
+	GetUserExecutionTime() *time.Duration
 }
