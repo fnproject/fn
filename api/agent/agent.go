@@ -895,9 +895,16 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	go func() {
 		defer cancel() // also close if we get an agent shutdown / idle timeout
 
+		// We record init wait for two cases below: I. when it succeeds, II. when it times out,
+		// other cases are unusual early exits (eg. agent shutdown, eviction, errors, etc)
+		// and we assume that those cases are already tracked separately and should not pollute
+		// uds-init time trending data.
+		initStart := time.Now()
+
 		// INIT BARRIER HERE. Wait for the initialization go-routine signal
 		select {
 		case <-initialized:
+			statsContainerUDSInitLatency(ctx, initStart, time.Now())
 		case <-a.shutWg.Closer(): // agent shutdown
 			return
 		case <-ctx.Done():
@@ -905,6 +912,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		case <-evictor.C: // eviction
 			return
 		case <-time.After(a.cfg.HotStartTimeout):
+			statsContainerUDSInitLatency(ctx, initStart, time.Now())
 			tryQueueErr(models.ErrContainerInitTimeout, errQueue)
 			return
 		}
