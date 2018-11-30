@@ -353,14 +353,16 @@ func recordCallLatency(ctx context.Context, call *call, status string) {
 	// request processing latency as observed by runner agent.
 	execLatency := call.GetUserExecutionTime()
 
-	// some sanity check before
-	if execLatency != nil && *execLatency > callLatency {
-		common.Logger(ctx).Errorf("invalid latency callLatency=%v execLatency=%v", callLatency, execLatency)
-		return
-	}
+	// some sanity check before. If sanity checks flags something, then
+	// this is likely that runners are sending malicious/suspicious data.
 	if execLatency != nil {
+		if *execLatency >= callLatency {
+			common.Logger(ctx).Errorf("invalid latency callLatency=%v execLatency=%v", callLatency, execLatency)
+			return
+		}
 		callLatency -= *execLatency
 	}
+
 	statsCallLatency(ctx, callLatency, status)
 }
 
