@@ -767,8 +767,9 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	// more configurable.
 	c.ID = id.New().String()
 	c.Image = pr.status.imageName
-	c.Type = "sync"
+	c.Type = models.TypeSync
 	c.TmpFsSize = 0
+	// IMPORTANT: mem/cpu set to zero. This means status containers cannot be evicted.
 	c.Memory = 0
 	c.CPUs = models.MilliCPUs(0)
 	c.URL = "/"
@@ -832,15 +833,15 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	body, _ := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 
-	// Clamp the log output to 256 bytes if output is too large for logging.
-	dLen := len(body)
-	if dLen > 256 {
-		dLen = 256
-	}
-	log.Debugf("Status call with id=%v result=%+v body[0:%v]=%v", c.ID, result, dLen, string(body[:dLen]))
-
 	result.Details = string(body)
 	result.Id = c.ID
+
+	if result.Failed {
+		log.Errorf("Status call failure id=%v result=%+v", c.ID, result)
+	} else {
+		log.Debugf("Status call success id=%v result=%+v", c.ID, result)
+	}
+
 	return result
 }
 
