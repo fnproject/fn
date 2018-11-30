@@ -303,27 +303,65 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 		statsStopRun(ctx)
 		if err == nil {
 			statsComplete(ctx)
+			recordCallLatency(ctx, call, completedMetricName)
 		}
 	} else {
 		statsDequeue(ctx)
 		if err == context.DeadlineExceeded {
 			statsTooBusy(ctx)
+			recordCallLatency(ctx, call, serverBusyMetricName)
 			return models.ErrCallTimeoutServerBusy
 		}
 	}
 
 	if err == models.ErrCallTimeoutServerBusy {
 		statsTooBusy(ctx)
+		recordCallLatency(ctx, call, serverBusyMetricName)
 		return models.ErrCallTimeoutServerBusy
 	} else if err == context.DeadlineExceeded {
 		statsTimedout(ctx)
+		recordCallLatency(ctx, call, timedoutMetricName)
 		return models.ErrCallTimeout
 	} else if err == context.Canceled {
 		statsCanceled(ctx)
+		recordCallLatency(ctx, call, canceledMetricName)
 	} else if err != nil {
 		statsErrors(ctx)
+		recordCallLatency(ctx, call, errorsMetricName)
 	}
 	return err
+}
+
+func recordCallLatency(ctx context.Context, call *call, status string) {
+	// IMPORTANT: Why do we prefer 'StartedAt'? This is because we would like to
+	// exclude client transmission of the request body to the LB. We are trying to
+	// measure how long it took us to execute a user function and obtain its response.
+	// Notice how we cache client body *before* we call call.Start() where StartedAt
+	// is set. If call.Start() is not called yet, then we use call.CreatedAt.
+	var callLatency time.Duration
+
+	if !time.Time(call.StartedAt).IsZero() {
+		callLatency = time.Now().Sub(time.Time(call.StartedAt))
+	} else if !time.Time(call.CreatedAt).IsZero() {
+		callLatency = time.Now().Sub(time.Time(call.CreatedAt))
+	} else {
+		common.Logger(ctx).Error("cannot determine call start time")
+		return
+	}
+
+	// We want to exclude time spent in user-code. Today, this is container
+	// request processing latency as observed by runner agent.
+	execLatency := call.GetUserExecutionTime()
+
+	// some sanity check before
+	if execLatency != nil && *execLatency > callLatency {
+		common.Logger(ctx).Errorf("invalid latency callLatency=%v execLatency=%v", callLatency, execLatency)
+		return
+	}
+	if execLatency != nil {
+		callLatency -= *execLatency
+	}
+	statsCallLatency(ctx, callLatency, status)
 }
 
 var _ Agent = &lbAgent{}

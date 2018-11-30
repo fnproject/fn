@@ -279,6 +279,9 @@ type call struct {
 	requestState RequestState
 	slotHashId   string
 
+	// amount of time attributed to user-code execution
+	userExecTime *time.Duration
+
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
 }
@@ -309,6 +312,17 @@ func (c *call) ResponseWriter() http.ResponseWriter {
 
 func (c *call) StdErr() io.ReadWriteCloser {
 	return c.stderr
+}
+
+func (c *call) AddUserExecutionTime(dur time.Duration) {
+	if c.userExecTime == nil {
+		c.userExecTime = new(time.Duration)
+	}
+	*c.userExecTime += dur
+}
+
+func (c *call) GetUserExecutionTime() *time.Duration {
+	return c.userExecTime
 }
 
 func (c *call) Model() *models.Call { return c.Call }

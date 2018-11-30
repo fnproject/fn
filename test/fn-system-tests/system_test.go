@@ -110,6 +110,7 @@ func setUpSystem() (*state, error) {
 
 func downloadMetrics() {
 
+	time.Sleep(4 * time.Second)
 	fileName, ok := os.LookupEnv("SYSTEM_TEST_PROMETHEUS_FILE")
 	if !ok || fileName == "" {
 		return
@@ -225,7 +226,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	placerCfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&placerCfg)
 
-	keys := []string{"fn_appname", "fn_path"}
+	keys := []string{}
 	dist := []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
 	pool.RegisterPlacerViews(keys, dist)
 	agent.RegisterLBAgentViews(keys, dist)

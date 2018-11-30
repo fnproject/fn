@@ -287,7 +287,7 @@ func translateDate(dt string) time.Time {
 	return time.Time{}
 }
 
-func recordFinishStats(ctx context.Context, msg *pb.CallFinished) {
+func recordFinishStats(ctx context.Context, msg *pb.CallFinished, c pool.RunnerCall) {
 
 	creatTs := translateDate(msg.GetCreatedAt())
 	startTs := translateDate(msg.GetStartedAt())
@@ -295,8 +295,14 @@ func recordFinishStats(ctx context.Context, msg *pb.CallFinished) {
 
 	// Validate this as info *is* coming from runner and its local clock.
 	if !creatTs.IsZero() && !startTs.IsZero() && !complTs.IsZero() && !startTs.Before(creatTs) && !complTs.Before(startTs) {
-		statsLBAgentRunnerSchedLatency(ctx, startTs.Sub(creatTs))
-		statsLBAgentRunnerExecLatency(ctx, complTs.Sub(startTs))
+
+		runnerSchedLatency := startTs.Sub(creatTs)
+		runnerExecLatency := complTs.Sub(startTs)
+
+		statsLBAgentRunnerSchedLatency(ctx, runnerSchedLatency)
+		statsLBAgentRunnerExecLatency(ctx, runnerExecLatency)
+
+		c.AddUserExecutionTime(runnerExecLatency)
 	}
 }
 
@@ -355,7 +361,7 @@ DataLoop:
 		// Finish messages required for finish/finalize the processing.
 		case *pb.RunnerMsg_Finished:
 			logCallFinish(log, body, w.Header(), statusCode)
-			recordFinishStats(ctx, body.Finished)
+			recordFinishStats(ctx, body.Finished, c)
 			if !body.Finished.Success {
 				err := parseError(body.Finished)
 				tryQueueError(err, done)

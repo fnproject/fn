@@ -15,6 +15,7 @@ import (
 
 var (
 	containerStateKey = common.MakeKey("container_state")
+	callStatusKey     = common.MakeKey("call_status")
 )
 
 func statsCalls(ctx context.Context) {
@@ -83,6 +84,16 @@ func statsUtilization(ctx context.Context, util ResourceUtilization) {
 	stats.Record(ctx, utilMemAvailMeasure.M(int64(util.MemAvail)))
 }
 
+func statsCallLatency(ctx context.Context, dur time.Duration, callStatus string) {
+	ctx, err := tag.New(ctx,
+		tag.Upsert(callStatusKey, callStatus),
+	)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	stats.Record(ctx, callLatencyMeasure.M(int64(dur/time.Millisecond)))
+}
+
 const (
 	//
 	// WARNING: Dual Role Metrics both used in Runner/Agent and LB-Agent
@@ -128,6 +139,7 @@ const (
 	// Reported By LB
 	runnerSchedLatencyMetricName = "lb_runner_sched_latency"
 	runnerExecLatencyMetricName  = "lb_runner_exec_latency"
+	callLatencyMetricName        = "lb_call_latency"
 )
 
 var (
@@ -154,12 +166,24 @@ var (
 	runnerSchedLatencyMeasure = common.MakeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
 	// Reported By LB: Function execution time inside a container.
 	runnerExecLatencyMeasure = common.MakeMeasure(runnerExecLatencyMetricName, "Runner Container Execution Latency Reported By LBAgent", "msecs")
+	// Reported By LB: Function total call latency (except function execution inside container)
+	callLatencyMeasure = common.MakeMeasure(callLatencyMetricName, "LB Call Latency Reported By LBAgent", "msecs")
 )
 
 func RegisterLBAgentViews(tagKeys []string, latencyDist []float64) {
+	// add call_status tag for call latency
+	callLatencyTags := make([]string, 0, len(tagKeys)+1)
+	callLatencyTags = append(callLatencyTags, "call_status")
+	for _, key := range tagKeys {
+		if key != "call_status" {
+			callLatencyTags = append(callLatencyTags, key)
+		}
+	}
+
 	err := view.Register(
 		common.CreateView(runnerSchedLatencyMeasure, view.Distribution(latencyDist...), tagKeys),
 		common.CreateView(runnerExecLatencyMeasure, view.Distribution(latencyDist...), tagKeys),
+		common.CreateView(callLatencyMeasure, view.Distribution(latencyDist...), callLatencyTags),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")

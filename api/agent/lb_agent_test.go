@@ -125,6 +125,9 @@ type mockRunnerCall struct {
 	stdErr     io.ReadWriteCloser
 	model      *models.Call
 	slotHashId string
+
+	// amount of time user execution inside container
+	userExecTime *time.Duration
 }
 
 func (c *mockRunnerCall) SlotHashId() string {
@@ -149,6 +152,17 @@ func (c *mockRunnerCall) StdErr() io.ReadWriteCloser {
 
 func (c *mockRunnerCall) Model() *models.Call {
 	return c.model
+}
+
+func (c *mockRunnerCall) AddUserExecutionTime(dur time.Duration) {
+	if c.userExecTime == nil {
+		c.userExecTime = new(time.Duration)
+	}
+	*c.userExecTime += dur
+}
+
+func (c *mockRunnerCall) GetUserExecutionTime() *time.Duration {
+	return c.userExecTime
 }
 
 func setupMockRunnerPool(expectedRunners []string, execSleep time.Duration, maxCalls int32) *mockRunnerPool {
