@@ -304,6 +304,18 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 		if err == nil {
 			statsComplete(ctx)
 			recordCallLatency(ctx, call, completedMetricName)
+		} else if err == context.DeadlineExceeded {
+			// We are here because we were unable to service this request for the given
+			// reservation. In detached case, the reservation is calculated based on estimated
+			// total time to run a request. (See: spawnPlaceCall) Otherwise, there's no set
+			// deadline in the request context. This is also a bit more robust going forward
+			// if we start enforcing a maximum overall deadline for clients. For detached case, the
+			// error is unlikely to be delivered to the client since this is essentially an async
+			// operation.
+			statsTimedout(ctx)
+			recordCallLatency(ctx, call, timedoutMetricName)
+			// We have failed: http 500 Internal Server Error
+			return models.ErrServiceReservationFailure
 		}
 	} else {
 		statsDequeue(ctx)
@@ -318,13 +330,13 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 		statsTooBusy(ctx)
 		recordCallLatency(ctx, call, serverBusyMetricName)
 		return models.ErrCallTimeoutServerBusy
-	} else if err == context.DeadlineExceeded {
-		statsTimedout(ctx)
-		recordCallLatency(ctx, call, timedoutMetricName)
-		return models.ErrCallTimeout
 	} else if err == context.Canceled {
+		// We are here because client has quit. Here we use a custom http 499 status. (499 is also
+		// used by nginx as "Client Closed Request") Since the client has quit, we are unlikely
+		// able to deliver this error code back to the client.
 		statsCanceled(ctx)
 		recordCallLatency(ctx, call, canceledMetricName)
+		return models.ErrClientClosedRequest
 	} else if err != nil {
 		statsErrors(ctx)
 		recordCallLatency(ctx, call, errorsMetricName)
