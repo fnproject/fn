@@ -76,13 +76,13 @@ func (trw *triggerResponseWriter) Write(b []byte) (int, error) {
 	return trw.inner.Write(b)
 }
 
-func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
+func (trw *triggerResponseWriter) WriteHeader(serviceStatus int) {
 	if trw.committed {
 		return
 	}
 	trw.committed = true
 
-	var fnStatus int
+	userStatus := 0
 	realHeaders := trw.Header()
 	gwHeaders := make(http.Header, len(realHeaders))
 	for k, vs := range realHeaders {
@@ -96,7 +96,7 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 			if len(vs) > 0 {
 				statusInt, err := strconv.Atoi(vs[0])
 				if err == nil {
-					fnStatus = statusInt
+					userStatus = statusInt
 				}
 			}
 		case k == "Content-Type", k == "Fn-Call-Id":
@@ -113,14 +113,14 @@ func (trw *triggerResponseWriter) WriteHeader(statusCode int) {
 	}
 
 	// XXX(reed): simplify / add tests for these behaviors...
-	gatewayStatus := 200
-	if statusCode >= 400 {
-		gatewayStatus = statusCode
-	} else if fnStatus > 0 {
-		gatewayStatus = fnStatus
+	finalStatus := 200
+	if serviceStatus >= 400 {
+		finalStatus = serviceStatus
+	} else if userStatus > 0 {
+		finalStatus = userStatus
 	}
 
-	trw.inner.WriteHeader(gatewayStatus)
+	trw.inner.WriteHeader(finalStatus)
 }
 
 var skipTriggerHeaders = map[string]bool{
