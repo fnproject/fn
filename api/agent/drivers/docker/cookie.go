@@ -301,29 +301,24 @@ func (c *cookie) PullImage(ctx context.Context) error {
 
 	err := c.drv.docker.PullImage(docker.PullImageOptions{Repository: repo, Tag: c.imgTag, Context: ctx}, *cfg)
 	if err != nil {
-		log.WithError(err).Error("Failed to pull image")
-
 		// TODO need to inspect for hub or network errors and pick; for now, assume
 		// 500 if not a docker error
 		msg := err.Error()
-		dockerCode := 0
+		code := http.StatusInternalServerError
+		origin := 0
 		if dErr, ok := err.(*docker.Error); ok {
+
 			msg = dockerMsg(dErr)
-			dockerCode = dErr.Status // 401/404
+			origin = dErr.Status
+
+			// Only bubble up 4xx range
+			if origin >= 400 && origin < 500 {
+				code = origin
+			}
 		}
 
-		finalCode := 0
-
-		switch {
-		case dockerCode == http.StatusGatewayTimeout:
-			finalCode = http.StatusGatewayTimeout
-		case dockerCode >= 400 && dockerCode < 500:
-			finalCode = dockerCode
-		default:
-			finalCode = http.StatusBadGateway
-		}
-
-		return models.NewAPIError(finalCode, fmt.Errorf("Failed to pull image '%s': %s UpstreamStatus=%v", c.task.Image(), msg, dockerCode))
+		log.WithError(err).Errorf("Failed to pull image status=%v", origin)
+		return models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", c.task.Image(), msg))
 	}
 
 	return nil

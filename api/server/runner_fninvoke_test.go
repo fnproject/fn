@@ -204,7 +204,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/http_stream_fn_id", bigbuf, http.MethodPost, http.StatusRequestEntityTooLarge, nil, "", nil},
 
 		{"/invoke/dne_fn_id", ``, http.MethodPost, http.StatusNotFound, nil, "pull access denied", nil},
-		{"/invoke/dnereg_fn_id", ``, http.MethodPost, http.StatusBadGateway, nil, "connection refused", nil},
+		{"/invoke/dnereg_fn_id", ``, http.MethodPost, http.StatusInternalServerError, nil, "connection refused", nil},
 
 		// XXX(reed): what are these?
 		{"/invoke/http_stream_fn_id", multiLog, http.MethodPost, http.StatusOK, nil, "", multiLogExpectHot},

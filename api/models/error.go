@@ -37,7 +37,7 @@ var (
 		error: errors.New("Timed out - server too busy"),
 	}
 	ErrDockerPullTimeout = err{
-		code:  http.StatusGatewayTimeout,
+		code:  http.StatusInternalServerError,
 		error: errors.New("Docker pull timed out"),
 	}
 	ErrContainerInitTimeout = err{
