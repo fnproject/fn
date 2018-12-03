@@ -37,7 +37,7 @@ var (
 		error: errors.New("Timed out - server too busy"),
 	}
 	ErrDockerPullTimeout = err{
-		code:  http.StatusInternalServerError,
+		code:  http.StatusGatewayTimeout,
 		error: errors.New("Docker pull timed out"),
 	}
 	ErrContainerInitTimeout = err{
@@ -195,10 +195,6 @@ var (
 	ErrContainerInitFail = err{
 		code:  http.StatusBadGateway,
 		error: errors.New("container failed to initialize, please ensure you are using the latest fdk / format and check the logs"),
-	}
-	ErrClientClosedRequest = err{
-		code:  499, // Custom http error code, this is same as Nginx http code reserved for this purpose
-		error: errors.New("client closed request"),
 	}
 )
 

@@ -331,12 +331,8 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 		recordCallLatency(ctx, call, serverBusyMetricName)
 		return models.ErrCallTimeoutServerBusy
 	} else if err == context.Canceled {
-		// We are here because client has quit. Here we use a custom http 499 status. (499 is also
-		// used by nginx as "Client Closed Request") Since the client has quit, we are unlikely
-		// able to deliver this error code back to the client.
 		statsCanceled(ctx)
 		recordCallLatency(ctx, call, canceledMetricName)
-		return models.ErrClientClosedRequest
 	} else if err != nil {
 		statsErrors(ctx)
 		recordCallLatency(ctx, call, errorsMetricName)
