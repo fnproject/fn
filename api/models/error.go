@@ -37,7 +37,7 @@ var (
 		error: errors.New("Timed out - server too busy"),
 	}
 	ErrDockerPullTimeout = err{
-		code:  http.StatusServiceUnavailable,
+		code:  http.StatusGatewayTimeout,
 		error: errors.New("Docker pull timed out"),
 	}
 	ErrContainerInitTimeout = err{
@@ -188,7 +188,10 @@ var (
 		code:  http.StatusInternalServerError,
 		error: errors.New("Unable to find the call handle"),
 	}
-
+	ErrServiceReservationFailure = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Unable to service the request for the reservation period"),
+	}
 	ErrContainerInitFail = err{
 		code:  http.StatusBadGateway,
 		error: errors.New("container failed to initialize, please ensure you are using the latest fdk / format and check the logs"),
