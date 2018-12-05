@@ -311,19 +311,19 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 		statsStopRun(ctx)
 		if err == nil {
 			statsComplete(ctx)
+		} else if err == context.DeadlineExceeded {
+			statsTimedout(ctx)
+			return models.ErrCallTimeout
 		}
 	} else {
 		statsDequeue(ctx)
-		if err == CapacityFull || err == context.DeadlineExceeded {
+		if err == models.ErrCallTimeoutServerBusy || err == context.DeadlineExceeded {
 			statsTooBusy(ctx)
 			return models.ErrCallTimeoutServerBusy
 		}
 	}
 
-	if err == context.DeadlineExceeded {
-		statsTimedout(ctx)
-		return models.ErrCallTimeout
-	} else if err == context.Canceled {
+	if err == context.Canceled {
 		statsCanceled(ctx)
 	} else if err != nil {
 		statsErrors(ctx)
@@ -487,7 +487,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 				notifyChans = a.evictor.PerformEviction(call.slotHashId, needMem, uint64(needCpu))
 				// For Non-blocking mode, if there's nothing to evict, we emit 503.
 				if len(notifyChans) == 0 && isNB {
-					tryNotify(caller.notify, tok.Error())
+					tryNotify(caller.notify, models.ErrCallTimeoutServerBusy)
 				}
 			}
 		} else if a.shutWg.AddSession(1) {
