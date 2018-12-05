@@ -306,10 +306,12 @@ func (c *cookie) PullImage(ctx context.Context) error {
 		// TODO need to inspect for hub or network errors and pick; for now, assume
 		// 500 if not a docker error
 		msg := err.Error()
-		code := http.StatusInternalServerError
+		code := http.StatusBadGateway
 		if dErr, ok := err.(*docker.Error); ok {
 			msg = dockerMsg(dErr)
-			code = dErr.Status // 401/404
+			if dErr.Status >= 400 && dErr.Status < 500 {
+				code = dErr.Status // decap 4xx errors
+			}
 		}
 
 		return models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", c.task.Image(), msg))
