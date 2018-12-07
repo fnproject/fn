@@ -835,74 +835,93 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	return result
 }
 
-// Handles a status call concurrency and caching.
-func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatus, error) {
-	var waitChan chan struct{}
+func (pr *pureRunner) spawnStatusCall(ctx context.Context) {
+	go func() {
+		var waitChan chan struct{}
+		// IMPORTANT: We have to strip client timeouts to make sure this completes
+		// in the background even if client cancels/times out.
+		cachePtr := pr.runStatusCall(common.BackgroundContext(ctx))
+		now := time.Now()
 
-	isSpawner := false
-	isCached := false
-	now := time.Now()
+		// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
+		// copy of 'cache'
+		pr.status.lock.Lock()
 
-	pr.status.lock.Lock()
+		pr.status.cache = cachePtr
+		pr.status.expiry = now.Add(StatusCallCacheDuration)
+		waitChan = pr.status.wait // cannot be null
+		pr.status.wait = nil
 
-	isCached = now.Before(pr.status.expiry)
-	if !isCached {
-		if pr.status.wait == nil {
-			pr.status.wait = make(chan struct{})
-			isSpawner = true
-		}
-		waitChan = pr.status.wait
-	}
+		pr.status.lock.Unlock()
 
-	pr.status.lock.Unlock()
+		// signal waiters
+		close(waitChan)
+	}()
+}
 
-	if isSpawner {
-		go func() {
-			// IMPORTANT: We have to strip client timeouts to make sure this completes
-			// in the background even if client cancels/times out.
-			cachePtr := pr.runStatusCall(common.BackgroundContext(ctx))
-			now = time.Now()
-
-			// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
-			// copy of 'cache'
-			pr.status.lock.Lock()
-
-			pr.status.cache = cachePtr
-			pr.status.expiry = now.Add(StatusCallCacheDuration)
-			pr.status.wait = nil
-
-			pr.status.lock.Unlock()
-
-			// signal waiters
-			close(waitChan)
-		}()
-	}
-
-	if !isCached {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-waitChan:
-		}
-	}
-
+func (pr *pureRunner) fetchStatusCall(ctx context.Context) (*runner.RunnerStatus, error) {
 	var cacheObj runner.RunnerStatus
 
 	// A shallow copy is sufficient here, as we do not modify nested data in
 	// RunnerStatus in any way.
 	pr.status.lock.Lock()
 
-	cacheObj = *pr.status.cache
+	cacheObj = *pr.status.cache // cannot be null
+	pr.status.cache.Cached = true
 
 	pr.status.lock.Unlock()
 
-	cacheObj.Cached = isCached
+	// The rest of the RunnerStatus fields are not cached and always populated
+	// with latest metrics.
 	cacheObj.Active = atomic.LoadInt32(&pr.status.inflight)
 	cacheObj.RequestsReceived = atomic.LoadUint64(&pr.status.requestsReceived)
 	cacheObj.RequestsHandled = atomic.LoadUint64(&pr.status.requestsHandled)
 	cacheObj.KdumpsOnDisk = atomic.LoadUint64(&pr.status.kdumpsOnDisk)
 
 	return &cacheObj, ctx.Err()
+}
+
+func (pr *pureRunner) checkStatusCall(ctx context.Context) (chan struct{}, bool) {
+	now := time.Now()
+
+	pr.status.lock.Lock()
+	defer pr.status.lock.Unlock()
+
+	// cached?
+	if pr.status.expiry.After(now) {
+		return nil, false
+	}
+
+	// already running?
+	if pr.status.wait != nil {
+		return pr.status.wait, false
+	}
+
+	// spawn a new call
+	pr.status.wait = make(chan struct{})
+	return pr.status.wait, true
+}
+
+// Handles a status call concurrency and caching.
+func (pr *pureRunner) handleStatusCall(ctx context.Context) (*runner.RunnerStatus, error) {
+
+	waitChan, isSpawner := pr.checkStatusCall(ctx)
+
+	// from cache
+	if waitChan == nil {
+		return pr.fetchStatusCall(ctx)
+	}
+
+	if isSpawner {
+		pr.spawnStatusCall(ctx)
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-waitChan:
+		return pr.fetchStatusCall(ctx)
+	}
 }
 
 // implements RunnerProtocolServer
