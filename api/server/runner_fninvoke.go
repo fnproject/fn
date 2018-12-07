@@ -99,6 +99,10 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 
 	err = s.agent.Submit(call)
 	if err != nil {
+		if err == models.ErrCallTimeout {
+			// TODO(reed): we could add this header for any error if we want to, or we can just treat it as only for calls that attempted to run, up to us
+			writer.Header().Add("Fn-Call-Id", call.Model().ID) // XXX(reed): move to before Submit when adding streaming
+		}
 		return err
 	}
 
