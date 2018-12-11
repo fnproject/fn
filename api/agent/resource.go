@@ -386,16 +386,16 @@ func (a *resourceTracker) initializeCPU(cfg *Config) {
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"totalCPU": totalCPU,
-		"availCPU": availCPU,
+		"total_cpu": totalCPU,
+		"avail_cpu": availCPU,
 	}).Info("available cpu")
 
 	a.cpuTotal = availCPU
 	a.cpuAsyncHWMark = availCPU * 8 / 10
 
 	logrus.WithFields(logrus.Fields{
-		"cpu":            a.cpuTotal,
-		"cpuAsyncHWMark": a.cpuAsyncHWMark,
+		"cpu":               a.cpuTotal,
+		"cpu_async_hw_mark": a.cpuAsyncHWMark,
 	}).Info("cpu reservations")
 
 	if a.cpuTotal == 0 {
@@ -437,9 +437,9 @@ func (a *resourceTracker) initializeMemory(cfg *Config) {
 		availMemory = availMemory - headRoom
 
 		logrus.WithFields(logrus.Fields{
-			"totalMemory": totalMemory,
-			"headRoom":    headRoom,
-			"cgroupLimit": cGroupLimit,
+			"total_memory": totalMemory,
+			"head_room":    headRoom,
+			"cgroup_limit": cGroupLimit,
 		}).Info("available memory")
 	}
 
@@ -453,8 +453,8 @@ func (a *resourceTracker) initializeMemory(cfg *Config) {
 
 	// For non-linux OS, we expect these (or their defaults) properly configured from command-line/env
 	logrus.WithFields(logrus.Fields{
-		"availMemory":    a.ramTotal,
-		"ramAsyncHWMark": a.ramAsyncHWMark,
+		"avail_memory":      a.ramTotal,
+		"ram_async_hw_mark": a.ramAsyncHWMark,
 	}).Info("ram reservations")
 
 	if a.ramTotal == 0 {

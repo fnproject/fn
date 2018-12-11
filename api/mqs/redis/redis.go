@@ -152,20 +152,20 @@ func (mq *RedisMQ) processDelayedCalls() {
 		if err == redis.ErrNil {
 			continue
 		} else if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"reservationId": resID}).Error("Error HGET delayed_jobs")
+			logrus.WithError(err).WithFields(logrus.Fields{"reservation_id": resID}).Error("Error HGET delayed_jobs")
 			continue
 		}
 
 		var job models.Call
 		err = json.Unmarshal(buf, &job)
 		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"buf": buf, "reservationId": resID}).Error("Error unmarshaling job")
+			logrus.WithError(err).WithFields(logrus.Fields{"buf": buf, "reservation_id": resID}).Error("Error unmarshaling job")
 			return
 		}
 
 		_, err = redisPush(conn, mq.queueName, &job)
 		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"reservationId": resID}).Error("Pushing delayed job")
+			logrus.WithError(err).WithFields(logrus.Fields{"reservation_id": resID}).Error("Pushing delayed job")
 			return
 		}
 		conn.Do("HDEL", mq.k("delayed_jobs"), resID)
