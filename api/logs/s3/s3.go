@@ -115,7 +115,7 @@ func (s3StoreProvider) New(ctx context.Context, u *url.URL) (models.LogStore, er
 		return nil, errors.New("must provide non-empty bucket name in path of s3 api url. e.g. s3://s3.com/us-east-1/my_bucket")
 	}
 
-	logrus.WithFields(logrus.Fields{"bucketName": bucketName, "region": region, "endpoint": endpoint, "access_key_id": accessKeyID, "useSSL": useSSL}).Info("checking / creating s3 bucket")
+	logrus.WithFields(logrus.Fields{"bucket_name": bucketName, "region": region, "endpoint": endpoint, "access_key_id": accessKeyID, "use_ssl": useSSL}).Info("checking / creating s3 bucket")
 	store := createStore(bucketName, endpoint, region, accessKeyID, secretAccessKey, useSSL)
 
 	// ensure the bucket exists, creating if it does not
@@ -152,7 +152,7 @@ func (s *store) InsertLog(ctx context.Context, call *models.Call, callLog io.Rea
 		ContentType: aws.String("text/plain"),
 	}
 
-	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Uploading log")
+	logrus.WithFields(logrus.Fields{"bucket_name": s.bucket, "key": objectName}).Debug("Uploading log")
 	_, err := s.uploader.UploadWithContext(ctx, params)
 	if err != nil {
 		return fmt.Errorf("failed to write log, %v", err)
@@ -167,7 +167,7 @@ func (s *store) GetLog(ctx context.Context, appID, callID string) (io.Reader, er
 	defer span.End()
 
 	objectName := logKey(appID, callID)
-	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading log")
+	logrus.WithFields(logrus.Fields{"bucket_name": s.bucket, "key": objectName}).Debug("Downloading log")
 
 	// stream the logs to an in-memory buffer
 	target := &aws.WriteAtBuffer{}
@@ -207,7 +207,7 @@ func (s *store) InsertCall(ctx context.Context, call *models.Call) error {
 		ContentType: aws.String("text/plain"),
 	}
 
-	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Uploading call")
+	logrus.WithFields(logrus.Fields{"bucket_name": s.bucket, "key": objectName}).Debug("Uploading call")
 	_, err = s.uploader.UploadWithContext(ctx, params)
 	if err != nil {
 		return fmt.Errorf("failed to insert call, %v", err)
@@ -222,7 +222,7 @@ func (s *store) GetCall(ctx context.Context, fnID, callID string) (*models.Call,
 	defer span.End()
 
 	objectName := callKey(fnID, callID)
-	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading call")
+	logrus.WithFields(logrus.Fields{"bucket_name": s.bucket, "key": objectName}).Debug("Downloading call")
 
 	return s.getCallByKey(ctx, objectName)
 }
@@ -356,7 +356,7 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) (*model
 		// TODO we should reuse the buffer to decode these
 		call, err := s.getCallByKey(ctx, objectName)
 		if err != nil {
-			common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"fnID": fnID, "id": id}).Error("error filling call object")
+			common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"fn_id": fnID, "id": id}).Error("error filling call object")
 			continue
 		}
 

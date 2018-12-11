@@ -1059,12 +1059,12 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	nth, recv, wasSend := reflect.Select(cases)
 	if wasSend {
 		logrus.WithFields(logrus.Fields{
-			"ctxNumber":     nth,
-			"receivedValue": recv.String(),
+			"ctx_number":     nth,
+			"received_value": recv.String(),
 		}).Debug("Stopping because of received value from done context.")
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"ctxNumber": nth,
+			"ctx_number": nth,
 		}).Debug("Stopping because of closed channel from done context.")
 	}
 

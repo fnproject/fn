@@ -395,10 +395,10 @@ DataLoop:
 
 func logCallFinish(log logrus.FieldLogger, msg *pb.RunnerMsg_Finished, headers http.Header, httpStatus int32) {
 	log.WithFields(logrus.Fields{
-		"RunnerSuccess":    msg.Finished.GetSuccess(),
-		"RunnerErrorCode":  msg.Finished.GetErrorCode(),
-		"RunnerHttpStatus": httpStatus,
-		"FnHttpStatus":     headers.Get("Fn-Http-Status"),
+		"runner_success":     msg.Finished.GetSuccess(),
+		"runner_error_code":  msg.Finished.GetErrorCode(),
+		"runner_http_status": httpStatus,
+		"fn_http_status":     headers.Get("Fn-Http-Status"),
 	}).Infof("Call finished Details=%v ErrorStr=%v", msg.Finished.GetDetails(), msg.Finished.GetErrorStr())
 }
 
