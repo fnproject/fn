@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -24,7 +25,7 @@ func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	} else if value, ok := os.LookupEnv(key + "_FILE"); ok {
-		dat, err := ioutil.ReadFile(value)
+		dat, err := ioutil.ReadFile(filepath.Clean(value))
 		if err == nil {
 			return string(dat)
 		}
@@ -42,7 +43,7 @@ func getEnvInt(key string, fallback int) int {
 		}
 		return i
 	} else if value, ok := os.LookupEnv(key + "_FILE"); ok {
-		dat, err := ioutil.ReadFile(value)
+		dat, err := ioutil.ReadFile(filepath.Clean(value))
 		if err == nil {
 			var err error
 			var i int

@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -493,7 +494,7 @@ func getMemoryHeadRoom(usableMemory uint64, cfg *Config) (uint64, error) {
 }
 
 func readString(fileName string) (string, error) {
-	b, err := ioutil.ReadFile(fileName)
+	b, err := ioutil.ReadFile(filepath.Clean(fileName))
 	if err != nil {
 		return "", err
 	}

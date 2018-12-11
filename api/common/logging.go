@@ -83,7 +83,7 @@ func SetLogDest(to, prefix string) {
 			return
 		}
 	case "file":
-		f, err := os.OpenFile(parsed.Path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+		f, err := os.OpenFile(parsed.Path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0600)
 		if err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{"to": to, "path": parsed.Path}).Error("cannot open file, defaulting to stderr")
 			return

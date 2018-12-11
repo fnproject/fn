@@ -1,9 +1,7 @@
-export GO111MODULE=on
-export GOFLAGS=-mod=vendor
 # Just builds
 .PHONY: mod
 dep:
-	go mod vendor -v
+	GO111MODULE=on GOFLAGS=-mod=vendor go mod vendor -v
 
 .PHONY: mod-up
 dep-up:

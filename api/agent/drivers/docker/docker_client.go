@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -297,7 +298,7 @@ func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) error {
 	ctx, closer := makeTracker(ctx, "docker_load_images")
 	defer closer()
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
 		return err
 	}

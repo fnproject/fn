@@ -70,12 +70,12 @@ func (boltProvider) String() string {
 func (boltProvider) New(url *url.URL) (models.MessageQueue, error) {
 	dir := filepath.Dir(url.Path)
 	log := logrus.WithFields(logrus.Fields{"mq": url.Scheme, "dir": dir})
-	err := os.MkdirAll(dir, 0755)
+	err := os.MkdirAll(dir, 0750)
 	if err != nil {
 		log.WithError(err).Errorln("Could not create data directory for mq")
 		return nil, err
 	}
-	db, err := bolt.Open(url.Path, 0666, &bolt.Options{Timeout: 1 * time.Second})
+	db, err := bolt.Open(url.Path, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		log.WithError(err).Errorln("Could not open BoltDB file for MQ")
 		return nil, err

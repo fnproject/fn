@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -364,7 +365,7 @@ func getChunk(size int) []byte {
 
 func readFile(name string, size int) (string, error) {
 	// read the whole file into memory
-	out, err := ioutil.ReadFile(name)
+	out, err := ioutil.ReadFile(filepath.Clean(name))
 	if err != nil {
 		return "", err
 	}
@@ -376,7 +377,7 @@ func readFile(name string, size int) (string, error) {
 }
 
 func createFile(name string, size int) error {
-	f, err := os.Create(name)
+	f, err := os.Create(filepath.Clean(name))
 	if err != nil {
 		return err
 	}

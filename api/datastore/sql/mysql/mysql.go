@@ -1,13 +1,13 @@
 package mysql
 
 import (
-	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	"net/url"
-	"strings"
 )
 
 type mysqlHelper int
@@ -25,12 +25,11 @@ func (mysqlHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {
 
 }
 func (mysqlHelper) CheckTableExists(tx *sqlx.Tx, table string) (bool, error) {
-	query := tx.Rebind(fmt.Sprintf(`SELECT count(*)
+	query := tx.Rebind(`SELECT count(*)
 	FROM information_schema.TABLES
-	WHERE TABLE_NAME = '%s'
-`, table))
+	WHERE TABLE_NAME = ?`)
 
-	row := tx.QueryRow(query)
+	row := tx.QueryRow(query, table)
 
 	var count int
 	err := row.Scan(&count)
