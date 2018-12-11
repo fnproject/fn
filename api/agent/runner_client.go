@@ -274,7 +274,11 @@ func parseError(msg *pb.CallFinished) error {
 	if eStr == "" {
 		eStr = "Unknown Error From Pure Runner"
 	}
-	return models.NewAPIError(int(eCode), errors.New(eStr))
+	err := models.NewAPIError(int(eCode), errors.New(eStr))
+	if msg.GetErrorUser() {
+		return models.NewFuncError(err)
+	}
+	return err
 }
 
 func tryQueueError(err error, done chan error) {

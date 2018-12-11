@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"net/textproto"
 	"strconv"
-
 	"strings"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
+	"go.opencensus.io/tag"
 )
 
 // handleHTTPTriggerCall executes the function, for router handlers
@@ -57,7 +57,19 @@ func (s *Server) handleTriggerHTTPFunctionCall2(c *gin.Context) error {
 	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
 	c.Status(200) // this doesn't write the header yet
 
-	return s.ServeHTTPTrigger(c, app, fn, trigger)
+	err = s.ServeHTTPTrigger(c, app, fn, trigger)
+	if models.IsFuncError(err) || err == nil {
+		// report all user-directed errors and function responses from here, after submit has run.
+		// this is our never ending attempt to distinguish user and platform errors.
+		ctx, err := tag.New(c.Request.Context(),
+			tag.Upsert(whodunitKey, "user"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		c.Request = c.Request.WithContext(ctx)
+	}
+	return err
 }
 
 type triggerResponseWriter struct {

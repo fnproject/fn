@@ -23,9 +23,10 @@ import (
 )
 
 var (
-	pathKey   = common.MakeKey("path")
-	methodKey = common.MakeKey("method")
-	statusKey = common.MakeKey("status")
+	pathKey     = common.MakeKey("path")
+	methodKey   = common.MakeKey("method")
+	statusKey   = common.MakeKey("status")
+	whodunitKey = common.MakeKey("blame")
 
 	apiRequestCountMeasure  = common.MakeMeasure("api/request_count", "Count of API requests started", stats.UnitDimensionless)
 	apiResponseCountMeasure = common.MakeMeasure("api/response_count", "API response count", stats.UnitDimensionless)
@@ -100,14 +101,14 @@ func RegisterAPIViews(tagKeys []string, dist []float64) {
 
 	// default tags for request and response
 	reqTags := []tag.Key{pathKey, methodKey}
-	respTags := []tag.Key{pathKey, methodKey, statusKey}
+	respTags := []tag.Key{pathKey, methodKey, statusKey, whodunitKey}
 
 	// add extra tags if not already in default tags for req/resp
 	for _, key := range tagKeys {
-		if key != "path" && key != "method" && key != "status" {
+		if key != pathKey.Name() && key != methodKey.Name() && key != statusKey.Name() && key != whodunitKey.Name() {
 			respTags = append(respTags, common.MakeKey(key))
 		}
-		if key != "path" && key != "method" {
+		if key != pathKey.Name() && key != methodKey.Name() {
 			reqTags = append(reqTags, common.MakeKey(key))
 		}
 	}
@@ -153,8 +154,11 @@ func apiMetricsWrap(s *Server) {
 			c.Next()
 
 			status := strconv.Itoa(c.Writer.Status())
-			ctx, err = tag.New(ctx,
+			ctx, err = tag.New(c.Request.Context(), // important, request context could be mutated by now
+				tag.Upsert(pathKey, APIViewsGetPath(routes, c)),
+				tag.Upsert(methodKey, c.Request.Method),
 				tag.Upsert(statusKey, status),
+				tag.Insert(whodunitKey, "service"), // only insert this if it doesn't exist
 			)
 			if err != nil {
 				logrus.Fatal(err)

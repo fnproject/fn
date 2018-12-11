@@ -237,12 +237,14 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var details string
 	var errCode int
 	var errStr string
+	var errUser bool
 
 	log := common.Logger(ch.ctx)
 
 	if err != nil {
 		errCode = models.GetAPIErrorCode(err)
 		errStr = err.Error()
+		errUser = models.IsFuncError(err)
 	}
 
 	schedulerDuration, executionDuration := GetCallLatencies(ch.c)
@@ -283,6 +285,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 			CompletedAt:       completedAt,
 			SchedulerDuration: int64(schedulerDuration),
 			ExecutionDuration: int64(executionDuration),
+			ErrorUser:         errUser,
 		}}})
 
 	if errTmp != nil {

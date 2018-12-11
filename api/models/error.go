@@ -28,21 +28,9 @@ var (
 		code:  444,
 		error: errors.New("Client cancelled context"),
 	}
-	ErrCallTimeout = err{
-		code:  http.StatusGatewayTimeout,
-		error: errors.New("Timed out"),
-	}
 	ErrCallTimeoutServerBusy = err{
 		code:  http.StatusServiceUnavailable,
 		error: errors.New("Timed out - server too busy"),
-	}
-	ErrDockerPullTimeout = err{
-		code:  http.StatusGatewayTimeout,
-		error: errors.New("Docker pull timed out"),
-	}
-	ErrContainerInitTimeout = err{
-		code:  http.StatusGatewayTimeout,
-		error: errors.New("Container initialization timed out, please ensure you are using the latest fdk / format and check the logs"),
 	}
 	ErrUnsupportedMediaType = err{
 		code:  http.StatusUnsupportedMediaType,
@@ -130,26 +118,6 @@ var (
 		code:  http.StatusNotFound,
 		error: errors.New("Path not found"),
 	}
-	ErrFunctionResponseTooBig = err{
-		code:  http.StatusBadGateway,
-		error: fmt.Errorf("function response too large"),
-	}
-	ErrFunctionResponse = err{
-		code:  http.StatusBadGateway,
-		error: fmt.Errorf("error receiving function response"),
-	}
-	ErrFunctionFailed = err{
-		code:  http.StatusBadGateway,
-		error: fmt.Errorf("function failed"),
-	}
-	ErrFunctionInvalidResponse = err{
-		code:  http.StatusBadGateway,
-		error: fmt.Errorf("invalid function response"),
-	}
-	ErrRequestContentTooBig = err{
-		code:  http.StatusRequestEntityTooLarge,
-		error: fmt.Errorf("Request content too large"),
-	}
 	ErrInvalidAnnotationKey = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid annotation key, annotation keys must be non-empty ascii strings excluding whitespace"),
@@ -192,9 +160,44 @@ var (
 		code:  http.StatusInternalServerError,
 		error: errors.New("Unable to service the request for the reservation period"),
 	}
-	ErrContainerInitFail = err{
+
+	// func errors
+
+	ErrDockerPullTimeout = ferr{
+		code:  http.StatusGatewayTimeout,
+		error: errors.New("Docker pull timed out"),
+	}
+	ErrFunctionResponseTooBig = ferr{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("function response too large"),
+	}
+	ErrFunctionResponse = ferr{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("error receiving function response"),
+	}
+	ErrFunctionFailed = ferr{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("function failed"),
+	}
+	ErrFunctionInvalidResponse = ferr{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("invalid function response"),
+	}
+	ErrRequestContentTooBig = ferr{
+		code:  http.StatusRequestEntityTooLarge,
+		error: fmt.Errorf("Request content too large"),
+	}
+	ErrCallTimeout = ferr{
+		code:  http.StatusGatewayTimeout,
+		error: errors.New("Timed out"),
+	}
+	ErrContainerInitFail = ferr{
 		code:  http.StatusBadGateway,
 		error: errors.New("container failed to initialize, please ensure you are using the latest fdk / format and check the logs"),
+	}
+	ErrContainerInitTimeout = ferr{
+		code:  http.StatusGatewayTimeout,
+		error: errors.New("Container initialization timed out, please ensure you are using the latest fdk / format and check the logs"),
 	}
 )
 
@@ -210,15 +213,21 @@ type err struct {
 	error
 }
 
+var _ APIError = err{}
+
 func (e err) Code() int { return e.code }
 
+// NewAPIError returns an APIError given a code and error
 func NewAPIError(code int, e error) APIError { return err{code, e} }
 
+// IsAPIError returns whether err implements APIError
 func IsAPIError(e error) bool {
 	_, ok := e.(APIError)
 	return ok
 }
 
+// GetAPIErrorCode returns 0 if an error is not an APIError, or the result
+// of the Code() method from an APIError
 func GetAPIErrorCode(e error) int {
 	err, ok := e.(APIError)
 	if ok {
@@ -226,6 +235,32 @@ func GetAPIErrorCode(e error) int {
 	}
 	return 0
 }
+
+// FuncError is an error that is the function's fault, that uses the
+// APIError but distinguishes fault to function specific errors
+type FuncError interface {
+	APIError
+
+	// hidden method needed for duck typing
+	userError()
+}
+
+type ferr struct {
+	code int
+	error
+}
+
+var _ FuncError = ferr{}
+var _ APIError = ferr{}
+
+func (e ferr) userError() {}
+func (e ferr) Code() int  { return e.code }
+
+// NewFuncError returns a FuncError
+func NewFuncError(err APIError) error { return ferr{code: err.Code(), error: err} }
+
+// IsFuncError checks if err is of type FuncError
+func IsFuncError(err error) bool { _, ok := err.(FuncError); return ok }
 
 // ErrorWrapper uniform error output (v1)  only
 type ErrorWrapper struct {
