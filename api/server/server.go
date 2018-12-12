@@ -979,6 +979,7 @@ func extractFields(c *gin.Context) logrus.Fields {
 	return fields
 }
 
+
 // Start runs any configured machinery, including the http server, agent, etc.
 // Start will block until the context is cancelled or times out.
 func (s *Server) Start(ctx context.Context) {

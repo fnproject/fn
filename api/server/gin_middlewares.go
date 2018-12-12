@@ -200,7 +200,7 @@ func loggerWrap(c *gin.Context) {
 	}
 
 	if fnID := c.Param(api.ParamFnID); fnID != "" {
-		c.Set(api.ParamFnID, fnID)
+		c.Set(api.FnID, fnID)
 		ctx = ContextWithFnID(ctx, fnID)
 	}
 
@@ -211,7 +211,7 @@ func loggerWrap(c *gin.Context) {
 type ctxFnIDKey string
 
 func ContextWithFnID(ctx context.Context, fnID string) context.Context {
-	return context.WithValue(ctx, ctxFnIDKey(api.ParamFnID), fnID)
+	return context.WithValue(ctx, ctxFnIDKey(api.FnID), fnID)
 }
 
 // FnIDFromContext returns the app from a context, if set.

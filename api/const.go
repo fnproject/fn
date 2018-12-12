@@ -5,6 +5,8 @@ const (
 	AppName string = "app_name"
 	// AppID is the app id context key
 	AppID string = "app_id"
+	// FnID is the fn id context key
+	FnID string = "fn_id"
 
 	// ParamAppID is the url path parameter for app id
 	ParamAppID string = "appID"
