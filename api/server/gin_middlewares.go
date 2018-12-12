@@ -195,7 +195,7 @@ func loggerWrap(c *gin.Context) {
 	}
 
 	if appID := c.Param(api.ParamAppID); appID != "" {
-		c.Set(api.ParamAppID, appID)
+		c.Set(api.AppID, appID)
 		ctx = ContextWithAppID(ctx, appID)
 	}
 
@@ -216,19 +216,19 @@ func ContextWithFnID(ctx context.Context, fnID string) context.Context {
 
 // FnIDFromContext returns the app from a context, if set.
 func FnIDFromContext(ctx context.Context) string {
-	r, _ := ctx.Value(ctxFnIDKey(api.ParamFnID)).(string)
+	r, _ := ctx.Value(ctxFnIDKey(api.FnID)).(string)
 	return r
 }
 
 type ctxAppIDKey string
 
 func ContextWithAppID(ctx context.Context, appID string) context.Context {
-	return context.WithValue(ctx, ctxAppIDKey(api.ParamAppID), appID)
+	return context.WithValue(ctx, ctxAppIDKey(api.AppID), appID)
 }
 
 // AppIDFromContext returns the app from a context, if set.
 func AppIDFromContext(ctx context.Context) string {
-	r, _ := ctx.Value(ctxAppIDKey(api.ParamAppID)).(string)
+	r, _ := ctx.Value(ctxAppIDKey(api.AppID)).(string)
 	return r
 }
 
