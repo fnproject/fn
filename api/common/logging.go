@@ -3,6 +3,7 @@ package common
 import (
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -103,4 +104,11 @@ func MaskPassword(u *url.URL) string {
 		}
 	}
 	return u.String()
+}
+
+var matchFirstCap = regexp.MustCompile("([^_])([A-Z]+)")
+
+func NormalizeLogField(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	return strings.ToLower(snake)
 }

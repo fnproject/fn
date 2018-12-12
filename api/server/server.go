@@ -14,7 +14,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -975,26 +974,10 @@ func whoAmI() net.IP {
 func extractFields(c *gin.Context) logrus.Fields {
 	fields := logrus.Fields{"action": path.Base(c.HandlerName())}
 	for _, param := range c.Params {
-		formattedLog := camelCaseToUnderscore(param.Key)
+		formattedLog := common.NormalizeLogField(param.Key)
 		fields[formattedLog] = param.Value
 	}
 	return fields
-}
-
-var camel = regexp.MustCompile("(^[^A-Z0-9]*|[A-Z0-9]*)([A-Z0-9][^A-Z]+|$)")
-
-// converts a camelCase string to lowercase_and_underscore
-func camelCaseToUnderscore(s string) string {
-	var newField []string
-	for _, sub := range camel.FindAllStringSubmatch(s, -1) {
-		if sub[1] != "" {
-			newField = append(newField, sub[1])
-		}
-		if sub[2] != "" {
-			newField = append(newField, sub[2])
-		}
-	}
-	return strings.ToLower(strings.Join(newField, "_"))
 }
 
 // Start runs any configured machinery, including the http server, agent, etc.
