@@ -983,6 +983,7 @@ func extractFields(c *gin.Context) logrus.Fields {
 
 var camel = regexp.MustCompile("(^[^A-Z0-9]*|[A-Z0-9]*)([A-Z0-9][^A-Z]+|$)")
 
+// converts a camelCase string to lowercase_and_underscore
 func camelCaseToUnderscore(s string) string {
 	var newField []string
 	for _, sub := range camel.FindAllStringSubmatch(s, -1) {
