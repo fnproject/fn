@@ -535,6 +535,60 @@ func TestDockerPullHungRepo(t *testing.T) {
 	}
 }
 
+func TestDockerPullUnAuthorizedRepo(t *testing.T) {
+	garbageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// version check seem to have a sane timeout in docker, let's serve this, then stop
+		if r.URL.String() == "/v2/" {
+			w.WriteHeader(200)
+			return
+		}
+		w.WriteHeader(401)
+		return
+	}))
+	defer garbageServer.Close()
+
+	dest := strings.TrimPrefix(garbageServer.URL, "http://")
+
+	app := &models.App{ID: "app_id"}
+	fn := &models.Fn{
+		ID:    "fn_id",
+		Image: dest + "/fnproject/fn-test-utils",
+		ResourceConfig: models.ResourceConfig{
+			Timeout:     5,
+			IdleTimeout: 10,
+			Memory:      128,
+		},
+	}
+
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
+
+	ls := logs.NewMock()
+	cfg, err := NewConfig()
+	cfg.MaxDockerRetries = 1
+	cfg.HotPullTimeout = time.Duration(5) * time.Second
+	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	defer checkClose(t, a)
+
+	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(`{}`)})
+	if err != nil {
+		t.Fatal("unexpected error building request", err)
+	}
+
+	var out bytes.Buffer
+	callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&out))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err == nil {
+		t.Fatal("submit should error!")
+	}
+	if models.GetAPIErrorCode(err) != http.StatusBadGateway {
+		t.Fatalf("unexpected error %v", err)
+	}
+}
+
 func TestDockerPullBadRepo(t *testing.T) {
 
 	garbageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

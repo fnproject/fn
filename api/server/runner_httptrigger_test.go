@@ -339,7 +339,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		{"/t/myapp/httpstream", nil, oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},
 
 		{"/t/myapp/mydne", nil, ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
-		{"/t/myapp/mydneregistry", nil, ``, "GET", http.StatusInternalServerError, nil, "connection refused", nil},
+		{"/t/myapp/mydneregistry", nil, ``, "GET", http.StatusBadGateway, nil, "connection refused", nil},
 
 		// XXX(reed): what are these?
 		{"/t/myapp/httpstream", nil, multiLog, "GET", http.StatusOK, nil, "", multiLogExpectHot},
