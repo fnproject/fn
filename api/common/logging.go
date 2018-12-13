@@ -3,7 +3,6 @@ package common
 import (
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -105,4 +104,3 @@ func MaskPassword(u *url.URL) string {
 	}
 	return u.String()
 }
-
