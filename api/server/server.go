@@ -1152,7 +1152,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runnerAppAPI.Use(setAppIDInCtx)
 			// Both of these are somewhat odd -
 			// Deprecate, remove with routes
-			runnerAppAPI.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
+			runnerAppAPI.GET("/trigger_by_source/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
 		}
 	}
 
@@ -1160,8 +1160,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
 		if !s.noHTTTPTriggerEndpoint {
 			lbTriggerGroup := engine.Group("/t")
-			lbTriggerGroup.Any("/:appName", s.handleHTTPTriggerCall)
-			lbTriggerGroup.Any("/:appName/*triggerSource", s.handleHTTPTriggerCall)
+			lbTriggerGroup.Any("/:app_name", s.handleHTTPTriggerCall)
+			lbTriggerGroup.Any("/:app_name/*trigger_source", s.handleHTTPTriggerCall)
 		}
 
 		if !s.noFnInvokeEndpoint {

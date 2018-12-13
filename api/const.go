@@ -9,18 +9,18 @@ const (
 	FnID string = "fn_id"
 
 	// ParamAppID is the url path parameter for app id
-	ParamAppID string = "appID"
+	ParamAppID string = "app_id"
 	// ParamAppName is the url path parameter for app name
-	ParamAppName string = "appName"
+	ParamAppName string = "app_name"
 	// ParamTriggerID is the url path parameter for trigger id
-	ParamTriggerID string = "triggerID"
+	ParamTriggerID string = "trigger_id"
 	// ParamCallID is the url path parameter for call id
-	ParamCallID string = "callID"
+	ParamCallID string = "call_id"
 	// ParamFnID is the url path parameter for fn id
-	ParamFnID string = "fnID"
+	ParamFnID string = "fn_id"
 	// ParamTriggerSource is the triggers source parameter
-	ParamTriggerSource string = "triggerSource"
+	ParamTriggerSource string = "trigger_source"
 
 	//ParamTriggerType is the trigger type parameter - only used in hybrid API
-	ParamTriggerType string = "triggerType"
+	ParamTriggerType string = "trigger_type"
 )
