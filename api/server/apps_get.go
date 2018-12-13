@@ -10,7 +10,7 @@ import (
 func (s *Server) handleAppGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appId := c.Param(api.ParamAppID)
+	appId := c.Param(api.AppID)
 	app, err := s.datastore.GetAppByID(ctx, appId)
 	if err != nil {
 		handleErrorResponse(c, err)

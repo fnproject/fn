@@ -193,12 +193,12 @@ func (s *Server) handleRunnerGetTriggerBySource(c *gin.Context) {
 
 	appId := c.MustGet(api.AppID).(string)
 
-	triggerType := c.Param(api.ParamTriggerType)
+	triggerType := c.Param(api.TriggerType)
 	if triggerType == "" {
 		handleErrorResponse(c, errors.New("no trigger type in request"))
 		return
 	}
-	triggerSource := strings.TrimPrefix(c.Param(api.ParamTriggerSource), "/")
+	triggerSource := strings.TrimPrefix(c.Param(api.TriggerSource), "/")
 
 	trigger, err := s.datastore.GetTriggerBySource(ctx, appId, triggerType, triggerSource)
 

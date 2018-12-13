@@ -11,20 +11,20 @@ import (
 func (s *Server) handleCallGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	fnID := c.Param(api.ParamFnID)
+	fnID := c.Param(api.FnID)
 
 	if fnID == "" {
 		handleErrorResponse(c, models.ErrFnsMissingID)
 		return
 	}
 
-	_, err := s.datastore.GetFnByID(ctx, c.Param(api.ParamFnID))
+	_, err := s.datastore.GetFnByID(ctx, c.Param(api.FnID))
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	callID := c.Param(api.ParamCallID)
+	callID := c.Param(api.CallID)
 	if callID == "" {
 		handleErrorResponse(c, models.ErrDatastoreEmptyCallID)
 	}

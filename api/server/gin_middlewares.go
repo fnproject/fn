@@ -78,9 +78,9 @@ func traceWrap(c *gin.Context) {
 		logrus.Fatal(err)
 	}
 	ctx, err := tag.New(c.Request.Context(),
-		tag.Insert(appKey, c.Param(api.ParamAppName)),
-		tag.Insert(appIDKey, c.Param(api.ParamAppID)),
-		tag.Insert(fnKey, c.Param(api.ParamFnID)),
+		tag.Insert(appKey, c.Param(api.AppName)),
+		tag.Insert(appIDKey, c.Param(api.AppID)),
+		tag.Insert(fnKey, c.Param(api.FnID)),
 	)
 	if err != nil {
 		logrus.Fatal(err)
@@ -189,17 +189,17 @@ func panicWrap(c *gin.Context) {
 func loggerWrap(c *gin.Context) {
 	ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-	if appName := c.Param(api.ParamAppName); appName != "" {
+	if appName := c.Param(api.AppName); appName != "" {
 		c.Set(api.AppName, appName)
 		ctx = ContextWithApp(ctx, appName)
 	}
 
-	if appID := c.Param(api.ParamAppID); appID != "" {
+	if appID := c.Param(api.AppID); appID != "" {
 		c.Set(api.AppID, appID)
 		ctx = ContextWithAppID(ctx, appID)
 	}
 
-	if fnID := c.Param(api.ParamFnID); fnID != "" {
+	if fnID := c.Param(api.FnID); fnID != "" {
 		c.Set(api.FnID, fnID)
 		ctx = ContextWithFnID(ctx, fnID)
 	}
@@ -269,7 +269,7 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 
 func setAppIDInCtx(c *gin.Context) {
 	// add appName to context
-	appID := c.Param(api.ParamAppID)
+	appID := c.Param(api.AppID)
 
 	if appID != "" {
 		c.Set(api.AppID, appID)
@@ -279,7 +279,7 @@ func setAppIDInCtx(c *gin.Context) {
 }
 
 func appIDCheck(c *gin.Context) {
-	appID := c.GetString(api.ParamAppID)
+	appID := c.GetString(api.AppID)
 	if appID == "" {
 		handleErrorResponse(c, models.ErrAppsMissingID)
 		c.Abort()
