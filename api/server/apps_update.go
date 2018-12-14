@@ -23,7 +23,7 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 		return
 	}
 
-	id := c.Param(api.ParamAppID)
+	id := c.Param(api.AppID)
 
 	if app.ID == "" {
 		app.ID = id

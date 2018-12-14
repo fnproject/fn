@@ -1112,31 +1112,31 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		{
 			v2.GET("/apps", s.handleAppList)
 			v2.POST("/apps", s.handleAppCreate)
-			v2.GET("/apps/:appID", s.handleAppGet)
-			v2.PUT("/apps/:appID", s.handleAppUpdate)
-			v2.DELETE("/apps/:appID", s.handleAppDelete)
+			v2.GET("/apps/:app_id", s.handleAppGet)
+			v2.PUT("/apps/:app_id", s.handleAppUpdate)
+			v2.DELETE("/apps/:app_id", s.handleAppDelete)
 
 			v2.GET("/fns", s.handleFnList)
 			v2.POST("/fns", s.handleFnCreate)
-			v2.GET("/fns/:fnID", s.handleFnGet)
-			v2.PUT("/fns/:fnID", s.handleFnUpdate)
-			v2.DELETE("/fns/:fnID", s.handleFnDelete)
+			v2.GET("/fns/:fn_id", s.handleFnGet)
+			v2.PUT("/fns/:fn_id", s.handleFnUpdate)
+			v2.DELETE("/fns/:fn_id", s.handleFnDelete)
 
 			v2.GET("/triggers", s.handleTriggerList)
 			v2.POST("/triggers", s.handleTriggerCreate)
-			v2.GET("/triggers/:triggerID", s.handleTriggerGet)
-			v2.PUT("/triggers/:triggerID", s.handleTriggerUpdate)
-			v2.DELETE("/triggers/:triggerID", s.handleTriggerDelete)
+			v2.GET("/triggers/:trigger_id", s.handleTriggerGet)
+			v2.PUT("/triggers/:trigger_id", s.handleTriggerUpdate)
+			v2.DELETE("/triggers/:trigger_id", s.handleTriggerDelete)
 		}
 
 		if !s.noCallEndpoints {
-			v2.GET("/fns/:fnID/calls", s.handleCallList)
-			v2.GET("/fns/:fnID/calls/:callID", s.handleCallGet)
-			v2.GET("/fns/:fnID/calls/:callID/log", s.handleCallLogGet)
+			v2.GET("/fns/:fn_id/calls", s.handleCallList)
+			v2.GET("/fns/:fn_id/calls/:call_id", s.handleCallGet)
+			v2.GET("/fns/:fn_id/calls/:call_id/log", s.handleCallLogGet)
 		} else {
-			v2.GET("/fns/:fnID/calls", s.goneResponse)
-			v2.GET("/fns/:fnID/calls/:callID", s.goneResponse)
-			v2.GET("/fns/:fnID/calls/:callID/log", s.goneResponse)
+			v2.GET("/fns/:fn_id/calls", s.goneResponse)
+			v2.GET("/fns/:fn_id/calls/:call_id", s.goneResponse)
+			v2.GET("/fns/:fn_id/calls/:call_id/log", s.goneResponse)
 		}
 
 		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers
@@ -1148,11 +1148,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runner.POST("/finish", s.handleRunnerFinish)
 
 			runnerAppAPI := runner.Group(
-				"/apps/:appID")
+				"/apps/:app_id")
 			runnerAppAPI.Use(setAppIDInCtx)
 			// Both of these are somewhat odd -
 			// Deprecate, remove with routes
-			runnerAppAPI.GET("/triggerBySource/:triggerType/*triggerSource", s.handleRunnerGetTriggerBySource)
+			runnerAppAPI.GET("/triggerBySource/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
 		}
 	}
 
@@ -1160,13 +1160,13 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
 		if !s.noHTTTPTriggerEndpoint {
 			lbTriggerGroup := engine.Group("/t")
-			lbTriggerGroup.Any("/:appName", s.handleHTTPTriggerCall)
-			lbTriggerGroup.Any("/:appName/*triggerSource", s.handleHTTPTriggerCall)
+			lbTriggerGroup.Any("/:app_name", s.handleHTTPTriggerCall)
+			lbTriggerGroup.Any("/:app_name/*trigger_source", s.handleHTTPTriggerCall)
 		}
 
 		if !s.noFnInvokeEndpoint {
 			lbFnInvokeGroup := engine.Group("/invoke")
-			lbFnInvokeGroup.POST("/:fnID", s.handleFnInvokeCall)
+			lbFnInvokeGroup.POST("/:fn_id", s.handleFnInvokeCall)
 		}
 	}
 

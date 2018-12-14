@@ -78,9 +78,9 @@ func traceWrap(c *gin.Context) {
 		logrus.Fatal(err)
 	}
 	ctx, err := tag.New(c.Request.Context(),
-		tag.Insert(appKey, c.Param(api.ParamAppName)),
-		tag.Insert(appIDKey, c.Param(api.ParamAppID)),
-		tag.Insert(fnKey, c.Param(api.ParamFnID)),
+		tag.Insert(appKey, c.Param(api.AppName)),
+		tag.Insert(appIDKey, c.Param(api.AppID)),
+		tag.Insert(fnKey, c.Param(api.FnID)),
 	)
 	if err != nil {
 		logrus.Fatal(err)
@@ -189,18 +189,18 @@ func panicWrap(c *gin.Context) {
 func loggerWrap(c *gin.Context) {
 	ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-	if appName := c.Param(api.ParamAppName); appName != "" {
+	if appName := c.Param(api.AppName); appName != "" {
 		c.Set(api.AppName, appName)
 		ctx = ContextWithApp(ctx, appName)
 	}
 
-	if appID := c.Param(api.ParamAppID); appID != "" {
-		c.Set(api.ParamAppID, appID)
+	if appID := c.Param(api.AppID); appID != "" {
+		c.Set(api.AppID, appID)
 		ctx = ContextWithAppID(ctx, appID)
 	}
 
-	if fnID := c.Param(api.ParamFnID); fnID != "" {
-		c.Set(api.ParamFnID, fnID)
+	if fnID := c.Param(api.FnID); fnID != "" {
+		c.Set(api.FnID, fnID)
 		ctx = ContextWithFnID(ctx, fnID)
 	}
 
@@ -211,24 +211,24 @@ func loggerWrap(c *gin.Context) {
 type ctxFnIDKey string
 
 func ContextWithFnID(ctx context.Context, fnID string) context.Context {
-	return context.WithValue(ctx, ctxFnIDKey(api.ParamFnID), fnID)
+	return context.WithValue(ctx, ctxFnIDKey(api.FnID), fnID)
 }
 
 // FnIDFromContext returns the app from a context, if set.
 func FnIDFromContext(ctx context.Context) string {
-	r, _ := ctx.Value(ctxFnIDKey(api.ParamFnID)).(string)
+	r, _ := ctx.Value(ctxFnIDKey(api.FnID)).(string)
 	return r
 }
 
 type ctxAppIDKey string
 
 func ContextWithAppID(ctx context.Context, appID string) context.Context {
-	return context.WithValue(ctx, ctxAppIDKey(api.ParamAppID), appID)
+	return context.WithValue(ctx, ctxAppIDKey(api.AppID), appID)
 }
 
 // AppIDFromContext returns the app from a context, if set.
 func AppIDFromContext(ctx context.Context) string {
-	r, _ := ctx.Value(ctxAppIDKey(api.ParamAppID)).(string)
+	r, _ := ctx.Value(ctxAppIDKey(api.AppID)).(string)
 	return r
 }
 
@@ -269,7 +269,7 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 
 func setAppIDInCtx(c *gin.Context) {
 	// add appName to context
-	appID := c.Param(api.ParamAppID)
+	appID := c.Param(api.AppID)
 
 	if appID != "" {
 		c.Set(api.AppID, appID)
@@ -279,7 +279,7 @@ func setAppIDInCtx(c *gin.Context) {
 }
 
 func appIDCheck(c *gin.Context) {
-	appID := c.GetString(api.ParamAppID)
+	appID := c.GetString(api.AppID)
 	if appID == "" {
 		handleErrorResponse(c, models.ErrAppsMissingID)
 		c.Abort()

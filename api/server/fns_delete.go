@@ -10,7 +10,7 @@ import (
 func (s *Server) handleFnDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	fnID := c.Param(api.ParamFnID)
+	fnID := c.Param(api.FnID)
 
 	err := s.datastore.RemoveFn(ctx, fnID)
 	if err != nil {

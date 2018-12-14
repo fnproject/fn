@@ -36,8 +36,8 @@ func writeJSON(c *gin.Context, callID string, logReader io.Reader) {
 func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	fnID := c.Param(api.ParamFnID)
-	callID := c.Param(api.ParamCallID)
+	fnID := c.Param(api.FnID)
+	callID := c.Param(api.CallID)
 
 	logReader, err := s.logstore.GetLog(ctx, fnID, callID)
 	if err != nil {

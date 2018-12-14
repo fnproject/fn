@@ -25,12 +25,12 @@ func (s *Server) handleHTTPTriggerCall(c *gin.Context) {
 // Requires the following in the context:
 func (s *Server) handleTriggerHTTPFunctionCall2(c *gin.Context) error {
 	ctx := c.Request.Context()
-	p := c.Param(api.ParamTriggerSource)
+	p := c.Param(api.TriggerSource)
 	if p == "" {
 		p = "/"
 	}
 
-	appName := c.Param(api.ParamAppName)
+	appName := c.Param(api.AppName)
 
 	appID, err := s.lbReadAccess.GetAppID(ctx, appName)
 	if err != nil {

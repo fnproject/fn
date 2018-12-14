@@ -1,24 +1,21 @@
 package api
 
 const (
-	// AppName is the app name context key
+	// AppName is the app name context key & url path parameter
 	AppName string = "app_name"
-	// AppID is the app id context key
+	// AppID is the app id context key & url path parameter
 	AppID string = "app_id"
+	// FnID is the fn id context key & url path parameter
 
-	// ParamAppID is the url path parameter for app id
-	ParamAppID string = "appID"
-	// ParamAppName is the url path parameter for app name
-	ParamAppName string = "appName"
-	// ParamTriggerID is the url path parameter for trigger id
-	ParamTriggerID string = "triggerID"
-	// ParamCallID is the url path parameter for call id
-	ParamCallID string = "callID"
-	// ParamFnID is the url path parameter for fn id
-	ParamFnID string = "fnID"
-	// ParamTriggerSource is the triggers source parameter
-	ParamTriggerSource string = "triggerSource"
+	// TriggerID is the url path parameter for trigger id
+	TriggerID string = "trigger_id"
+	// CallID is the url path parameter for call id
+	CallID string = "call_id"
+	// FnID is the url path parameter for fn id
+	FnID string = "fn_id"
+	// TriggerSource is the triggers source parameter
+	TriggerSource string = "trigger_source"
 
-	//ParamTriggerType is the trigger type parameter - only used in hybrid API
-	ParamTriggerType string = "triggerType"
+	//TriggerType is the trigger type parameter - only used in hybrid API
+	TriggerType string = "trigger_type"
 )

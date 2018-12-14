@@ -11,7 +11,7 @@ import (
 func (s *Server) handleFnGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	f, err := s.datastore.GetFnByID(ctx, c.Param(api.ParamFnID))
+	f, err := s.datastore.GetFnByID(ctx, c.Param(api.FnID))
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

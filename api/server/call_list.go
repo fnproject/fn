@@ -15,14 +15,14 @@ func (s *Server) handleCallList(c *gin.Context) {
 	ctx := c.Request.Context()
 	var err error
 
-	fnID := c.Param(api.ParamFnID)
+	fnID := c.Param(api.FnID)
 
 	if fnID == "" {
 		handleErrorResponse(c, models.ErrFnsMissingID)
 		return
 	}
 
-	_, err = s.datastore.GetFnByID(ctx, c.Param(api.ParamFnID))
+	_, err = s.datastore.GetFnByID(ctx, c.Param(api.FnID))
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
