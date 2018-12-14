@@ -151,7 +151,7 @@ func (cl *client) GetTriggerBySource(ctx context.Context, appID string, triggerT
 	defer span.End()
 
 	var trigger models.Trigger
-	err := cl.do(ctx, nil, &trigger, "GET", noQuery, "runner", "apps", appID, "trigger_by_source", triggerType, source)
+	err := cl.do(ctx, nil, &trigger, "GET", noQuery, "runner", "apps", appID, "triggerBySource", triggerType, source)
 	return &trigger, err
 }
 
