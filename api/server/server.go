@@ -1152,7 +1152,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			runnerAppAPI.Use(setAppIDInCtx)
 			// Both of these are somewhat odd -
 			// Deprecate, remove with routes
-			runnerAppAPI.GET("/trigger_by_source/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
+			runnerAppAPI.GET("/triggerBySource/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
 		}
 	}
 
