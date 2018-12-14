@@ -14,15 +14,14 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/datastore/sql/migratex"
-	"github.com/fnproject/fn/api/datastore/sql/migrations"
-	"github.com/fnproject/fn/api/models"
-	"github.com/jmoiron/sqlx"
-
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
+	"github.com/fnproject/fn/api/datastore/sql/migratex"
+	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
+	"github.com/fnproject/fn/api/models"
+	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
 
@@ -492,6 +491,7 @@ func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) (*mod
 	if err != nil {
 		return nil, err
 	}
+	/* #nosec */
 	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps %s", query))
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
@@ -636,6 +636,7 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 		return res, err
 	}
 
+	/* #nosec */
 	query := fmt.Sprintf("%s %s", fnSelector, filterQuery)
 	query = ds.db.Rebind(query)
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
@@ -670,6 +671,7 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 }
 
 func (ds *SQLStore) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
+	/* #nosec */
 	query := ds.db.Rebind(fmt.Sprintf("%s WHERE id=?", fnSelector))
 	row := ds.db.QueryRowxContext(ctx, query, fnID)
 
@@ -684,9 +686,8 @@ func (ds *SQLStore) GetFnByID(ctx context.Context, fnID string) (*models.Fn, err
 }
 
 func (ds *SQLStore) RemoveFn(ctx context.Context, fnID string) error {
-
 	return ds.Tx(func(tx *sqlx.Tx) error {
-
+		/* #nosec */
 		query := tx.Rebind(fmt.Sprintf("%s WHERE id=?", fnSelector))
 		row := tx.QueryRowxContext(ctx, query, fnID)
 
@@ -753,6 +754,7 @@ func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
 }
 
 func (ds *SQLStore) GetCall1(ctx context.Context, appID, callID string) (*models.Call, error) {
+	/* #nosec */
 	query := fmt.Sprintf(`%s WHERE id=? AND app_id=?`, callSelector)
 	query = ds.db.Rebind(query)
 	row := ds.db.QueryRowxContext(ctx, query, callID, appID)
@@ -769,6 +771,7 @@ func (ds *SQLStore) GetCall1(ctx context.Context, appID, callID string) (*models
 }
 
 func (ds *SQLStore) GetCall(ctx context.Context, fnID, callID string) (*models.Call, error) {
+	/* #nosec */
 	query := fmt.Sprintf(`%s WHERE id=? AND fn_id=?`, callSelector)
 	query = ds.db.Rebind(query)
 	row := ds.db.QueryRowxContext(ctx, query, callID, fnID)
@@ -811,6 +814,7 @@ func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) (*m
 func (ds *SQLStore) GetCalls1(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
 	res := []*models.Call{}
 	query, args := buildFilterCallQuery(filter)
+	/* #nosec */
 	query = fmt.Sprintf("%s %s", callSelector, query)
 	query = ds.db.Rebind(query)
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
@@ -962,8 +966,10 @@ func where(b *bytes.Buffer, args []interface{}, colOp string, val interface{}) [
 	}
 	args = append(args, val)
 	if len(args) == 1 {
+		/* #nosec */
 		fmt.Fprintf(b, `WHERE %s`, colOp)
 	} else {
+		/* #nosec */
 		fmt.Fprintf(b, ` AND %s`, colOp)
 	}
 	return args
@@ -1093,6 +1099,7 @@ func (ds *SQLStore) UpdateTrigger(ctx context.Context, trigger *models.Trigger) 
 
 func (ds *SQLStore) GetTrigger(ctx context.Context, appId, fnId, triggerName string) (*models.Trigger, error) {
 	var trigger models.Trigger
+	/* #nosec */
 	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=? AND app_id=? AND fn_id=?", fnSelector))
 	row := ds.db.QueryRowxContext(ctx, query, triggerName, appId, fnId)
 
@@ -1189,6 +1196,7 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 		return res, err
 	}
 
+	/* #nosec */
 	query := fmt.Sprintf("%s WHERE %s", triggerSelector, filterQuery)
 	query = ds.db.Rebind(query)
 	rows, err := ds.db.QueryxContext(ctx, query, args...)

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 )
 
-// A simple TLS Config generator using cert/key
+// NewTLSSimple creates a new tls config with the given cert and key file paths
 func NewTLSSimple(certPath, keyPath string) (*tls.Config, error) {
 
 	err := checkFile(certPath)
@@ -34,7 +34,7 @@ func NewTLSSimple(certPath, keyPath string) (*tls.Config, error) {
 	}, nil
 }
 
-// Add a Client CA
+// AddClientCA adds a client cert to the given tls config
 func AddClientCA(tlsConf *tls.Config, clientCAPath string) error {
 
 	err := checkFile(clientCAPath)
@@ -42,7 +42,7 @@ func AddClientCA(tlsConf *tls.Config, clientCAPath string) error {
 		return err
 	}
 	// Create a certificate pool from the certificate authority
-	authority, err := ioutil.ReadFile(clientCAPath)
+	authority, err := ioutil.ReadFile(filepath.Clean(clientCAPath))
 	if err != nil {
 		return fmt.Errorf("Could not read client CA (%s) certificate: %s", clientCAPath, err)
 	}
@@ -58,7 +58,7 @@ func AddClientCA(tlsConf *tls.Config, clientCAPath string) error {
 	return nil
 }
 
-// Add CA
+// AddCA adds a ca cert to the given tls config
 func AddCA(tlsConf *tls.Config, caPath string) error {
 
 	err := checkFile(caPath)
@@ -66,7 +66,7 @@ func AddCA(tlsConf *tls.Config, caPath string) error {
 		return err
 	}
 
-	ca, err := ioutil.ReadFile(caPath)
+	ca, err := ioutil.ReadFile(filepath.Clean(caPath))
 	if err != nil {
 		return fmt.Errorf("could not read ca (%s) certificate: %s", caPath, err)
 	}

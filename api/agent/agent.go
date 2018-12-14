@@ -119,6 +119,7 @@ type agent struct {
 type Option func(*agent) error
 
 // RegistryToken is a reserved call extensions key to pass registry token
+/* #nosec */
 const RegistryToken = "FN_REGISTRY_TOKEN"
 
 // New creates an Agent that executes functions locally as Docker containers.

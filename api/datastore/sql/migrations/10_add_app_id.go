@@ -113,6 +113,7 @@ func up10(ctx context.Context, tx *sqlx.Tx) error {
 		}
 
 		for _, t := range []string{"routes", "calls", "logs"} {
+			/* #nosec */
 			q := fmt.Sprintf(`UPDATE %s SET app_id=:id WHERE app_name=:name;`, t)
 			_, err = tx.NamedExecContext(ctx, tx.Rebind(q), app)
 			if err != nil {
@@ -138,6 +139,7 @@ func up10(ctx context.Context, tx *sqlx.Tx) error {
 			statement := t["statement"]
 			tableName := t["table"]
 			columns := t["columns"]
+			/* #nosec */
 			_, err = tx.ExecContext(ctx, tx.Rebind(fmt.Sprintf("ALTER TABLE %s RENAME TO old_%s;", tableName, tableName)))
 			if err != nil {
 				return err
@@ -146,11 +148,13 @@ func up10(ctx context.Context, tx *sqlx.Tx) error {
 			if err != nil {
 				return err
 			}
+			/* #nosec */
 			_, err = tx.ExecContext(ctx, tx.Rebind(fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM old_%s;", tableName, columns, columns, tableName)))
 			if err != nil {
 				return err
 			}
 
+			/* #nosec */
 			_, err = tx.ExecContext(ctx, tx.Rebind(fmt.Sprintf("DROP TABLE old_%s;", tableName)))
 			if err != nil {
 				return err
@@ -204,7 +208,8 @@ func down10(ctx context.Context, tx *sqlx.Tx) error {
 	// it is required for some reason, can't do this within the rows iteration.
 	for _, app := range res {
 		for _, t := range []string{"routes", "calls", "logs"} {
-			q := "UPDATE " + t + " SET app_name=:name WHERE app_id=:id;"
+			/* #nosec */
+			q := fmt.Sprintf("UPDATE %s SET app_name=:name WHERE app_id=:id;", t)
 			_, err = tx.NamedExecContext(ctx, tx.Rebind(q), app)
 			if err != nil {
 				return err

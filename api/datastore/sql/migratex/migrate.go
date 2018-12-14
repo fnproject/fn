@@ -283,6 +283,7 @@ func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) err
 	// TODO need to handle down migration better
 	// ideally, we have a record of each up/down migration with a timestamp for auditing,
 	// this just nukes the whole table which is kinda lame.
+	/* #nosec */
 	query := tx.Rebind("DELETE FROM " + MigrationsTable)
 	if _, err := tx.Exec(query); err != nil {
 		logrus.WithError(err).Error("error deleting version table")
@@ -290,6 +291,7 @@ func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) err
 	}
 
 	if version >= 0 {
+		/* #nosec */
 		query = tx.Rebind(`INSERT INTO ` + MigrationsTable + ` (version, dirty) VALUES (?, ?)`)
 		if _, err := tx.ExecContext(ctx, query, version, dirty); err != nil {
 			logrus.WithError(err).Error("error updating version table")
@@ -316,6 +318,7 @@ func Version(ctx context.Context, tx *sqlx.Tx) (version int64, dirty bool, err e
 		return NilVersion, false, nil
 	}
 
+	/* #nosec */
 	query := tx.Rebind(`SELECT version, dirty FROM ` + MigrationsTable + ` LIMIT 1`)
 
 	err = tx.QueryRowContext(ctx, query).Scan(&version, &dirty)

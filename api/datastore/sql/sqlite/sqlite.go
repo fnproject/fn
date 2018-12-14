@@ -1,14 +1,14 @@
 package sqlite
 
 import (
-	"fmt"
-	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
-	"github.com/jmoiron/sqlx"
-	"github.com/mattn/go-sqlite3"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
+	"github.com/jmoiron/sqlx"
+	"github.com/mattn/go-sqlite3"
 )
 
 type sqliteHelper int
@@ -24,7 +24,7 @@ func (sqliteHelper) Supports(scheme string) bool {
 func (sqliteHelper) PreConnect(url *url.URL) (string, error) {
 	// make all the dirs so we can make the file..
 	dir := filepath.Dir(url.Path)
-	err := os.MkdirAll(dir, 0755)
+	err := os.MkdirAll(dir, 0750)
 	if err != nil {
 		return "", err
 	}
@@ -38,12 +38,11 @@ func (sqliteHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {
 }
 
 func (sqliteHelper) CheckTableExists(tx *sqlx.Tx, table string) (bool, error) {
-	query := tx.Rebind(fmt.Sprintf(`SELECT count(*)
+	query := tx.Rebind(`SELECT count(*)
 		FROM sqlite_master
-		WHERE name = '%s'
-		`, table))
+		WHERE name = ?`)
 
-	row := tx.QueryRow(query)
+	row := tx.QueryRow(query, table)
 
 	var count int
 	err := row.Scan(&count)
