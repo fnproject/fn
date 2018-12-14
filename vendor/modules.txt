@@ -221,7 +221,7 @@ google.golang.org/api/support/bundler
 google.golang.org/appengine/cloudsql
 # google.golang.org/genproto v0.0.0-20181016170114-94acd270e44e
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.15.0
+# google.golang.org/grpc v1.16.0
 google.golang.org/grpc
 google.golang.org/grpc/codes
 google.golang.org/grpc/credentials

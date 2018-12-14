@@ -39,7 +39,7 @@ require (
 	golang.org/x/sys v0.0.0-20181019160139-8e24a49d80f8
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
 	google.golang.org/api v0.0.0-20181019000435-7fb5a8353b60 // indirect
-	google.golang.org/grpc v1.15.0
+	google.golang.org/grpc v1.16.0
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
 )
 
