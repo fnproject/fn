@@ -97,6 +97,9 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 		return err
 	}
 
+	// add this before submit, always tie a call id to the response at this point
+	writer.Header().Add("Fn-Call-Id", call.Model().ID)
+
 	err = s.agent.Submit(call)
 	if err != nil {
 		return err
@@ -104,7 +107,6 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 
 	// because we can...
 	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
-	writer.Header().Add("Fn-Call-Id", call.Model().ID) // XXX(reed): move to before Submit when adding streaming
 
 	// buffered response writer traps status (so we can add headers), we need to write it still
 	if writer.Status() > 0 {

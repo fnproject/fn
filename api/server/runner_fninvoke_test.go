@@ -142,9 +142,13 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	app := &models.App{ID: "app_id", Name: "myapp"}
 
+	models.MaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
+	hugeMem := uint64(models.MaxMemory - 1)
+
 	dneFn := &models.Fn{ID: "dne_fn_id", Name: "dne_fn", AppID: app.ID, Image: rImgBs1, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	dneRegistryFn := &models.Fn{ID: "dnereg_fn_id", Name: "dnereg_fn", AppID: app.ID, Image: rImgBs2, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	httpStreamFn := &models.Fn{ID: "http_stream_fn_id", Name: "http_stream_fn", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+	bigMemHotFn := &models.Fn{ID: "bigmem", Name: "bigmemhot", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
 
 	// TODO consider removing this instead of satisfying this test. it was here to help user experience during a transitional time in our lives where we decided to cut all our hair off and we hope you'll forget it.
 	// TODO also note that fnproject/hello should get killed whenever you do that. it is only here for the purposes of failing.
@@ -152,7 +156,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn, oldDefaultFn},
+		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn, oldDefaultFn, bigMemHotFn},
 	)
 	ls := logs.NewMock()
 
@@ -212,6 +216,8 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		// TODO consider removing this, see comment above the image
 		{"/invoke/fail_fn", ok, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
 		{"/invoke/fn_id", ok, http.MethodPut, http.StatusMethodNotAllowed, nil, "Method not allowed", nil},
+
+		{"/invoke/bigmem", ok, http.MethodPost, http.StatusBadRequest, nil, "cannot be allocated", nil},
 	}
 
 	callIds := make([]string, len(testCases))
@@ -230,6 +236,12 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 			callIds[i] = rec.Header().Get("Fn-Call-Id")
 			cid := callIds[i]
+
+			if rec.Code == 200 && cid == "" {
+				isFailure = true
+				t.Errorf("Test %d call_id %s: Expected successful call id to be non-empty but was %s. body: %s",
+					i, cid, cid, respBody[:maxBody])
+			}
 
 			if rec.Code != test.expectedCode {
 				isFailure = true
@@ -285,16 +297,12 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 		}
 	}()
 
-	models.MaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
-	hugeMem := uint64(models.MaxMemory - 1)
-
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
 	httpStreamFn := &models.Fn{ID: "http-stream", Name: "http-stream", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
-	bigMemHotFn := &models.Fn{ID: "bigmem", Name: "bigmemhot", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{httpStreamFn, bigMemHotFn},
+		[]*models.Fn{httpStreamFn},
 	)
 
 	fnl := logs.NewMock()
@@ -312,7 +320,6 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 	}{
 		{"/invoke/http-stream", `{"echoContent": "_TRX_ID_", "sleepTime": 5000, "isDebug": true}`, http.MethodPost, http.StatusGatewayTimeout, nil},
 		{"/invoke/http-stream", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, http.MethodPost, http.StatusOK, nil},
-		{"/invoke/bigmem", `{"echoContent": "_TRX_ID_", "sleepTime": 0, "isDebug": true}`, http.MethodPost, http.StatusBadRequest, nil},
 	} {
 		t.Run(fmt.Sprintf("%d_%s", i, strings.Replace(test.path, "/", "_", -1)), func(t *testing.T) {
 			trx := fmt.Sprintf("_trx_%d_", i)
@@ -323,6 +330,13 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 			maxBody := len(respBody)
 			if maxBody > 1024 {
 				maxBody = 1024
+			}
+
+			cid := rec.Header().Get("Fn-Call-Id")
+			if cid == "" {
+				isFailure = true
+				t.Errorf("Test %d call_id %s: Expected call id to be non-empty but was %s. body: %s",
+					i, cid, cid, respBody[:maxBody])
 			}
 
 			if rec.Code != test.expectedCode {
