@@ -97,18 +97,16 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 		return err
 	}
 
+	// add this before submit, always tie a call id to the response at this point
+	writer.Header().Add("Fn-Call-Id", call.Model().ID)
+
 	err = s.agent.Submit(call)
 	if err != nil {
-		if err == models.ErrCallTimeout {
-			// TODO(reed): we could add this header for any error if we want to, or we can just treat it as only for calls that attempted to run, up to us
-			writer.Header().Add("Fn-Call-Id", call.Model().ID) // XXX(reed): move to before Submit when adding streaming
-		}
 		return err
 	}
 
 	// because we can...
 	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
-	writer.Header().Add("Fn-Call-Id", call.Model().ID) // XXX(reed): move to before Submit when adding streaming
 
 	// buffered response writer traps status (so we can add headers), we need to write it still
 	if writer.Status() > 0 {
