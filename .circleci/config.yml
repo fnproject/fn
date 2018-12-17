@@ -6,7 +6,7 @@ jobs:
     working_directory: ~/go/src/github.com/fnproject/fn
     environment: # apparently expansion doesn't work here yet: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
       - GOPATH=/home/circleci/go
-      - GOVERSION=1.11.2
+      - GOVERSION=1.11.4
       - OS=linux
       - ARCH=amd64
       - FN_LOG_LEVEL=debug
@@ -34,8 +34,8 @@ jobs:
       - run: git config diff.renamelimit 65535
       # NOTE: if GOFLAGS and GOMODULE are set, gosec will be noisy. unset them (run this before any 'make' command)
       - run: |
-          wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s 1.2.0
-          ./bin/gosec -quiet -severity medium ./...
+          wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $GOPATH/bin 1.2.0
+          $GOPATH/bin/gosec -quiet -severity medium ./...
 
       - run: make clear-images
 
