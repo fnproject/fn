@@ -2,7 +2,6 @@ package runnerpool
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	"net/http"
 	"time"
@@ -24,9 +23,6 @@ type RunnerPool interface {
 	Runners(ctx context.Context, call RunnerCall) ([]Runner, error)
 	Shutdown(ctx context.Context) error
 }
-
-// MTLSRunnerFactory represents a factory method for constructing runners using mTLS
-type MTLSRunnerFactory func(addr string, tlsConf *tls.Config) (Runner, error)
 
 // RunnerStatus is general information on Runner health as returned by Runner::Status() call
 type RunnerStatus struct {

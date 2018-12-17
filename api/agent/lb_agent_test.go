@@ -2,8 +2,6 @@ package agent
 
 import (
 	"context"
-	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,23 +24,22 @@ type mockRunner struct {
 }
 
 type mockRunnerPool struct {
-	runners   []pool.Runner
-	generator pool.MTLSRunnerFactory
+	runners []pool.Runner
 }
 
-func newMockRunnerPool(rf pool.MTLSRunnerFactory, runnerAddrs []string) *mockRunnerPool {
+func newMockRunnerPool(sleep time.Duration, maxCalls int32, runnerAddrs []string) *mockRunnerPool {
 	var runners []pool.Runner
 	for _, addr := range runnerAddrs {
-		r, err := rf(addr, nil)
-		if err != nil {
-			continue
+		r := &mockRunner{
+			sleep:    sleep,
+			maxCalls: maxCalls,
+			addr:     addr,
 		}
 		runners = append(runners, r)
 	}
 
 	return &mockRunnerPool{
-		runners:   runners,
-		generator: rf,
+		runners: runners,
 	}
 }
 
@@ -52,24 +49,6 @@ func (rp *mockRunnerPool) Runners(ctx context.Context, call pool.RunnerCall) ([]
 
 func (rp *mockRunnerPool) Shutdown(context.Context) error {
 	return nil
-}
-
-func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) pool.MTLSRunnerFactory {
-	return func(addr string, tlsConf *tls.Config) (pool.Runner, error) {
-		return &mockRunner{
-			sleep:    sleep,
-			maxCalls: maxCalls,
-			addr:     addr,
-		}, nil
-	}
-}
-
-func FaultyRunnerFactory() pool.MTLSRunnerFactory {
-	return func(addr string, tlsConf *tls.Config) (pool.Runner, error) {
-		return &mockRunner{
-			addr: addr,
-		}, errors.New("Creation of new runner failed")
-	}
 }
 
 func (r *mockRunner) checkAndIncrCalls() error {
@@ -166,14 +145,14 @@ func (c *mockRunnerCall) GetUserExecutionTime() *time.Duration {
 }
 
 func setupMockRunnerPool(expectedRunners []string, execSleep time.Duration, maxCalls int32) *mockRunnerPool {
-	rf := NewMockRunnerFactory(execSleep, maxCalls)
-	return newMockRunnerPool(rf, expectedRunners)
+	return newMockRunnerPool(execSleep, maxCalls, expectedRunners)
 }
 
 func TestOneRunner(t *testing.T) {
 	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
-	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
+	// TEST-NET-1 unreachable
+	rp := setupMockRunnerPool([]string{"192.0.2.0"}, 10*time.Millisecond, 5)
 	modelCall := &models.Call{Type: models.TypeSync}
 	call := &mockRunnerCall{model: modelCall}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
@@ -187,7 +166,8 @@ func TestOneRunner(t *testing.T) {
 func TestEnforceTimeoutFromContext(t *testing.T) {
 	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
-	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
+	// TEST-NET-1 unreachable
+	rp := setupMockRunnerPool([]string{"192.0.2.0"}, 10*time.Millisecond, 5)
 
 	modelCall := &models.Call{Type: models.TypeSync}
 	call := &mockRunnerCall{model: modelCall}
@@ -222,7 +202,8 @@ func TestDetachedPlacerTimeout(t *testing.T) {
 func TestRRRunner(t *testing.T) {
 	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
-	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 2)
+	// TEST-NET-1 unreachable
+	rp := setupMockRunnerPool([]string{"192.0.2.0", "192.0.2.1"}, 10*time.Millisecond, 2)
 
 	parallelCalls := 2
 	var wg sync.WaitGroup
@@ -258,7 +239,8 @@ func TestRRRunner(t *testing.T) {
 func TestEnforceLbTimeout(t *testing.T) {
 	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
-	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 1)
+	// TEST-NET-1 unreachable
+	rp := setupMockRunnerPool([]string{"192.0.2.0", "192.0.2.1"}, 10*time.Millisecond, 1)
 
 	parallelCalls := 5
 	var wg sync.WaitGroup
