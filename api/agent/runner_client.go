@@ -42,8 +42,14 @@ type gRPCRunner struct {
 	client  pb.RunnerProtocolClient
 }
 
-func SecureGRPCRunnerFactory(addr string, tlsConf *tls.Config) (pool.Runner, error) {
-	conn, client, err := runnerConnection(addr, tlsConf)
+// implements Runner
+func (r *gRPCRunner) Close(context.Context) error {
+	r.shutWg.CloseGroup()
+	return r.conn.Close()
+}
+
+func NewgRPCRunner(addr string, tlsConf *tls.Config, dialOpts ...grpc.DialOption) (pool.Runner, error) {
+	conn, client, err := runnerConnection(addr, tlsConf, dialOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,15 +60,10 @@ func SecureGRPCRunnerFactory(addr string, tlsConf *tls.Config) (pool.Runner, err
 		conn:    conn,
 		client:  client,
 	}, nil
+
 }
 
-// implements Runner
-func (r *gRPCRunner) Close(context.Context) error {
-	r.shutWg.CloseGroup()
-	return r.conn.Close()
-}
-
-func runnerConnection(address string, tlsConf *tls.Config) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
+func runnerConnection(address string, tlsConf *tls.Config, dialOpts ...grpc.DialOption) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
 
 	ctx := context.Background()
 	logger := common.Logger(ctx).WithField("runner_addr", address)
@@ -74,7 +75,7 @@ func runnerConnection(address string, tlsConf *tls.Config) (*grpc.ClientConn, pb
 	}
 
 	// we want to set a very short timeout to fail-fast if something goes wrong
-	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, 100*time.Millisecond, grpc.DefaultBackoffConfig)
+	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, 100*time.Millisecond, grpc.DefaultBackoffConfig, dialOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Unable to connect to runner node")
 	}

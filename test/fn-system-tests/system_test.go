@@ -20,6 +20,8 @@ import (
 	// docker driver.
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 
 	"io/ioutil"
 	"net"
@@ -52,7 +54,19 @@ func NewSystemTestNodePool() (pool.RunnerPool, error) {
 		fmt.Sprintf("%s:9191", myAddr),
 		fmt.Sprintf("%s:9192", myAddr),
 	}
-	return agent.DefaultStaticRunnerPool(runners), nil
+
+	var dialOpts []grpc.DialOption
+
+	//
+	// Keepalive Client Side Settings (see: https://godoc.org/google.golang.org/grpc/keepalive#ClientParameters)
+	//
+	dialOpts = append(dialOpts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:                time.Duration(60 * time.Second), // initiate a client initiated ping after 60 secs of inactivity
+		Timeout:             time.Duration(10 * time.Second), // after a client initiated ping, the amount of time to wait for server to respond
+		PermitWithoutStream: true,                            // send keepalive pings even if no active streams/RPCs
+	}))
+
+	return agent.NewStaticRunnerPool(runners, nil, dialOpts...), nil
 }
 
 type state struct {
@@ -285,11 +299,26 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 
 	cancelCtx, cancel := context.WithCancel(ctx)
 
+	var grpcOpts []grpc.ServerOption
+
+	//
+	// Keepalive Server Side Settings (see: https://godoc.org/google.golang.org/grpc/keepalive#ServerParameters)
+	//
+	grpcOpts = append(grpcOpts, grpc.KeepaliveParams(keepalive.ServerParameters{
+		Time:    time.Duration(60 * time.Second), // initiate a server initiated ping after 60 secs of inactivity
+		Timeout: time.Duration(10 * time.Second), // after a server ping, the amount of time to wait for client to respond
+	}))
+	grpcOpts = append(grpcOpts, grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+		MinTime:             time.Duration(5 * time.Second), // more frequent (client initiated) pings than every 5 secs is considered malicious
+		PermitWithoutStream: true,                           // allow client pings even if no active stream
+	}))
+
 	// now create pure-runner that wraps agent.
 	pureRunner, err := agent.NewPureRunner(cancel, grpcAddr,
 		agent.PureRunnerWithAgent(innerAgent),
 		agent.PureRunnerWithStatusImage(StatusImage),
 		agent.PureRunnerWithDetached(),
+		agent.PureRunnerWithGRPCServerOptions(grpcOpts...),
 	)
 	if err != nil {
 		return nil, err

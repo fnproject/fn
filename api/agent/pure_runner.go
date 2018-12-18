@@ -559,6 +559,7 @@ type statusTracker struct {
 // and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
 	gRPCServer     *grpc.Server
+	gRPCOptions    []grpc.ServerOption
 	creds          credentials.TransportCredentials
 	a              Agent
 	status         statusTracker
@@ -995,6 +996,14 @@ func PureRunnerWithAgent(a Agent) PureRunnerOption {
 	}
 }
 
+func PureRunnerWithGRPCServerOptions(options ...grpc.ServerOption) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		pr.gRPCOptions = append(pr.gRPCOptions, options...)
+		return nil
+	}
+
+}
+
 // PureRunnerWithStatusImage returns a PureRunnerOption that annotates a PureRunner with a
 // statusImageName attribute.  This attribute names an image name to use for the status checks.
 // Optionally, the status image can be pre-loaded into docker using FN_DOCKER_LOAD_FILE to avoid
@@ -1045,19 +1054,17 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 		logrus.Fatal("agent not provided in pure runner options")
 	}
 
-	var opts []grpc.ServerOption
-
-	opts = append(opts, grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor))
-	opts = append(opts, grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor))
+	pr.gRPCOptions = append(pr.gRPCOptions, grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor))
+	pr.gRPCOptions = append(pr.gRPCOptions, grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor))
 
 	if pr.creds != nil {
-		opts = append(opts, grpc.Creds(pr.creds))
+		pr.gRPCOptions = append(pr.gRPCOptions, grpc.Creds(pr.creds))
 	} else {
 		logrus.Warn("Running pure runner in insecure mode!")
 	}
 
 	pr.callHandleMap = make(map[string]*callHandle)
-	pr.gRPCServer = grpc.NewServer(opts...)
+	pr.gRPCServer = grpc.NewServer(pr.gRPCOptions...)
 	runner.RegisterRunnerProtocolServer(pr.gRPCServer, pr)
 
 	lis, err := net.Listen("tcp", addr)

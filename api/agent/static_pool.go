@@ -5,26 +5,25 @@ import (
 	"crypto/tls"
 
 	pool "github.com/fnproject/fn/api/runnerpool"
+
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 // manages a single set of runners ignoring lb groups
 type staticRunnerPool struct {
-	generator pool.MTLSRunnerFactory
-	tlsConf   *tls.Config // can be nil when running in insecure mode
-	runnerCN  string
-	runners   []pool.Runner
+	runners []pool.Runner
 }
 
 func DefaultStaticRunnerPool(runnerAddresses []string) pool.RunnerPool {
-	return NewStaticRunnerPool(runnerAddresses, nil, SecureGRPCRunnerFactory)
+	return NewStaticRunnerPool(runnerAddresses, nil)
 }
 
-func NewStaticRunnerPool(runnerAddresses []string, tlsConf *tls.Config, runnerFactory pool.MTLSRunnerFactory) pool.RunnerPool {
+func NewStaticRunnerPool(runnerAddresses []string, tlsConf *tls.Config, dialOpts ...grpc.DialOption) pool.RunnerPool {
 	logrus.WithField("runners", runnerAddresses).Info("Starting static runner pool")
 	var runners []pool.Runner
 	for _, addr := range runnerAddresses {
-		r, err := runnerFactory(addr, tlsConf)
+		r, err := NewgRPCRunner(addr, tlsConf, dialOpts...)
 		if err != nil {
 			logrus.WithError(err).WithField("runner_addr", addr).Warn("Invalid runner")
 			continue
@@ -33,9 +32,7 @@ func NewStaticRunnerPool(runnerAddresses []string, tlsConf *tls.Config, runnerFa
 		runners = append(runners, r)
 	}
 	return &staticRunnerPool{
-		runners:   runners,
-		tlsConf:   tlsConf,
-		generator: runnerFactory,
+		runners: runners,
 	}
 }
 
