@@ -22,9 +22,6 @@ var (
 	DefaultIdleTimeout int32  = 30  // seconds
 	DefaultMemory      uint64 = 128 // MB
 
-	MaxSyncTimeout  = 120  // 2 minutes
-	MaxAsyncTimeout = 3600 // 1 hour
-
 	ErrFnsIDMismatch = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Fn ID in path does not match that in body"),
