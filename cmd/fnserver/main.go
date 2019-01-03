@@ -40,6 +40,7 @@ func registerViews() {
 	// 10% granularity buckets
 	cpuDist := []float64{0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
 
+	agent.RegisterRunnerViews(keys, latencyDist)
 	agent.RegisterAgentViews(keys, latencyDist)
 	agent.RegisterDockerViews(keys, latencyDist, ioDist, ioDist, memoryDist, cpuDist)
 	agent.RegisterContainerViews(keys, latencyDist)
