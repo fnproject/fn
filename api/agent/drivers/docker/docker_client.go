@@ -219,11 +219,12 @@ func RegisterViews(tagKeys []string, latencyDist []float64) {
 	}
 }
 
-func (d *dockerWrap) retry(ctx context.Context, logger logrus.FieldLogger, f func() error) error {
+func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
 	var i uint64
 	var err error
 	defer func() { stats.Record(ctx, dockerRetriesMeasure.M(int64(i))) }()
 
+	logger := common.Logger(ctx)
 	var b common.Backoff
 	// 10 retries w/o change to backoff is ~13s if ops take ~0 time
 	for ; i < d.maxRetries; i++ {
@@ -316,8 +317,8 @@ func (d *dockerWrap) ListImages(opts docker.ListImagesOptions) (imgs []docker.AP
 	ctx, closer := makeTracker(opts.Context, "docker_list_images")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "ListImages")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "ListImages"})
+	err = d.retry(ctx, func() error {
 		imgs, err = d.docker.ListImages(opts)
 		return err
 	})
@@ -345,8 +346,8 @@ func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (c
 	ctx, closer := makeTracker(ctx, "docker_wait_container")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "WaitContainer")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "WaitContainer"})
+	err = d.retry(ctx, func() error {
 		code, err = d.docker.WaitContainerWithContext(id, ctx)
 		return err
 	})
@@ -357,8 +358,8 @@ func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.Hos
 	ctx, closer := makeTracker(ctx, "docker_start_container")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "StartContainer")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "StartContainer"})
+	err = d.retry(ctx, func() error {
 		err = d.docker.StartContainerWithContext(id, hostConfig, ctx)
 		if _, ok := err.(*docker.NoSuchContainer); ok {
 			// for some reason create will sometimes return successfully then say no such container here. wtf. so just retry like normal
@@ -373,8 +374,8 @@ func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *doc
 	ctx, closer := makeTracker(opts.Context, "docker_create_container")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "CreateContainer")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "CreateContainer"})
+	err = d.retry(ctx, func() error {
 		c, err = d.docker.CreateContainer(opts)
 		return err
 	})
@@ -385,8 +386,8 @@ func (d *dockerWrap) KillContainer(opts docker.KillContainerOptions) (err error)
 	ctx, closer := makeTracker(opts.Context, "docker_kill_container")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "KillContainer")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "KillContainer"})
+	err = d.retry(ctx, func() error {
 		err = d.docker.KillContainer(opts)
 		return err
 	})
@@ -397,8 +398,8 @@ func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthCon
 	ctx, closer := makeTracker(opts.Context, "docker_pull_image")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "PullImage")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "PullImage"})
+	err = d.retry(ctx, func() error {
 		err = d.docker.PullImage(opts, auth)
 		return err
 	})
@@ -409,8 +410,8 @@ func (d *dockerWrap) RemoveImage(image string, opts docker.RemoveImageOptions) (
 	ctx, closer := makeTracker(opts.Context, "docker_remove_image")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "RemoveImage")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "RemoveImage"})
+	err = d.retry(ctx, func() error {
 		err = d.RemoveImage(image, opts)
 		return err
 	})
@@ -422,8 +423,8 @@ func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err er
 	ctx, closer := makeTracker(opts.Context, "docker_remove_container")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "RemoveContainer")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "RemoveContainer"})
+	err = d.retry(ctx, func() error {
 		err = d.docker.RemoveContainer(opts)
 		return err
 	})
@@ -434,8 +435,8 @@ func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) 
 	ctx, closer := makeTracker(ctx, "docker_pause_container")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "PauseContainer")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "PauseContainer"})
+	err = d.retry(ctx, func() error {
 		err = d.docker.PauseContainer(id)
 		return err
 	})
@@ -446,8 +447,8 @@ func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error
 	ctx, closer := makeTracker(ctx, "docker_unpause_container")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "UnpauseContainer")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "UnpauseContainer"})
+	err = d.retry(ctx, func() error {
 		err = d.docker.UnpauseContainer(id)
 		return err
 	})
@@ -458,8 +459,8 @@ func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.I
 	ctx, closer := makeTracker(ctx, "docker_inspect_image")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "InspectImage")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "InspectImage"})
+	err = d.retry(ctx, func() error {
 		i, err = d.docker.InspectImage(name)
 		return err
 	})
@@ -483,8 +484,8 @@ func (d *dockerWrap) DiskUsage(opts docker.DiskUsageOptions) (du *docker.DiskUsa
 	ctx, closer := makeTracker(opts.Context, "docker_disk_usage")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "DiskUsage")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "DiskUsage"})
+	err = d.retry(ctx, func() error {
 		du, err = d.docker.DiskUsage(opts)
 		return err
 	})
