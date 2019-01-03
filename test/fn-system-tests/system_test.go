@@ -39,6 +39,11 @@ const (
 	StatusImage = "fnproject/fn-status-checker:latest"
 )
 
+var (
+	viewKeys = []string{}
+	viewDist = []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+)
+
 func LB() (string, error) {
 	u, err := url.Parse(LBAddress)
 	if err != nil {
@@ -240,10 +245,9 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	placerCfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&placerCfg)
 
-	keys := []string{}
-	dist := []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
-	pool.RegisterPlacerViews(keys, dist)
-	agent.RegisterLBAgentViews(keys, dist)
+	pool.RegisterPlacerViews(viewKeys, viewDist)
+	agent.RegisterLBAgentViews(viewKeys, viewDist)
+	agent.RegisterRunnerViews(viewKeys, viewDist) // yes, runner views via LB, we are a single process/exporter
 
 	// Create an LB Agent with a Call Overrider to intercept calls in GetCall(). Overrider in this example
 	// scrubs CPU/TmpFsSize and adds FN_CHEESE key/value into extensions.

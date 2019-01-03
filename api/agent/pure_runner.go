@@ -939,6 +939,10 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 	if err != nil {
 		common.Logger(ctx).WithError(err).Errorf("Status call failed result=%+v", status)
 	}
+
+	isCached := err == nil && (status != nil && status.Cached)
+	isSuccess := err == nil && (status != nil && !status.Failed)
+	statsStatusCall(ctx, isCached, isSuccess)
 	return status, err
 }
 

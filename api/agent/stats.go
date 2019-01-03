@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +18,10 @@ var (
 	containerStateKey    = common.MakeKey("container_state")
 	callStatusKey        = common.MakeKey("call_status")
 	containerUDSStateKey = common.MakeKey("container_uds_state")
+
+	// bool flags of status call results (cached=true/false, success=true/false)
+	statusCallCacheKey   = common.MakeKey("cached")
+	statusCallSuccessKey = common.MakeKey("success")
 )
 
 func statsCalls(ctx context.Context) {
@@ -111,6 +116,17 @@ func statsCallLatency(ctx context.Context, dur time.Duration, callStatus string)
 	stats.Record(ctx, callLatencyMeasure.M(int64(dur/time.Millisecond)))
 }
 
+func statsStatusCall(ctx context.Context, isCached, isSuccess bool) {
+	ctx, err := tag.New(ctx,
+		tag.Upsert(statusCallCacheKey, strconv.FormatBool(isCached)),
+		tag.Upsert(statusCallSuccessKey, strconv.FormatBool(isSuccess)),
+	)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	stats.Record(ctx, statusCallMeasure.M(0))
+}
+
 const (
 	//
 	// WARNING: Dual Role Metrics both used in Runner/Agent and LB-Agent
@@ -158,6 +174,9 @@ const (
 	runnerSchedLatencyMetricName = "lb_runner_sched_latency"
 	runnerExecLatencyMetricName  = "lb_runner_exec_latency"
 	callLatencyMetricName        = "lb_call_latency"
+
+	// Reported by Runner
+	statusCallMetricName = "status_call"
 )
 
 var (
@@ -187,6 +206,8 @@ var (
 	runnerExecLatencyMeasure = common.MakeMeasure(runnerExecLatencyMetricName, "Runner Container Execution Latency Reported By LBAgent", "msecs")
 	// Reported By LB: Function total call latency (except function execution inside container)
 	callLatencyMeasure = common.MakeMeasure(callLatencyMetricName, "LB Call Latency Reported By LBAgent", "msecs")
+	// Reported By Runner: Status Call Results
+	statusCallMeasure = common.MakeMeasure(statusCallMetricName, "Status Call Results Reported By Runner", "")
 )
 
 func RegisterLBAgentViews(tagKeys []string, latencyDist []float64) {
@@ -224,6 +245,29 @@ func RegisterAgentViews(tagKeys []string, latencyDist []float64) {
 		common.CreateView(utilCpuAvailMeasure, view.LastValue(), tagKeys),
 		common.CreateView(utilMemUsedMeasure, view.LastValue(), tagKeys),
 		common.CreateView(utilMemAvailMeasure, view.LastValue(), tagKeys),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot register view")
+	}
+}
+
+// RegisterRunnerViews creates and registers all runner views
+func RegisterRunnerViews(tagKeys []string, latencyDist []float64) {
+
+	// add status call tags for status call latency
+	statusCallTags := make([]string, 0, len(tagKeys)+2)
+
+	statusCallTags = append(statusCallTags, "cached")
+	statusCallTags = append(statusCallTags, "success")
+
+	for _, key := range tagKeys {
+		if key != "cached" && key != "success" {
+			statusCallTags = append(statusCallTags, key)
+		}
+	}
+
+	err := view.Register(
+		common.CreateView(statusCallMeasure, view.Count(), statusCallTags),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
