@@ -106,9 +106,8 @@ type agent struct {
 	resources ResourceTracker
 
 	// used to track running calls / safe shutdown
-	shutWg              *common.WaitGroup
-	shutonce            sync.Once
-	disableAsyncDequeue bool
+	shutWg   *common.WaitGroup
+	shutonce sync.Once
 
 	callOverrider CallOverrider
 	// deferred actions to call at end of initialisation
@@ -143,7 +142,7 @@ func New(da CallHandler, options ...Option) Agent {
 	for _, option := range options {
 		err = option(a)
 		if err != nil {
-			logrus.WithError(err).Fatalf("error in agent options")
+			logrus.WithError(err).Fatal("error in agent options")
 		}
 	}
 
@@ -173,10 +172,10 @@ func (a *agent) addStartup(sup func()) {
 // WithAsync Enables Async  operations on the agent
 func WithAsync(dqda DequeueDataAccess) Option {
 	return func(a *agent) error {
-		if !a.shutWg.AddSession(1) {
-			logrus.Fatalf("cannot start agent, unable to add session")
-		}
 		a.addStartup(func() {
+			if !a.shutWg.AddSession(1) {
+				logrus.Fatal("cannot start agent, unable to add session")
+			}
 			go a.asyncDequeue(dqda) // safe shutdown can nanny this fine
 		})
 		return nil
