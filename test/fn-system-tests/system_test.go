@@ -286,6 +286,8 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 		return nil, err
 	}
 
+	cfg.ContainerLabelTag = fmt.Sprintf("fn-runner-%d", nodeNum)
+
 	// customer driver that overrides generic docker driver
 	d, err := agent.NewDockerDriver(cfg)
 	if err != nil {

@@ -19,7 +19,13 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/rs/xid"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	FnAgentClassifierLabel = "fn-agent-classifier"
+	FnAgentInstanceLabel   = "fn-agent-instance"
 )
 
 // A drivers.ContainerTask should implement the Auther interface if it would
@@ -60,6 +66,8 @@ type DockerDriver struct {
 	// protects networks map
 	networksLock sync.Mutex
 	networks     map[string]uint64
+
+	instanceId string
 }
 
 // implements drivers.Driver
@@ -76,22 +84,17 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	driver := &DockerDriver{
-		cancel:   cancel,
-		conf:     conf,
-		docker:   newClient(ctx, conf.MaxRetries),
-		hostname: hostname,
-		auths:    auths,
+		cancel:     cancel,
+		conf:       conf,
+		docker:     newClient(ctx, conf.MaxRetries),
+		hostname:   hostname,
+		auths:      auths,
+		instanceId: xid.New().String(),
 	}
 
-	if conf.ServerVersion != "" {
-		err = checkDockerVersion(driver, conf.ServerVersion)
-		if err != nil {
-			logrus.WithError(err).Fatal("docker version error")
-		}
-	}
-
-	if conf.PreForkPoolSize != 0 {
-		driver.pool = NewDockerPool(conf, driver)
+	// This is for testing purposes. Tests override with custom id
+	if conf.InstanceId != "" {
+		driver.instanceId = conf.InstanceId
 	}
 
 	nets := strings.Fields(conf.DockerNetworks)
@@ -102,18 +105,88 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		}
 	}
 
-	if conf.DockerLoadFile != "" {
-		err = loadDockerImages(driver, conf.DockerLoadFile)
-		if err != nil {
-			logrus.WithError(err).Fatalf("cannot load docker images in %s", conf.DockerLoadFile)
-		}
+	err = checkDockerVersion(ctx, driver)
+	if err != nil {
+		logrus.WithError(err).Fatal("docker version error")
+	}
+
+	// start the cleanup as early as possible
+	go containerCleaner(ctx, driver)
+
+	// before we do anything else, let's pre-load requested images
+	err = loadDockerImages(ctx, driver)
+	if err != nil {
+		logrus.WithError(err).Fatalf("cannot load docker images in %s", conf.DockerLoadFile)
+	}
+
+	// finally spawn pool if enabled
+	if conf.PreForkPoolSize != 0 {
+		driver.pool = NewDockerPool(conf, driver)
 	}
 
 	return driver
 }
 
-func checkDockerVersion(driver *DockerDriver, expected string) error {
-	info, err := driver.docker.Info(context.Background())
+// containerCleaner scans and destroys previously left over containers that were managed
+// by this docker driver. This operation is executed once and if it fails, it will not
+// retry the procedure.
+func containerCleaner(ctx context.Context, driver *DockerDriver) {
+
+	// Label Tag is used to isolate this cleanup. If docker has other containers
+	// that are not managed by fn-agent, then this tag can make sure those containers
+	// are not killed. For this reason, we require this tag to be set.
+	if driver.conf.ContainerLabelTag == "" {
+		return
+	}
+
+	filter := fmt.Sprintf("%s=%s", FnAgentClassifierLabel, driver.conf.ContainerLabelTag)
+
+	opts := docker.ListContainersOptions{
+		All: true, // let's include containers that are not running, but not destroyed
+		Filters: map[string][]string{
+			"label": []string{filter},
+		},
+		Context: ctx,
+	}
+
+	containers, err := driver.docker.ListContainers(opts)
+	if err != nil {
+		logrus.WithError(err).Errorf("cannot list docker containers with filter %s", filter)
+		return
+	}
+
+	for _, item := range containers {
+		logrus.Errorf("checking %+v", item)
+
+		// skip containers that belong to our current running agent/docker instance
+		if item.Labels[FnAgentInstanceLabel] == driver.instanceId {
+			continue
+		}
+
+		logger := logrus.WithFields(logrus.Fields{"container_id": item.ID, "image": item.Image, "state": item.State})
+		logger.Info("Terminating dangling docker container")
+
+		opts := docker.RemoveContainerOptions{
+			ID:            item.ID,
+			Force:         true,
+			RemoveVolumes: true,
+			Context:       ctx,
+		}
+
+		// If this fails, we log and continue.
+		err := driver.docker.RemoveContainer(opts)
+		if err != nil {
+			logger.WithError(err).Error("cannot remove container")
+		}
+	}
+}
+
+func checkDockerVersion(ctx context.Context, driver *DockerDriver) error {
+	if driver.conf.ServerVersion == "" {
+		return nil
+	}
+
+	info, err := driver.docker.Info(ctx)
 	if err != nil {
 		return err
 	}
@@ -123,22 +196,27 @@ func checkDockerVersion(driver *DockerDriver, expected string) error {
 		return err
 	}
 
-	wanted, err := semver.NewVersion(expected)
+	wanted, err := semver.NewVersion(driver.conf.ServerVersion)
 	if err != nil {
 		return err
 	}
 
 	if actual.Compare(*wanted) < 0 {
-		return fmt.Errorf("docker version is too old. Required: %s Found: %s", expected, info.ServerVersion)
+		return fmt.Errorf("docker version is too old. Required: %s Found: %s", driver.conf.ServerVersion, info.ServerVersion)
 	}
 
 	return nil
 }
 
-func loadDockerImages(driver *DockerDriver, filePath string) error {
-	ctx, log := common.LoggerWithFields(context.Background(), logrus.Fields{"stack": "loadDockerImages"})
-	log.Infof("Loading docker images from %v", filePath)
-	return driver.docker.LoadImages(ctx, filePath)
+func loadDockerImages(ctx context.Context, driver *DockerDriver) error {
+	if driver.conf.DockerLoadFile == "" {
+		return nil
+	}
+
+	var log logrus.FieldLogger
+	ctx, log = common.LoggerWithFields(ctx, logrus.Fields{"stack": "loadDockerImages"})
+	log.Infof("Loading docker images from %v", driver.conf.DockerLoadFile)
+	return driver.docker.LoadImages(ctx, driver.conf.DockerLoadFile)
 }
 
 func (drv *DockerDriver) Close() error {
@@ -246,6 +324,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 		drv:  drv,
 	}
 
+	cookie.configureLabels(log)
 	cookie.configureLogger(log)
 	cookie.configureMem(log)
 	cookie.configureCmd(log)

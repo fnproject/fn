@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
+
+	"github.com/fsouza/go-dockerclient"
+	"github.com/sirupsen/logrus"
 )
 
 type taskDockerTest struct {
@@ -42,6 +45,8 @@ func (f *taskDockerTest) UDSDockerDest() string                   { return "" }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})
+	defer dkr.Close()
+
 	ctx := context.Background()
 	var output bytes.Buffer
 	var errors bytes.Buffer
@@ -91,6 +96,7 @@ func TestRunnerDockerNetworks(t *testing.T) {
 	dkr := NewDocker(drivers.Config{
 		DockerNetworks: "test1 test2",
 	})
+	defer dkr.Close()
 
 	ctx := context.Background()
 	var output bytes.Buffer
@@ -132,20 +138,23 @@ func TestRunnerDockerNetworks(t *testing.T) {
 }
 
 func TestRunnerDockerVersion(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(6)*time.Second)
+	defer cancel()
 
-	dkr := NewDocker(drivers.Config{
-		ServerVersion: "0.0.0",
-	})
+	dkr := NewDocker(drivers.Config{})
 	if dkr == nil {
 		t.Fatal("should not be nil")
 	}
+	defer dkr.Close()
 
-	err := checkDockerVersion(dkr, "1.0.0")
+	dkr.conf.ServerVersion = "1.0.0"
+	err := checkDockerVersion(ctx, dkr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = checkDockerVersion(dkr, "9999.0.0")
+	dkr.conf.ServerVersion = "9999.0.0"
+	err = checkDockerVersion(ctx, dkr)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -154,6 +163,7 @@ func TestRunnerDockerVersion(t *testing.T) {
 func TestRunnerDockerStdout(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})
 	ctx := context.Background()
+	defer dkr.Close()
 
 	var output bytes.Buffer
 	var errors bytes.Buffer
@@ -164,7 +174,6 @@ func TestRunnerDockerStdout(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't create task cookie")
 	}
-
 	defer cookie.Close(ctx)
 
 	shouldPull, err := cookie.ValidateImage(ctx)
@@ -223,3 +232,198 @@ func TestRunnerDockerStdout(t *testing.T) {
 //		t.Fatal("expected positive size for image that exists, got size:", size)
 //	}
 //}
+
+func newTestClient(ctx context.Context) *docker.Client {
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		logrus.WithError(err).Fatal("couldn't create docker client")
+	}
+
+	if err := client.Ping(); err != nil {
+		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
+	}
+
+	return client
+}
+
+func createContainer(ctx context.Context, client *docker.Client, id, labelTag, labelId string) error {
+	opts := docker.CreateContainerOptions{
+		Name: id,
+		Config: &docker.Config{
+			Cmd:          strings.Fields("tail -f /dev/null"),
+			Hostname:     id,
+			Image:        "busybox",
+			Volumes:      map[string]struct{}{},
+			OpenStdin:    false,
+			AttachStdout: false,
+			AttachStderr: false,
+			AttachStdin:  false,
+			StdinOnce:    false,
+			Labels: map[string]string{
+				FnAgentClassifierLabel: labelTag,
+				FnAgentInstanceLabel:   labelId,
+			},
+		},
+		HostConfig: &docker.HostConfig{
+			LogConfig: docker.LogConfig{
+				Type: "none",
+			},
+		},
+		Context: ctx,
+	}
+
+	_, err := client.CreateContainer(opts)
+	if err != nil {
+		return err
+	}
+
+	return client.StartContainerWithContext(id, nil, ctx)
+}
+
+func destroyContainer(client *docker.Client, id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+	defer cancel()
+	err := client.RemoveContainer(docker.RemoveContainerOptions{
+		ID:            id,
+		Force:         true,
+		RemoveVolumes: true,
+		Context:       ctx,
+	})
+	return err
+}
+
+// case1 - running container that does not belong us (tag mismatch) (should not get killed)
+func TestRunnerDockerCleanCase1(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+	client := newTestClient(ctx)
+
+	// spin up a container
+	id := "TestRunnerDockerCleanCase1"
+	err := createContainer(ctx, client, id, "fn-agent-case-unknown", "fn-agent-instance-unknown")
+	defer destroyContainer(client, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// spin up docker driver
+	dkr := NewDocker(drivers.Config{ContainerLabelTag: "fn-agent-case-1"})
+	defer dkr.Close()
+
+	// our container should not get killed (let's wait for 5 secs)
+	ctx2, cancel2 := context.WithTimeout(ctx, time.Duration(5)*time.Second)
+	defer cancel2()
+
+	exitCode, err := client.WaitContainerWithContext(id, ctx2)
+	if exitCode != 0 || err != context.DeadlineExceeded {
+		t.Fatalf("err=%v exit=%d", err, exitCode)
+	}
+}
+
+// case2 - running container is ours (should not get killed)
+func TestRunnerDockerCleanCase2(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+	client := newTestClient(ctx)
+
+	// spin up a container
+	id := "TestRunnerDockerCleanCase2"
+	err := createContainer(ctx, client, id, "fn-agent-case-2", "fn-agent-instance-2")
+	defer destroyContainer(client, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// spin up docker driver
+	dkr := NewDocker(drivers.Config{ContainerLabelTag: "fn-agent-case-2", InstanceId: "fn-agent-instance-2"})
+	defer dkr.Close()
+
+	// our container should not get killed (let's wait for 5 secs)
+	ctx2, cancel2 := context.WithTimeout(ctx, time.Duration(5)*time.Second)
+	defer cancel2()
+
+	exitCode, err := client.WaitContainerWithContext(id, ctx2)
+	if exitCode != 0 || err != context.DeadlineExceeded {
+		t.Fatalf("err=%v exit=%d", err, exitCode)
+	}
+}
+
+// case3 - running container that does not belong us (should get destroyed)
+func TestRunnerDockerCleanCase3(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+	client := newTestClient(ctx)
+
+	// spin up a container
+	id := "TestRunnerDockerCleanCase3"
+	err := createContainer(ctx, client, id, "fn-agent-case-3", "fn-agent-instance-unknown")
+	defer destroyContainer(client, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// spin up docker driver
+	dkr := NewDocker(drivers.Config{ContainerLabelTag: "fn-agent-case-3", InstanceId: "fn-agent-instance-3"})
+	defer dkr.Close()
+
+	// our container should get killed (let's wait for 5 secs)
+	ctx2, cancel2 := context.WithTimeout(ctx, time.Duration(5)*time.Second)
+	defer cancel2()
+
+	exitCode, err := client.WaitContainerWithContext(id, ctx2)
+	if exitCode != 137 || err != nil {
+		t.Fatalf("err=%v exit=%d", err, exitCode)
+	}
+}
+
+// case4 - dead container that does not belong us (should get destroyed)
+func TestRunnerDockerCleanCase4(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+	client := newTestClient(ctx)
+
+	// spin up a container
+	id := "TestRunnerDockerCleanCase4"
+	err := createContainer(ctx, client, id, "fn-agent-case-4", "fn-agent-instance-unknown")
+	defer destroyContainer(client, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// stop container
+	err = client.KillContainer(docker.KillContainerOptions{
+		ID:      id,
+		Context: ctx,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// spin up docker driver
+	dkr := NewDocker(drivers.Config{ContainerLabelTag: "fn-agent-case-4", InstanceId: "fn-agent-instance-4"})
+	defer dkr.Close()
+
+	exitCode, err := client.WaitContainerWithContext(id, ctx)
+	if exitCode != 137 || err != nil {
+		t.Fatalf("err=%v exit=%d", err, exitCode)
+	}
+
+	// let's wait for 5 secs, then destroy should return error.
+	select {
+	case <-ctx.Done():
+		t.Fatal("timeout")
+	case <-time.After(5 * time.Second):
+	}
+
+	// This should fail with NoSuchContainer
+	err = client.RemoveContainer(docker.RemoveContainerOptions{
+		ID:            id,
+		Force:         true,
+		RemoveVolumes: true,
+		Context:       ctx,
+	})
+	_, containerNotFound := err.(*docker.NoSuchContainer)
+	if !containerNotFound {
+		t.Fatalf("Expected container not found, but got %v", err)
+	}
+}

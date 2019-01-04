@@ -11,6 +11,7 @@ import (
 // Config specifies various settings for an agent
 type Config struct {
 	MinDockerVersion        string        `json:"min_docker_version"`
+	ContainerLabelTag       string        `json:"container_label_tag"`
 	DockerNetworks          string        `json:"docker_networks"`
 	DockerLoadFile          string        `json:"docker_load_file"`
 	FreezeIdle              time.Duration `json:"freeze_idle_msecs"`
@@ -42,6 +43,8 @@ type Config struct {
 }
 
 const (
+	// EnvContainerLabelTag is a classifier label tag that is used to distinguish fn managed containers
+	EnvContainerLabelTag = "FN_CONTAINER_LABEL_TAG"
 	// EnvDockerNetworks is a comma separated list of networks to attach to each container started
 	EnvDockerNetworks = "FN_DOCKER_NETWORKS"
 	// EnvDockerLoadFile is a file location for a file that contains a tarball of a docker image to load on startup
@@ -147,6 +150,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
 	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce)
 	err = setEnvStr(err, EnvPreForkNetworks, &cfg.PreForkNetworks)
+	err = setEnvStr(err, EnvContainerLabelTag, &cfg.ContainerLabelTag)
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
 	err = setEnvStr(err, EnvDockerLoadFile, &cfg.DockerLoadFile)
 	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)

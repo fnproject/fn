@@ -40,6 +40,19 @@ type cookie struct {
 	imgAuthConf *docker.AuthConfiguration
 }
 
+func (c *cookie) configureLabels(log logrus.FieldLogger) {
+	if c.drv.conf.ContainerLabelTag == "" {
+		return
+	}
+
+	if c.opts.Config.Labels == nil {
+		c.opts.Config.Labels = make(map[string]string)
+	}
+
+	c.opts.Config.Labels[FnAgentClassifierLabel] = c.drv.conf.ContainerLabelTag
+	c.opts.Config.Labels[FnAgentInstanceLabel] = c.drv.instanceId
+}
+
 func (c *cookie) configureLogger(log logrus.FieldLogger) {
 
 	conf := c.task.LoggerConfig()
