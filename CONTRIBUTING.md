@@ -68,9 +68,10 @@ Graduation: Some extensions can graduate into core if they become commonplace in
 
 ## How to contribute
 
-1. Fork the repo
+1. Get fn: `$ git clone https://github.com/fnproject/fn` (hint: do not clone your fork, it will break the build)
+1. Fork the repo on GitHub, add your remote: `$ git remote add fork https://github.com/$you/fn`
 2. Fix an issue or create an issue and fix it
-3. Create a Pull Request that fixes the issue
+3. Create a Pull Request that fixes the issue: `$ git push fork $your_branch` -> open PR from your repo to `fnproject/fn`
 4. Sign the [CLA](http://www.oracle.com/technetwork/community/oca-486395.html)
 5. Once processed, our CLA bot will automatically clear the CLA check on the PR
 6. Good Job! Thanks for being awesome!
@@ -137,28 +138,30 @@ or ask in slack.
 
 ### Getting the Repository ###
 
-`$ git clone https://github.com/fnproject/fn.git $GOPATH/src/github.com/fnproject/fn`
+`$ git clone https://github.com/fnproject/fn.git`
 
-Note that Go will require the exact path given above in order to build
+See contributing guide for pointers about making changes to fn (ie forking).
+Note that you must clone fnproject's repo, and not your fork, in order for the
+build to work.
 
 ### Build
 
-Requires Go >= 1.10.0.
+Requires Go >= 1.11.0 for go mod support
 
 Change to the correct directory (if not already there):
 
-	$ cd $GOPATH/src/github.com/fnproject/fn
-
-The first time after you clone or after dependencies get updated, run:
-
-```sh
-make dep
-```
+`$ cd path/to/fnproject/fn`
 
 Then after every change, run:
 
 ```sh
 make run
+```
+
+or just build:
+
+```sh
+make build
 ```
 
 This builds and runs the `fn` binary. It will start Fn using an embedded `sqlite3` database running on port `8080`.
