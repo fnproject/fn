@@ -21,6 +21,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -68,6 +69,8 @@ type DockerDriver struct {
 	networks     map[string]uint64
 
 	instanceId string
+
+	imgCache ImageCacher
 }
 
 // implements drivers.Driver
@@ -129,6 +132,14 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		driver.pool = NewDockerPool(conf, driver)
 	}
 
+	if driver.conf.ImageCleanMaxSize > 0 {
+		driver.imgCache = NewImageCache(conf.ImageCleanExemptTags, conf.ImageCleanMaxSize)
+		go func() {
+			syncImageCleaner(ctx, driver)
+			runImageCleaner(ctx, driver)
+		}()
+	}
+
 	return driver
 }
 
@@ -182,6 +193,71 @@ func containerCleaner(ctx context.Context, driver *DockerDriver) {
 		err := driver.docker.RemoveContainer(opts)
 		if err != nil {
 			logger.WithError(err).Error("cannot remove container")
+		}
+	}
+}
+
+func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
+
+	const imageListTimeout = time.Duration(60 * time.Second)
+
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "syncImageCleaner"})
+	limiter := rate.NewLimiter(0.5, 1)
+
+	for limiter.Wait(ctx) != nil {
+		ctx, cancel := context.WithTimeout(ctx, imageListTimeout)
+		images, err := driver.docker.ListImages(docker.ListImagesOptions{
+			Context: ctx,
+		})
+		cancel()
+
+		if err == nil {
+			for _, img := range images {
+				driver.imgCache.Update(&CachedImage{
+					ID:       img.ID,
+					ParentID: img.ParentID,
+					RepoTags: img.RepoTags,
+					Size:     uint64(img.Size),
+				})
+			}
+			return
+		}
+
+		log.WithError(err).Error("ListImages error, will retry...")
+	}
+}
+
+func runImageCleaner(ctx context.Context, driver *DockerDriver) {
+
+	const removeImgTimeout = time.Duration(60 * time.Second)
+
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "runImageCleaner"})
+	limiter := rate.NewLimiter(0.5, 1)
+	notifier := driver.imgCache.GetNotifier()
+
+	for limiter.Wait(ctx) != nil {
+		for !driver.imgCache.IsMaxCapacity() {
+			select {
+			case <-ctx.Done(): // driver shutdown
+				return
+			case <-notifier:
+			}
+		}
+
+		img := driver.imgCache.Pop()
+		if img != nil {
+			log.Infof("Removing %+v", img)
+
+			ctx, cancel := context.WithTimeout(ctx, removeImgTimeout)
+			err := driver.docker.RemoveImage(img.ID, docker.RemoveImageOptions{
+				Context: ctx,
+			})
+			cancel()
+			if err != nil && err != docker.ErrNoSuchImage {
+				log.WithError(err).Infof("Removing image %+v failed", img)
+				// this must be in use or can't be removed or docker just timed out, add it back to the cache
+				driver.imgCache.Update(img)
+			}
 		}
 	}
 }

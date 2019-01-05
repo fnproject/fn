@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -40,12 +41,18 @@ type Config struct {
 	IOFSMountRoot           string        `json:"iofs_mount_root"`
 	IOFSOpts                string        `json:"iofs_opts"`
 	MaxDockerRetries        uint64        `json:"max_docker_retries"`
+	ImageCleanMaxSize       uint64        `json:"image_clean_max_size"`
+	ImageCleanExemptTags    []string      `json:"image_clean_exempt_tags"`
 }
 
 const (
 	// EnvContainerLabelTag is a classifier label tag that is used to distinguish fn managed containers
 	EnvContainerLabelTag = "FN_CONTAINER_LABEL_TAG"
-	// EnvDockerNetworks is a whitespace separated list of networks to attach to each container started
+
+	EnvImageCleanMaxSize    = "FN_IMAGE_CLEAN_MAX_SIZE"
+	EnvImageCleanExemptTags = "FN_IMAGE_CLEAN_EXEMPT_TAGS"
+
+	// EnvDockerNetworks is a comma separated list of networks to attach to each container started
 	EnvDockerNetworks = "FN_DOCKER_NETWORKS"
 	// EnvDockerLoadFile is a file location for a file that contains a tarball of a docker image to load on startup
 	EnvDockerLoadFile = "FN_DOCKER_LOAD_FILE"
@@ -161,10 +168,15 @@ func NewConfig() (*Config, error) {
 	err = setEnvBool(err, EnvEnableNBResourceTracker, &cfg.EnableNBResourceTracker)
 	err = setEnvBool(err, EnvDisableReadOnlyRootFs, &cfg.DisableReadOnlyRootFs)
 	err = setEnvBool(err, EnvDisableDebugUserLogs, &cfg.DisableDebugUserLogs)
+	err = setEnvUint(err, EnvImageCleanMaxSize, &cfg.ImageCleanMaxSize)
 
+	var tags string
+	err = setEnvStr(err, EnvImageCleanExemptTags, &tags)
 	if err != nil {
 		return cfg, err
 	}
+
+	cfg.ImageCleanExemptTags = strings.Fields(tags)
 
 	if cfg.MaxLogSize > math.MaxInt64 {
 		// for safety during uint64 to int conversions in Write()/Read(), etc.

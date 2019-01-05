@@ -426,7 +426,7 @@ func (d *dockerWrap) RemoveImage(image string, opts docker.RemoveImageOptions) (
 
 	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "RemoveImage"})
 	err = d.retry(ctx, func() error {
-		err = d.RemoveImage(image, opts)
+		err = d.docker.RemoveImageExtended(image, opts)
 		return err
 	})
 	return err

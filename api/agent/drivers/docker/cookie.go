@@ -38,6 +38,8 @@ type cookie struct {
 	imgRepo     string
 	imgTag      string
 	imgAuthConf *docker.AuthConfiguration
+
+	cachedImg *CachedImage
 }
 
 func (c *cookie) configureLabels(log logrus.FieldLogger) {
@@ -232,6 +234,10 @@ func (c *cookie) Close(ctx context.Context) error {
 	}
 	c.drv.unpickPool(c)
 	c.drv.unpickNetwork(c)
+
+	if c.cachedImg != nil && c.drv.imgCache != nil {
+		c.drv.imgCache.MarkFree(c.cachedImg)
+	}
 	return err
 }
 
@@ -292,9 +298,19 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 	c.imgAuthConf = config
 
 	// see if we already have it
-	_, err := c.drv.docker.InspectImage(ctx, c.task.Image())
+	img, err := c.drv.docker.InspectImage(ctx, c.task.Image())
 	if err == docker.ErrNoSuchImage {
 		return true, nil
+	}
+	// we have the image, notify image cache
+	if err == nil && c.drv.imgCache != nil && c.cachedImg == nil {
+		c.cachedImg = &CachedImage{
+			ID:       img.ID,
+			ParentID: img.Parent,
+			RepoTags: img.RepoTags,
+			Size:     uint64(img.Size),
+		}
+		c.drv.imgCache.MarkBusy(c.cachedImg)
 	}
 	return false, err
 }
@@ -330,6 +346,25 @@ func (c *cookie) PullImage(ctx context.Context) error {
 		return models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", c.task.Image(), msg))
 	}
 
+	if c.drv.imgCache != nil && c.cachedImg == nil {
+		img, err := c.drv.docker.InspectImage(ctx, c.task.Image())
+		// Log and ignore these errors. Hard failure will be caught in CreateContainer()
+		if err == docker.ErrNoSuchImage {
+			log.WithError(err).Errorf("InspectImage image likely removed due to disk pressure %s", c.task.Image())
+		} else if err != nil {
+			log.WithError(err).Errorf("Failed to inspect image %s", c.task.Image())
+		} else {
+			// we have the image, notify image cache
+			c.cachedImg = &CachedImage{
+				ID:       img.ID,
+				ParentID: img.Parent,
+				RepoTags: img.RepoTags,
+				Size:     uint64(img.Size),
+			}
+			c.drv.imgCache.MarkBusy(c.cachedImg)
+		}
+	}
+
 	return nil
 }
 
@@ -345,6 +380,14 @@ func (c *cookie) CreateContainer(ctx context.Context) error {
 	c.opts.Context = ctx
 	_, err := c.drv.docker.CreateContainer(c.opts)
 	if err != nil {
+		if c.drv.imgCache != nil && err == docker.ErrNoSuchImage {
+			log.WithError(err).Errorf("Cannot CreateContainer image likely removed due to disk pressure %s", c.task.Image())
+			// IMPORTANT: The return code 503 here is controversial. Here we treat disk pressure as a temporary
+			// service too busy event that will likely to correct itself. Here with 503 we allow this request
+			// to land on another (or back to same runner) which will likely to succeed. We have received
+			// docker.ErrNoSuchImage because just after PullImage(), image cleaner must have removed this image.
+			return models.ErrCallTimeoutServerBusy
+		}
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
 		if err != docker.ErrContainerAlreadyExists {
 			log.WithError(err).Error("Could not create container")
