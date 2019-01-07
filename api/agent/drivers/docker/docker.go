@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +20,6 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/rs/xid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -77,6 +77,11 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		logrus.WithError(err).Fatal("couldn't resolve hostname")
 	}
 
+	instanceId, err := generateRandUUID()
+	if err != nil {
+		logrus.WithError(err).Fatal("couldn't initialize instanceId")
+	}
+
 	auths, err := registryFromEnv()
 	if err != nil {
 		logrus.WithError(err).Fatal("couldn't initialize registry")
@@ -89,7 +94,7 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		docker:     newClient(ctx, conf.MaxRetries),
 		hostname:   hostname,
 		auths:      auths,
-		instanceId: xid.New().String(),
+		instanceId: instanceId,
 	}
 
 	// This is for testing purposes. Tests override with custom id
@@ -615,4 +620,15 @@ func init() {
 	drivers.Register("docker", func(config drivers.Config) (drivers.Driver, error) {
 		return NewDocker(config), nil
 	})
+}
+
+func generateRandUUID() (string, error) {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	uuid := fmt.Sprintf("%x%x%x%x%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+
+	return uuid, nil
 }
