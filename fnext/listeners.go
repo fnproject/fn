@@ -57,7 +57,7 @@ type FnListener interface {
 	AfterFnDelete(ctx context.Context, fnID string) error
 }
 
-//// TriggerListener enables callbacks around Trigger events
+// TriggerListener enables callbacks around Trigger events
 type TriggerListener interface {
 	// BeforeTriggerCreate called before trigger created in the datastore
 	BeforeTriggerCreate(ctx context.Context, trigger *models.Trigger) error
@@ -68,9 +68,9 @@ type TriggerListener interface {
 	// AfterTriggerUpdate called after trigger updated in datastore
 	AfterTriggerUpdate(ctx context.Context, trigger *models.Trigger) error
 	// BeforeTriggerDelete called before trigger deleted from the datastore
-	BeforeTriggerDelete(ctx context.Context, triggerId string) error
+	BeforeTriggerDelete(ctx context.Context, triggerID string) error
 	// AfterTriggerDelete called after trigger deleted from the datastore
-	AfterTriggerDelete(ctx context.Context, triggerId string) error
+	AfterTriggerDelete(ctx context.Context, triggerID string) error
 }
 
 // CallListener enables callbacks around Call events.

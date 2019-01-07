@@ -109,7 +109,7 @@ type agent struct {
 	shutWg   *common.WaitGroup
 	shutonce sync.Once
 
-	callOverrider CallOverrider
+	callOverrider fnext.CallOverrider
 	// deferred actions to call at end of initialisation
 	onStartup []func()
 }
@@ -203,7 +203,7 @@ func WithDockerDriver(drv drivers.Driver) Option {
 }
 
 // WithCallOverrider registers register a CallOverrider to modify a Call and extensions on call construction
-func WithCallOverrider(fn CallOverrider) Option {
+func WithCallOverrider(fn fnext.CallOverrider) Option {
 	return func(a *agent) error {
 		if a.callOverrider != nil {
 			return errors.New("lb-agent call overriders already exists")
