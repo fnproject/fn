@@ -161,7 +161,7 @@ func containerCleaner(ctx context.Context, driver *DockerDriver) {
 	}
 
 	for _, item := range containers {
-		logrus.Errorf("checking %+v", item)
+		logrus.Debugf("checking %+v", item)
 
 		// skip containers that belong to our current running agent/docker instance
 		if item.Labels[FnAgentInstanceLabel] == driver.instanceId {
