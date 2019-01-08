@@ -227,6 +227,7 @@ func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 		MaxTmpFsInodes:       cfg.MaxTmpFsInodes,
 		EnableReadOnlyRootFs: !cfg.DisableReadOnlyRootFs,
 		MaxRetries:           cfg.MaxDockerRetries,
+		ContainerLabelTag:    cfg.ContainerLabelTag,
 	})
 }
 

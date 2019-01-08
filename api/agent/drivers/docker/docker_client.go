@@ -48,6 +48,7 @@ type dockerClient interface {
 	Info(ctx context.Context) (*docker.DockerInfo, error)
 	DiskUsage(opts docker.DiskUsageOptions) (*docker.DiskUsage, error)
 	LoadImages(ctx context.Context, filePath string) error
+	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -293,6 +294,19 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 		return nil
 	}
 	return err
+}
+
+func (d *dockerWrap) ListContainers(opts docker.ListContainersOptions) (containers []docker.APIContainers, err error) {
+	ctx, closer := makeTracker(opts.Context, "docker_list_containers")
+	defer closer()
+
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "ListContainers"})
+	err = d.retry(ctx, func() error {
+		containers, err = d.docker.ListContainers(opts)
+		return err
+	})
+
+	return containers, err
 }
 
 func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) error {

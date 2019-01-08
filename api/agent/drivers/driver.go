@@ -255,6 +255,8 @@ type Config struct {
 	MaxTmpFsInodes       uint64 `json:"max_tmpfs_inodes"`
 	EnableReadOnlyRootFs bool   `json:"enable_readonly_rootfs"`
 	MaxRetries           uint64 `json:"max_retries"`
+	ContainerLabelTag    string `json:"container_label_tag"`
+	InstanceId           string `json:"instance_id"`
 }
 
 func average(samples []Stat) (Stat, bool) {

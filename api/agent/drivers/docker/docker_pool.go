@@ -190,6 +190,13 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 		Context: ctx,
 	}
 
+	if driver.conf.ContainerLabelTag != "" {
+		containerOpts.Config.Labels = map[string]string{
+			FnAgentClassifierLabel: driver.conf.ContainerLabelTag,
+			FnAgentInstanceLabel:   driver.instanceId,
+		}
+	}
+
 	removeOpts := docker.RemoveContainerOptions{
 		ID:            task.Id(),
 		Force:         true,
