@@ -105,7 +105,7 @@ func (c *imageCacher) addLRULocked(img *CachedImage) {
 		c.lruList.MoveToFront(ee)
 	} else {
 		c.lruSize += img.Size
-		c.lruMap[img.ID] = c.lruList.PushFront(&img)
+		c.lruMap[img.ID] = c.lruList.PushFront(img)
 	}
 }
 
@@ -122,30 +122,28 @@ func (c *imageCacher) rmLRULocked(img *CachedImage) {
 // addBusyLocked updates an image in the in-use list and returns true if
 // a new insertion to in-use list was performed.
 func (c *imageCacher) addBusyLocked(img *CachedImage) bool {
-	ee, ok := c.busyRef[img.ID]
-	if !ok {
-		c.busyRef[img.ID] = 1
-		c.busySize += img.Size
-		return true
+	if ee, ok := c.busyRef[img.ID]; ok {
+		c.busyRef[img.ID] = 1 + ee
+		return false
 	}
-	c.busyRef[img.ID] = 1 + ee
-	return false
+
+	c.busyRef[img.ID] = 1
+	c.busySize += img.Size
+	return true
 }
 
 // rmBusyLocked updates an image in the in-use list and returns true if
 // the image is no longer in the in-use list.
 func (c *imageCacher) rmBusyLocked(img *CachedImage) bool {
-	ee, ok := c.busyRef[img.ID]
-	if !ok {
-		return true
-	}
-	if ee == 1 {
-		c.busySize -= img.Size
+	if ee, ok := c.busyRef[img.ID]; ok {
+		if ee > 1 {
+			c.busyRef[img.ID] = ee - 1
+			return false
+		}
 		delete(c.busyRef, img.ID)
-		return true
+		c.busySize -= img.Size
 	}
-	c.busyRef[img.ID] = ee - 1
-	return false
+	return true
 }
 
 // sendNotify tries to wake up any pending listener on notify channel
