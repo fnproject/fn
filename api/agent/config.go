@@ -45,7 +45,7 @@ type Config struct {
 const (
 	// EnvContainerLabelTag is a classifier label tag that is used to distinguish fn managed containers
 	EnvContainerLabelTag = "FN_CONTAINER_LABEL_TAG"
-	// EnvDockerNetworks is a comma separated list of networks to attach to each container started
+	// EnvDockerNetworks is a whitespace separated list of networks to attach to each container started
 	EnvDockerNetworks = "FN_DOCKER_NETWORKS"
 	// EnvDockerLoadFile is a file location for a file that contains a tarball of a docker image to load on startup
 	EnvDockerLoadFile = "FN_DOCKER_LOAD_FILE"
