@@ -300,8 +300,8 @@ func (d *dockerWrap) ListContainers(opts docker.ListContainersOptions) (containe
 	ctx, closer := makeTracker(opts.Context, "docker_list_containers")
 	defer closer()
 
-	logger := common.Logger(ctx).WithField("docker_cmd", "ListContainers")
-	err = d.retry(ctx, logger, func() error {
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "ListContainers"})
+	err = d.retry(ctx, func() error {
 		containers, err = d.docker.ListContainers(opts)
 		return err
 	})
