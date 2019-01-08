@@ -80,9 +80,13 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		logrus.WithError(err).Fatal("couldn't resolve hostname")
 	}
 
-	instanceId, err := generateRandUUID()
-	if err != nil {
-		logrus.WithError(err).Fatal("couldn't initialize instanceId")
+	// This is for testing purposes. Tests override with custom id
+	instanceId := conf.InstanceId
+	if instanceId == "" {
+		instanceId, err = generateRandUUID()
+		if err != nil {
+			logrus.WithError(err).Fatal("couldn't initialize instanceId")
+		}
 	}
 
 	auths, err := registryFromEnv()
@@ -100,9 +104,14 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		instanceId: instanceId,
 	}
 
-	// This is for testing purposes. Tests override with custom id
-	if conf.InstanceId != "" {
-		driver.instanceId = conf.InstanceId
+	if driver.conf.ImageCleanMaxSize > 0 {
+		exemptImages := strings.Fields(conf.ImageCleanExemptTags)
+		// we never want to remove prefork image
+		if conf.PreForkPoolSize != 0 {
+			exemptImages = append(exemptImages, conf.PreForkImage)
+		}
+		// WARNING: assuming images in conf.DockerLoadFile are also added in conf.ImageCleanExemptTags
+		driver.imgCache = NewImageCache(exemptImages, conf.ImageCleanMaxSize)
 	}
 
 	nets := strings.Fields(conf.DockerNetworks)
@@ -118,8 +127,12 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		logrus.WithError(err).Fatal("docker version error")
 	}
 
-	// start the cleanup as early as possible
-	go containerCleaner(ctx, driver)
+	// start the cleanup jobs as early as possible
+	go func() {
+		killLeakedContainers(ctx, driver)
+		syncImageCleaner(ctx, driver)
+		runImageCleaner(ctx, driver)
+	}()
 
 	// before we do anything else, let's pre-load requested images
 	err = loadDockerImages(ctx, driver)
@@ -132,21 +145,13 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		driver.pool = NewDockerPool(conf, driver)
 	}
 
-	if driver.conf.ImageCleanMaxSize > 0 {
-		driver.imgCache = NewImageCache(conf.ImageCleanExemptTags, conf.ImageCleanMaxSize)
-		go func() {
-			syncImageCleaner(ctx, driver)
-			runImageCleaner(ctx, driver)
-		}()
-	}
-
 	return driver
 }
 
-// containerCleaner scans and destroys previously left over containers that were managed
+// killLeakedContainers scans and destroys previously left over containers that were managed
 // by this docker driver. This operation is executed once and if it fails, it will not
 // retry the procedure.
-func containerCleaner(ctx context.Context, driver *DockerDriver) {
+func killLeakedContainers(ctx context.Context, driver *DockerDriver) {
 
 	// Label Tag is used to isolate this cleanup. If docker has other containers
 	// that are not managed by fn-agent, then this tag can make sure those containers
@@ -197,7 +202,13 @@ func containerCleaner(ctx context.Context, driver *DockerDriver) {
 	}
 }
 
+// syncImageCleaner lists the current images on the system and adds them to the
+// image cache. The operation is performed once during startup to ensure a
+// restart of the fn-agent keeps track of previous state.
 func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
+	if driver.imgCache == nil {
+		return
+	}
 
 	const imageListTimeout = time.Duration(60 * time.Second)
 
@@ -206,9 +217,7 @@ func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
 
 	for limiter.Wait(ctx) != nil {
 		ctx, cancel := context.WithTimeout(ctx, imageListTimeout)
-		images, err := driver.docker.ListImages(docker.ListImagesOptions{
-			Context: ctx,
-		})
+		images, err := driver.docker.ListImages(docker.ListImagesOptions{Context: ctx})
 		cancel()
 
 		if err == nil {
@@ -227,7 +236,13 @@ func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
 	}
 }
 
+// runImageCleaner runs continuously and monitors image cache state. If the
+// cache is over the high water mark limit, then it tries to least recently
+// used image.
 func runImageCleaner(ctx context.Context, driver *DockerDriver) {
+	if driver.imgCache == nil {
+		return
+	}
 
 	const removeImgTimeout = time.Duration(60 * time.Second)
 
@@ -249,13 +264,11 @@ func runImageCleaner(ctx context.Context, driver *DockerDriver) {
 			log.Infof("Removing %+v", img)
 
 			ctx, cancel := context.WithTimeout(ctx, removeImgTimeout)
-			err := driver.docker.RemoveImage(img.ID, docker.RemoveImageOptions{
-				Context: ctx,
-			})
+			err := driver.docker.RemoveImage(img.ID, docker.RemoveImageOptions{Context: ctx})
 			cancel()
 			if err != nil && err != docker.ErrNoSuchImage {
 				log.WithError(err).Infof("Removing image %+v failed", img)
-				// this must be in use or can't be removed or docker just timed out, add it back to the cache
+				// in-use or can't be removed or docker just timed out, try to add it back to the cache
 				driver.imgCache.Update(img)
 			}
 		}
