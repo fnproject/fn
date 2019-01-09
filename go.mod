@@ -17,7 +17,7 @@ require (
 	github.com/gin-contrib/sse v0.0.0-20170109093832-22d885f9ecc7 // indirect
 	github.com/gin-gonic/gin v1.3.0
 	github.com/go-sql-driver/mysql v1.4.0
-	github.com/golang/protobuf v1.2.0
+	github.com/golang/protobuf v1.2.1-0.20190109072247-347cf4a86c1c
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/jmoiron/sqlx v1.2.0

@@ -21,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Request to allocate a slot for a call
 type TryCall struct {
@@ -284,59 +284,11 @@ func (m *CallResultStart) GetHttp() *HttpRespMeta {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*CallResultStart) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _CallResultStart_OneofMarshaler, _CallResultStart_OneofUnmarshaler, _CallResultStart_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*CallResultStart) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*CallResultStart_Http)(nil),
 	}
-}
-
-func _CallResultStart_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*CallResultStart)
-	// meta
-	switch x := m.Meta.(type) {
-	case *CallResultStart_Http:
-		b.EncodeVarint(100<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Http); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("CallResultStart.Meta has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _CallResultStart_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*CallResultStart)
-	switch tag {
-	case 100: // meta.http
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(HttpRespMeta)
-		err := b.DecodeMessage(msg)
-		m.Meta = &CallResultStart_Http{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _CallResultStart_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*CallResultStart)
-	// meta
-	switch x := m.Meta.(type) {
-	case *CallResultStart_Http:
-		s := proto.Size(x.Http)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // Call has really finished, it might have completed or crashed
@@ -499,78 +451,12 @@ func (m *ClientMsg) GetData() *DataFrame {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*ClientMsg) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _ClientMsg_OneofMarshaler, _ClientMsg_OneofUnmarshaler, _ClientMsg_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*ClientMsg) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*ClientMsg_Try)(nil),
 		(*ClientMsg_Data)(nil),
 	}
-}
-
-func _ClientMsg_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*ClientMsg)
-	// body
-	switch x := m.Body.(type) {
-	case *ClientMsg_Try:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Try); err != nil {
-			return err
-		}
-	case *ClientMsg_Data:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Data); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("ClientMsg.Body has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _ClientMsg_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*ClientMsg)
-	switch tag {
-	case 1: // body.try
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(TryCall)
-		err := b.DecodeMessage(msg)
-		m.Body = &ClientMsg_Try{msg}
-		return true, err
-	case 2: // body.data
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(DataFrame)
-		err := b.DecodeMessage(msg)
-		m.Body = &ClientMsg_Data{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _ClientMsg_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*ClientMsg)
-	// body
-	switch x := m.Body.(type) {
-	case *ClientMsg_Try:
-		s := proto.Size(x.Try)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ClientMsg_Data:
-		s := proto.Size(x.Data)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type RunnerMsg struct {
@@ -659,97 +545,13 @@ func (m *RunnerMsg) GetFinished() *CallFinished {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*RunnerMsg) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RunnerMsg_OneofMarshaler, _RunnerMsg_OneofUnmarshaler, _RunnerMsg_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*RunnerMsg) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*RunnerMsg_ResultStart)(nil),
 		(*RunnerMsg_Data)(nil),
 		(*RunnerMsg_Finished)(nil),
 	}
-}
-
-func _RunnerMsg_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RunnerMsg)
-	// body
-	switch x := m.Body.(type) {
-	case *RunnerMsg_ResultStart:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ResultStart); err != nil {
-			return err
-		}
-	case *RunnerMsg_Data:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Data); err != nil {
-			return err
-		}
-	case *RunnerMsg_Finished:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Finished); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("RunnerMsg.Body has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _RunnerMsg_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RunnerMsg)
-	switch tag {
-	case 1: // body.result_start
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(CallResultStart)
-		err := b.DecodeMessage(msg)
-		m.Body = &RunnerMsg_ResultStart{msg}
-		return true, err
-	case 2: // body.data
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(DataFrame)
-		err := b.DecodeMessage(msg)
-		m.Body = &RunnerMsg_Data{msg}
-		return true, err
-	case 3: // body.finished
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(CallFinished)
-		err := b.DecodeMessage(msg)
-		m.Body = &RunnerMsg_Finished{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _RunnerMsg_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RunnerMsg)
-	// body
-	switch x := m.Body.(type) {
-	case *RunnerMsg_ResultStart:
-		s := proto.Size(x.ResultStart)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RunnerMsg_Data:
-		s := proto.Size(x.Data)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RunnerMsg_Finished:
-		s := proto.Size(x.Finished)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type RunnerStatus struct {
