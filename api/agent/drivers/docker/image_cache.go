@@ -133,7 +133,7 @@ func (c *imageCacher) addBusyLocked(img *CachedImage) bool {
 }
 
 // rmBusyLocked updates an image in the in-use list and returns true if
-// the image is no longer in the in-use list.
+// the image is removed from the in-use list.
 func (c *imageCacher) rmBusyLocked(img *CachedImage) bool {
 	if ee, ok := c.busyRef[img.ID]; ok {
 		if ee > 1 {
