@@ -103,7 +103,7 @@ github.com/go-ini/ini
 github.com/go-sql-driver/mysql
 # github.com/gogo/protobuf v1.1.1
 github.com/gogo/protobuf/proto
-# github.com/golang/protobuf v1.2.0
+# github.com/golang/protobuf v1.2.1-0.20190109072247-347cf4a86c1c
 github.com/golang/protobuf/ptypes/empty
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
