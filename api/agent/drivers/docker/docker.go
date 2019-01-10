@@ -107,7 +107,7 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 	if driver.conf.ImageCleanMaxSize > 0 {
 		exemptImages := strings.Fields(conf.ImageCleanExemptTags)
 		// we never want to remove prefork image
-		if conf.PreForkPoolSize != 0 {
+		if conf.PreForkPoolSize != 0 && conf.PreForkImage != "" {
 			exemptImages = append(exemptImages, conf.PreForkImage)
 		}
 		// WARNING: assuming images in conf.DockerLoadFile are also added in conf.ImageCleanExemptTags
@@ -215,13 +215,14 @@ func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "syncImageCleaner"})
 	limiter := rate.NewLimiter(0.5, 1)
 
-	for limiter.Wait(ctx) != nil {
+	for limiter.Wait(ctx) == nil {
 		ctx, cancel := context.WithTimeout(ctx, imageListTimeout)
 		images, err := driver.docker.ListImages(docker.ListImagesOptions{Context: ctx})
 		cancel()
 
 		if err == nil {
 			for _, img := range images {
+				log.WithError(err).Errorf("ListImages add %+v", img)
 				driver.imgCache.Update(&CachedImage{
 					ID:       img.ID,
 					ParentID: img.ParentID,
@@ -237,7 +238,7 @@ func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
 }
 
 // runImageCleaner runs continuously and monitors image cache state. If the
-// cache is over the high water mark limit, then it tries to least recently
+// cache is over the high water mark limit, then it tries to remove least recently
 // used image.
 func runImageCleaner(ctx context.Context, driver *DockerDriver) {
 	if driver.imgCache == nil {
@@ -250,7 +251,7 @@ func runImageCleaner(ctx context.Context, driver *DockerDriver) {
 	limiter := rate.NewLimiter(0.5, 1)
 	notifier := driver.imgCache.GetNotifier()
 
-	for limiter.Wait(ctx) != nil {
+	for limiter.Wait(ctx) == nil {
 		for !driver.imgCache.IsMaxCapacity() {
 			select {
 			case <-ctx.Done(): // driver shutdown
