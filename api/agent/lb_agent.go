@@ -364,7 +364,7 @@ func recordCallLatency(ctx context.Context, call *call, status string) {
 	// some sanity check before. If sanity checks flags something, then
 	// this is likely that runners are sending malicious/suspicious data.
 	if execLatency != nil {
-		if *execLatency >= callLatency {
+		if *execLatency-callLatency >= 2*time.Millisecond {
 			common.Logger(ctx).Errorf("invalid latency callLatency=%v execLatency=%v", callLatency, execLatency)
 			return
 		}
