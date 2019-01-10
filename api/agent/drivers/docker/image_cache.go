@@ -142,8 +142,9 @@ func (c *imageCacher) rmBusyLocked(img *CachedImage) bool {
 		}
 		delete(c.busyRef, img.ID)
 		c.busySize -= img.Size
+		return true
 	}
-	return true
+	return false
 }
 
 // sendNotify tries to wake up any pending listener on notify channel
