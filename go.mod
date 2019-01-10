@@ -44,6 +44,6 @@ require (
 )
 
 replace (
-	github.com/Azure/go-ansiterm => ./noop
-	github.com/Microsoft/go-winio => ./noop
+	github.com/Azure/go-ansiterm => ./noop/noop1
+	github.com/Microsoft/go-winio => ./noop/noop2
 )
