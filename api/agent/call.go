@@ -247,6 +247,8 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.handler = a.da
 	c.ct = a
+	c.createTime = time.Now()
+
 	if c.stderr == nil {
 		// TODO(reed): is line writer is vulnerable to attack?
 		// XXX(reed): forcing this as default is not great / configuring it isn't great either. reconsider.
@@ -284,6 +286,11 @@ type call struct {
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
+
+	// time.Time equivalents of model Call CreatedAt/StartedAt/CompletedAt
+	createTime   time.Time
+	startTime    time.Time
+	completeTime time.Time
 }
 
 // SlotHashId returns a string identity for this call that can be used to uniquely place the call in a given container
@@ -336,7 +343,8 @@ func (c *call) Start(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	c.StartedAt = common.DateTime(time.Now())
+	c.startTime = time.Now()
+	c.StartedAt = common.DateTime(c.startTime)
 	c.Status = "running"
 
 	if c.Type == models.TypeAsync {
@@ -363,7 +371,8 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	ctx, span := trace.StartSpan(ctx, "agent_call_end")
 	defer span.End()
 
-	c.CompletedAt = common.DateTime(time.Now())
+	c.completeTime = time.Now()
+	c.CompletedAt = common.DateTime(c.completeTime)
 
 	switch errIn {
 	case nil:
@@ -390,4 +399,20 @@ func (c *call) End(ctx context.Context, errIn error) error {
 		return err
 	}
 	return errIn // original error, important for use in sync call returns
+}
+
+func GetCallLatencies(c *call) (time.Duration, time.Duration) {
+	var schedDuration time.Duration
+	var execDuration time.Duration
+
+	if c != nil && !c.createTime.IsZero() && !c.startTime.IsZero() {
+		if !c.startTime.Before(c.createTime) {
+			schedDuration = c.startTime.Sub(c.createTime)
+			if !c.completeTime.Before(c.startTime) {
+				execDuration = c.completeTime.Sub(c.startTime)
+			}
+		}
+	}
+
+	return schedDuration, execDuration
 }

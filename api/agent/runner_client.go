@@ -112,6 +112,10 @@ func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStat
 		return nil
 	}
 
+	// These are nanosecond monotonic deltas, they cannot be zero if they were transmitted.
+	runnerSchedLatency := time.Duration(status.GetSchedulerDuration())
+	runnerExecLatency := time.Duration(status.GetExecutionDuration())
+
 	creat, _ := common.ParseDateTime(status.CreatedAt)
 	start, _ := common.ParseDateTime(status.StartedAt)
 	compl, _ := common.ParseDateTime(status.CompletedAt)
@@ -130,6 +134,8 @@ func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStat
 		CreatedAt:          creat,
 		StartedAt:          start,
 		CompletedAt:        compl,
+		SchedulerDuration:  runnerSchedLatency,
+		ExecutionDuration:  runnerExecLatency,
 	}
 }
 
@@ -290,13 +296,30 @@ func translateDate(dt string) time.Time {
 
 func recordFinishStats(ctx context.Context, msg *pb.CallFinished, c pool.RunnerCall) {
 
+	// These are nanosecond monotonic deltas, they cannot be zero if they were transmitted.
+	runnerSchedLatency := time.Duration(msg.GetSchedulerDuration())
+	runnerExecLatency := time.Duration(msg.GetExecutionDuration())
+
+	if runnerSchedLatency != 0 || runnerExecLatency != 0 {
+		if runnerSchedLatency != 0 {
+			statsLBAgentRunnerSchedLatency(ctx, runnerSchedLatency)
+		}
+		if runnerExecLatency != 0 {
+			statsLBAgentRunnerExecLatency(ctx, runnerExecLatency)
+			c.AddUserExecutionTime(runnerExecLatency)
+		}
+		return
+	}
+
+	// TODO: Remove this once all Runners are upgraded.
+	// Fallback to older Runner response type, where instead of the above duration, formatted-wall-clock
+	// timestamps are present.
 	creatTs := translateDate(msg.GetCreatedAt())
 	startTs := translateDate(msg.GetStartedAt())
 	complTs := translateDate(msg.GetCompletedAt())
 
 	// Validate this as info *is* coming from runner and its local clock.
 	if !creatTs.IsZero() && !startTs.IsZero() && !complTs.IsZero() && !startTs.Before(creatTs) && !complTs.Before(startTs) {
-
 		runnerSchedLatency := startTs.Sub(creatTs)
 		runnerExecLatency := complTs.Sub(startTs)
 

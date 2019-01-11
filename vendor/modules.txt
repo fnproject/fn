@@ -196,8 +196,8 @@ go.opencensus.io
 # golang.org/x/crypto v0.0.0-20181015023909-0c41d7ab0a0e
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20181017193950-04a2e542c03f
-golang.org/x/net/trace
 golang.org/x/net/context
+golang.org/x/net/trace
 golang.org/x/net/internal/timeseries
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack

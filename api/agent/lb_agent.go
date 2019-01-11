@@ -158,6 +158,7 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	c.ct = a
 	c.stderr = common.NoopReadWriteCloser{}
 	c.slotHashId = getSlotQueueKey(&c)
+	c.createTime = time.Now()
 	return &c, nil
 }
 
@@ -341,17 +342,17 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 }
 
 func recordCallLatency(ctx context.Context, call *call, status string) {
-	// IMPORTANT: Why do we prefer 'StartedAt'? This is because we would like to
+	// IMPORTANT: Why do we prefer 'startTime'? This is because we would like to
 	// exclude client transmission of the request body to the LB. We are trying to
 	// measure how long it took us to execute a user function and obtain its response.
-	// Notice how we cache client body *before* we call call.Start() where StartedAt
-	// is set. If call.Start() is not called yet, then we use call.CreatedAt.
+	// Notice how we cache client body *before* we call call.Start() where startTime
+	// is set. If call.Start() is not called yet, then we use call.createTime.
 	var callLatency time.Duration
 
-	if !time.Time(call.StartedAt).IsZero() {
-		callLatency = time.Now().Sub(time.Time(call.StartedAt))
-	} else if !time.Time(call.CreatedAt).IsZero() {
-		callLatency = time.Now().Sub(time.Time(call.CreatedAt))
+	if !call.startTime.IsZero() {
+		callLatency = time.Now().Sub(call.startTime)
+	} else if !call.createTime.IsZero() {
+		callLatency = time.Now().Sub(call.createTime)
 	} else {
 		common.Logger(ctx).Error("cannot determine call start time")
 		return
