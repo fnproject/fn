@@ -710,9 +710,12 @@ func New(ctx context.Context, opts ...Option) *Server {
 	}
 
 	setMachineID()
-	s.Router.Use(loggerWrap, traceWrap, panicWrap) // TODO should be opts
-	optionalCorsWrap(s.Router)                     // TODO should be an opt
+	s.Router.Use(loggerWrap, traceWrap) // TODO should be opts
+	optionalCorsWrap(s.Router)          // TODO should be an opt
 	apiMetricsWrap(s)
+	// panicWrap is last, specifically so that logging, tracing, cors, metrics, etc wrappers run
+	s.Router.Use(panicWrap)
+	s.AdminRouter.Use(panicWrap)
 	s.bindHandlers(ctx)
 
 	s.appListeners = new(appListeners)
