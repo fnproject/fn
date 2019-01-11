@@ -425,6 +425,7 @@ func logCallFinish(log logrus.FieldLogger, msg *pb.RunnerMsg_Finished, headers h
 	log.WithFields(logrus.Fields{
 		"runner_success":     msg.Finished.GetSuccess(),
 		"runner_error_code":  msg.Finished.GetErrorCode(),
+		"runner_error_user":  msg.Finished.GetErrorUser(),
 		"runner_http_status": httpStatus,
 		"fn_http_status":     headers.Get("Fn-Http-Status"),
 	}).Infof("Call finished Details=%v ErrorStr=%v", msg.Finished.GetDetails(), msg.Finished.GetErrorStr())
