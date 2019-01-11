@@ -648,7 +648,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	// IMPORTANT: We clear/initialize these dates as start/created/completed dates from
 	// unmarshalled Model from LB-agent represent unrelated time-line events.
 	// From this point, CreatedAt/StartedAt/CompletedAt are based on our local clock.
-	c.CreatedAt = common.DateTime(time.Time{})
+	c.CreatedAt = common.DateTime(time.Now())
 	c.StartedAt = common.DateTime(time.Time{})
 	c.CompletedAt = common.DateTime(time.Time{})
 
