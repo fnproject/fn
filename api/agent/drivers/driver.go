@@ -257,6 +257,8 @@ type Config struct {
 	MaxRetries           uint64 `json:"max_retries"`
 	ContainerLabelTag    string `json:"container_label_tag"`
 	InstanceId           string `json:"instance_id"`
+	ImageCleanMaxSize    uint64 `json:"image_clean_max_size"`
+	ImageCleanExemptTags string `json:"image_clean_exempt_tags"`
 }
 
 func average(samples []Stat) (Stat, bool) {

@@ -228,6 +228,8 @@ func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 		EnableReadOnlyRootFs: !cfg.DisableReadOnlyRootFs,
 		MaxRetries:           cfg.MaxDockerRetries,
 		ContainerLabelTag:    cfg.ContainerLabelTag,
+		ImageCleanMaxSize:    cfg.ImageCleanMaxSize,
+		ImageCleanExemptTags: cfg.ImageCleanExemptTags,
 	})
 }
 
