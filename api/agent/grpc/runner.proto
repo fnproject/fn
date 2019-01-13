@@ -45,6 +45,8 @@ message CallFinished {
     string createdAt = 5;
     string startedAt = 6;
     string completedAt = 7;
+    int64 schedulerDuration = 8;
+    int64 executionDuration = 9;
 }
 
 message ClientMsg {
@@ -76,6 +78,8 @@ message RunnerStatus {
     uint64 requestsReceived = 12; // number of requests received by runner
     uint64 requestsHandled = 13; // number of requests processed by runner without NACK
     uint64 kdumpsOnDisk = 14; // number of kdumps on local disk
+    int64 schedulerDuration = 15; // the amount of time for scheduler execution
+    int64 executionDuration = 16; // the amount of time for function execution
 }
 
 service RunnerProtocol {

@@ -391,3 +391,24 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	}
 	return errIn // original error, important for use in sync call returns
 }
+
+func GetCallLatencies(c *call) (time.Duration, time.Duration) {
+	var schedDuration time.Duration
+	var execDuration time.Duration
+
+	if c != nil {
+		creat := time.Time(c.CreatedAt)
+		start := time.Time(c.StartedAt)
+		compl := time.Time(c.CompletedAt)
+
+		if !creat.IsZero() && !start.IsZero() {
+			if !start.Before(creat) {
+				schedDuration = start.Sub(creat)
+				if !compl.Before(start) {
+					execDuration = compl.Sub(start)
+				}
+			}
+		}
+	}
+	return schedDuration, execDuration
+}

@@ -245,6 +245,8 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		errStr = err.Error()
 	}
 
+	schedulerDuration, executionDuration := GetCallLatencies(ch.c)
+
 	if ch.c != nil {
 		mcall := ch.c.Model()
 
@@ -267,19 +269,20 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		}
 
 		details = mcall.ID
-
 	}
 	log.Debugf("Sending Call Finish details=%v", details)
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success:     err == nil,
-			Details:     details,
-			ErrorCode:   int32(errCode),
-			ErrorStr:    errStr,
-			CreatedAt:   createdAt,
-			StartedAt:   startedAt,
-			CompletedAt: completedAt,
+			Success:           err == nil,
+			Details:           details,
+			ErrorCode:         int32(errCode),
+			ErrorStr:          errStr,
+			CreatedAt:         createdAt,
+			StartedAt:         startedAt,
+			CompletedAt:       completedAt,
+			SchedulerDuration: int64(schedulerDuration),
+			ExecutionDuration: int64(executionDuration),
 		}}})
 
 	if errTmp != nil {
@@ -627,8 +630,6 @@ func (pr *pureRunner) spawnDetachSubmit(state *callHandle) {
 // handleTryCall based on the TryCall message, tries to place the call on NBIO Agent
 func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error {
 
-	start := time.Now()
-
 	var c models.Call
 	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
 	if err != nil {
@@ -647,7 +648,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	// IMPORTANT: We clear/initialize these dates as start/created/completed dates from
 	// unmarshalled Model from LB-agent represent unrelated time-line events.
 	// From this point, CreatedAt/StartedAt/CompletedAt are based on our local clock.
-	c.CreatedAt = common.DateTime(start)
+	c.CreatedAt = common.DateTime(time.Now())
 	c.StartedAt = common.DateTime(time.Time{})
 	c.CompletedAt = common.DateTime(time.Time{})
 
@@ -783,14 +784,13 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	recorder := httptest.NewRecorder()
 	player := ioutil.NopCloser(strings.NewReader(c.Payload))
 
+	var mcall *call
 	agentCall, err := pr.a.GetCall(FromModelAndInput(&c, player),
 		WithLogger(common.NoopReadWriteCloser{}),
 		WithWriter(recorder),
 		WithContext(ctx),
 	)
-
 	if err == nil {
-		var mcall *call
 		mcall = agentCall.(*call)
 		err = pr.a.Submit(mcall)
 	}
@@ -805,6 +805,10 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 		result.ErrorCode = int32(resp.StatusCode)
 		result.Failed = true
 	}
+
+	schedDur, execDur := GetCallLatencies(mcall)
+	result.SchedulerDuration = int64(schedDur)
+	result.ExecutionDuration = int64(execDur)
 
 	// These timestamps are related. To avoid confusion
 	// and for robustness, nested if stmts below.

@@ -341,6 +341,10 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isFo
 }
 
 func recordCallLatency(ctx context.Context, call *call, status string) {
+
+	start := time.Time(call.StartedAt)
+	creat := time.Time(call.CreatedAt)
+
 	// IMPORTANT: Why do we prefer 'StartedAt'? This is because we would like to
 	// exclude client transmission of the request body to the LB. We are trying to
 	// measure how long it took us to execute a user function and obtain its response.
@@ -348,10 +352,10 @@ func recordCallLatency(ctx context.Context, call *call, status string) {
 	// is set. If call.Start() is not called yet, then we use call.CreatedAt.
 	var callLatency time.Duration
 
-	if !time.Time(call.StartedAt).IsZero() {
-		callLatency = time.Now().Sub(time.Time(call.StartedAt))
-	} else if !time.Time(call.CreatedAt).IsZero() {
-		callLatency = time.Now().Sub(time.Time(call.CreatedAt))
+	if !start.IsZero() {
+		callLatency = time.Now().Sub(start)
+	} else if !creat.IsZero() {
+		callLatency = time.Now().Sub(creat)
 	} else {
 		common.Logger(ctx).Error("cannot determine call start time")
 		return
