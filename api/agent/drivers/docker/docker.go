@@ -130,6 +130,7 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 	// start the cleanup jobs as early as possible
 	go func() {
 		killLeakedContainers(ctx, driver)
+		runImageStats(ctx, driver)
 		syncImageCleaner(ctx, driver)
 		runImageCleaner(ctx, driver)
 	}()
@@ -145,6 +146,8 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		driver.pool = NewDockerPool(conf, driver)
 	}
 
+	// Record our instance id at startup
+	RecordInstanceId(ctx, instanceId)
 	return driver
 }
 
@@ -222,7 +225,6 @@ func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
 
 		if err == nil {
 			for _, img := range images {
-				log.WithError(err).Errorf("ListImages add %+v", img)
 				driver.imgCache.Update(&CachedImage{
 					ID:       img.ID,
 					ParentID: img.ParentID,
@@ -235,6 +237,29 @@ func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
 
 		log.WithError(err).Error("ListImages error, will retry...")
 	}
+}
+
+// runImageStats runs continuously in background to periodically sample image cleaner statistics
+func runImageStats(ctx context.Context, driver *DockerDriver) {
+	if driver.imgCache == nil {
+		return
+	}
+
+	const statsSamplerDuration = time.Duration(2 * time.Second)
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"stack": "runImageStats"})
+
+	go func() {
+		ticker := time.NewTicker(statsSamplerDuration)
+		defer ticker.Stop()
+
+		for ctx.Err() == nil {
+			RecordImageCleanerStats(ctx, driver.imgCache.GetStats())
+			select {
+			case <-ctx.Done(): // driver shutdown
+			case <-ticker.C:
+			}
+		}
+	}()
 }
 
 // runImageCleaner runs continuously and monitors image cache state. If the
@@ -268,7 +293,7 @@ func runImageCleaner(ctx context.Context, driver *DockerDriver) {
 			err := driver.docker.RemoveImage(img.ID, docker.RemoveImageOptions{Context: ctx})
 			cancel()
 			if err != nil && err != docker.ErrNoSuchImage {
-				log.WithError(err).Infof("Removing image %+v failed", img)
+				log.WithError(err).Errorf("Removing image %+v failed", img)
 				// in-use or can't be removed or docker just timed out, try to add it back to the cache
 				driver.imgCache.Update(img)
 			}
