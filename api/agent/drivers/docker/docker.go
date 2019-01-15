@@ -287,13 +287,13 @@ func runImageCleaner(ctx context.Context, driver *DockerDriver) {
 
 		img := driver.imgCache.Pop()
 		if img != nil {
-			log.Infof("Removing %+v", img)
+			log.WithField("image", img).Info("Removing image")
 
 			ctx, cancel := context.WithTimeout(ctx, removeImgTimeout)
 			err := driver.docker.RemoveImage(img.ID, docker.RemoveImageOptions{Context: ctx})
 			cancel()
 			if err != nil && err != docker.ErrNoSuchImage {
-				log.WithError(err).Errorf("Removing image %+v failed", img)
+				log.WithError(err).WithField("image", img).Error("Removing image failed")
 				// in-use or can't be removed or docker just timed out, try to add it back to the cache
 				driver.imgCache.Update(img)
 			}
