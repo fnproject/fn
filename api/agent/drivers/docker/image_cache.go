@@ -23,6 +23,14 @@ type CachedImage struct {
 	Size     uint64
 }
 
+type ImageCacherStats struct {
+	BusyImgTotalSize uint64
+	BusyImgCount     uint64
+	IdleImgTotalSize uint64
+	IdleImgCount     uint64
+	MaxImgTotalSize  uint64
+}
+
 type ImageCacher interface {
 	// IsMaxCapacity returns true if total size of all images exceeds the limit
 	// and if there's an image in LRU cache that can be removed.
@@ -44,6 +52,9 @@ type ImageCacher interface {
 	// be added back to LRU.
 	MarkBusy(img *CachedImage)
 	MarkFree(img *CachedImage)
+
+	// Stats Monitoring
+	GetStats() *ImageCacherStats
 }
 
 type imageCacher struct {
@@ -159,6 +170,23 @@ func (c *imageCacher) sendNotify() {
 // This is because there's no point to show over capacity if Pop() is going to return nil.
 func (c *imageCacher) isMaxCapacityLocked() bool {
 	return (c.lruSize > 0) && ((c.lruSize + c.busySize) >= c.maxSize)
+}
+
+func (c *imageCacher) GetStats() *ImageCacherStats {
+	stats := &ImageCacherStats{
+		MaxImgTotalSize: c.maxSize,
+	}
+
+	c.lock.Lock()
+
+	stats.BusyImgTotalSize = c.busySize
+	stats.IdleImgTotalSize = c.lruSize
+	stats.BusyImgCount = uint64(len(c.lruMap))
+	stats.IdleImgCount = uint64(len(c.busyRef))
+
+	c.lock.Unlock()
+
+	return stats
 }
 
 func (c *imageCacher) GetNotifier() <-chan struct{} {

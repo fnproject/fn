@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,7 +94,30 @@ var (
 	dockerLatencyMeasure = common.MakeMeasure("docker_api_latency", "Docker wrapper latency", "msecs")
 
 	dockerEventsMeasure = common.MakeMeasure("docker_events", "docker events", "")
+
+	imageCleanerBusyImgCount = common.MakeMeasure("image_cleaner_busy_img_count", "image cleaner busy image count", "")
+	imageCleanerBusyImgSize  = common.MakeMeasure("image_cleaner_busy_img_size", "image cleaner busy image total size", "By")
+	imageCleanerIdleImgCount = common.MakeMeasure("image_cleaner_idle_img_count", "image cleaner idle image count", "")
+	imageCleanerIdleImgSize  = common.MakeMeasure("image_cleaner_idle_img_size", "image cleaner idle image total size", "By")
+	imageCleanerMaxImgSize   = common.MakeMeasure("image_cleaner_max_img_size", "image cleaner image max size", "By")
+
+	dockerInstanceId = common.MakeMeasure("docker_instance_id", "docker instance id", "")
 )
+
+func RecordInstanceId(ctx context.Context, id string) {
+	h := fnv.New64()
+	h.Write([]byte(id))
+	hid := int64(h.Sum64())
+	stats.Record(ctx, dockerInstanceId.M(hid))
+}
+
+func RecordImageCleanerStats(ctx context.Context, sample *ImageCacherStats) {
+	stats.Record(ctx, imageCleanerBusyImgCount.M(int64(sample.BusyImgCount)))
+	stats.Record(ctx, imageCleanerBusyImgSize.M(int64(sample.BusyImgTotalSize)))
+	stats.Record(ctx, imageCleanerIdleImgCount.M(int64(sample.IdleImgCount)))
+	stats.Record(ctx, imageCleanerIdleImgSize.M(int64(sample.IdleImgTotalSize)))
+	stats.Record(ctx, imageCleanerMaxImgSize.M(int64(sample.MaxImgTotalSize)))
+}
 
 // listenEventLoop listens for docker events and reconnects if necessary
 func listenEventLoop(ctx context.Context, client *docker.Client) {
@@ -207,6 +231,9 @@ func RegisterViews(tagKeys []string, latencyDist []float64) {
 		}
 	}
 
+	// docker instance tags
+	emptyTags := []tag.Key{}
+
 	err := view.Register(
 		common.CreateViewWithTags(dockerRetriesMeasure, view.Sum(), defaultTags),
 		common.CreateViewWithTags(dockerTimeoutMeasure, view.Count(), defaultTags),
@@ -214,6 +241,12 @@ func RegisterViews(tagKeys []string, latencyDist []float64) {
 		common.CreateViewWithTags(dockerExitMeasure, view.Count(), exitTags),
 		common.CreateViewWithTags(dockerLatencyMeasure, view.Distribution(latencyDist...), defaultTags),
 		common.CreateViewWithTags(dockerEventsMeasure, view.Count(), eventTags),
+		common.CreateViewWithTags(imageCleanerBusyImgCount, view.LastValue(), emptyTags),
+		common.CreateViewWithTags(imageCleanerBusyImgSize, view.LastValue(), emptyTags),
+		common.CreateViewWithTags(imageCleanerIdleImgCount, view.LastValue(), emptyTags),
+		common.CreateViewWithTags(imageCleanerIdleImgSize, view.LastValue(), emptyTags),
+		common.CreateViewWithTags(imageCleanerMaxImgSize, view.LastValue(), emptyTags),
+		common.CreateViewWithTags(dockerInstanceId, view.LastValue(), emptyTags),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
