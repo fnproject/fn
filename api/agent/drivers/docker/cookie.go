@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path"
@@ -16,6 +17,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 )
+
+var ErrImageWithVolume = models.NewAPIError(http.StatusBadRequest, errors.New("image has Volume definition"))
 
 // A cookie identifies a unique request to run a task.
 type cookie struct {
@@ -368,6 +371,11 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
+	// check image doesn't have Volumes
+	if !c.drv.conf.ImageEnableVolume && img.Config != nil && len(img.Config.Volumes) > 0 {
+		err = ErrImageWithVolume
+	}
+
 	c.image = &CachedImage{
 		ID:       img.ID,
 		ParentID: img.Parent,
@@ -376,7 +384,11 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 	}
 
 	if c.drv.imgCache != nil {
-		c.drv.imgCache.MarkBusy(c.image)
+		if err == ErrImageWithVolume {
+			c.drv.imgCache.Update(c.image)
+		} else {
+			c.drv.imgCache.MarkBusy(c.image)
+		}
 	}
 	return false, err
 }

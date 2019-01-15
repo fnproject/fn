@@ -87,6 +87,48 @@ func commonCookieRun(ctx context.Context, cookie drivers.Cookie) (error, drivers
 	return nil, waiter.Wait(ctx)
 }
 
+type taskDockerVolumeTest struct {
+	taskDockerTest
+}
+
+func (f *taskDockerVolumeTest) Image() string { return "fnproject/fn-test-volume:latest" }
+
+func TestVolumeValidation(t *testing.T) {
+	dkr := NewDocker(drivers.Config{})
+	defer dkr.Close()
+
+	ctx := context.Background()
+	var output bytes.Buffer
+	var errors bytes.Buffer
+
+	task := &taskDockerVolumeTest{taskDockerTest{id: "test-docker"}}
+	task.output = &output
+	task.errors = &errors
+
+	cookie, err := dkr.CreateCookie(ctx, task)
+	if err != nil {
+		t.Fatal("Couldn't create task cookie")
+	}
+
+	defer cookie.Close(ctx)
+
+	err = cookie.AuthImage(ctx)
+	if err != nil {
+		t.Fatalf("error during image authentication: %s", err)
+	}
+
+	shouldPull, err := cookie.ValidateImage(ctx)
+
+	if shouldPull == true {
+		t.Fatalf("shouldPull must be false, because the image [%s] must be locally available", task.Image())
+	}
+
+	if err != ErrImageWithVolume {
+		t.Fatalf("ValidateImage must fail with error: %s", ErrImageWithVolume)
+	}
+
+}
+
 func TestRunnerDocker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
 	defer cancel()

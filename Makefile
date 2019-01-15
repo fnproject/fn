@@ -25,7 +25,7 @@ checkfmt:
 .PHONY: clear-images
 clear-images:
 	-docker images -q -f dangling=true | xargs docker rmi -f
-	for i in fnproject/fn-test-utils fnproject/fn-status-checker fnproject/dind fnproject/fnserver ; do \
+	for i in fnproject/fn-test-utils fnproject/fn-status-checker fnproject/dind fnproject/fnserver fnproject/fn-test-volume ; do \
 	    docker images "$$i" --format '{{ .ID }}\t{{ .Repository }}\t{{ .Tag}}' | while read id repo tag; do \
 	        if [ "$$tag" = "<none>" ]; then docker rmi "$$id"; else docker rmi "$$repo:$$tag"; fi; done; done
 
@@ -49,6 +49,10 @@ fn-status-checker: checkfmt
 fn-test-utils: checkfmt
 	cd images/fn-test-utils && ./build.sh
 
+.PHONY: fn-test-volume
+fn-test-volume:
+	cd images/fn-test-volume && ./build.sh
+
 .PHONY: test-middleware
 test-middleware: test-basic
 	cd examples/middleware && go build
@@ -58,7 +62,7 @@ test-extensions: test-basic
 	cd examples/extensions && go build
 
 .PHONY: test-basic
-test-basic: checkfmt pull-images fn-test-utils fn-status-checker
+test-basic: checkfmt pull-images fn-test-utils fn-status-checker fn-test-volume
 	./test.sh
 
 .PHONY: test
