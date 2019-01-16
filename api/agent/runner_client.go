@@ -274,7 +274,11 @@ func parseError(msg *pb.CallFinished) error {
 	if eStr == "" {
 		eStr = "Unknown Error From Pure Runner"
 	}
-	return models.NewAPIError(int(eCode), errors.New(eStr))
+	err := models.NewAPIError(int(eCode), errors.New(eStr))
+	if msg.GetErrorUser() {
+		return models.NewFuncError(err)
+	}
+	return err
 }
 
 func tryQueueError(err error, done chan error) {
@@ -421,6 +425,7 @@ func logCallFinish(log logrus.FieldLogger, msg *pb.RunnerMsg_Finished, headers h
 	log.WithFields(logrus.Fields{
 		"runner_success":     msg.Finished.GetSuccess(),
 		"runner_error_code":  msg.Finished.GetErrorCode(),
+		"runner_error_user":  msg.Finished.GetErrorUser(),
 		"runner_http_status": httpStatus,
 		"fn_http_status":     headers.Get("Fn-Http-Status"),
 	}).Infof("Call finished Details=%v ErrorStr=%v", msg.Finished.GetDetails(), msg.Finished.GetErrorStr())

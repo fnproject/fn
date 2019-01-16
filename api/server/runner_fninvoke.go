@@ -13,6 +13,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/tag"
 )
 
 var (
@@ -66,7 +67,19 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 		return err
 	}
 
-	return s.ServeFnInvoke(c, app, fn)
+	err = s.ServeFnInvoke(c, app, fn)
+	if models.IsFuncError(err) || err == nil {
+		// report all user-directed errors and function responses from here, after submit has run.
+		// this is our never ending attempt to distinguish user and platform errors.
+		ctx, err := tag.New(c.Request.Context(),
+			tag.Insert(whodunitKey, "user"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		c.Request = c.Request.WithContext(ctx)
+	}
+	return err
 }
 
 func (s *Server) ServeFnInvoke(c *gin.Context, app *models.App, fn *models.Fn) error {
