@@ -22,6 +22,11 @@ var (
 	statusCallCacheKey    = common.MakeKey("cached")
 	statusCallSuccessKey  = common.MakeKey("success")
 	statusCallNetReadyKey = common.MakeKey("network")
+
+	appIdKey      = common.MakeKey("app_id")
+	functionIdKey = common.MakeKey("function_id")
+	imageNameKey  = common.MakeKey("image_name")
+	containerKeys = []tag.Key{appIdKey, functionIdKey, imageNameKey}
 )
 
 func statsCalls(ctx context.Context) {
@@ -181,23 +186,21 @@ const (
 )
 
 var (
-	queuedMeasure          = common.MakeMeasure(queuedMetricName, "calls currently queued against agent", "")
-	callsMeasure           = common.MakeMeasure(callsMetricName, "calls created in agent", "")
-	runningMeasure         = common.MakeMeasure(runningMetricName, "calls currently running in agent", "")
-	completedMeasure       = common.MakeMeasure(completedMetricName, "calls completed in agent", "")
-	canceledMeasure        = common.MakeMeasure(canceledMetricName, "calls canceled in agent", "")
-	timedoutMeasure        = common.MakeMeasure(timedoutMetricName, "calls timed out in agent", "")
-	errorsMeasure          = common.MakeMeasure(errorsMetricName, "calls errored in agent", "")
-	serverBusyMeasure      = common.MakeMeasure(serverBusyMetricName, "calls where server was too busy in agent", "")
-	dockerMeasures         = initDockerMeasures()
-	containerGaugeMeasures = initContainerGaugeMeasures()
-	containerTimeMeasures  = initContainerTimeMeasures()
-
-	utilCpuUsedMeasure  = common.MakeMeasure(utilCpuUsedMetricName, "agent cpu in use", "")
-	utilCpuAvailMeasure = common.MakeMeasure(utilCpuAvailMetricName, "agent cpu available", "")
-	utilMemUsedMeasure  = common.MakeMeasure(utilMemUsedMetricName, "agent memory in use", "By")
-	utilMemAvailMeasure = common.MakeMeasure(utilMemAvailMetricName, "agent memory available", "By")
-
+	queuedMeasure                  = common.MakeMeasure(queuedMetricName, "calls currently queued against agent", "")
+	callsMeasure                   = common.MakeMeasure(callsMetricName, "calls created in agent", "")
+	runningMeasure                 = common.MakeMeasure(runningMetricName, "calls currently running in agent", "")
+	completedMeasure               = common.MakeMeasure(completedMetricName, "calls completed in agent", "")
+	canceledMeasure                = common.MakeMeasure(canceledMetricName, "calls canceled in agent", "")
+	timedoutMeasure                = common.MakeMeasure(timedoutMetricName, "calls timed out in agent", "")
+	errorsMeasure                  = common.MakeMeasure(errorsMetricName, "calls errored in agent", "")
+	serverBusyMeasure              = common.MakeMeasure(serverBusyMetricName, "calls where server was too busy in agent", "")
+	dockerMeasures                 = initDockerMeasures()
+	containerGaugeMeasures         = initContainerGaugeMeasures()
+	containerTimeMeasures          = initContainerTimeMeasures()
+	utilCpuUsedMeasure             = common.MakeMeasure(utilCpuUsedMetricName, "agent cpu in use", "")
+	utilCpuAvailMeasure            = common.MakeMeasure(utilCpuAvailMetricName, "agent cpu available", "")
+	utilMemUsedMeasure             = common.MakeMeasure(utilMemUsedMetricName, "agent memory in use", "By")
+	utilMemAvailMeasure            = common.MakeMeasure(utilMemAvailMetricName, "agent memory available", "By")
 	containerEvictedMeasure        = common.MakeMeasure(containerEvictedMetricName, "containers evicted", "")
 	containerUDSInitLatencyMeasure = common.MakeMeasure(containerUDSInitLatencyMetricName, "container UDS Init-Wait Latency", "msecs")
 
@@ -247,6 +250,7 @@ func RegisterAgentViews(tagKeys []string, latencyDist []float64) {
 		common.CreateView(utilMemUsedMeasure, view.LastValue(), tagKeys),
 		common.CreateView(utilMemAvailMeasure, view.LastValue(), tagKeys),
 	)
+
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
 	}
@@ -311,7 +315,8 @@ func RegisterContainerViews(tagKeys []string, latencyDist []float64) {
 		if key == "" {
 			continue
 		}
-		v := common.CreateView(containerGaugeMeasures[i], view.Sum(), tagKeys)
+		v := common.CreateViewWithTags(containerGaugeMeasures[i], view.Sum(), containerKeys)
+
 		if err := view.Register(v); err != nil {
 			logrus.WithError(err).Fatal("cannot register view")
 		}

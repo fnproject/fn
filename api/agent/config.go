@@ -43,7 +43,10 @@ type Config struct {
 	ImageCleanMaxSize       uint64        `json:"image_clean_max_size"`
 	ImageCleanExemptTags    string        `json:"image_clean_exempt_tags"`
 	ImageEnableVolume       bool          `json:"image_enable_volume"`
+	EnableContainerMetrics  bool          `json:"enable_container_state_metrics"`
 }
+
+//containerStateMetrics
 
 const (
 	// EnvContainerLabelTag is a classifier label tag that is used to distinguish fn managed containers
@@ -110,6 +113,9 @@ const (
 	// EnvIOFSOpts are the options to set when mounting the iofs directory for unix socket files
 	EnvIOFSOpts = "FN_IOFS_OPTS"
 
+	// EnvContainerStateMetrics enables metrics for which functions are currently in what container state
+	EnvContainerStateMetrics = "FN_CONTAINER_STATE_METRICS"
+
 	// EnvDetachedHeadroom is the extra room we want to give to a detached function to run.
 	EnvDetachedHeadroom = "FN_EXECUTION_HEADROOM"
 
@@ -132,7 +138,6 @@ const (
 
 // NewConfig returns a config set from env vars, plus defaults
 func NewConfig() (*Config, error) {
-
 	cfg := &Config{
 		MinDockerVersion: "17.10.0-ce",
 		MaxLogSize:       1 * 1024 * 1024,
@@ -173,6 +178,8 @@ func NewConfig() (*Config, error) {
 	err = setEnvUint(err, EnvImageCleanMaxSize, &cfg.ImageCleanMaxSize)
 	err = setEnvStr(err, EnvImageCleanExemptTags, &cfg.ImageCleanExemptTags)
 	err = setEnvBool(err, EnvImageEnableVolume, &cfg.ImageEnableVolume)
+	err = setEnvBool(err, EnvContainerStateMetrics, &cfg.EnableContainerMetrics)
+
 	if err != nil {
 		return cfg, err
 	}
