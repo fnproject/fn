@@ -180,9 +180,10 @@ func (c *imageCacher) GetStats() *ImageCacherStats {
 	c.lock.Lock()
 
 	stats.BusyImgTotalSize = c.busySize
+	stats.BusyImgCount = uint64(len(c.busyRef))
+
 	stats.IdleImgTotalSize = c.lruSize
-	stats.BusyImgCount = uint64(len(c.lruMap))
-	stats.IdleImgCount = uint64(len(c.busyRef))
+	stats.IdleImgCount = uint64(len(c.lruMap))
 
 	c.lock.Unlock()
 
