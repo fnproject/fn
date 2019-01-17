@@ -874,17 +874,14 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 
 	needsPull, err := cookie.ValidateImage(ctx)
 	if needsPull {
-		// pull image ctx scope with HotPullTimeout
-		{
-			ctx, cancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
-			err = cookie.PullImage(ctx)
-			cancel()
-			if err != nil && ctx.Err() == context.DeadlineExceeded {
-				err = models.ErrDockerPullTimeout
-			}
+		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
+		err = cookie.PullImage(pullCtx)
+		pullCancel()
+		if err != nil && pullCtx.Err() == context.DeadlineExceeded {
+			err = models.ErrDockerPullTimeout
 		}
 		if tryQueueErr(err, errQueue) == nil {
-			needsPull, err = cookie.ValidateImage(ctx)
+			needsPull, err = cookie.ValidateImage(ctx) // uses original ctx timeout
 			if needsPull {
 				// Image must have removed by image cleaner, manual intervention, etc.
 				err = models.ErrCallTimeoutServerBusy
