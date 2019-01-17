@@ -69,12 +69,6 @@ func (tr *placerTracker) TryRunner(r Runner, call RunnerCall) (bool, error) {
 		}
 
 	} else {
-
-		// Only log unusual errors for isPlaced (customer impacting) calls
-		if err != nil && tr.requestCtx.Err() != err {
-			logger := common.Logger(ctx).WithField("runner_addr", r.Address())
-			logger.WithError(err).Warn("Failed during call placement")
-		}
 		if err == nil {
 			stats.Record(tr.requestCtx, placedOKCountMeasure.M(0))
 		} else if tr.requestCtx.Err() == err {
