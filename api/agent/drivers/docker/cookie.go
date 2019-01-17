@@ -31,15 +31,18 @@ type cookie struct {
 	// pointer to docker driver
 	drv *DockerDriver
 
-	// do we need to remove container at exit?
-	isCreated bool
+	imgReg  string
+	imgRepo string
+	imgTag  string
 
-	imgReg      string
-	imgRepo     string
-	imgTag      string
+	// contains auth config if AuthImage() is called
 	imgAuthConf *docker.AuthConfiguration
 
-	cachedImg *CachedImage
+	// contains inspected image if ValidateImage() is called
+	image *CachedImage
+
+	// contains created container if CreateContainer() is called
+	container *docker.Container
 }
 
 func (c *cookie) configureLabels(log logrus.FieldLogger) {
@@ -229,14 +232,14 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 // implements Cookie
 func (c *cookie) Close(ctx context.Context) error {
 	var err error
-	if c.isCreated {
+	if c.container != nil {
 		err = c.drv.removeContainer(ctx, c.task.Id())
 	}
 	c.drv.unpickPool(c)
 	c.drv.unpickNetwork(c)
 
-	if c.cachedImg != nil && c.drv.imgCache != nil {
-		c.drv.imgCache.MarkFree(c.cachedImg)
+	if c.image != nil && c.drv.imgCache != nil {
+		c.drv.imgCache.MarkFree(c.image)
 	}
 	return err
 }
@@ -275,9 +278,10 @@ func (c *cookie) Unfreeze(ctx context.Context) error {
 	return err
 }
 
-func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "ValidateImage"})
-	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker auth and inspect image")
+// implements Cookie
+func (c *cookie) AuthImage(ctx context.Context) error {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "AuthImage"})
+	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker auth image")
 
 	// ask for docker creds before looking for image, as the tasker may need to
 	// validate creds even if the image is downloaded.
@@ -288,7 +292,7 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 		authConfig, err := task.DockerAuth()
 		span.End()
 		if err != nil {
-			return false, err
+			return err
 		}
 		if authConfig != nil {
 			config = authConfig
@@ -296,37 +300,59 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 	}
 
 	c.imgAuthConf = config
+	return nil
+}
+
+// implements Cookie
+func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "ValidateImage"})
+	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "image": c.task.Image()}).Debug("docker inspect image")
+
+	if c.imgAuthConf == nil {
+		log.Fatal("invalid usage: image not authenticated")
+	}
+	if c.image != nil {
+		return false, nil
+	}
 
 	// see if we already have it
 	img, err := c.drv.docker.InspectImage(ctx, c.task.Image())
 	if err == docker.ErrNoSuchImage {
 		return true, nil
 	}
-	// we have the image, notify image cache
-	if err == nil && c.drv.imgCache != nil && c.cachedImg == nil {
-		c.cachedImg = &CachedImage{
-			ID:       img.ID,
-			ParentID: img.Parent,
-			RepoTags: img.RepoTags,
-			Size:     uint64(img.Size),
-		}
-		c.drv.imgCache.MarkBusy(c.cachedImg)
+	if err != nil {
+		return false, err
+	}
+
+	c.image = &CachedImage{
+		ID:       img.ID,
+		ParentID: img.Parent,
+		RepoTags: img.RepoTags,
+		Size:     uint64(img.Size),
+	}
+
+	if c.drv.imgCache != nil {
+		c.drv.imgCache.MarkBusy(c.image)
 	}
 	return false, err
 }
 
+// implements Cookie
 func (c *cookie) PullImage(ctx context.Context) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "PullImage"})
 
-	cfg := c.imgAuthConf
-	if cfg == nil {
-		log.Fatal("invalid usage: call ValidateImage first")
+	if c.imgAuthConf == nil {
+		log.Fatal("invalid usage: image not authenticated")
+	}
+	if c.image != nil {
+		return nil
 	}
 
+	cfg := c.imgAuthConf
 	repo := path.Join(c.imgReg, c.imgRepo)
 
-	log = common.Logger(ctx).WithFields(logrus.Fields{"registry": cfg.ServerAddress, "username": cfg.Username, "image": c.task.Image()})
-	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker pull")
+	log = common.Logger(ctx).WithFields(logrus.Fields{"registry": cfg.ServerAddress, "username": cfg.Username})
+	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "image": c.task.Image()}).Debug("docker pull")
 
 	err := c.drv.docker.PullImage(docker.PullImageOptions{Repository: repo, Tag: c.imgTag, Context: ctx}, *cfg)
 	if err != nil {
@@ -345,55 +371,41 @@ func (c *cookie) PullImage(ctx context.Context) error {
 
 		return models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", c.task.Image(), msg))
 	}
-
-	if c.drv.imgCache != nil && c.cachedImg == nil {
-		img, err := c.drv.docker.InspectImage(ctx, c.task.Image())
-		// Log and ignore these errors. Hard failure will be caught in CreateContainer()
-		if err == docker.ErrNoSuchImage {
-			log.WithError(err).Errorf("InspectImage image likely removed due to disk pressure %s", c.task.Image())
-		} else if err != nil {
-			log.WithError(err).Errorf("Failed to inspect image %s", c.task.Image())
-		} else {
-			// we have the image, notify image cache
-			c.cachedImg = &CachedImage{
-				ID:       img.ID,
-				ParentID: img.Parent,
-				RepoTags: img.RepoTags,
-				Size:     uint64(img.Size),
-			}
-			c.drv.imgCache.MarkBusy(c.cachedImg)
-		}
-	}
-
 	return nil
 }
 
+// implements Cookie
 func (c *cookie) CreateContainer(ctx context.Context) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "CreateContainer"})
-	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker create container")
+	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "image": c.task.Image()}).Debug("docker create container")
 
-	// here let's assume we have created container, logically this should be after 'CreateContainer', but we
-	// are not 100% sure that *any* failure to CreateContainer does not ever leave a container around especially
-	// going through fsouza+docker-api.
-	c.isCreated = true
+	if c.image == nil {
+		log.Fatal("invalid usage: image not validated")
+	}
+	if c.container != nil {
+		return nil
+	}
 
-	c.opts.Context = ctx
-	_, err := c.drv.docker.CreateContainer(c.opts)
+	var err error
+
+	createOptions := c.opts
+	createOptions.Context = ctx
+
+	c.container, err = c.drv.docker.CreateContainer(createOptions)
+
+	// IMPORTANT: The return code 503 here is controversial. Here we treat disk pressure as a temporary
+	// service too busy event that will likely to correct itself. Here with 503 we allow this request
+	// to land on another (or back to same runner) which will likely to succeed. We have received
+	// docker.ErrNoSuchImage because just after PullImage(), image cleaner (or manual intervention)
+	// must have removed this image.
+	if err == docker.ErrNoSuchImage {
+		log.WithError(err).Error("Cannot CreateContainer image likely removed")
+		return models.ErrCallTimeoutServerBusy
+	}
+
 	if err != nil {
-		if c.drv.imgCache != nil && err == docker.ErrNoSuchImage {
-			log.WithError(err).Errorf("Cannot CreateContainer image likely removed due to disk pressure %s", c.task.Image())
-			// IMPORTANT: The return code 503 here is controversial. Here we treat disk pressure as a temporary
-			// service too busy event that will likely to correct itself. Here with 503 we allow this request
-			// to land on another (or back to same runner) which will likely to succeed. We have received
-			// docker.ErrNoSuchImage because just after PullImage(), image cleaner must have removed this image.
-			return models.ErrCallTimeoutServerBusy
-		}
-		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
-		if err != docker.ErrContainerAlreadyExists {
-			log.WithError(err).Error("Could not create container")
-			// NOTE: if the container fails to create we don't really want to show to user since they aren't directly configuring the container
-			return err
-		}
+		log.WithError(err).Error("Could not create container")
+		return err
 	}
 
 	return nil

@@ -41,11 +41,15 @@ type Cookie interface {
 	// Unfreeze a frozen container to unpause frozen processes
 	Unfreeze(ctx context.Context) error
 
-	// Validate/Inspect and Authenticate image. Returns true if the image needs
-	// to be pulled and non-nil error if validation/auth/inspection fails.
+	// Authenticate image. Returns non-nil error if auth fails.
+	AuthImage(ctx context.Context) error
+
+	// Validate/Inspect image. Returns true if the image needs
+	// to be pulled and non-nil error if validation/inspection fails.
 	ValidateImage(ctx context.Context) (bool, error)
 
-	// Pull the image.
+	// Pull the image. An image pull requires validation/inspection
+	// again.
 	PullImage(ctx context.Context) error
 
 	// Create container which can be Run() later

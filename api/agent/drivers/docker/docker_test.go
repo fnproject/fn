@@ -60,6 +60,11 @@ func TestRunnerDocker(t *testing.T) {
 
 	defer cookie.Close(ctx)
 
+	err = cookie.AuthImage(ctx)
+	if err != nil {
+		t.Fatal("Couldn't auth image test")
+	}
+
 	shouldPull, err := cookie.ValidateImage(ctx)
 	if err != nil {
 		t.Fatal("Couldn't validate image test")
@@ -68,6 +73,10 @@ func TestRunnerDocker(t *testing.T) {
 		err = cookie.PullImage(ctx)
 		if err != nil {
 			t.Fatal("Couldn't pull image test")
+		}
+		shouldPull, err = cookie.ValidateImage(ctx)
+		if err != nil || shouldPull {
+			t.Fatal("Couldn't validate image test")
 		}
 	}
 
@@ -176,6 +185,11 @@ func TestRunnerDockerStdout(t *testing.T) {
 	}
 	defer cookie.Close(ctx)
 
+	err = cookie.AuthImage(ctx)
+	if err != nil {
+		t.Fatal("Couldn't auth image test")
+	}
+
 	shouldPull, err := cookie.ValidateImage(ctx)
 	if err != nil {
 		t.Fatal("Couldn't validate image test")
@@ -184,6 +198,10 @@ func TestRunnerDockerStdout(t *testing.T) {
 		err = cookie.PullImage(ctx)
 		if err != nil {
 			t.Fatal("Couldn't pull image test")
+		}
+		shouldPull, err = cookie.ValidateImage(ctx)
+		if err != nil || shouldPull {
+			t.Fatal("Couldn't validate image test")
 		}
 	}
 	err = cookie.CreateContainer(ctx)
