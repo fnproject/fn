@@ -883,9 +883,9 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 				err = models.ErrDockerPullTimeout
 			}
 		}
-		if err == nil {
+		if tryQueueErr(err, errQueue) == nil {
 			needsPull, err = cookie.ValidateImage(ctx)
-			if needsPull && err == nil {
+			if needsPull {
 				// Image must have removed by image cleaner, manual intervention, etc.
 				err = models.ErrCallTimeoutServerBusy
 			}
