@@ -41,6 +41,7 @@ func (f *taskDockerTest) LoggerConfig() drivers.LoggerConfig      { return drive
 func (f *taskDockerTest) UDSAgentPath() string                    { return "" }
 func (f *taskDockerTest) UDSDockerPath() string                   { return "" }
 func (f *taskDockerTest) UDSDockerDest() string                   { return "" }
+func (f *taskDockerTest) DisableNet() bool                        { return false }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})

@@ -19,10 +19,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
-)
-
-const (
-	eventRetryDelay = 1 * time.Second
+	"golang.org/x/time/rate"
 )
 
 // wrap docker client calls so we can retry 500s, kind of sucks but fsouza doesn't
@@ -50,6 +47,9 @@ type dockerClient interface {
 	DiskUsage(opts docker.DiskUsageOptions) (*docker.DiskUsage, error)
 	LoadImages(ctx context.Context, filePath string) error
 	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
+	ListNetworks(ctx context.Context) ([]docker.Network, error)
+	AddEventListener(ctx context.Context) (chan *docker.APIEvents, error)
+	RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) error
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -70,8 +70,9 @@ func newClient(ctx context.Context, maxRetries uint64) dockerClient {
 		maxRetries = 10
 	}
 
-	go listenEventLoop(ctx, client)
-	return &dockerWrap{docker: client, maxRetries: maxRetries}
+	wrap := &dockerWrap{docker: client, maxRetries: maxRetries}
+	go wrap.listenEventLoop(ctx)
+	return wrap
 }
 
 type dockerWrap struct {
@@ -120,32 +121,25 @@ func RecordImageCleanerStats(ctx context.Context, sample *ImageCacherStats) {
 }
 
 // listenEventLoop listens for docker events and reconnects if necessary
-func listenEventLoop(ctx context.Context, client *docker.Client) {
-	for ctx.Err() == nil {
-		err := listenEvents(ctx, client)
+func (d *dockerWrap) listenEventLoop(ctx context.Context) {
+	limiter := rate.NewLimiter(2.0, 1)
+	for limiter.Wait(ctx) == nil {
+		err := d.listenEvents(ctx)
 		if err != nil {
 			logrus.WithError(err).Error("listenEvents failed, will retry...")
-			// slow down reconnects. yes we will miss events during this time.
-			select {
-			case <-time.After(eventRetryDelay):
-			case <-ctx.Done():
-				return
-			}
 		}
 	}
 }
 
 // listenEvents registers an event listener to docker to stream docker events
 // and records these in stats.
-func listenEvents(ctx context.Context, client *docker.Client) error {
-	listener := make(chan *docker.APIEvents)
-
-	err := client.AddEventListener(listener)
+func (d *dockerWrap) listenEvents(ctx context.Context) error {
+	listener, err := d.AddEventListener(ctx)
 	if err != nil {
 		return err
 	}
 
-	defer client.RemoveEventListener(listener)
+	defer d.RemoveEventListener(ctx, listener)
 
 	for {
 		select {
@@ -329,6 +323,25 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 	return err
 }
 
+func (d *dockerWrap) AddEventListener(ctx context.Context) (chan *docker.APIEvents, error) {
+	ctx, closer := makeTracker(ctx, "docker_add_event_listener")
+	defer closer()
+
+	listen := make(chan *docker.APIEvents)
+	err := d.docker.AddEventListener(listen)
+	if err != nil {
+		return nil, err
+	}
+	return listen, nil
+}
+
+func (d *dockerWrap) RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) error {
+	ctx, closer := makeTracker(ctx, "docker_remove_event_listener")
+	defer closer()
+
+	return d.docker.RemoveEventListener(listener)
+}
+
 func (d *dockerWrap) ListContainers(opts docker.ListContainersOptions) (containers []docker.APIContainers, err error) {
 	ctx, closer := makeTracker(opts.Context, "docker_list_containers")
 	defer closer()
@@ -340,6 +353,19 @@ func (d *dockerWrap) ListContainers(opts docker.ListContainersOptions) (containe
 	})
 
 	return containers, err
+}
+
+func (d *dockerWrap) ListNetworks(ctx context.Context) (networks []docker.Network, err error) {
+	ctx, closer := makeTracker(ctx, "docker_list_networks")
+	defer closer()
+
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "ListNetworks"})
+	err = d.retry(ctx, func() error {
+		networks, err = d.docker.ListNetworks()
+		return err
+	})
+
+	return networks, err
 }
 
 func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) error {

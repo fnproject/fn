@@ -482,6 +482,11 @@ func (d *customDriver) Close() error {
 	return d.drv.Close()
 }
 
+// implements Driver
+func (d *customDriver) IsNetworkReady() bool {
+	return d.drv.IsNetworkReady()
+}
+
 var _ drivers.Driver = &customDriver{}
 
 // capture logs so they shut up when things are fine

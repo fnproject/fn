@@ -25,6 +25,10 @@ func (m *Mocker) PrepareCookie(context.Context, drivers.Cookie) error {
 	return nil
 }
 
+func (m *Mocker) IsNetworkReady() bool {
+	return true
+}
+
 func (m *Mocker) Close() error {
 	return nil
 }

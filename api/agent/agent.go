@@ -1149,6 +1149,7 @@ type container struct {
 	cpus       uint64
 	fsSize     uint64
 	tmpFsSize  uint64
+	disableNet bool
 	iofs       iofs
 	logCfg     drivers.LoggerConfig
 	close      func()
@@ -1217,6 +1218,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, ud
 		cpus:       uint64(call.CPUs),
 		fsSize:     cfg.MaxFsSize,
 		tmpFsSize:  uint64(call.TmpFsSize),
+		disableNet: call.disableNet,
 		iofs:       iofs,
 		logCfg: drivers.LoggerConfig{
 			URL: strings.TrimSpace(call.SyslogURL),
@@ -1290,6 +1292,7 @@ func (c *container) LoggerConfig() drivers.LoggerConfig { return c.logCfg }
 func (c *container) UDSAgentPath() string               { return c.iofs.AgentPath() }
 func (c *container) UDSDockerPath() string              { return c.iofs.DockerPath() }
 func (c *container) UDSDockerDest() string              { return iofsDockerMountDest }
+func (c *container) DisableNet() bool                   { return c.disableNet }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

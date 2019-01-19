@@ -80,6 +80,9 @@ type Driver interface {
 
 	// close & shutdown the driver
 	Close() error
+
+	// Check if network is ready for defined networks
+	IsNetworkReady() bool
 }
 
 // RunResult indicates only the final state of the task.
@@ -178,6 +181,9 @@ type ContainerTask interface {
 	// UDSDockerDest is the destination mount point for uds path. it is the path
 	// of the directory where the sock file resides inside of the container.
 	UDSDockerDest() string
+
+	// Returns true if network is disabled.
+	DisableNet() bool
 }
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.

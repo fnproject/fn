@@ -787,6 +787,10 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	recorder := httptest.NewRecorder()
 	player := ioutil.NopCloser(strings.NewReader(c.Payload))
 
+	// Fetch network status
+	agent := pr.a.(*agent)
+	result.IsNetworkEnabled = agent.driver.IsNetworkReady()
+
 	var mcall *call
 	agentCall, err := pr.a.GetCall(FromModelAndInput(&c, player),
 		WithLogger(common.NoopReadWriteCloser{}),
@@ -795,6 +799,12 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	)
 	if err == nil {
 		mcall = agentCall.(*call)
+
+		// disable network if not ready
+		if !result.IsNetworkEnabled {
+			mcall.disableNet = true
+		}
+
 		err = pr.a.Submit(mcall)
 	}
 

@@ -81,6 +81,7 @@ message RunnerStatus {
     uint64 kdumpsOnDisk = 14; // number of kdumps on local disk
     int64 schedulerDuration = 15; // the amount of time for scheduler execution
     int64 executionDuration = 16; // the amount of time for function execution
+    bool isNetworkEnabled = 17; // returns true if runner network is ready
 }
 
 service RunnerProtocol {

@@ -278,6 +278,7 @@ type call struct {
 	slots        *slotQueue
 	requestState RequestState
 	slotHashId   string
+	disableNet   bool
 
 	// amount of time attributed to user-code execution
 	userExecTime *time.Duration
