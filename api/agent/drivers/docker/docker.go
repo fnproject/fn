@@ -163,20 +163,30 @@ func killLeakedContainers(ctx context.Context, driver *DockerDriver) {
 		return
 	}
 
+	const containerListTimeout = time.Duration(60 * time.Second)
+
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "killLeakedContainers"})
+	limiter := rate.NewLimiter(2.0, 1)
+
 	filter := fmt.Sprintf("%s=%s", FnAgentClassifierLabel, driver.conf.ContainerLabelTag)
+	var containers []docker.APIContainers
 
-	opts := docker.ListContainersOptions{
-		All: true, // let's include containers that are not running, but not destroyed
-		Filters: map[string][]string{
-			"label": []string{filter},
-		},
-		Context: ctx,
-	}
+	for limiter.Wait(ctx) == nil {
+		var err error
+		ctx, cancel := context.WithTimeout(ctx, containerListTimeout)
+		containers, err = driver.docker.ListContainers(docker.ListContainersOptions{
+			All: true, // let's include containers that are not running, but not destroyed
+			Filters: map[string][]string{
+				"label": []string{filter},
+			},
+			Context: ctx,
+		})
+		cancel()
+		if err == nil {
+			break
+		}
 
-	containers, err := driver.docker.ListContainers(opts)
-	if err != nil {
-		logrus.WithError(err).Errorf("cannot list docker containers with filter %s", filter)
-		return
+		log.WithError(err).Error("ListContainers error, will retry...")
 	}
 
 	for _, item := range containers {
