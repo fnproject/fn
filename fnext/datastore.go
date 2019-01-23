@@ -156,7 +156,7 @@ func (e *extds) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error)
 		return nil, err
 	}
 
-	err = e.fl.AfterFnCreate(ctx, fn)
+	err = e.fl.AfterFnCreate(ctx, f)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (e *extds) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error)
 		return nil, err
 	}
 
-	err = e.fl.AfterFnUpdate(ctx, fn)
+	err = e.fl.AfterFnUpdate(ctx, f)
 	if err != nil {
 		return nil, err
 	}
