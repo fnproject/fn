@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -91,6 +92,9 @@ func (r *gRPCRunner) Address() string {
 	return r.address
 }
 
+// isTooBusy checks if the error is a retriable error (503) that is explicitly sent
+// by runner. If isTooBusy returns true then we can idempotently run this call
+// on the same or another runner.
 func isTooBusy(err error) bool {
 	// A formal API error returned from pure-runner
 	if models.GetAPIErrorCode(err) == models.GetAPIErrorCode(models.ErrCallTimeoutServerBusy) {
@@ -193,12 +197,17 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	}}})
 	if err != nil {
 		log.WithError(err).Error("Failed to send message to runner node")
-		// Try on next runner
-		return false, err
+		// Let's ensure this is a codes.Unavailable error, otherwise we should
+		// not assume that no data was transferred to the server. If the error is
+		// retriable, then we can bubble up "not placed" to the caller to enable
+		// a retry on this or different runner.
+		isRetriable := status.Code(err) == codes.Unavailable
+		return !isRetriable, err
 	}
 
-	// After this point TryCall was sent, we assume "COMMITTED" unless pure runner
-	// send explicit NACK
+	// IMPORTANT: After this point TryCall was sent, we assume "COMMITTED" unless pure runner
+	// send explicit NACK. Remember that requests may have no body and TryCall can contain all
+	// data to execute a request.
 
 	recvDone := make(chan error, 1)
 
