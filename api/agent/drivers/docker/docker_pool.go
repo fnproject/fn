@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
@@ -63,7 +62,6 @@ func (c *poolTask) Volumes() [][2]string                             { return ni
 func (c *poolTask) WorkDir() string                                  { return "" }
 func (c *poolTask) Close()                                           {}
 func (c *poolTask) Image() string                                    { return c.image }
-func (c *poolTask) Timeout() time.Duration                           { return 0 }
 func (c *poolTask) EnvVars() map[string]string                       { return nil }
 func (c *poolTask) Memory() uint64                                   { return 0 }
 func (c *poolTask) CPUs() uint64                                     { return 0 }

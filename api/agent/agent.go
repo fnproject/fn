@@ -1280,7 +1280,6 @@ func (c *container) Volumes() [][2]string               { return nil }
 func (c *container) WorkDir() string                    { return "" }
 func (c *container) Close()                             { c.close() }
 func (c *container) Image() string                      { return c.image }
-func (c *container) Timeout() time.Duration             { return 0 } // context handles this
 func (c *container) EnvVars() map[string]string         { return c.env }
 func (c *container) Memory() uint64                     { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                       { return c.cpus }
