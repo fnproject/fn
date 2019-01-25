@@ -21,12 +21,11 @@ type taskDockerTest struct {
 	errors io.Writer
 }
 
-func (f *taskDockerTest) Command() string                         { return "" }
+func (f *taskDockerTest) Command() string                         { return "echo hello" }
 func (f *taskDockerTest) EnvVars() map[string]string              { return map[string]string{} }
 func (f *taskDockerTest) Id() string                              { return f.id }
 func (f *taskDockerTest) Group() string                           { return "" }
-func (f *taskDockerTest) Image() string                           { return "hello-world" }
-func (f *taskDockerTest) Timeout() time.Duration                  { return 30 * time.Second }
+func (f *taskDockerTest) Image() string                           { return "busybox" }
 func (f *taskDockerTest) Logger() (stdout, stderr io.Writer)      { return f.output, f.errors }
 func (f *taskDockerTest) WriteStat(context.Context, drivers.Stat) { /* TODO */ }
 func (f *taskDockerTest) Volumes() [][2]string                    { return [][2]string{} }
@@ -224,8 +223,7 @@ func TestRunnerDockerStdout(t *testing.T) {
 			result.Error(), output.String(), errors.String())
 	}
 
-	// if hello world image changes, change dis
-	expect := "Hello from Docker!"
+	expect := "hello"
 	got := output.String()
 	if !strings.Contains(got, expect) {
 		t.Errorf("Test expected output to contain '%s', got '%s'", expect, got)

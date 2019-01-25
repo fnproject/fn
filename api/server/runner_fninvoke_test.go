@@ -145,18 +145,20 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	models.MaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
 	hugeMem := uint64(models.MaxMemory - 1)
 
+	// quickly exit with exit code 0 without serving http/uds, or sleep 20 secs, then exit.. Two failure scenarios.
+	failQuickCfg := map[string]string{"ENABLE_INIT_EXIT": "0"}
+	failTimeoutCfg := map[string]string{"ENABLE_INIT_EXIT": "0", "ENABLE_INIT_DELAY_MSEC": "20000"}
+
 	dneFn := &models.Fn{ID: "dne_fn_id", Name: "dne_fn", AppID: app.ID, Image: rImgBs1, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	dneRegistryFn := &models.Fn{ID: "dnereg_fn_id", Name: "dnereg_fn", AppID: app.ID, Image: rImgBs2, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
 	httpStreamFn := &models.Fn{ID: "http_stream_fn_id", Name: "http_stream_fn", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
-	bigMemHotFn := &models.Fn{ID: "bigmem", Name: "bigmemhot", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
-
-	// TODO consider removing this instead of satisfying this test. it was here to help user experience during a transitional time in our lives where we decided to cut all our hair off and we hope you'll forget it.
-	// TODO also note that fnproject/hello should get killed whenever you do that. it is only here for the purposes of failing.
-	oldDefaultFn := &models.Fn{ID: "fail_fn", Name: "fail_fn", AppID: app.ID, Image: "fnproject/hello", ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: rCfg}
+	bigMemHotFn := &models.Fn{ID: "bigmem", Name: "bigmemhot", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
+	failQuickFn := &models.Fn{ID: "fail_fn_quick", Name: "fail_fn_quick", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: failQuickCfg}
+	failTimeoutFn := &models.Fn{ID: "fail_fn_timeout", Name: "fail_fn_timeout", AppID: app.ID, Image: rImg, ResourceConfig: models.ResourceConfig{Memory: 64, Timeout: 30, IdleTimeout: 30}, Config: failTimeoutCfg}
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
-		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn, oldDefaultFn, bigMemHotFn},
+		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn, failQuickFn, failTimeoutFn, bigMemHotFn},
 	)
 	ls := logs.NewMock()
 
@@ -213,8 +215,8 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		// XXX(reed): what are these?
 		{"/invoke/http_stream_fn_id", multiLog, http.MethodPost, http.StatusOK, nil, "", multiLogExpectHot},
 
-		// TODO consider removing this, see comment above the image
-		{"/invoke/fail_fn", ok, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
+		{"/invoke/fail_fn_quick", ok, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
+		{"/invoke/fail_fn_timeout", ok, http.MethodPost, http.StatusGatewayTimeout, nil, "Container initialization timed out", nil},
 		{"/invoke/fn_id", ok, http.MethodPut, http.StatusMethodNotAllowed, nil, "Method not allowed", nil},
 
 		{"/invoke/bigmem", ok, http.MethodPost, http.StatusBadRequest, nil, "cannot be allocated", nil},

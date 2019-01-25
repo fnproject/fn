@@ -126,9 +126,6 @@ type ContainerTask interface {
 	// Image returns the runtime specific image to run.
 	Image() string
 
-	// Timeout specifies the maximum time a task is allowed to run. Return 0 to let it run forever.
-	Timeout() time.Duration
-
 	// Driver will write output log from task execution to these writers. Must be
 	// non-nil. Use io.Discard if log is irrelevant.
 	Logger() (stdout, stderr io.Writer)
