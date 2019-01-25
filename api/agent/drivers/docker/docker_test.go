@@ -444,3 +444,22 @@ func TestRunnerDockerCleanCase4(t *testing.T) {
 		t.Fatalf("Expected container not found, but got %v", err)
 	}
 }
+
+func TestRunnerDockerNetworkWait(t *testing.T) {
+
+	// spin up driver with some network wait: foo
+
+	// make sure docker does not have foo
+
+	// query driver, network should be disable
+
+	// add foo
+
+	// query driver, network should be enabled
+}
+
+func TestRunnerDockerNoNetwork(t *testing.T) {
+	// create container with disable net.
+
+	// query container, Network should be 'none'
+}

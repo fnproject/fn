@@ -103,7 +103,7 @@ func (c *myCall) Model() *models.Call                  { return nil }
 func (c *myCall) GetUserExecutionTime() *time.Duration { return nil }
 func (c *myCall) AddUserExecutionTime(time.Duration)   {}
 
-func TestExecuteRunnerStatus(t *testing.T) {
+func TestExecuteRunnerStatusConcurrent(t *testing.T) {
 	buf := setLogBuffer()
 	defer func() {
 		if t.Failed() {
@@ -184,6 +184,9 @@ func TestExecuteRunnerStatus(t *testing.T) {
 		if status == nil || status.StatusFailed {
 			t.Fatalf("Runners Status not OK for %v %v", dest.Address(), status)
 		}
+		if !status.IsNetworkEnabled {
+			t.Fatalf("Runners Status should have network enabled %v %v", dest.Address(), status)
+		}
 		t.Logf("Runner %v got Status=%+v", dest.Address(), status)
 		_, ok := lookup[status.StatusId]
 		if ok {
@@ -191,4 +194,45 @@ func TestExecuteRunnerStatus(t *testing.T) {
 		}
 	}
 
+}
+
+// Test faulty runner pool, which is waiting on a non-existent docker network
+func TestExecuteRunnerStatusNoNet(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var zoo myCall
+
+	pool, err := NewSystemTestNodePoolNoNet()
+	if err != nil {
+		t.Fatalf("Creating Node Pool failed %v", err)
+	}
+
+	runners, err := pool.Runners(context.Background(), &zoo)
+	if err != nil {
+		t.Fatalf("Getting Runners from Pool failed %v", err)
+	}
+	if len(runners) == 0 {
+		t.Fatalf("Getting Runners from Pool failed no-runners")
+	}
+
+	for _, dest := range runners {
+		status, err := dest.Status(ctx)
+		if err != nil {
+			t.Fatalf("Runners Status failed for %v err=%v", dest.Address(), err)
+		}
+		if status == nil || status.StatusFailed {
+			t.Fatalf("Runners Status not OK for %v %v", dest.Address(), status)
+		}
+		if status.IsNetworkEnabled {
+			t.Fatalf("Runners Status should have NO network enabled %v %v", dest.Address(), status)
+		}
+		t.Logf("Runner %v got Status=%+v", dest.Address(), status)
+	}
 }

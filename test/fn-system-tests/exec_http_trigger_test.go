@@ -355,12 +355,11 @@ func callTrigger(ctx context.Context, u string, content io.Reader, output io.Wri
 }
 
 func getAPIURL() (string, *url.URL) {
-	apiURL := getEnv("FN_API_URL", "http://localhost:8085")
-	u, err := url.Parse(apiURL)
+	u, err := url.Parse(APIAddress)
 	if err != nil {
-		log.Fatalf("Couldn't parse API URL: %s error: %s", apiURL, err)
+		log.Fatalf("Couldn't parse API URL: %s error: %s", APIAddress, err)
 	}
-	return apiURL, u
+	return APIAddress, u
 }
 
 func host() string {
