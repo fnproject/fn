@@ -50,6 +50,7 @@ type dockerClient interface {
 	ListNetworks(ctx context.Context) ([]docker.Network, error)
 	AddEventListener(ctx context.Context) (chan *docker.APIEvents, error)
 	RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) error
+	InspectContainer(ctx context.Context, id string) (*docker.Container, error)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -538,6 +539,18 @@ func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.I
 		return err
 	})
 	return i, err
+}
+
+func (d *dockerWrap) InspectContainer(ctx context.Context, id string) (c *docker.Container, err error) {
+	ctx, closer := makeTracker(ctx, "docker_inspect_container")
+	defer closer()
+
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "InspectContainer"})
+	err = d.retry(ctx, func() error {
+		c, err = d.docker.InspectContainerWithContext(id, ctx)
+		return err
+	})
+	return c, err
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {

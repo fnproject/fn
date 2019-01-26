@@ -114,7 +114,9 @@ func TestImageCleaner2(t *testing.T) {
 		Size: 512 * 1024 * 1024,
 	}
 
-	task := &taskDockerTest{"test-docker", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
+	task := createTask("test-docker")
+	task.output = &output
+	task.errors = &errors
 
 	cookie, err := dkr.CreateCookie(ctx, task)
 	if err != nil {
