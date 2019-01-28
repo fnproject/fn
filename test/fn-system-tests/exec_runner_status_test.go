@@ -184,7 +184,7 @@ func TestExecuteRunnerStatusConcurrent(t *testing.T) {
 		if status == nil || status.StatusFailed {
 			t.Fatalf("Runners Status not OK for %v %v", dest.Address(), status)
 		}
-		if !status.IsNetworkEnabled {
+		if status.IsNetworkDisabled {
 			t.Fatalf("Runners Status should have network enabled %v %v", dest.Address(), status)
 		}
 		t.Logf("Runner %v got Status=%+v", dest.Address(), status)
@@ -230,7 +230,7 @@ func TestExecuteRunnerStatusNoNet(t *testing.T) {
 		if status == nil || status.StatusFailed {
 			t.Fatalf("Runners Status not OK for %v %v", dest.Address(), status)
 		}
-		if status.IsNetworkEnabled {
+		if !status.IsNetworkDisabled {
 			t.Fatalf("Runners Status should have NO network enabled %v %v", dest.Address(), status)
 		}
 		t.Logf("Runner %v got Status=%+v", dest.Address(), status)

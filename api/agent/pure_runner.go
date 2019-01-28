@@ -789,7 +789,7 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 
 	// Fetch network status
 	agent := pr.a.(*agent)
-	result.IsNetworkEnabled = agent.driver.IsNetworkReady()
+	result.IsNetworkDisabled = !agent.driver.IsNetworkReady()
 
 	var mcall *call
 	agentCall, err := pr.a.GetCall(FromModelAndInput(&c, player),
@@ -801,9 +801,7 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 		mcall = agentCall.(*call)
 
 		// disable network if not ready
-		if !result.IsNetworkEnabled {
-			mcall.disableNet = true
-		}
+		mcall.disableNet = result.IsNetworkDisabled
 
 		err = pr.a.Submit(mcall)
 	}
