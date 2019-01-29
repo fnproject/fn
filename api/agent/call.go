@@ -39,9 +39,6 @@ type Call interface {
 	End(ctx context.Context, err error) error
 }
 
-// Interceptor in GetCall
-type CallOverrider func(*models.Call, map[string]string) (map[string]string, error)
-
 // TODO build w/o closures... lazy
 type CallOpt func(c *call) error
 

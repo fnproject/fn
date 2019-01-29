@@ -24,7 +24,7 @@ type lbAgent struct {
 	callListeners []fnext.CallListener
 	rp            pool.RunnerPool
 	placer        pool.Placer
-	callOverrider CallOverrider
+	callOverrider fnext.CallOverrider
 	shutWg        *common.WaitGroup
 }
 
@@ -71,7 +71,7 @@ func WithLBAgentConfig(cfg *Config) LBAgentOption {
 }
 
 // LB agents can use this to register a CallOverrider to modify a Call and extensions
-func WithLBCallOverrider(fn CallOverrider) LBAgentOption {
+func WithLBCallOverrider(fn fnext.CallOverrider) LBAgentOption {
 	return func(a *lbAgent) error {
 		if a.callOverrider != nil {
 			return errors.New("lb-agent call overriders already exists")
