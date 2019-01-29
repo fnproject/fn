@@ -356,7 +356,7 @@ func (c *cookie) PullImage(ctx context.Context) error {
 
 	err := c.drv.docker.PullImage(docker.PullImageOptions{Repository: repo, Tag: c.imgTag, Context: ctx}, *cfg)
 	if err != nil {
-		log.WithError(err).Error("Failed to pull image")
+		log.WithError(err).Info("Failed to pull image")
 
 		// TODO need to inspect for hub or network errors and pick; for now, assume
 		// 500 if not a docker error
@@ -369,7 +369,8 @@ func (c *cookie) PullImage(ctx context.Context) error {
 			}
 		}
 
-		return models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", c.task.Image(), msg))
+		err := models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", c.task.Image(), msg))
+		return models.NewFuncError(err)
 	}
 	return nil
 }
