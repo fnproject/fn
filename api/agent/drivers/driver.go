@@ -178,6 +178,9 @@ type ContainerTask interface {
 	// UDSDockerDest is the destination mount point for uds path. it is the path
 	// of the directory where the sock file resides inside of the container.
 	UDSDockerDest() string
+
+	// Returns true if network is disabled.
+	DisableNet() bool
 }
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.

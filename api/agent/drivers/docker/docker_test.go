@@ -15,13 +15,15 @@ import (
 )
 
 type taskDockerTest struct {
-	id     string
-	input  io.Reader
-	output io.Writer
-	errors io.Writer
+	id         string
+	cmd        string
+	disableNet bool
+	input      io.Reader
+	output     io.Writer
+	errors     io.Writer
 }
 
-func (f *taskDockerTest) Command() string                         { return "echo hello" }
+func (f *taskDockerTest) Command() string                         { return f.cmd }
 func (f *taskDockerTest) EnvVars() map[string]string              { return map[string]string{} }
 func (f *taskDockerTest) Id() string                              { return f.id }
 func (f *taskDockerTest) Group() string                           { return "" }
@@ -41,16 +43,63 @@ func (f *taskDockerTest) LoggerConfig() drivers.LoggerConfig      { return drive
 func (f *taskDockerTest) UDSAgentPath() string                    { return "" }
 func (f *taskDockerTest) UDSDockerPath() string                   { return "" }
 func (f *taskDockerTest) UDSDockerDest() string                   { return "" }
+func (f *taskDockerTest) DisableNet() bool                        { return f.disableNet }
+
+func createTask(id string) *taskDockerTest {
+	return &taskDockerTest{
+		id: id,
+	}
+}
+
+func commonCookiePull(ctx context.Context, cookie drivers.Cookie) error {
+	err := cookie.AuthImage(ctx)
+	if err != nil {
+		return err
+	}
+
+	shouldPull, err := cookie.ValidateImage(ctx)
+	if err != nil {
+		return err
+	}
+	if shouldPull {
+		err = cookie.PullImage(ctx)
+		if err != nil {
+			return err
+		}
+		shouldPull, err = cookie.ValidateImage(ctx)
+		if err != nil || shouldPull {
+			return err
+		}
+	}
+	return nil
+}
+
+func commonCookieRun(ctx context.Context, cookie drivers.Cookie) (error, drivers.RunResult) {
+	err := cookie.CreateContainer(ctx)
+	if err != nil {
+		return err, nil
+	}
+
+	waiter, err := cookie.Run(ctx)
+	if err != nil {
+		return err, nil
+	}
+	return nil, waiter.Wait(ctx)
+}
 
 func TestRunnerDocker(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+
 	dkr := NewDocker(drivers.Config{})
 	defer dkr.Close()
 
-	ctx := context.Background()
 	var output bytes.Buffer
 	var errors bytes.Buffer
 
-	task := &taskDockerTest{"test-docker", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
+	task := createTask("test-docker")
+	task.output = &output
+	task.errors = &errors
 
 	cookie, err := dkr.CreateCookie(ctx, task)
 	if err != nil {
@@ -59,37 +108,14 @@ func TestRunnerDocker(t *testing.T) {
 
 	defer cookie.Close(ctx)
 
-	err = cookie.AuthImage(ctx)
-	if err != nil {
-		t.Fatal("Couldn't auth image test")
-	}
-
-	shouldPull, err := cookie.ValidateImage(ctx)
-	if err != nil {
-		t.Fatal("Couldn't validate image test")
-	}
-	if shouldPull {
-		err = cookie.PullImage(ctx)
-		if err != nil {
-			t.Fatal("Couldn't pull image test")
-		}
-		shouldPull, err = cookie.ValidateImage(ctx)
-		if err != nil || shouldPull {
-			t.Fatal("Couldn't validate image test")
-		}
-	}
-
-	err = cookie.CreateContainer(ctx)
-	if err != nil {
-		t.Fatal("Couldn't create container test")
-	}
-
-	waiter, err := cookie.Run(ctx)
+	err = commonCookiePull(ctx, cookie)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	result := waiter.Wait(ctx)
+	err, result := commonCookieRun(ctx, cookie)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if result.Error() != nil {
 		t.Fatal(result.Error())
 	}
@@ -101,17 +127,16 @@ func TestRunnerDocker(t *testing.T) {
 }
 
 func TestRunnerDockerNetworks(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+
 	dkr := NewDocker(drivers.Config{
 		DockerNetworks: "test1 test2",
 	})
 	defer dkr.Close()
 
-	ctx := context.Background()
-	var output bytes.Buffer
-	var errors bytes.Buffer
-
-	task1 := &taskDockerTest{"test-docker1", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
-	task2 := &taskDockerTest{"test-docker2", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
+	task1 := createTask("test-docker1")
+	task2 := createTask("test-docker2")
 
 	cookie1, err := dkr.CreateCookie(ctx, task1)
 	if err != nil {
@@ -169,14 +194,19 @@ func TestRunnerDockerVersion(t *testing.T) {
 }
 
 func TestRunnerDockerStdout(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+
 	dkr := NewDocker(drivers.Config{})
-	ctx := context.Background()
 	defer dkr.Close()
 
 	var output bytes.Buffer
 	var errors bytes.Buffer
 
-	task := &taskDockerTest{"test-docker-stdin", bytes.NewBufferString(""), &output, &errors}
+	task := createTask("test-docker-stdin")
+	task.output = &output
+	task.errors = &errors
+	task.cmd = "echo hello"
 
 	cookie, err := dkr.CreateCookie(ctx, task)
 	if err != nil {
@@ -184,36 +214,14 @@ func TestRunnerDockerStdout(t *testing.T) {
 	}
 	defer cookie.Close(ctx)
 
-	err = cookie.AuthImage(ctx)
-	if err != nil {
-		t.Fatal("Couldn't auth image test")
-	}
-
-	shouldPull, err := cookie.ValidateImage(ctx)
-	if err != nil {
-		t.Fatal("Couldn't validate image test")
-	}
-	if shouldPull {
-		err = cookie.PullImage(ctx)
-		if err != nil {
-			t.Fatal("Couldn't pull image test")
-		}
-		shouldPull, err = cookie.ValidateImage(ctx)
-		if err != nil || shouldPull {
-			t.Fatal("Couldn't validate image test")
-		}
-	}
-	err = cookie.CreateContainer(ctx)
-	if err != nil {
-		t.Fatal("Couldn't create container test")
-	}
-
-	waiter, err := cookie.Run(ctx)
+	err = commonCookiePull(ctx, cookie)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	result := waiter.Wait(ctx)
+	err, result := commonCookieRun(ctx, cookie)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if result.Error() != nil {
 		t.Fatal(result.Error())
 	}
@@ -442,4 +450,48 @@ func TestRunnerDockerCleanCase4(t *testing.T) {
 	if !containerNotFound {
 		t.Fatalf("Expected container not found, but got %v", err)
 	}
+}
+
+// create container with disable net.
+// query container HostConfig, where NetworkMode should be 'none'
+func TestRunnerDockerNoNetwork(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+
+	dkr := NewDocker(drivers.Config{})
+	defer dkr.Close()
+
+	task := createTask("test-docker-no-net")
+	task.disableNet = true
+
+	cookie, err := dkr.CreateCookie(ctx, task)
+	if err != nil {
+		t.Fatal("Couldn't create task cookie")
+	}
+
+	defer cookie.Close(ctx)
+
+	err = commonCookiePull(ctx, cookie)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = cookie.CreateContainer(ctx)
+	if err != nil {
+		t.Fatal("Couldn't create container test")
+	}
+
+	client := newTestClient(ctx)
+
+	c, err := client.InspectContainerWithContext(task.Id(), ctx)
+	if err != nil {
+		t.Fatalf("Couldn't inspect container test %v", err)
+	}
+	if c == nil || c.HostConfig == nil || c.HostConfig.NetworkMode != "none" {
+		t.Fatalf("Couldn't create none network container: %+v", c)
+	}
+
+	// We could make busybox execute a 'ip link' or 'ip address' and parse the output, but
+	// this is unnecessary as NetworkMode=none is well known. (eg. docker run --network none)
+	// https://docs.docker.com/network/none/
 }

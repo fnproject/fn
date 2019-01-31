@@ -140,6 +140,7 @@ func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStat
 		CompletedAt:        compl,
 		SchedulerDuration:  runnerSchedLatency,
 		ExecutionDuration:  runnerExecLatency,
+		IsNetworkDisabled:  status.IsNetworkDisabled,
 	}
 }
 

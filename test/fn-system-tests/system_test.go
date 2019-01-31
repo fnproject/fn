@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -35,8 +34,17 @@ import (
 )
 
 const (
-	LBAddress   = "http://127.0.0.1:8081"
-	StatusImage = "fnproject/fn-status-checker:latest"
+	// TODO: Make these ports configurable, eg based on a provided range.
+	LBPort     = 8081
+	APIPort    = 8082
+	LBAddress  = "http://127.0.0.1:8081"
+	APIAddress = "http://127.0.0.1:8082"
+
+	RunnerStartPort     = 8083
+	RunnerStartGRPCPort = 9190
+
+	StatusImage       = "fnproject/fn-status-checker:latest"
+	StatusBarrierFile = "./barrier_file.txt"
 )
 
 var (
@@ -52,14 +60,7 @@ func LB() (string, error) {
 	return u.Host, nil
 }
 
-func NewSystemTestNodePool() (pool.RunnerPool, error) {
-	myAddr := whoAmI()
-	runners := []string{
-		fmt.Sprintf("%s:9190", myAddr),
-		fmt.Sprintf("%s:9191", myAddr),
-		fmt.Sprintf("%s:9192", myAddr),
-	}
-
+func CreateRunnerPool(runners []string) (pool.RunnerPool, error) {
 	var dialOpts []grpc.DialOption
 
 	//
@@ -72,6 +73,23 @@ func NewSystemTestNodePool() (pool.RunnerPool, error) {
 	}))
 
 	return agent.NewStaticRunnerPool(runners, nil, dialOpts...), nil
+}
+
+// A runner pool with no docker networks available (using runner4)
+func NewSystemTestNodePoolNoNet() (pool.RunnerPool, error) {
+	runners := []string{
+		"127.0.0.1:9193",
+	}
+	return CreateRunnerPool(runners)
+}
+
+func NewSystemTestNodePool() (pool.RunnerPool, error) {
+	runners := []string{
+		"127.0.0.1:9190",
+		"127.0.0.1:9191",
+		"127.0.0.1:9192",
+	}
+	return CreateRunnerPool(runners)
 }
 
 type state struct {
@@ -100,18 +118,25 @@ func setUpSystem() (*state, error) {
 	state.memory = os.Getenv(agent.EnvMaxTotalMemory)
 	os.Setenv(agent.EnvMaxTotalMemory, strconv.FormatUint(256*1024*1024, 10))
 
-	pr0, err := SetUpPureRunnerNode(ctx, 0)
+	pr0, err := SetUpPureRunnerNode(ctx, 0, "")
 	if err != nil {
 		return state, err
 	}
-	pr1, err := SetUpPureRunnerNode(ctx, 1)
+	pr1, err := SetUpPureRunnerNode(ctx, 1, "")
 	if err != nil {
 		return state, err
 	}
-	pr2, err := SetUpPureRunnerNode(ctx, 2)
+	pr2, err := SetUpPureRunnerNode(ctx, 2, "")
 	if err != nil {
 		return state, err
 	}
+
+	os.Remove(StatusBarrierFile)
+	pr3, err := SetUpPureRunnerNode(ctx, 3, StatusBarrierFile)
+	if err != nil {
+		return state, err
+	}
+
 	logrus.Info("Created Pure Runner nodes")
 
 	go func() { api.Start(ctx) }()
@@ -121,7 +146,10 @@ func setUpSystem() (*state, error) {
 	go func() { pr0.Start(ctx) }()
 	go func() { pr1.Start(ctx) }()
 	go func() { pr2.Start(ctx) }()
+	go func() { pr3.Start(ctx) }()
 	logrus.Info("Started Pure Runner nodes")
+
+	logrus.Info("Started Servers")
 	// Wait for init - not great
 	time.Sleep(5 * time.Second)
 	return state, nil
@@ -155,25 +183,20 @@ func CleanUpSystem(st *state) error {
 
 	downloadMetrics()
 
-	_, err := http.Get("http://127.0.0.1:8081/shutdown")
+	_, err := http.Get(LBAddress + "/shutdown")
 	if err != nil {
 		return err
 	}
-	_, err = http.Get("http://127.0.0.1:8082/shutdown")
+	_, err = http.Get(APIAddress + "/shutdown")
 	if err != nil {
 		return err
 	}
-	_, err = http.Get("http://127.0.0.1:8083/shutdown")
-	if err != nil {
-		return err
-	}
-	_, err = http.Get("http://127.0.0.1:8084/shutdown")
-	if err != nil {
-		return err
-	}
-	_, err = http.Get("http://127.0.0.1:8085/shutdown")
-	if err != nil {
-		return err
+
+	for i := 0; i < 4; i++ {
+		_, err := http.Get(fmt.Sprintf("http://127.0.0.1:%v/shutdown", i+RunnerStartPort))
+		if err != nil {
+			return err
+		}
 	}
 
 	if st.cancel != nil {
@@ -199,7 +222,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	nodeType := server.ServerTypeAPI
 	opts := make([]server.Option, 0)
-	opts = append(opts, server.WithWebPort(8085))
+	opts = append(opts, server.WithWebPort(APIPort))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogFormat(getEnv(server.EnvLogFormat, server.DefaultLogFormat)))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
@@ -208,8 +231,8 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithMQURL(getEnv(server.EnvMQURL, defaultMQ)))
 	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.WithLogstoreFromDatastore())
-	opts = append(opts, server.WithTriggerAnnotator(server.NewStaticURLTriggerAnnotator("http://localhost:8081")))
-	opts = append(opts, server.WithFnAnnotator(server.NewStaticURLFnAnnotator("http://localhost:8081")))
+	opts = append(opts, server.WithTriggerAnnotator(server.NewStaticURLTriggerAnnotator(LBAddress)))
+	opts = append(opts, server.WithFnAnnotator(server.NewStaticURLFnAnnotator(LBAddress)))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
 	return server.New(ctx, opts...), nil
 }
@@ -217,7 +240,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	nodeType := server.ServerTypeLB
 	opts := make([]server.Option, 0)
-	opts = append(opts, server.WithWebPort(8081))
+	opts = append(opts, server.WithWebPort(LBPort))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogFormat(getEnv(server.EnvLogFormat, server.DefaultLogFormat)))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
@@ -233,8 +256,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithRIDProvider(ridProvider))
 	opts = append(opts, server.WithPrometheus())
 
-	apiURL := "http://127.0.0.1:8085"
-	cl, err := hybrid.NewClient(apiURL)
+	cl, err := hybrid.NewClient(APIAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -260,11 +282,11 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	return server.New(ctx, opts...), nil
 }
 
-func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, error) {
+func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile string) (*server.Server, error) {
 	nodeType := server.ServerTypePureRunner
 	opts := make([]server.Option, 0)
-	opts = append(opts, server.WithWebPort(8082+nodeNum))
-	opts = append(opts, server.WithGRPCPort(9190+nodeNum))
+	opts = append(opts, server.WithWebPort(RunnerStartPort+nodeNum))
+	opts = append(opts, server.WithGRPCPort(RunnerStartGRPCPort+nodeNum))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogFormat(getEnv(server.EnvLogFormat, server.DefaultLogFormat)))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
@@ -278,7 +300,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	if err != nil {
 		return nil, err
 	}
-	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
+	grpcAddr := fmt.Sprintf(":%d", RunnerStartGRPCPort+nodeNum)
 
 	// This is our Agent config, which we will use for both inner agent and docker.
 	cfg, err := agent.NewConfig()
@@ -325,6 +347,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 		agent.PureRunnerWithStatusImage(StatusImage),
 		agent.PureRunnerWithDetached(),
 		agent.PureRunnerWithGRPCServerOptions(grpcOpts...),
+		agent.PureRunnerWithStatusNetworkEnabler(StatusBarrierFile),
 	)
 	if err != nil {
 		return nil, err
@@ -361,29 +384,6 @@ func getEnvInt(key string, fallback int) int {
 		return i
 	}
 	return fallback
-}
-
-// whoAmI searches for a non-local address on any network interface, returning
-// the first one it finds. it could be expanded to search eth0 or en0 only but
-// to date this has been unnecessary.
-func whoAmI() net.IP {
-	ints, _ := net.Interfaces()
-	for _, i := range ints {
-		if i.Name == "docker0" || i.Name == "vboxnet0" || i.Name == "lo" {
-			// not perfect
-			continue
-		}
-		addrs, _ := i.Addrs()
-		for _, a := range addrs {
-			ip, _, err := net.ParseCIDR(a.String())
-			if a.Network() == "ip+net" && err == nil && ip.To4() != nil {
-				if !bytes.Equal(ip, net.ParseIP("127.0.0.1")) {
-					return ip
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func TestMain(m *testing.M) {

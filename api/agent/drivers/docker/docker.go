@@ -6,11 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"go.opencensus.io/trace"
@@ -64,9 +62,7 @@ type DockerDriver struct {
 	hostname string
 	auths    map[string]driverAuthConfig
 	pool     DockerPool
-	// protects networks map
-	networksLock sync.Mutex
-	networks     map[string]uint64
+	network  *DockerNetworks
 
 	instanceId string
 
@@ -101,25 +97,9 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		docker:     newClient(ctx, conf.MaxRetries),
 		hostname:   hostname,
 		auths:      auths,
+		network:    NewDockerNetworks(conf),
 		instanceId: instanceId,
-	}
-
-	if driver.conf.ImageCleanMaxSize > 0 {
-		exemptImages := strings.Fields(conf.ImageCleanExemptTags)
-		// we never want to remove prefork image
-		if conf.PreForkPoolSize != 0 && conf.PreForkImage != "" {
-			exemptImages = append(exemptImages, conf.PreForkImage)
-		}
-		// WARNING: assuming images in conf.DockerLoadFile are also added in conf.ImageCleanExemptTags
-		driver.imgCache = NewImageCache(exemptImages, conf.ImageCleanMaxSize)
-	}
-
-	nets := strings.Fields(conf.DockerNetworks)
-	if len(nets) > 0 {
-		driver.networks = make(map[string]uint64, len(nets))
-		for _, net := range nets {
-			driver.networks[net] = 0
-		}
+		imgCache:   createImageCache(conf),
 	}
 
 	err = checkDockerVersion(ctx, driver)
@@ -148,7 +128,24 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 
 	// Record our instance id at startup
 	RecordInstanceId(ctx, instanceId)
+
 	return driver
+}
+
+// createImageCache scans the driver config to spawn an image cacher if applicable
+func createImageCache(conf drivers.Config) ImageCacher {
+	if conf.ImageCleanMaxSize == 0 {
+		return nil
+	}
+
+	exemptImages := strings.Fields(conf.ImageCleanExemptTags)
+	// we never want to remove prefork image
+	if conf.PreForkPoolSize != 0 && conf.PreForkImage != "" {
+		exemptImages = append(exemptImages, conf.PreForkImage)
+	}
+
+	// WARNING: assuming images in conf.DockerLoadFile are also added in conf.ImageCleanExemptTags
+	return NewImageCache(exemptImages, conf.ImageCleanMaxSize)
 }
 
 // killLeakedContainers scans and destroys previously left over containers that were managed
@@ -365,64 +362,6 @@ func (drv *DockerDriver) PrepareCookie(ctx context.Context, cookie drivers.Cooki
 	return nil
 }
 
-func (drv *DockerDriver) pickPool(ctx context.Context, c *cookie) {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "tryUsePool"})
-
-	if drv.pool == nil || c.opts.HostConfig.NetworkMode != "" {
-		return
-	}
-
-	id, err := drv.pool.AllocPoolId()
-	if err != nil {
-		log.WithError(err).Error("Could not fetch pre fork pool container")
-		return
-	}
-
-	// We are able to fetch a container from pool. Now, use its
-	// network, ipc and pid namespaces.
-	c.opts.HostConfig.NetworkMode = fmt.Sprintf("container:%s", id)
-	//c.opts.HostConfig.IpcMode = linker
-	//c.opts.HostConfig.PidMode = linker
-	c.poolId = id
-}
-
-func (drv *DockerDriver) unpickPool(c *cookie) {
-	if c.poolId != "" && drv.pool != nil {
-		drv.pool.FreePoolId(c.poolId)
-	}
-}
-
-func (drv *DockerDriver) pickNetwork(c *cookie) {
-
-	if len(drv.networks) == 0 || c.opts.HostConfig.NetworkMode != "" {
-		return
-	}
-
-	var id string
-	min := uint64(math.MaxUint64)
-
-	drv.networksLock.Lock()
-	for key, val := range drv.networks {
-		if val < min {
-			id = key
-			min = val
-		}
-	}
-	drv.networks[id]++
-	drv.networksLock.Unlock()
-
-	c.opts.HostConfig.NetworkMode = id
-	c.netId = id
-}
-
-func (drv *DockerDriver) unpickNetwork(c *cookie) {
-	if c.netId != "" {
-		c.drv.networksLock.Lock()
-		c.drv.networks[c.netId]--
-		c.drv.networksLock.Unlock()
-	}
-}
-
 func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
 
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "CreateCookie"})
@@ -454,6 +393,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 		drv:  drv,
 	}
 
+	// Order is important, eg. Hostname doesn't play well with Network config
 	cookie.configureLabels(log)
 	cookie.configureLogger(log)
 	cookie.configureMem(log)
@@ -465,15 +405,9 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 	cookie.configureVolumes(log)
 	cookie.configureWorkDir(log)
 	cookie.configureIOFS(log)
-
-	// Order is important, if pool is enabled, it overrides pick network
-	drv.pickPool(ctx, cookie)
-	drv.pickNetwork(cookie)
-
-	// Order is important, Hostname doesn't play well with Network config
+	cookie.configureNetwork(log)
 	cookie.configureHostname(log)
-
-	cookie.imgReg, cookie.imgRepo, cookie.imgTag = drivers.ParseImage(task.Image())
+	cookie.configureImage(log)
 
 	return cookie, nil
 }

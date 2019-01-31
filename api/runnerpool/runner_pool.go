@@ -41,6 +41,7 @@ type RunnerStatus struct {
 	CompletedAt        common.DateTime // Status completion date at Runner
 	SchedulerDuration  time.Duration   // Amount of time runner scheduler spent on the request
 	ExecutionDuration  time.Duration   // Amount of time runner spent on function execution
+	IsNetworkDisabled  bool            // True if network on runner is offline
 }
 
 // Runner is the interface to invoke the execution of a function call on a specific runner

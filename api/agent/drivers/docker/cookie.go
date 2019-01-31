@@ -45,6 +45,10 @@ type cookie struct {
 	container *docker.Container
 }
 
+func (c *cookie) configureImage(log logrus.FieldLogger) {
+	c.imgReg, c.imgRepo, c.imgTag = drivers.ParseImage(c.task.Image())
+}
+
 func (c *cookie) configureLabels(log logrus.FieldLogger) {
 	if c.drv.conf.ContainerLabelTag == "" {
 		return
@@ -194,6 +198,41 @@ func (c *cookie) configureWorkDir(log logrus.FieldLogger) {
 	c.opts.Config.WorkingDir = wd
 }
 
+func (c *cookie) configureNetwork(log logrus.FieldLogger) {
+	if c.opts.HostConfig.NetworkMode != "" {
+		return
+	}
+
+	if c.task.DisableNet() {
+		c.opts.HostConfig.NetworkMode = "none"
+		return
+	}
+
+	// If pool is enabled, we try to pick network from pool
+	if c.drv.pool != nil {
+		id, err := c.drv.pool.AllocPoolId()
+		if id != "" {
+			// We are able to fetch a container from pool. Now, use its
+			// network, ipc and pid namespaces.
+			c.opts.HostConfig.NetworkMode = fmt.Sprintf("container:%s", id)
+			//c.opts.HostConfig.IpcMode = linker
+			//c.opts.HostConfig.PidMode = linker
+			c.poolId = id
+			return
+		}
+		if err != nil {
+			log.WithError(err).Error("Could not fetch pre fork pool container")
+		}
+	}
+
+	// if pool is not enabled or fails, then pick from defined networks if any
+	id := c.drv.network.AllocNetwork()
+	if id != "" {
+		c.opts.HostConfig.NetworkMode = id
+		c.netId = id
+	}
+}
+
 func (c *cookie) configureHostname(log logrus.FieldLogger) {
 	// hostname and container NetworkMode is not compatible.
 	if c.opts.HostConfig.NetworkMode != "" {
@@ -235,8 +274,13 @@ func (c *cookie) Close(ctx context.Context) error {
 	if c.container != nil {
 		err = c.drv.removeContainer(ctx, c.task.Id())
 	}
-	c.drv.unpickPool(c)
-	c.drv.unpickNetwork(c)
+
+	if c.poolId != "" && c.drv.pool != nil {
+		c.drv.pool.FreePoolId(c.poolId)
+	}
+	if c.netId != "" {
+		c.drv.network.FreeNetwork(c.netId)
+	}
 
 	if c.image != nil && c.drv.imgCache != nil {
 		c.drv.imgCache.MarkFree(c.image)
