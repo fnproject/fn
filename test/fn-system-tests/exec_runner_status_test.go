@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"testing"
 	"time"
@@ -235,4 +236,32 @@ func TestExecuteRunnerStatusNoNet(t *testing.T) {
 		}
 		t.Logf("Runner %v got Status=%+v", dest.Address(), status)
 	}
+
+	f, err := os.Create(StatusBarrierFile)
+	if err != nil {
+		t.Fatalf("create file=%v failed err=%v", StatusBarrierFile, err)
+	}
+	f.Close()
+
+	// Let status hc caches expire.
+	select {
+	case <-time.After(time.Duration(2 * time.Second)):
+	case <-ctx.Done():
+		t.Fatal("Timeout")
+	}
+
+	for _, dest := range runners {
+		status, err := dest.Status(ctx)
+		if err != nil {
+			t.Fatalf("Runners Status failed for %v err=%v", dest.Address(), err)
+		}
+		if status == nil || status.StatusFailed {
+			t.Fatalf("Runners Status not OK for %v %v", dest.Address(), status)
+		}
+		if status.IsNetworkDisabled {
+			t.Fatalf("Runners Status should have network enabled %v %v", dest.Address(), status)
+		}
+		t.Logf("Runner %v got Status=%+v", dest.Address(), status)
+	}
+
 }

@@ -43,7 +43,8 @@ const (
 	RunnerStartPort     = 8083
 	RunnerStartGRPCPort = 9190
 
-	StatusImage = "fnproject/fn-status-checker:latest"
+	StatusImage       = "fnproject/fn-status-checker:latest"
+	StatusBarrierFile = "./barrier_file.txt"
 )
 
 var (
@@ -117,26 +118,21 @@ func setUpSystem() (*state, error) {
 	state.memory = os.Getenv(agent.EnvMaxTotalMemory)
 	os.Setenv(agent.EnvMaxTotalMemory, strconv.FormatUint(256*1024*1024, 10))
 
-	pr0, err := SetUpPureRunnerNode(ctx, 0, nil)
+	pr0, err := SetUpPureRunnerNode(ctx, 0, "")
 	if err != nil {
 		return state, err
 	}
-	pr1, err := SetUpPureRunnerNode(ctx, 1, nil)
+	pr1, err := SetUpPureRunnerNode(ctx, 1, "")
 	if err != nil {
 		return state, err
 	}
-	pr2, err := SetUpPureRunnerNode(ctx, 2, nil)
+	pr2, err := SetUpPureRunnerNode(ctx, 2, "")
 	if err != nil {
 		return state, err
 	}
 
-	// For runner4, let's install a non-existent docker network.
-	cfg, err := agent.NewConfig()
-	if err != nil {
-		return state, err
-	}
-	cfg.DockerNetworks = "hjsdkjhdsfkjhfd"
-	pr3, err := SetUpPureRunnerNode(ctx, 3, cfg)
+	os.Remove(StatusBarrierFile)
+	pr3, err := SetUpPureRunnerNode(ctx, 3, StatusBarrierFile)
 	if err != nil {
 		return state, err
 	}
@@ -286,7 +282,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	return server.New(ctx, opts...), nil
 }
 
-func SetUpPureRunnerNode(ctx context.Context, nodeNum int, cfg *agent.Config) (*server.Server, error) {
+func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile string) (*server.Server, error) {
 	nodeType := server.ServerTypePureRunner
 	opts := make([]server.Option, 0)
 	opts = append(opts, server.WithWebPort(RunnerStartPort+nodeNum))
@@ -306,13 +302,10 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, cfg *agent.Config) (*
 	}
 	grpcAddr := fmt.Sprintf(":%d", RunnerStartGRPCPort+nodeNum)
 
-	if cfg == nil {
-		// This is our Agent config, which we will use for both inner agent and docker.
-		var err error
-		cfg, err = agent.NewConfig()
-		if err != nil {
-			return nil, err
-		}
+	// This is our Agent config, which we will use for both inner agent and docker.
+	cfg, err := agent.NewConfig()
+	if err != nil {
+		return nil, err
 	}
 
 	cfg.ContainerLabelTag = fmt.Sprintf("fn-runner-%d", nodeNum)
@@ -354,6 +347,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, cfg *agent.Config) (*
 		agent.PureRunnerWithStatusImage(StatusImage),
 		agent.PureRunnerWithDetached(),
 		agent.PureRunnerWithGRPCServerOptions(grpcOpts...),
+		agent.PureRunnerWithStatusNetworkEnabler(StatusBarrierFile),
 	)
 	if err != nil {
 		return nil, err
@@ -486,11 +480,6 @@ func (d *customDriver) PrepareCookie(ctx context.Context, cookie drivers.Cookie)
 // implements Driver
 func (d *customDriver) Close() error {
 	return d.drv.Close()
-}
-
-// implements Driver
-func (d *customDriver) IsNetworkReady() bool {
-	return d.drv.IsNetworkReady()
 }
 
 var _ drivers.Driver = &customDriver{}

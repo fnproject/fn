@@ -80,9 +80,6 @@ type Driver interface {
 
 	// close & shutdown the driver
 	Close() error
-
-	// Check if network is ready for defined networks
-	IsNetworkReady() bool
 }
 
 // RunResult indicates only the final state of the task.

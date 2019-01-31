@@ -115,9 +115,6 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		runImageCleaner(ctx, driver)
 	}()
 
-	// start polling & waiting for required docker networks.
-	go driver.network.WaitDockerNetworks(ctx, driver)
-
 	// before we do anything else, let's pre-load requested images
 	err = loadDockerImages(ctx, driver)
 	if err != nil {
@@ -347,10 +344,6 @@ func loadDockerImages(ctx context.Context, driver *DockerDriver) error {
 	ctx, log = common.LoggerWithFields(ctx, logrus.Fields{"stack": "loadDockerImages"})
 	log.Infof("Loading docker images from %v", driver.conf.DockerLoadFile)
 	return driver.docker.LoadImages(ctx, driver.conf.DockerLoadFile)
-}
-
-func (drv *DockerDriver) IsNetworkReady() bool {
-	return drv.network.isDockerNetworkReady()
 }
 
 func (drv *DockerDriver) Close() error {

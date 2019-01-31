@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -551,6 +552,9 @@ type statusTracker struct {
 	kdumpsOnDisk     uint64
 	imageName        string
 
+	// if file exists, then network in status checks is enabled.
+	barrierPath string
+
 	// lock protects expiry/cache/wait fields below. RunnerStatus ptr itself
 	// stored every time status image is executed. Cache fetches use a shallow
 	// copy of RunnerStatus to ensure consistency. Shallow copy is sufficient
@@ -788,8 +792,12 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 	player := ioutil.NopCloser(strings.NewReader(c.Payload))
 
 	// Fetch network status
-	agent := pr.a.(*agent)
-	result.IsNetworkDisabled = !agent.driver.IsNetworkReady()
+	if pr.status.barrierPath != "" {
+		_, err := os.Lstat(pr.status.barrierPath)
+		if err != nil {
+			result.IsNetworkDisabled = true
+		}
+	}
 
 	var mcall *call
 	agentCall, err := pr.a.GetCall(FromModelAndInput(&c, player),
@@ -1000,6 +1008,16 @@ type PureRunnerOption func(*pureRunner) error
 func PureRunnerWithSSL(tlsCfg *tls.Config) PureRunnerOption {
 	return func(pr *pureRunner) error {
 		pr.creds = credentials.NewTLS(tlsCfg)
+		return nil
+	}
+}
+
+func PureRunnerWithStatusNetworkEnabler(barrierPath string) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		if pr.status.barrierPath != "" {
+			return errors.New("Failed to create pure runner: status barrier path already created")
+		}
+		pr.status.barrierPath = barrierPath
 		return nil
 	}
 }

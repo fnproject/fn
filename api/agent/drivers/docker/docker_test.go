@@ -452,60 +452,6 @@ func TestRunnerDockerCleanCase4(t *testing.T) {
 	}
 }
 
-// Make sure docker driver picks up a newly created docker network
-func TestRunnerDockerNetworkWait(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
-	defer cancel()
-
-	key := "fn_paranoid_android_network"
-
-	dkr := NewDocker(drivers.Config{DockerNetworks: key})
-	defer dkr.Close()
-
-	// First verify that our test network does not exist
-	nets, err := dkr.docker.ListNetworks(ctx)
-	if err != nil {
-		t.Fatalf("Couldn't create task cookie: %v", err)
-	}
-	for _, net := range nets {
-		if net.Name == key {
-			t.Fatal("Key already exists in networks")
-		}
-	}
-
-	// give some time for driver to initialize.
-	select {
-	case <-time.After(time.Duration(2) * time.Second):
-		if dkr.IsNetworkReady() {
-			t.Fatal("Network should not be ready")
-		}
-	case <-ctx.Done():
-		t.Fatal("timeout")
-	}
-
-	// add net
-	client := newTestClient(ctx)
-	net, err := client.CreateNetwork(docker.CreateNetworkOptions{
-		Name:    key,
-		Driver:  "bridge",
-		Context: ctx,
-	})
-	if err != nil {
-		t.Fatalf("Couldn't create network: %v", err)
-	}
-	defer client.RemoveNetwork(net.ID)
-
-	// give some time for driver to initialize.
-	select {
-	case <-time.After(time.Duration(2) * time.Second):
-		if !dkr.IsNetworkReady() {
-			t.Fatal("Network should be ready")
-		}
-	case <-ctx.Done():
-		t.Fatal("timeout")
-	}
-}
-
 // create container with disable net.
 // query container HostConfig, where NetworkMode should be 'none'
 func TestRunnerDockerNoNetwork(t *testing.T) {
@@ -535,7 +481,9 @@ func TestRunnerDockerNoNetwork(t *testing.T) {
 		t.Fatal("Couldn't create container test")
 	}
 
-	c, err := dkr.docker.InspectContainer(ctx, task.Id())
+	client := newTestClient(ctx)
+
+	c, err := client.InspectContainerWithContext(task.Id(), ctx)
 	if err != nil {
 		t.Fatalf("Couldn't inspect container test %v", err)
 	}

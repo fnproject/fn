@@ -47,10 +47,8 @@ type dockerClient interface {
 	DiskUsage(opts docker.DiskUsageOptions) (*docker.DiskUsage, error)
 	LoadImages(ctx context.Context, filePath string) error
 	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
-	ListNetworks(ctx context.Context) ([]docker.Network, error)
 	AddEventListener(ctx context.Context) (chan *docker.APIEvents, error)
 	RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) error
-	InspectContainer(ctx context.Context, id string) (*docker.Container, error)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -356,19 +354,6 @@ func (d *dockerWrap) ListContainers(opts docker.ListContainersOptions) (containe
 	return containers, err
 }
 
-func (d *dockerWrap) ListNetworks(ctx context.Context) (networks []docker.Network, err error) {
-	ctx, closer := makeTracker(ctx, "docker_list_networks")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "ListNetworks"})
-	err = d.retry(ctx, func() error {
-		networks, err = d.docker.ListNetworks()
-		return err
-	})
-
-	return networks, err
-}
-
 func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) error {
 	ctx, closer := makeTracker(ctx, "docker_load_images")
 	defer closer()
@@ -539,18 +524,6 @@ func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.I
 		return err
 	})
 	return i, err
-}
-
-func (d *dockerWrap) InspectContainer(ctx context.Context, id string) (c *docker.Container, err error) {
-	ctx, closer := makeTracker(ctx, "docker_inspect_container")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "InspectContainer"})
-	err = d.retry(ctx, func() error {
-		c, err = d.docker.InspectContainerWithContext(id, ctx)
-		return err
-	})
-	return c, err
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
