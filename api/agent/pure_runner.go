@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -963,9 +964,17 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 		common.Logger(ctx).WithError(err).Errorf("Status call failed result=%+v", status)
 	}
 
-	isCached := err == nil && (status != nil && status.Cached)
-	isSuccess := err == nil && (status != nil && !status.Failed)
-	statsStatusCall(ctx, isCached, isSuccess)
+	cached := "error"
+	success := "error"
+	network := "error"
+
+	if err == nil && status != nil {
+		cached = strconv.FormatBool(status.Cached)
+		success = strconv.FormatBool(!status.Failed)
+		network = strconv.FormatBool(!status.IsNetworkDisabled)
+	}
+	statsStatusCall(ctx, cached, success, network)
+
 	return status, err
 }
 

@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,9 +18,10 @@ var (
 	callStatusKey        = common.MakeKey("call_status")
 	containerUDSStateKey = common.MakeKey("container_uds_state")
 
-	// bool flags of status call results (cached=true/false, success=true/false)
-	statusCallCacheKey   = common.MakeKey("cached")
-	statusCallSuccessKey = common.MakeKey("success")
+	// tri-state values below: error/true/false
+	statusCallCacheKey    = common.MakeKey("cached")
+	statusCallSuccessKey  = common.MakeKey("success")
+	statusCallNetReadyKey = common.MakeKey("network")
 )
 
 func statsCalls(ctx context.Context) {
@@ -116,10 +116,11 @@ func statsCallLatency(ctx context.Context, dur time.Duration, callStatus string)
 	stats.Record(ctx, callLatencyMeasure.M(int64(dur/time.Millisecond)))
 }
 
-func statsStatusCall(ctx context.Context, isCached, isSuccess bool) {
+func statsStatusCall(ctx context.Context, cached, success, network string) {
 	ctx, err := tag.New(ctx,
-		tag.Upsert(statusCallCacheKey, strconv.FormatBool(isCached)),
-		tag.Upsert(statusCallSuccessKey, strconv.FormatBool(isSuccess)),
+		tag.Upsert(statusCallCacheKey, cached),
+		tag.Upsert(statusCallSuccessKey, success),
+		tag.Upsert(statusCallNetReadyKey, network),
 	)
 	if err != nil {
 		logrus.Fatal(err)
@@ -255,13 +256,14 @@ func RegisterAgentViews(tagKeys []string, latencyDist []float64) {
 func RegisterRunnerViews(tagKeys []string, latencyDist []float64) {
 
 	// add status call tags for status call latency
-	statusCallTags := make([]string, 0, len(tagKeys)+2)
+	statusCallTags := make([]string, 0, len(tagKeys)+3)
 
 	statusCallTags = append(statusCallTags, "cached")
 	statusCallTags = append(statusCallTags, "success")
+	statusCallTags = append(statusCallTags, "network")
 
 	for _, key := range tagKeys {
-		if key != "cached" && key != "success" {
+		if key != "cached" && key != "success" && key != "network" {
 			statusCallTags = append(statusCallTags, key)
 		}
 	}
