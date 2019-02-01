@@ -17,6 +17,7 @@ type placerTracker struct {
 	cancel     context.CancelFunc
 	tracker    *attemptTracker
 	isPlaced   bool
+	timeAfter  func(time.Duration) <-chan time.Time
 }
 
 func NewPlacerTracker(requestCtx context.Context, cfg *PlacerConfig, call RunnerCall) *placerTracker {
@@ -27,12 +28,19 @@ func NewPlacerTracker(requestCtx context.Context, cfg *PlacerConfig, call Runner
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
+	// Permit virtualisation for testing
+	timeAfter := time.After
+	if cfg.TimeAfter != nil {
+		timeAfter = cfg.TimeAfter
+	}
 	return &placerTracker{
 		cfg:        cfg,
 		requestCtx: requestCtx,
 		placerCtx:  ctx,
 		cancel:     cancel,
 		tracker:    newAttemptTracker(requestCtx),
+		timeAfter:  timeAfter,
 	}
 }
 
@@ -122,7 +130,7 @@ func (tr *placerTracker) RetryAllBackoff(numOfRunners int) bool {
 		return false
 	case <-tr.placerCtx.Done(): // placer wait timeout
 		return false
-	case <-time.After(tr.cfg.RetryAllDelay):
+	case <-tr.timeAfter(tr.cfg.RetryAllDelay):
 	}
 
 	return true

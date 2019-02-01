@@ -14,6 +14,10 @@ type PlacerConfig struct {
 
 	// Maximum amount of time a placer can hold an ack sync request during runner attempts
 	DetachedPlacerTimeout time.Duration `json:"detached_placer_timeout"`
+
+	// Should we want to virtualise the behaviour of a Placer that sleeps,
+	// we can inject an alternative to time.After here.
+	TimeAfter func(time.Duration) <- chan time.Time
 }
 
 func NewPlacerConfig() PlacerConfig {
