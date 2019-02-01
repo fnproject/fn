@@ -11,14 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"go.opencensus.io/trace"
-
 	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 	"golang.org/x/time/rate"
 )
 
@@ -27,7 +26,7 @@ const (
 	FnAgentInstanceLabel   = "fn-agent-instance"
 )
 
-// A drivers.ContainerTask should implement the Auther interface if it would
+// Auther may by implemented by a drivers.ContainerTask if it would
 // like to use not-necessarily-public docker images for any or all task
 // invocations.
 type Auther interface {
@@ -39,7 +38,7 @@ type Auther interface {
 	// certain restrictions on images or if credentials must be acquired right
 	// before runtime and there's an error doing so. If these credentials don't
 	// work, the docker pull will fail and the task will be set to error status.
-	DockerAuth() (*docker.AuthConfiguration, error)
+	DockerAuth(ctx context.Context) (*docker.AuthConfiguration, error)
 }
 
 type runResult struct {
@@ -55,6 +54,7 @@ type driverAuthConfig struct {
 func (r *runResult) Error() error   { return r.err }
 func (r *runResult) Status() string { return r.status }
 
+// DockerDriver implements drivers.Driver via the docker http API
 type DockerDriver struct {
 	cancel   func()
 	conf     drivers.Config
@@ -69,7 +69,7 @@ type DockerDriver struct {
 	imgCache ImageCacher
 }
 
-// implements drivers.Driver
+// NewDocker implements drivers.Driver
 func NewDocker(conf drivers.Config) *DockerDriver {
 	hostname, err := os.Hostname()
 	if err != nil {

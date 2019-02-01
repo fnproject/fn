@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
+	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -18,6 +19,7 @@ import (
 	"go.opencensus.io/trace"
 )
 
+// Call is an agent specific instance of a call object, that is runnable.
 type Call interface {
 	// Model will return the underlying models.Call configuration for this call.
 	// TODO we could respond to async correctly from agent but layering, this
@@ -39,13 +41,15 @@ type Call interface {
 	End(ctx context.Context, err error) error
 }
 
-// Interceptor in GetCall
+// CallOverrider should die. Interceptor in GetCall
 type CallOverrider func(*models.Call, map[string]string) (map[string]string, error)
 
-// TODO build w/o closures... lazy
+// CallOpt allows configuring a call before execution
+// TODO(reed): consider the interface here, all options must be defined in agent and flexible
+// enough for usage by extenders of fn, this straddling is painful. consider models.Call?
 type CallOpt func(c *call) error
 
-// Sets up a call from an http trigger request
+// FromHTTPFnRequest Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
 	return func(c *call) error {
 		id := id.New().String()
@@ -205,9 +209,22 @@ func WithExtensions(extensions map[string]string) CallOpt {
 	}
 }
 
+// WithDockerAuth configures a call to retrieve credentials for an image pull
+func WithDockerAuth(auth docker.Auther) CallOpt {
+	return func(c *call) error {
+		c.dockerAuth = auth
+		return nil
+	}
+}
+
 // GetCall builds a Call that can be used to submit jobs to the agent.
 func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	var c call
+
+	// add additional agent options after any call specific options
+	// NOTE(reed): this policy is open to being the opposite way around, have at it,
+	// the thinking being things like FromHTTPRequest are in supplied opts...
+	opts = append(opts, a.callOpts...)
 
 	for _, o := range opts {
 		err := o(&c)
@@ -279,6 +296,7 @@ type call struct {
 	requestState RequestState
 	slotHashId   string
 	disableNet   bool
+	dockerAuth   docker.Auther // pull config function
 
 	// amount of time attributed to user-code execution
 	userExecTime *time.Duration

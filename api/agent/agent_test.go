@@ -1323,7 +1323,7 @@ func TestDockerAuthExtn(t *testing.T) {
 		err := <-errC
 		t.Fatal("got unexpected err: ", err)
 	}
-	da, err := c.DockerAuth()
+	da, err := c.DockerAuth(ctx)
 	if da != nil {
 		t.Fatal("invalid docker auth configuration")
 	}
