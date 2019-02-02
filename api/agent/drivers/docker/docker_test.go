@@ -52,11 +52,6 @@ func createTask(id string) *taskDockerTest {
 }
 
 func commonCookiePull(ctx context.Context, cookie drivers.Cookie) error {
-	err := cookie.AuthImage(ctx)
-	if err != nil {
-		return err
-	}
-
 	shouldPull, err := cookie.ValidateImage(ctx)
 	if err != nil {
 		return err
