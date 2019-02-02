@@ -1321,10 +1321,13 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	c.swapMu.Unlock()
 }
 
+// assert we implement this at compile time
+var _ dockerdriver.Auther = new(container)
+
 // DockerAuth implements the docker.AuthConfiguration interface.
-func (c *container) DockerAuth(ctx context.Context) (*docker.AuthConfiguration, error) {
+func (c *container) DockerAuth(ctx context.Context, image string) (*docker.AuthConfiguration, error) {
 	if c.dockerAuth != nil {
-		return c.dockerAuth.DockerAuth(ctx)
+		return c.dockerAuth.DockerAuth(ctx, image)
 	}
 
 	// TODO(reed): kill this after using that

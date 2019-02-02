@@ -38,7 +38,7 @@ type Auther interface {
 	// certain restrictions on images or if credentials must be acquired right
 	// before runtime and there's an error doing so. If these credentials don't
 	// work, the docker pull will fail and the task will be set to error status.
-	DockerAuth(ctx context.Context) (*docker.AuthConfiguration, error)
+	DockerAuth(ctx context.Context, image string) (*docker.AuthConfiguration, error)
 }
 
 type runResult struct {

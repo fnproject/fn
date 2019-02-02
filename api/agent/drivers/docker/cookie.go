@@ -328,7 +328,7 @@ func (c *cookie) authImage(ctx context.Context) (*docker.AuthConfiguration, erro
 
 	if task, ok := c.task.(Auther); ok {
 		_, span := trace.StartSpan(ctx, "docker_auth")
-		authConfig, err := task.DockerAuth(ctx)
+		authConfig, err := task.DockerAuth(ctx, c.task.Image())
 		span.End()
 		if err != nil {
 			return nil, err
