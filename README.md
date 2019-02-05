@@ -129,6 +129,6 @@ That's it! You just deployed your first function and called it. Try updating the
 ## Stay Informed
 
 * [Blog](https://medium.com/fnproject)
-* [Twitter](https://twitter.com/fnproj)
+* [Twitter](https://twitter.com/fnproject)
 * [YouTube](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
 * [Events](http://events.fnproject.io)
