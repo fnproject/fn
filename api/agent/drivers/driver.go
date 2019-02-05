@@ -263,6 +263,7 @@ type Config struct {
 	InstanceId           string `json:"instance_id"`
 	ImageCleanMaxSize    uint64 `json:"image_clean_max_size"`
 	ImageCleanExemptTags string `json:"image_clean_exempt_tags"`
+	ImageEnableVolume    bool   `json:"image_enable_volume"`
 }
 
 func average(samples []Stat) (Stat, bool) {

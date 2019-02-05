@@ -230,6 +230,7 @@ func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 		ContainerLabelTag:    cfg.ContainerLabelTag,
 		ImageCleanMaxSize:    cfg.ImageCleanMaxSize,
 		ImageCleanExemptTags: cfg.ImageCleanExemptTags,
+		ImageEnableVolume:    cfg.ImageEnableVolume,
 	})
 }
 
