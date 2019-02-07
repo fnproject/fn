@@ -137,6 +137,11 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	c.opts.HostConfig.Tmpfs["/tmp"] = tmpFsOption
 }
 
+func (c *cookie) configureUser(log logrus.FieldLogger) {
+	c.opts.Config.User = "1000:1000"
+	c.opts.HostConfig.CapDrop = []string{"all"}
+}
+
 func (c *cookie) configureIOFS(log logrus.FieldLogger) {
 	path := c.task.UDSDockerPath()
 	if path == "" {

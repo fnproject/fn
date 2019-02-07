@@ -465,6 +465,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 	cookie.configureVolumes(log)
 	cookie.configureWorkDir(log)
 	cookie.configureIOFS(log)
+	cookie.configureUser(log)
 
 	// Order is important, if pool is enabled, it overrides pick network
 	drv.pickPool(ctx, cookie)
