@@ -91,8 +91,17 @@ cd hello
 
 Feel free to check out the files it created or just keep going and look at it later.
 
+Now create an application to store your functions.
+
 ```sh
-# Deploy your functions to your local Fn server
+# Create an app to store your functions
+fn create app myapp
+```
+
+Deploy your function to your app.
+
+```sh
+# Deploy your function to your app
 fn deploy --app myapp --local
 ```
 
