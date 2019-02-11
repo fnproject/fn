@@ -119,6 +119,18 @@ const (
 	// EnvMaxRequestSize sets the limit in bytes for any API request's length.
 	EnvMaxRequestSize = "FN_MAX_REQUEST_SIZE"
 
+	// EnvInvokeGroup sets the API group for the invoke endpoint
+	EnvInvokeGroup = "FN_INVOKE_GROUP"
+
+	// EnvInvokeTemplate sets the API path for the invoke endpoing
+	EnvInvokeTemplate = "FN_INVOKE_PATH"
+
+	// DefaultInvokeGroup is "/invoke"
+	DefaultInvokeGroup = "/invoke"
+
+	// DefaultInvokeTemplate is "/:fn_id"
+	DefaultInvokeTemplate = "/:fn_id"
+
 	// DefaultLogFormat is text
 	DefaultLogFormat = "text"
 
@@ -266,14 +278,16 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 
 	opts = append(opts, LimitRequestBody(int64(getEnvInt(EnvMaxRequestSize, 0))))
 
+	invokeGroup := getEnv(EnvInvokeGroup, DefaultInvokeGroup)
+	invokeTemplate := getEnv(EnvInvokeTemplate, DefaultInvokeTemplate)
 	publicLBURL := getEnv(EnvPublicLoadBalancerURL, "")
 	if publicLBURL != "" {
 		logrus.Infof("using LB Base URL: '%s'", publicLBURL)
 		opts = append(opts, WithTriggerAnnotator(NewStaticURLTriggerAnnotator(publicLBURL)))
-		opts = append(opts, WithFnAnnotator(NewStaticURLFnAnnotator(publicLBURL)))
+		opts = append(opts, WithFnAnnotator(NewStaticURLFnAnnotator(publicLBURL, invokeGroup, invokeTemplate)))
 	} else {
 		opts = append(opts, WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()))
-		opts = append(opts, WithFnAnnotator(NewRequestBasedFnAnnotator()))
+		opts = append(opts, WithFnAnnotator(NewRequestBasedFnAnnotator(invokeGroup, invokeTemplate)))
 	}
 
 	// Agent handling depends on node type and several other options so it must be the last processed option.
@@ -1105,9 +1119,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	profilerSetup(admin, "/debug")
 
 	// Pure runners don't have any route, they have grpc
-	switch s.nodeType {
-
-	case ServerTypeFull, ServerTypeAPI:
+	if s.nodeType == ServerTypeFull || s.nodeType == ServerTypeAPI {
 		cleanv2 := engine.Group("/v2")
 		v2 := cleanv2.Group("")
 		v2.Use(s.apiMiddlewareWrapper())
@@ -1159,8 +1171,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		}
 	}
 
-	switch s.nodeType {
-	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
+	if s.nodeType == ServerTypeFull || s.nodeType == ServerTypeLB || s.nodeType == ServerTypeRunner {
 		if !s.noHTTTPTriggerEndpoint {
 			lbTriggerGroup := engine.Group("/t")
 			lbTriggerGroup.Any("/:app_name", s.handleHTTPTriggerCall)
@@ -1168,8 +1179,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		}
 
 		if !s.noFnInvokeEndpoint {
-			lbFnInvokeGroup := engine.Group("/invoke")
-			lbFnInvokeGroup.POST("/:fn_id", s.handleFnInvokeCall)
+			lbFnInvokeGroup := engine.Group(getEnv(EnvInvokeGroup, DefaultInvokeGroup))
+			lbFnInvokeGroup.POST(getEnv(EnvInvokeTemplate, DefaultInvokeTemplate), s.handleFnInvokeCall)
 		}
 	}
 
