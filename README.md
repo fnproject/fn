@@ -29,7 +29,7 @@ The fastest way to experience Fn is to follow the quickstart below, or you can j
 
 * Docker 17.10.0-ce or later installed and running
 * [Docker Hub](https://hub.docker.com/) account (or other Docker-compliant registry) (Not required for local development)
-* Logged into Registery: ie `docker login` (Not required for local development)
+* Logged into Registry: ie `docker login` (Not required for local development)
 
 ### Install CLI tool
 
