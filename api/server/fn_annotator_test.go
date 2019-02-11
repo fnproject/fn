@@ -25,7 +25,7 @@ func TestAnnotateFnDefaultProvider(t *testing.T) {
 	}
 
 	// defaults the fn endpoint to the base URL if it's not already set
-	tep := NewRequestBasedFnAnnotator()
+	tep := NewRequestBasedFnAnnotator(DefaultInvokeGroup, DefaultInvokeTemplate)
 
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("GET", "/v2/foo/bar", bytes2.NewBuffer([]byte{}))
@@ -67,7 +67,7 @@ func TestHttpsFn(t *testing.T) {
 	}
 
 	// defaults the Fn endpoint to the base URL if it's not already set
-	tep := NewRequestBasedFnAnnotator()
+	tep := NewRequestBasedFnAnnotator(DefaultInvokeGroup, DefaultInvokeTemplate)
 
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("GET", "/v2/foo/bar", bytes2.NewBuffer([]byte{}))
@@ -97,7 +97,7 @@ func TestHttpsFn(t *testing.T) {
 }
 
 func TestStaticUrlFnAnnotator(t *testing.T) {
-	a := NewStaticURLFnAnnotator("http://foo.bar.com/somewhere")
+	a := NewStaticURLFnAnnotator("http://foo.bar.com/somewhere", DefaultInvokeGroup, DefaultInvokeTemplate)
 
 	app := &models.App{
 		ID:   "app_id",
