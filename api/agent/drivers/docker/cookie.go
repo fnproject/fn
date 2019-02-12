@@ -275,7 +275,11 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 func (c *cookie) Close(ctx context.Context) error {
 	var err error
 	if c.container != nil {
-		err = c.drv.removeContainer(ctx, c.task.Id())
+		err = c.drv.docker.RemoveContainer(docker.RemoveContainerOptions{
+			ID: c.task.Id(), Force: true, RemoveVolumes: true, Context: ctx})
+		if err != nil {
+			common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("error removing container")
+		}
 	}
 
 	if c.poolId != "" && c.drv.pool != nil {

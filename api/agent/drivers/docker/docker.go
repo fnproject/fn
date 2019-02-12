@@ -94,7 +94,7 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 	driver := &DockerDriver{
 		cancel:     cancel,
 		conf:       conf,
-		docker:     newClient(ctx, conf.MaxRetries),
+		docker:     newClient(ctx),
 		hostname:   hostname,
 		auths:      auths,
 		network:    NewDockerNetworks(conf),
@@ -412,20 +412,11 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 	return cookie, nil
 }
 
-func (drv *DockerDriver) removeContainer(ctx context.Context, container string) error {
-	err := drv.docker.RemoveContainer(docker.RemoveContainerOptions{
-		ID: container, Force: true, RemoveVolumes: true, Context: ctx})
-
-	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"container": container}).Error("error removing container")
-	}
-	return nil
-}
-
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
 
+	log := common.Logger(ctx)
 	stdout, stderr := task.Logger()
 	successChan := make(chan struct{})
 
@@ -471,6 +462,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 
 	if err != nil && ctx.Err() == nil {
 		// ignore if ctx has errored, rewrite status lay below
+		log.WithError(err).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error attaching to container")
 		return nil, err
 	}
 
@@ -479,9 +471,10 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 	stopSignal := make(chan struct{})
 	go drv.collectStats(ctx, stopSignal, container, task)
 
-	err = drv.startTask(ctx, container)
+	err = drv.docker.StartContainerWithContext(container, nil, ctx)
 	if err != nil && ctx.Err() == nil {
 		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
+		log.WithError(err).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error starting container")
 		return nil, err
 	}
 
@@ -531,10 +524,11 @@ func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan str
 		// (internal docker api streams) than open/close stream for 1 sample over and over.
 		// must be called in goroutine, docker.Stats() blocks
 		err := drv.docker.Stats(docker.StatsOptions{
-			ID:     container,
-			Stats:  dstats,
-			Stream: true,
-			Done:   dockerCallDone, // A flag that enables stopping the stats operation
+			ID:      container,
+			Stats:   dstats,
+			Stream:  true,
+			Done:    dockerCallDone, // A flag that enables stopping the stats operation
+			Context: common.BackgroundContext(ctx),
 		})
 
 		if err != nil && err != io.ErrClosedPipe {
@@ -615,27 +609,13 @@ func cherryPick(ds *docker.Stats) drivers.Stat {
 	}
 }
 
-func (drv *DockerDriver) startTask(ctx context.Context, container string) error {
-	log := common.Logger(ctx)
-	log.WithFields(logrus.Fields{"container": container}).Debug("Starting container execution")
-	err := drv.docker.StartContainerWithContext(container, nil, ctx)
-	if err != nil {
-		dockerErr, ok := err.(*docker.Error)
-		_, containerAlreadyRunning := err.(*docker.ContainerAlreadyRunning)
-		if containerAlreadyRunning || (ok && dockerErr.Status == 304) {
-			// 304=container already started -- so we can ignore error
-		} else {
-			return err
-		}
-	}
-	return err
-}
-
 func (w *waitResult) wait(ctx context.Context) (status string, err error) {
-	// wait retries internally until ctx is up, so we can ignore the error and
-	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
-	// a more prevalent case is calling wait & container already finished, so again ignore err.
-	exitCode, _ := w.drv.docker.WaitContainerWithContext(w.container, ctx)
+	exitCode, waitErr := w.drv.docker.WaitContainerWithContext(w.container, ctx)
+	if waitErr != nil && waitErr != context.Canceled {
+		log := common.Logger(ctx)
+		log.WithError(waitErr).WithFields(logrus.Fields{"container": w.container}).Error("error waiting container with context")
+	}
+
 	defer RecordWaitContainerResult(ctx, exitCode)
 
 	w.waiter.Close()

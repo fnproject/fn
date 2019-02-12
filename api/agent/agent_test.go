@@ -455,7 +455,6 @@ func TestHungFDK(t *testing.T) {
 
 	ls := logs.NewMock()
 	cfg, err := NewConfig()
-	cfg.MaxDockerRetries = 1
 	cfg.HotStartTimeout = time.Duration(3) * time.Second
 	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
@@ -510,7 +509,6 @@ func TestDockerPullHungRepo(t *testing.T) {
 
 	ls := logs.NewMock()
 	cfg, err := NewConfig()
-	cfg.MaxDockerRetries = 1
 	cfg.HotPullTimeout = time.Duration(5) * time.Second
 	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
@@ -564,7 +562,6 @@ func TestDockerPullUnAuthorizedRepo(t *testing.T) {
 
 	ls := logs.NewMock()
 	cfg, err := NewConfig()
-	cfg.MaxDockerRetries = 1
 	cfg.HotPullTimeout = time.Duration(5) * time.Second
 	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
@@ -613,7 +610,6 @@ func TestDockerPullBadRepo(t *testing.T) {
 
 	ls := logs.NewMock()
 	cfg, err := NewConfig()
-	cfg.MaxDockerRetries = 1
 	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
 
