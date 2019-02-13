@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -168,7 +169,11 @@ func makeTracker(ctx context.Context, name string) (context.Context, func(error)
 
 		status := "ok"
 		if err != nil {
-			if derr, ok := err.(*docker.Error); ok {
+			if err == context.Canceled {
+				status = "canceled"
+			} else if err == context.DeadlineExceeded {
+				status = "timeout"
+			} else if derr, ok := err.(*docker.Error); ok {
 				status = strconv.FormatInt(int64(derr.Status), 10)
 			} else {
 				status = "error"
@@ -314,6 +319,9 @@ func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (c
 	ctx, closer := makeTracker(ctx, "docker_wait_container")
 	defer func() { closer(err) }()
 	code, err = d.docker.WaitContainerWithContext(id, ctx)
+	if err == context.Canceled {
+		err = nil // ignore ctx.cancel since every normal wait lifecycle ends with cancel
+	}
 	return code, err
 }
 
@@ -384,5 +392,8 @@ func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
 	_, closer := makeTracker(opts.Context, "docker_stats")
 	defer func() { closer(err) }()
 	err = d.docker.Stats(opts)
+	if err == io.ErrClosedPipe {
+		err = nil // ignore io closed pipe errors since every normal stats streaming lifecycle ends with io pipe close
+	}
 	return err
 }

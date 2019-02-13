@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -531,7 +530,7 @@ func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan str
 			Context: common.BackgroundContext(ctx),
 		})
 
-		if err != nil && err != io.ErrClosedPipe {
+		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error streaming docker stats for task")
 		}
 	}()
@@ -611,7 +610,7 @@ func cherryPick(ds *docker.Stats) drivers.Stat {
 
 func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 	exitCode, waitErr := w.drv.docker.WaitContainerWithContext(w.container, ctx)
-	if waitErr != nil && waitErr != context.Canceled {
+	if waitErr != nil {
 		log := common.Logger(ctx)
 		log.WithError(waitErr).WithFields(logrus.Fields{"container": w.container}).Error("error waiting container with context")
 	}
