@@ -21,6 +21,7 @@ type taskDockerTest struct {
 	input      io.Reader
 	output     io.Writer
 	errors     io.Writer
+	logURL     string
 }
 
 func (f *taskDockerTest) Command() string                         { return f.cmd }
@@ -39,11 +40,13 @@ func (f *taskDockerTest) WorkDir() string                         { return "" }
 func (f *taskDockerTest) Close()                                  {}
 func (f *taskDockerTest) Input() io.Reader                        { return f.input }
 func (f *taskDockerTest) Extensions() map[string]string           { return nil }
-func (f *taskDockerTest) LoggerConfig() drivers.LoggerConfig      { return drivers.LoggerConfig{} }
-func (f *taskDockerTest) UDSAgentPath() string                    { return "" }
-func (f *taskDockerTest) UDSDockerPath() string                   { return "" }
-func (f *taskDockerTest) UDSDockerDest() string                   { return "" }
-func (f *taskDockerTest) DisableNet() bool                        { return f.disableNet }
+func (f *taskDockerTest) LoggerConfig() drivers.LoggerConfig {
+	return drivers.LoggerConfig{URL: f.logURL}
+}
+func (f *taskDockerTest) UDSAgentPath() string  { return "" }
+func (f *taskDockerTest) UDSDockerPath() string { return "" }
+func (f *taskDockerTest) UDSDockerDest() string { return "" }
+func (f *taskDockerTest) DisableNet() bool      { return f.disableNet }
 
 func createTask(id string) *taskDockerTest {
 	return &taskDockerTest{
@@ -526,4 +529,34 @@ func TestRunnerDockerNoNetwork(t *testing.T) {
 	// We could make busybox execute a 'ip link' or 'ip address' and parse the output, but
 	// this is unnecessary as NetworkMode=none is well known. (eg. docker run --network none)
 	// https://docs.docker.com/network/none/
+}
+
+func TestRunnerDockerInvalidSyslog(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+
+	dkr := NewDocker(drivers.Config{})
+	defer dkr.Close()
+
+	task := createTask("test-docker-no-net")
+	task.logURL = "tcp://invalid:9999"
+
+	cookie, err := dkr.CreateCookie(ctx, task)
+	if err != nil {
+		t.Fatal("Couldn't create task cookie")
+	}
+	defer cookie.Close(ctx)
+
+	err = commonCookiePull(ctx, cookie)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err, _ = commonCookieRun(ctx, cookie)
+	if err == nil {
+		t.Fatal("Error expected when running with invalid syslog configuration")
+	}
+	if err.Error() != "Syslog Unavailable" {
+		t.Fatalf("Error message expected: `Syslog Unavailable`, got `%s`", err)
+	}
+
 }
