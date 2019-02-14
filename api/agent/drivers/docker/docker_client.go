@@ -7,9 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"os"
 	"path/filepath"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/fnproject/fn/api/common"
@@ -22,11 +23,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// wrap docker client calls so we can retry 500s, kind of sucks but fsouza doesn't
-// bake in retries we can use internally, could contribute it at some point, would
-// be much more convenient if we didn't have to do this, but it's better than ad hoc retries.
-// also adds timeouts to many operations, varying by operation
-// TODO could generate this, maybe not worth it, may not change often
 type dockerClient interface {
 	// Each of these are github.com/fsouza/go-dockerclient methods
 
@@ -44,7 +40,6 @@ type dockerClient interface {
 	RemoveImage(id string, opts docker.RemoveImageOptions) error
 	Stats(opts docker.StatsOptions) error
 	Info(ctx context.Context) (*docker.DockerInfo, error)
-	DiskUsage(opts docker.DiskUsageOptions) (*docker.DiskUsage, error)
 	LoadImages(ctx context.Context, filePath string) error
 	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
 	AddEventListener(ctx context.Context) (chan *docker.APIEvents, error)
@@ -52,7 +47,7 @@ type dockerClient interface {
 }
 
 // TODO: switch to github.com/docker/engine-api
-func newClient(ctx context.Context, maxRetries uint64) dockerClient {
+func newClient(ctx context.Context) dockerClient {
 	// TODO this was much easier, don't need special settings at the moment
 	// docker, err := docker.NewClient(conf.Docker)
 	client, err := docker.NewClientFromEnv()
@@ -64,31 +59,23 @@ func newClient(ctx context.Context, maxRetries uint64) dockerClient {
 		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
 	}
 
-	// punch in default if not set
-	if maxRetries == 0 {
-		maxRetries = 10
-	}
-
-	wrap := &dockerWrap{docker: client, maxRetries: maxRetries}
+	wrap := &dockerWrap{docker: client}
 	go wrap.listenEventLoop(ctx)
 	return wrap
 }
 
 type dockerWrap struct {
-	docker     *docker.Client
-	maxRetries uint64
+	docker *docker.Client
 }
 
 var (
 	apiNameKey     = common.MakeKey("api_name")
+	apiStatusKey   = common.MakeKey("api_status")
 	exitStatusKey  = common.MakeKey("exit_status")
 	eventActionKey = common.MakeKey("event_action")
 	eventTypeKey   = common.MakeKey("event_type")
 
-	dockerRetriesMeasure = common.MakeMeasure("docker_api_retries", "docker api retries", "")
-	dockerTimeoutMeasure = common.MakeMeasure("docker_api_timeout", "docker api timeouts", "")
-	dockerErrorMeasure   = common.MakeMeasure("docker_api_error", "docker api errors", "")
-	dockerExitMeasure    = common.MakeMeasure("docker_exits", "docker exit counts", "")
+	dockerExitMeasure = common.MakeMeasure("docker_exits", "docker exit counts", "")
 
 	// WARNING: this metric reports total latency per *wrapper* call, which will add up multiple retry latencies per wrapper call.
 	dockerLatencyMeasure = common.MakeMeasure("docker_api_latency", "Docker wrapper latency", "msecs")
@@ -166,7 +153,7 @@ func (d *dockerWrap) listenEvents(ctx context.Context) error {
 }
 
 // Create a span/tracker with required context tags
-func makeTracker(ctx context.Context, name string) (context.Context, func()) {
+func makeTracker(ctx context.Context, name string) (context.Context, func(error)) {
 	ctx, err := tag.New(ctx, tag.Upsert(apiNameKey, name))
 	if err != nil {
 		logrus.WithError(err).Fatalf("cannot add tag %v=%v", apiNameKey, name)
@@ -178,7 +165,26 @@ func makeTracker(ctx context.Context, name string) (context.Context, func()) {
 	ctx, span := trace.StartSpan(ctx, name)
 	start := time.Now()
 
-	return ctx, func() {
+	return ctx, func(err error) {
+
+		status := "ok"
+		if err != nil {
+			if err == context.Canceled {
+				status = "canceled"
+			} else if err == context.DeadlineExceeded {
+				status = "timeout"
+			} else if derr, ok := err.(*docker.Error); ok {
+				status = strconv.FormatInt(int64(derr.Status), 10)
+			} else {
+				status = "error"
+			}
+		}
+
+		ctx, err := tag.New(ctx, tag.Upsert(apiStatusKey, status))
+		if err != nil {
+			logrus.WithError(err).Fatalf("cannot add tag %v=%v", apiStatusKey, status)
+		}
+
 		stats.Record(ctx, dockerLatencyMeasure.M(int64(time.Now().Sub(start)/time.Millisecond)))
 		span.End()
 	}
@@ -210,13 +216,13 @@ func RecordWaitContainerResult(ctx context.Context, exitCode int) {
 // RegisterViews creates and registers views with provided tag keys
 func RegisterViews(tagKeys []string, latencyDist []float64) {
 
-	defaultTags := []tag.Key{apiNameKey}
+	defaultTags := []tag.Key{apiNameKey, apiStatusKey}
 	exitTags := []tag.Key{apiNameKey, exitStatusKey}
 	eventTags := []tag.Key{eventActionKey, eventTypeKey}
 
 	// add extra tags if not already in default tags for req/resp
 	for _, key := range tagKeys {
-		if key != "api_name" {
+		if key != "api_name" && key != "api_status" {
 			defaultTags = append(defaultTags, common.MakeKey(key))
 		}
 		if key != "api_name" && key != "exit_status" {
@@ -228,9 +234,6 @@ func RegisterViews(tagKeys []string, latencyDist []float64) {
 	emptyTags := []tag.Key{}
 
 	err := view.Register(
-		common.CreateViewWithTags(dockerRetriesMeasure, view.Sum(), defaultTags),
-		common.CreateViewWithTags(dockerTimeoutMeasure, view.Count(), defaultTags),
-		common.CreateViewWithTags(dockerErrorMeasure, view.Count(), defaultTags),
 		common.CreateViewWithTags(dockerExitMeasure, view.Count(), exitTags),
 		common.CreateViewWithTags(dockerLatencyMeasure, view.Distribution(latencyDist...), defaultTags),
 		common.CreateViewWithTags(dockerEventsMeasure, view.Count(), eventTags),
@@ -246,117 +249,35 @@ func RegisterViews(tagKeys []string, latencyDist []float64) {
 	}
 }
 
-func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
-	var i uint64
-	var err error
-	defer func() { stats.Record(ctx, dockerRetriesMeasure.M(int64(i))) }()
-
-	logger := common.Logger(ctx)
-	var b common.Backoff
-	// 10 retries w/o change to backoff is ~13s if ops take ~0 time
-	for ; i < d.maxRetries; i++ {
-		select {
-		case <-ctx.Done():
-			stats.Record(ctx, dockerTimeoutMeasure.M(0))
-			logger.WithError(ctx.Err()).Warnf("docker call timed out")
-			return ctx.Err()
-		default:
-		}
-
-		err = filter(ctx, f())
-		if common.IsTemporary(err) || isDocker50x(err) {
-			logger.WithError(err).Warn("docker temporary error, retrying")
-			b.Sleep(ctx)
-			continue
-		}
-		if err != nil {
-			stats.Record(ctx, dockerErrorMeasure.M(0))
-		}
-		return err
-	}
-	return err // TODO could return context.DeadlineExceeded which ~makes sense
-}
-
-func isDocker50x(err error) bool {
-	derr, ok := err.(*docker.Error)
-	return ok && derr.Status >= 500
-}
-
-// implement common.Temporary()
-type temporary struct {
-	error
-}
-
-func (t *temporary) Temporary() bool { return true }
-
-func temp(err error) error {
-	return &temporary{err}
-}
-
-// some 500s are totally cool
-func filter(ctx context.Context, err error) error {
-	log := common.Logger(ctx)
-	// "API error (500): {\"message\":\"service endpoint with name task-57d722ecdecb9e7be16aff17 already exists\"}\n" -> ok since container exists
-	switch {
-	default:
-		return err
-	case err == nil:
-		return err
-	case strings.Contains(err.Error(), "service endpoint with name"):
-	}
-	log.WithError(err).Warn("filtering error")
-	return nil
-}
-
-func filterNoSuchContainer(ctx context.Context, err error) error {
-	log := common.Logger(ctx)
-	if err == nil {
-		return nil
-	}
-	_, containerNotFound := err.(*docker.NoSuchContainer)
-	dockerErr, ok := err.(*docker.Error)
-	if containerNotFound || (ok && dockerErr.Status == 404) {
-		log.WithError(err).Info("filtering error")
-		return nil
-	}
-	return err
-}
-
-func (d *dockerWrap) AddEventListener(ctx context.Context) (chan *docker.APIEvents, error) {
+func (d *dockerWrap) AddEventListener(ctx context.Context) (listen chan *docker.APIEvents, err error) {
 	ctx, closer := makeTracker(ctx, "docker_add_event_listener")
-	defer closer()
+	defer func() { closer(err) }()
 
-	listen := make(chan *docker.APIEvents)
-	err := d.docker.AddEventListener(listen)
+	listen = make(chan *docker.APIEvents)
+	err = d.docker.AddEventListener(listen)
 	if err != nil {
 		return nil, err
 	}
 	return listen, nil
 }
 
-func (d *dockerWrap) RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) error {
-	ctx, closer := makeTracker(ctx, "docker_remove_event_listener")
-	defer closer()
-
-	return d.docker.RemoveEventListener(listener)
+func (d *dockerWrap) RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) (err error) {
+	_, closer := makeTracker(ctx, "docker_remove_event_listener")
+	defer func() { closer(err) }()
+	err = d.docker.RemoveEventListener(listener)
+	return err
 }
 
 func (d *dockerWrap) ListContainers(opts docker.ListContainersOptions) (containers []docker.APIContainers, err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_list_containers")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "ListContainers"})
-	err = d.retry(ctx, func() error {
-		containers, err = d.docker.ListContainers(opts)
-		return err
-	})
-
+	_, closer := makeTracker(opts.Context, "docker_list_containers")
+	defer func() { closer(err) }()
+	containers, err = d.docker.ListContainers(opts)
 	return containers, err
 }
 
-func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) error {
+func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) (err error) {
 	ctx, closer := makeTracker(ctx, "docker_load_images")
-	defer closer()
+	defer func() { closer(err) }()
 
 	file, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
@@ -366,187 +287,113 @@ func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) error {
 
 	// No retries here. LoadImage is typically called at startup and we fail/timeout
 	// at first attempt.
-	return d.docker.LoadImage(docker.LoadImageOptions{
+	err = d.docker.LoadImage(docker.LoadImageOptions{
 		InputStream: file,
 		Context:     ctx,
 	})
+	return err
 }
 
-func (d *dockerWrap) ListImages(opts docker.ListImagesOptions) (imgs []docker.APIImages, err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_list_images")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "ListImages"})
-	err = d.retry(ctx, func() error {
-		imgs, err = d.docker.ListImages(opts)
-		return err
-	})
-
-	return imgs, err
+func (d *dockerWrap) ListImages(opts docker.ListImagesOptions) (images []docker.APIImages, err error) {
+	_, closer := makeTracker(opts.Context, "docker_list_images")
+	defer func() { closer(err) }()
+	images, err = d.docker.ListImages(opts)
+	return images, err
 }
 
 func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err error) {
-	// NOTE: we're not very responsible and prometheus wasn't loved as a child, this
-	// threads through directly down to the docker call, skipping retires, so that we
-	// don't have to add tags / tracing / logger to the bare context handed to the one
-	// place this is called in initialization that has no context to report consistent
-	// stats like everything else in here. tl;dr this works, just don't use it for anything else.
-	return d.docker.Info()
+	_, closer := makeTracker(ctx, "docker_info")
+	defer func() { closer(err) }()
+	info, err = d.docker.Info()
+	return info, err
 }
 
-func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error) {
-	ctx, closer := makeTracker(ctx, "docker_attach_container")
-	defer closer()
-
-	return d.docker.AttachToContainerNonBlocking(opts)
+func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (w docker.CloseWaiter, err error) {
+	_, closer := makeTracker(ctx, "docker_attach_container")
+	defer func() { closer(err) }()
+	w, err = d.docker.AttachToContainerNonBlocking(opts)
+	return w, err
 }
 
 func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (code int, err error) {
 	ctx, closer := makeTracker(ctx, "docker_wait_container")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "WaitContainer"})
-	err = d.retry(ctx, func() error {
-		code, err = d.docker.WaitContainerWithContext(id, ctx)
-		return err
-	})
-	return code, filterNoSuchContainer(ctx, err)
+	defer func() { closer(err) }()
+	code, err = d.docker.WaitContainerWithContext(id, ctx)
+	if err == context.Canceled {
+		err = nil // ignore ctx.cancel since every normal wait lifecycle ends with cancel
+	}
+	return code, err
 }
 
 func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) (err error) {
 	ctx, closer := makeTracker(ctx, "docker_start_container")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "StartContainer"})
-	err = d.retry(ctx, func() error {
-		err = d.docker.StartContainerWithContext(id, hostConfig, ctx)
-		if _, ok := err.(*docker.NoSuchContainer); ok {
-			// for some reason create will sometimes return successfully then say no such container here. wtf. so just retry like normal
-			return temp(err)
-		}
-		return err
-	})
+	defer func() { closer(err) }()
+	err = d.docker.StartContainerWithContext(id, hostConfig, ctx)
 	return err
 }
 
 func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *docker.Container, err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_create_container")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "CreateContainer"})
-	err = d.retry(ctx, func() error {
-		c, err = d.docker.CreateContainer(opts)
-		return err
-	})
+	_, closer := makeTracker(opts.Context, "docker_create_container")
+	defer func() { closer(err) }()
+	c, err = d.docker.CreateContainer(opts)
 	return c, err
 }
 
 func (d *dockerWrap) KillContainer(opts docker.KillContainerOptions) (err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_kill_container")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "KillContainer"})
-	err = d.retry(ctx, func() error {
-		err = d.docker.KillContainer(opts)
-		return err
-	})
+	_, closer := makeTracker(opts.Context, "docker_kill_container")
+	defer func() { closer(err) }()
+	err = d.docker.KillContainer(opts)
 	return err
 }
 
 func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) (err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_pull_image")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "PullImage"})
-	err = d.retry(ctx, func() error {
-		err = d.docker.PullImage(opts, auth)
-		return err
-	})
+	_, closer := makeTracker(opts.Context, "docker_pull_image")
+	defer func() { closer(err) }()
+	err = d.docker.PullImage(opts, auth)
 	return err
 }
 
 func (d *dockerWrap) RemoveImage(image string, opts docker.RemoveImageOptions) (err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_remove_image")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "RemoveImage"})
-	err = d.retry(ctx, func() error {
-		err = d.docker.RemoveImageExtended(image, opts)
-		return err
-	})
+	_, closer := makeTracker(opts.Context, "docker_remove_image")
+	defer func() { closer(err) }()
+	err = d.docker.RemoveImageExtended(image, opts)
 	return err
-
 }
 
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_remove_container")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "RemoveContainer"})
-	err = d.retry(ctx, func() error {
-		err = d.docker.RemoveContainer(opts)
-		return err
-	})
-	return filterNoSuchContainer(ctx, err)
+	_, closer := makeTracker(opts.Context, "docker_remove_container")
+	defer func() { closer(err) }()
+	err = d.docker.RemoveContainer(opts)
+	return err
 }
 
 func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) {
-	ctx, closer := makeTracker(ctx, "docker_pause_container")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "PauseContainer"})
-	err = d.retry(ctx, func() error {
-		err = d.docker.PauseContainer(id)
-		return err
-	})
-	return filterNoSuchContainer(ctx, err)
+	_, closer := makeTracker(ctx, "docker_pause_container")
+	defer func() { closer(err) }()
+	err = d.docker.PauseContainer(id)
+	return err
 }
 
 func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error) {
-	ctx, closer := makeTracker(ctx, "docker_unpause_container")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "UnpauseContainer"})
-	err = d.retry(ctx, func() error {
-		err = d.docker.UnpauseContainer(id)
-		return err
-	})
-	return filterNoSuchContainer(ctx, err)
+	_, closer := makeTracker(ctx, "docker_unpause_container")
+	defer func() { closer(err) }()
+	err = d.docker.UnpauseContainer(id)
+	return err
 }
 
-func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.Image, err error) {
-	ctx, closer := makeTracker(ctx, "docker_inspect_image")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "InspectImage"})
-	err = d.retry(ctx, func() error {
-		i, err = d.docker.InspectImage(name)
-		return err
-	})
-	return i, err
+func (d *dockerWrap) InspectImage(ctx context.Context, name string) (img *docker.Image, err error) {
+	_, closer := makeTracker(ctx, "docker_inspect_image")
+	defer func() { closer(err) }()
+	img, err = d.docker.InspectImage(name)
+	return img, err
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
-	// we can't retry this one this way since the callee closes the
-	// stats chan, need a fancier retry mechanism where we can swap out
-	// channels, but stats isn't crucial so... be lazy for now
-	return d.docker.Stats(opts)
-
-	//err = d.retry(func() error {
-	//err = d.docker.Stats(opts)
-	//return err
-	//})
-	//return err
-}
-
-func (d *dockerWrap) DiskUsage(opts docker.DiskUsageOptions) (du *docker.DiskUsage, err error) {
-	ctx, closer := makeTracker(opts.Context, "docker_disk_usage")
-	defer closer()
-
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"docker_cmd": "DiskUsage"})
-	err = d.retry(ctx, func() error {
-		du, err = d.docker.DiskUsage(opts)
-		return err
-	})
-	return du, err
+	_, closer := makeTracker(opts.Context, "docker_stats")
+	defer func() { closer(err) }()
+	err = d.docker.Stats(opts)
+	if err == io.ErrClosedPipe {
+		err = nil // ignore io closed pipe errors since every normal stats streaming lifecycle ends with io pipe close
+	}
+	return err
 }

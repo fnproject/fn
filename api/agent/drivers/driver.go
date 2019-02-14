@@ -255,7 +255,6 @@ type Config struct {
 	PreForkNetworks      string `json:"pre_fork_networks"`
 	MaxTmpFsInodes       uint64 `json:"max_tmpfs_inodes"`
 	EnableReadOnlyRootFs bool   `json:"enable_readonly_rootfs"`
-	MaxRetries           uint64 `json:"max_retries"`
 	ContainerLabelTag    string `json:"container_label_tag"`
 	InstanceId           string `json:"instance_id"`
 	ImageCleanMaxSize    uint64 `json:"image_clean_max_size"`

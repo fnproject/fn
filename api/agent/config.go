@@ -40,7 +40,6 @@ type Config struct {
 	IOFSAgentPath           string        `json:"iofs_path"`
 	IOFSMountRoot           string        `json:"iofs_mount_root"`
 	IOFSOpts                string        `json:"iofs_opts"`
-	MaxDockerRetries        uint64        `json:"max_docker_retries"`
 	ImageCleanMaxSize       uint64        `json:"image_clean_max_size"`
 	ImageCleanExemptTags    string        `json:"image_clean_exempt_tags"`
 	ImageEnableVolume       bool          `json:"image_enable_volume"`
