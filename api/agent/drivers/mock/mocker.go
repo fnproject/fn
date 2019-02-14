@@ -43,10 +43,6 @@ func (c *cookie) Unfreeze(context.Context) error {
 	return nil
 }
 
-func (c *cookie) AuthImage(context.Context) error {
-	return nil
-}
-
 func (c *cookie) ValidateImage(context.Context) (bool, error) {
 	return false, nil
 }

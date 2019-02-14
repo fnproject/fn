@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 
 	"github.com/fnproject/fn/api/agent/drivers"
+	dockerdriver "github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -109,7 +110,12 @@ type agent struct {
 	shutWg   *common.WaitGroup
 	shutonce sync.Once
 
+	// TODO(reed): shoot this fucking thing
 	callOverrider CallOverrider
+
+	// additional options to configure each call
+	callOpts []CallOpt
+
 	// deferred actions to call at end of initialisation
 	onStartup []func()
 }
@@ -209,6 +215,15 @@ func WithCallOverrider(fn CallOverrider) Option {
 			return errors.New("lb-agent call overriders already exists")
 		}
 		a.callOverrider = fn
+		return nil
+	}
+}
+
+// WithCallOptions adds additional call options to each call created from GetCall, these
+// options will be executed after any other options supplied to GetCall
+func WithCallOptions(opts ...CallOpt) Option {
+	return func(a *agent) error {
+		a.callOpts = append(a.callOpts, opts...)
 		return nil
 	}
 }
@@ -868,11 +883,6 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		return
 	}
 
-	err = cookie.AuthImage(ctx)
-	if tryQueueErr(err, errQueue) != nil {
-		return
-	}
-
 	needsPull, err := cookie.ValidateImage(ctx)
 	if needsPull {
 		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
@@ -1154,6 +1164,7 @@ type container struct {
 	iofs       iofs
 	logCfg     drivers.LoggerConfig
 	close      func()
+	dockerAuth dockerdriver.Auther
 
 	stderr io.Writer
 
@@ -1221,6 +1232,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, ud
 		tmpFsSize:  uint64(call.TmpFsSize),
 		disableNet: call.disableNet,
 		iofs:       iofs,
+		dockerAuth: call.dockerAuth,
 		logCfg: drivers.LoggerConfig{
 			URL: strings.TrimSpace(call.SyslogURL),
 			Tags: []drivers.LoggerTag{
@@ -1310,8 +1322,16 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	c.swapMu.Unlock()
 }
 
+// assert we implement this at compile time
+var _ dockerdriver.Auther = new(container)
+
 // DockerAuth implements the docker.AuthConfiguration interface.
-func (c *container) DockerAuth() (*docker.AuthConfiguration, error) {
+func (c *container) DockerAuth(ctx context.Context, image string) (*docker.AuthConfiguration, error) {
+	if c.dockerAuth != nil {
+		return c.dockerAuth.DockerAuth(ctx, image)
+	}
+
+	// TODO(reed): kill this after using that
 	registryToken := c.extensions[RegistryToken]
 	if registryToken != "" {
 		return &docker.AuthConfiguration{

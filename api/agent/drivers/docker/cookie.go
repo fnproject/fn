@@ -12,7 +12,6 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
@@ -37,9 +36,6 @@ type cookie struct {
 	imgReg  string
 	imgRepo string
 	imgTag  string
-
-	// contains auth config if AuthImage() is called
-	imgAuthConf *docker.AuthConfiguration
 
 	// contains inspected image if ValidateImage() is called
 	image *CachedImage
@@ -325,8 +321,7 @@ func (c *cookie) Unfreeze(ctx context.Context) error {
 	return err
 }
 
-// implements Cookie
-func (c *cookie) AuthImage(ctx context.Context) error {
+func (c *cookie) authImage(ctx context.Context) (*docker.AuthConfiguration, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "AuthImage"})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker auth image")
 
@@ -336,18 +331,17 @@ func (c *cookie) AuthImage(ctx context.Context) error {
 
 	if task, ok := c.task.(Auther); ok {
 		_, span := trace.StartSpan(ctx, "docker_auth")
-		authConfig, err := task.DockerAuth()
+		authConfig, err := task.DockerAuth(ctx, c.task.Image())
 		span.End()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if authConfig != nil {
 			config = authConfig
 		}
 	}
 
-	c.imgAuthConf = config
-	return nil
+	return config, nil
 }
 
 // implements Cookie
@@ -355,14 +349,12 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "ValidateImage"})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "image": c.task.Image()}).Debug("docker inspect image")
 
-	if c.imgAuthConf == nil {
-		log.Fatal("invalid usage: image not authenticated")
-	}
 	if c.image != nil {
 		return false, nil
 	}
 
 	// see if we already have it
+	// TODO this should use the image cache instead of making a docker call
 	img, err := c.drv.docker.InspectImage(ctx, c.task.Image())
 	if err == docker.ErrNoSuchImage {
 		return true, nil
@@ -396,21 +388,21 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 // implements Cookie
 func (c *cookie) PullImage(ctx context.Context) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "PullImage"})
-
-	if c.imgAuthConf == nil {
-		log.Fatal("invalid usage: image not authenticated")
-	}
 	if c.image != nil {
 		return nil
 	}
 
-	cfg := c.imgAuthConf
+	cfg, err := c.authImage(ctx)
+	if err != nil {
+		return err
+	}
+
 	repo := path.Join(c.imgReg, c.imgRepo)
 
 	log = common.Logger(ctx).WithFields(logrus.Fields{"registry": cfg.ServerAddress, "username": cfg.Username})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "image": c.task.Image()}).Debug("docker pull")
 
-	err := c.drv.docker.PullImage(docker.PullImageOptions{Repository: repo, Tag: c.imgTag, Context: ctx}, *cfg)
+	err = c.drv.docker.PullImage(docker.PullImageOptions{Repository: repo, Tag: c.imgTag, Context: ctx}, *cfg)
 	if err != nil {
 		log.WithError(err).Info("Failed to pull image")
 

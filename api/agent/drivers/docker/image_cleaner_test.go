@@ -123,11 +123,6 @@ func TestImageCleaner2(t *testing.T) {
 		t.Fatal("Couldn't create task cookie")
 	}
 
-	err = cookie.AuthImage(ctx)
-	if err != nil {
-		t.Fatal("Couldn't auth image test")
-	}
-
 	shouldPull, err := cookie.ValidateImage(ctx)
 	if err != nil || shouldPull {
 		t.Fatalf("Couldn't validate image test cache=%+v", inner)
