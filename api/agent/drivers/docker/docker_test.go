@@ -107,11 +107,6 @@ func TestVolumeValidation(t *testing.T) {
 
 	defer cookie.Close(ctx)
 
-	err = cookie.AuthImage(ctx)
-	if err != nil {
-		t.Fatalf("error during image authentication: %s", err)
-	}
-
 	shouldPull, err := cookie.ValidateImage(ctx)
 
 	if shouldPull == true {
