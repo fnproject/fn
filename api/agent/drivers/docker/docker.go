@@ -472,6 +472,11 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 
 	err = drv.docker.StartContainerWithContext(container, nil, ctx)
 	if err != nil && ctx.Err() == nil {
+		if isSyslogError(err) {
+			// syslog error is a func error
+			e := models.NewAPIError(http.StatusInternalServerError, errors.New("Syslog Unavailable"))
+			return nil, models.NewFuncError(e)
+		}
 		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
 		log.WithError(err).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error starting container")
 		return nil, err
@@ -483,6 +488,13 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		drv:       drv,
 		done:      stopSignal,
 	}, nil
+}
+
+// isSyslogError checks if the error message is what docker syslog plugin returns
+// when not able to connect to syslog
+func isSyslogError(err error) bool {
+	derr, ok := err.(*docker.Error)
+	return ok && strings.HasPrefix(derr.Message, "failed to initialize logging driver")
 }
 
 // waitResult implements drivers.WaitResult
