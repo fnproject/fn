@@ -640,8 +640,8 @@ func (pr *pureRunner) spawnDetachSubmit(state *callHandle) {
 	go func() {
 		pr.saveCallHandle(state)
 		err := pr.a.Submit(state.c)
-		pr.removeCallHandle(state.c.Model().ID)
 		state.enqueueCallResponse(err)
+		pr.removeCallHandle(state.c.Model().ID)
 	}()
 }
 
