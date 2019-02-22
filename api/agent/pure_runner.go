@@ -460,7 +460,7 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 
 	// We send the RunnerMsg_ResultStart
 	err := sendResultStart(ch)
-	
+
 	if err != nil {
 		return 0, err
 	}
