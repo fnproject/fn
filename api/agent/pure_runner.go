@@ -229,6 +229,32 @@ func (ch *callHandle) enqueueDetached(err error) {
 						StatusCode: int32(statusCode)}}}}})
 }
 
+// we send the ResultStart message with headers and status code
+func sendResultStart(ch *callHandle) error {
+	var err error
+	ch.headerOnce.Do(func() {
+		// WARNING: we do fetch Status and Headers without
+		// a lock below. This is a problem in agent in general, and needs
+		// to be fixed in all accessing go-routines such as protocol/http.go,
+		// protocol/json.go, agent.go, etc. In practice however, one go routine
+		// accesses them (which also compiles and writes headers), but this
+		// is fragile and needs to be fortified.
+		err = ch.enqueueMsg(&runner.RunnerMsg{
+			Body: &runner.RunnerMsg_ResultStart{
+				ResultStart: &runner.CallResultStart{
+					Meta: &runner.CallResultStart_Http{
+						Http: &runner.HttpRespMeta{
+							Headers:    ch.prepHeaders(),
+							StatusCode: int32(ch.status),
+						},
+					},
+				},
+			},
+		})
+	})
+	return err
+}
+
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
@@ -242,6 +268,12 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var errUser bool
 
 	log := common.Logger(ch.ctx)
+	// If we haven't sent a Result start message yet we send it now. This should guarantee that we send any custom headers returned by the function. sendResultStart is guaranteed to send a RunnerMsg_ResultStart only once
+	errRs := sendResultStart(ch)
+
+	if err == nil && errRs != nil {
+		err = errRs
+	}
 
 	if err != nil {
 		errCode = models.GetAPIErrorCode(err)
@@ -425,28 +457,10 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 		//If it is an detached call we just /dev/null the data coming back from the container
 		return len(data), nil
 	}
-	var err error
-	ch.headerOnce.Do(func() {
-		// WARNING: we do fetch Status and Headers without
-		// a lock below. This is a problem in agent in general, and needs
-		// to be fixed in all accessing go-routines such as protocol/http.go,
-		// protocol/json.go, agent.go, etc. In practice however, one go routine
-		// accesses them (which also compiles and writes headers), but this
-		// is fragile and needs to be fortified.
-		err = ch.enqueueMsg(&runner.RunnerMsg{
-			Body: &runner.RunnerMsg_ResultStart{
-				ResultStart: &runner.CallResultStart{
-					Meta: &runner.CallResultStart_Http{
-						Http: &runner.HttpRespMeta{
-							Headers:    ch.prepHeaders(),
-							StatusCode: int32(ch.status),
-						},
-					},
-				},
-			},
-		})
-	})
 
+	// We send the RunnerMsg_ResultStart
+	err := sendResultStart(ch)
+	
 	if err != nil {
 		return 0, err
 	}
