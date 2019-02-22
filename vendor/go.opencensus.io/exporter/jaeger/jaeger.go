@@ -37,7 +37,13 @@ const defaultServiceName = "OpenCensus"
 type Options struct {
 	// Endpoint is the Jaeger HTTP Thrift endpoint.
 	// For example, http://localhost:14268.
+	//
+	// Deprecated: Use CollectorEndpoint instead.
 	Endpoint string
+
+	// CollectorEndpoint is the full url to the Jaeger HTTP Thrift collector.
+	// For example, http://localhost:14268/api/traces
+	CollectorEndpoint string
 
 	// AgentEndpoint instructs exporter to send spans to jaeger-agent at this address.
 	// For example, localhost:6831.
@@ -63,20 +69,26 @@ type Options struct {
 
 	// Process contains the information about the exporting process.
 	Process Process
+
+	//BufferMaxCount defines the total number of traces that can be buffered in memory
+	BufferMaxCount int
 }
 
 // NewExporter returns a trace.Exporter implementation that exports
 // the collected spans to Jaeger.
 func NewExporter(o Options) (*Exporter, error) {
-	endpoint := o.Endpoint
-	if endpoint == "" && o.AgentEndpoint == "" {
+	if o.Endpoint == "" && o.CollectorEndpoint == "" && o.AgentEndpoint == "" {
 		return nil, errors.New("missing endpoint for Jaeger exporter")
 	}
 
+	var endpoint string
 	var client *agentClientUDP
 	var err error
-	if endpoint != "" {
-		endpoint = endpoint + "/api/traces?format=jaeger.thrift"
+	if o.Endpoint != "" {
+		endpoint = o.Endpoint + "/api/traces?format=jaeger.thrift"
+		log.Printf("Endpoint has been deprecated. Please use CollectorEndpoint instead.")
+	} else if o.CollectorEndpoint != "" {
+		endpoint = o.CollectorEndpoint
 	} else {
 		client, err = newAgentClientUDP(o.AgentEndpoint, udpPacketMaxLength)
 		if err != nil {
@@ -117,6 +129,14 @@ func NewExporter(o Options) (*Exporter, error) {
 			onError(err)
 		}
 	})
+
+	// Set BufferedByteLimit with the total number of spans that are permissible to be held in memory.
+	// This needs to be done since the size of messages is always set to 1. Failing to set this would allow
+	// 1G messages to be held in memory since that is the default value of BufferedByteLimit.
+	if o.BufferMaxCount != 0 {
+		bundler.BufferedByteLimit = o.BufferMaxCount
+	}
+
 	e.bundler = bundler
 	return e, nil
 }
