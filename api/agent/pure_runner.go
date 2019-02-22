@@ -219,18 +219,14 @@ func (ch *callHandle) enqueueDetached(err error) {
 			statusCode = http.StatusInternalServerError
 		}
 	}
-
-	err = ch.enqueueMsg(&runner.RunnerMsg{
-		Body: &runner.RunnerMsg_ResultStart{
-			ResultStart: &runner.CallResultStart{
-				Meta: &runner.CallResultStart_Http{
-					Http: &runner.HttpRespMeta{
-						Headers:    ch.prepHeaders(),
-						StatusCode: int32(statusCode)}}}}})
+	err = sendResultStart(ch, statusCode)
+	if err != nil {
+		logrus.WithError(err).Info("Unable to send Result Start message during detached call")
+	}
 }
 
 // we send the ResultStart message with headers and status code
-func sendResultStart(ch *callHandle) error {
+func sendResultStart(ch *callHandle, statusCode int) error {
 	var err error
 	ch.headerOnce.Do(func() {
 		// WARNING: we do fetch Status and Headers without
@@ -245,7 +241,7 @@ func sendResultStart(ch *callHandle) error {
 					Meta: &runner.CallResultStart_Http{
 						Http: &runner.HttpRespMeta{
 							Headers:    ch.prepHeaders(),
-							StatusCode: int32(ch.status),
+							StatusCode: int32(statusCode),
 						},
 					},
 				},
@@ -269,7 +265,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 
 	log := common.Logger(ch.ctx)
 	// If we haven't sent a Result start message yet we send it now. This should guarantee that we send any custom headers returned by the function. sendResultStart is guaranteed to send a RunnerMsg_ResultStart only once
-	errRs := sendResultStart(ch)
+	errRs := sendResultStart(ch, ch.status)
 
 	if err == nil && errRs != nil {
 		err = errRs
@@ -459,7 +455,7 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 	}
 
 	// We send the RunnerMsg_ResultStart
-	err := sendResultStart(ch)
+	err := sendResultStart(ch, ch.status)
 
 	if err != nil {
 		return 0, err
