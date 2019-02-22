@@ -731,7 +731,6 @@ func (s *hotSlot) writeResp(ctx context.Context, max uint64, resp *http.Response
 	}
 
 	rw = newSizerRespWriter(max, rw)
-	rw.WriteHeader(http.StatusOK)
 
 	// WARNING: is the following header copy safe?
 	// if we're writing directly to the response writer, we need to set headers
@@ -742,6 +741,7 @@ func (s *hotSlot) writeResp(ctx context.Context, max uint64, resp *http.Response
 			rw.Header().Add(k, v)
 		}
 	}
+	rw.WriteHeader(http.StatusOK)
 
 	_, ioErr := io.Copy(rw, resp.Body)
 	return ioErr
