@@ -49,11 +49,17 @@ func (p *chPlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall
 	var runnerPoolErr error
 	for {
 		var runners []Runner
-		runners, runnerPoolErr = rp.Runners(ctx, call)
-
-		i := int(jumpConsistentHash(sum64, int32(len(runners))))
-		for j := 0; j < len(runners) && !state.IsDone(); j++ {
+		for j := 0; !state.IsDone(); j++ {
+			// refresh each iteration (should be cached...). detect if runner list changed, and reset j if so (?)
+			oldRunners := runners
+			runners, runnerPoolErr = rp.Runners(ctx, call)
+			if !equal(runners, oldRunners) {
+				j = 0
+			}
+			i := int(jumpConsistentHash(sum64, int32(len(runners))))
+			i = (i + j) % len(runners)
 			r := runners[i]
+
 			if !p.checkLoad(key, r.Address()) {
 				// try to shed load, this simulates a probabilistic coin toss, see checkLoad for details
 				// NOTE: this is probabalistic and should converge... it shouldn't take forever, but noting so you know
@@ -68,8 +74,6 @@ func (p *chPlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall
 			if placed {
 				return err
 			}
-
-			i = (i + 1) % len(runners)
 		}
 
 		if !state.RetryAllBackoff(len(runners)) {
@@ -86,6 +90,18 @@ func (p *chPlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall
 		return runnerPoolErr
 	}
 	return models.ErrCallTimeoutServerBusy
+}
+
+func equal(a, b []Runner) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Address() != b[i].Address() {
+			return false
+		}
+	}
+	return true
 }
 
 // A Fast, Minimal Memory, Consistent Hash Algorithm:
