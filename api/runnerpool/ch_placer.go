@@ -49,7 +49,7 @@ func (p *chPlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall
 	var runnerPoolErr error
 	for {
 		var runners []Runner
-		for j := 0; !state.IsDone(); j++ {
+		for j := 0; len(runners) > 0 && !state.IsDone(); j++ {
 			// refresh each iteration (should be cached...). detect if runner list changed, and reset j if so (?)
 			oldRunners := runners
 			runners, runnerPoolErr = rp.Runners(ctx, call)
