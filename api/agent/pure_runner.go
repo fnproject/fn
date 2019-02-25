@@ -388,7 +388,7 @@ func (ch *callHandle) WriteHeader(status int) {
 		// protocol/json.go, agent.go, etc. In practice however, one go routine
 		// accesses them (which also compiles and writes headers), but this
 		// is fragile and needs to be fortified.
-		err = ch.enqueueMsg(&runner.RunnerMsg{
+		err = ch.enqueueMsgStrict(&runner.RunnerMsg{
 			Body: &runner.RunnerMsg_ResultStart{
 				ResultStart: &runner.CallResultStart{
 					Meta: &runner.CallResultStart_Http{
@@ -403,7 +403,7 @@ func (ch *callHandle) WriteHeader(status int) {
 	})
 
 	if err != nil {
-		logrus.WithError(err).Info("Unable to send Result Start message during detached call")
+		logrus.WithError(err).Error("Error in WriteHeader, unable to send RunnerMsg_ResultStart, shutting down callHandler")
 	}
 
 }
