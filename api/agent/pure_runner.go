@@ -210,47 +210,6 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
-func (ch *callHandle) enqueueDetached(err error) {
-	statusCode := http.StatusAccepted
-	if err != nil {
-		if models.IsAPIError(err) {
-			statusCode = models.GetAPIErrorCode(err)
-		} else {
-			statusCode = http.StatusInternalServerError
-		}
-	}
-	err = sendResultStart(ch, statusCode)
-	if err != nil {
-		logrus.WithError(err).Info("Unable to send Result Start message during detached call")
-	}
-}
-
-// we send the ResultStart message with headers and status code
-func sendResultStart(ch *callHandle, statusCode int) error {
-	var err error
-	ch.headerOnce.Do(func() {
-		// WARNING: we do fetch Status and Headers without
-		// a lock below. This is a problem in agent in general, and needs
-		// to be fixed in all accessing go-routines such as protocol/http.go,
-		// protocol/json.go, agent.go, etc. In practice however, one go routine
-		// accesses them (which also compiles and writes headers), but this
-		// is fragile and needs to be fortified.
-		err = ch.enqueueMsg(&runner.RunnerMsg{
-			Body: &runner.RunnerMsg_ResultStart{
-				ResultStart: &runner.CallResultStart{
-					Meta: &runner.CallResultStart_Http{
-						Http: &runner.HttpRespMeta{
-							Headers:    ch.prepHeaders(),
-							StatusCode: int32(statusCode),
-						},
-					},
-				},
-			},
-		})
-	})
-	return err
-}
-
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
@@ -264,12 +223,6 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var errUser bool
 
 	log := common.Logger(ch.ctx)
-	// If we haven't sent a Result start message yet we send it now. This should guarantee that we send any custom headers returned by the function. sendResultStart is guaranteed to send a RunnerMsg_ResultStart only once
-	errRs := sendResultStart(ch, ch.status)
-
-	if err == nil && errRs != nil {
-		err = errRs
-	}
 
 	if err != nil {
 		errCode = models.GetAPIErrorCode(err)
@@ -427,6 +380,32 @@ func (ch *callHandle) Header() http.Header {
 // is used by Agent to push http status to pure runner
 func (ch *callHandle) WriteHeader(status int) {
 	ch.status = status
+	var err error
+	ch.headerOnce.Do(func() {
+		// WARNING: we do fetch Status and Headers without
+		// a lock below. This is a problem in agent in general, and needs
+		// to be fixed in all accessing go-routines such as protocol/http.go,
+		// protocol/json.go, agent.go, etc. In practice however, one go routine
+		// accesses them (which also compiles and writes headers), but this
+		// is fragile and needs to be fortified.
+		err = ch.enqueueMsg(&runner.RunnerMsg{
+			Body: &runner.RunnerMsg_ResultStart{
+				ResultStart: &runner.CallResultStart{
+					Meta: &runner.CallResultStart_Http{
+						Http: &runner.HttpRespMeta{
+							Headers:    ch.prepHeaders(),
+							StatusCode: int32(status),
+						},
+					},
+				},
+			},
+		})
+	})
+
+	if err != nil {
+		logrus.WithError(err).Info("Unable to send Result Start message during detached call")
+	}
+
 }
 
 // prepHeaders is a utility function to compile http headers
@@ -454,12 +433,9 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 		return len(data), nil
 	}
 
-	// We send the RunnerMsg_ResultStart
-	err := sendResultStart(ch, ch.status)
+	ch.WriteHeader(ch.status)
 
-	if err != nil {
-		return 0, err
-	}
+	var err error
 	total := 0
 	// split up data into gRPC chunks
 	for {
@@ -1002,7 +978,15 @@ func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
 		err = models.ErrCallHandlerNotFound
 		return err
 	}
-	ch.enqueueDetached(err)
+	statusCode := http.StatusAccepted
+	if err != nil {
+		if models.IsAPIError(err) {
+			statusCode = models.GetAPIErrorCode(err)
+		} else {
+			statusCode = http.StatusInternalServerError
+		}
+	}
+	ch.WriteHeader(statusCode)
 	return nil
 }
 
