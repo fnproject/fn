@@ -174,7 +174,8 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 		return nil, fmt.Errorf("failed to initialise db helper %s : %s", driver, err)
 	}
 
-	log.WithFields(logrus.Fields{"url": uri}).Info("Connecting to DB")
+	// NOTE: DO NOT LOG THE URL AND ITS PASSWORD! See common.MaskPassword (should be above)
+	log.Info("Connecting to DB")
 
 	sqldb, err := sql.Open(driver, uri)
 	if err != nil {
@@ -197,7 +198,7 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 
 	db, err = helper.PostCreate(db)
 	if err != nil {
-		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't initialize db")
+		log.WithError(err).Error("couldn't initialize db")
 		return nil, err
 	}
 	sdb := &SQLStore{db: db, helper: helper}
