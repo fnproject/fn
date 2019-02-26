@@ -403,7 +403,7 @@ func (ch *callHandle) WriteHeader(status int) {
 	})
 
 	if err != nil {
-		logrus.WithError(err).Error("Error in WriteHeader, unable to send RunnerMsg_ResultStart, shutting down callHandler")
+		logrus.WithError(err).Info("Error in WriteHeader, unable to send RunnerMsg_ResultStart, shutting down callHandler")
 	}
 
 }
@@ -434,6 +434,18 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 	}
 
 	ch.WriteHeader(ch.status)
+	// if we have any error during the WriteHeader the doneQueue will be closed by the
+	// shutdown process. We check here if that happens, if so we return immediately
+	// as there is no point to proceed with the Write
+	select {
+
+	case <-ch.ctx.Done():
+		return 0, io.EOF
+	case <-ch.doneQueue:
+		return 0, io.EOF
+	default:
+
+	}
 
 	var err error
 	total := 0
@@ -978,15 +990,7 @@ func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
 		err = models.ErrCallHandlerNotFound
 		return err
 	}
-	statusCode := http.StatusAccepted
-	if err != nil {
-		if models.IsAPIError(err) {
-			statusCode = models.GetAPIErrorCode(err)
-		} else {
-			statusCode = http.StatusInternalServerError
-		}
-	}
-	ch.WriteHeader(statusCode)
+	ch.WriteHeader(http.StatusAccepted)
 	return nil
 }
 
