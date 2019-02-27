@@ -26,6 +26,7 @@ type lbAgent struct {
 	placer        pool.Placer
 	callOverrider CallOverrider
 	shutWg        *common.WaitGroup
+	callOpts      []CallOpt
 }
 
 type DetachedResponseWriter struct {
@@ -63,6 +64,7 @@ var _ http.ResponseWriter = new(DetachedResponseWriter) // keep the compiler hap
 
 type LBAgentOption func(*lbAgent) error
 
+// WithLBAgentConfig sets the agent config to the provided Config
 func WithLBAgentConfig(cfg *Config) LBAgentOption {
 	return func(a *lbAgent) error {
 		a.cfg = *cfg
@@ -70,7 +72,7 @@ func WithLBAgentConfig(cfg *Config) LBAgentOption {
 	}
 }
 
-// LB agents can use this to register a CallOverrider to modify a Call and extensions
+// WithLBCallOverrider is for LB agents to register a CallOverrider to modify a Call and extensions
 func WithLBCallOverrider(fn CallOverrider) LBAgentOption {
 	return func(a *lbAgent) error {
 		if a.callOverrider != nil {
@@ -81,11 +83,22 @@ func WithLBCallOverrider(fn CallOverrider) LBAgentOption {
 	}
 }
 
+// WithLBCallOptions adds additional call options to each call created from GetCall, these
+// options will be executed after any other options supplied to GetCall
+func WithLBCallOptions(opts ...CallOpt) LBAgentOption {
+	return func(a *lbAgent) error {
+		a.callOpts = append(a.callOpts, opts...)
+		return nil
+
+	}
+
+}
+
 // NewLBAgent creates an Agent that knows how to load-balance function calls
 // across a group of runner nodes.
 func NewLBAgent(da CallHandler, rp pool.RunnerPool, p pool.Placer, options ...LBAgentOption) (Agent, error) {
 
-	// Yes, LBAgent and Agent both use an Config.
+	// Yes, LBAgent and Agent both use a Config.
 	cfg, err := NewConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in lb-agent config cfg=%+v", cfg)
@@ -130,13 +143,15 @@ func (a *lbAgent) fireAfterCall(ctx context.Context, call *models.Call) error {
 func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	var c call
 
+	// add additional agent options after any call specific options
+	opts = append(opts, a.callOpts...)
+
 	for _, o := range opts {
 		err := o(&c)
 		if err != nil {
 			return nil, err
 		}
 	}
-
 	// TODO typed errors to test
 	if c.req == nil || c.Call == nil {
 		return nil, errors.New("no model or request provided for call")

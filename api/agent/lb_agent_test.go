@@ -270,3 +270,64 @@ func TestEnforceLbTimeout(t *testing.T) {
 		t.Fatal("Expected a call failure")
 	}
 }
+
+// SetCallType create a models.Call setting up the provided Call Type
+func SetCallType(callType string) CallOpt {
+	return func(c *call) error {
+		c.Call = &models.Call{Type: callType}
+		c.req, _ = http.NewRequest("GET", "http://www.example.com", nil)
+		return nil
+	}
+}
+
+func ModifyCallRequest(callType string) CallOpt {
+	return func(c *call) error {
+		c.Call.Type = callType
+		return nil
+	}
+}
+func TestGetCallSetOpts(t *testing.T) {
+	expected := models.TypeSync
+	a, err := NewLBAgent(nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Unexpected error in creating LB Agent, %s", err.Error())
+	}
+	c, err := a.GetCall(SetCallType(expected))
+	if err != nil {
+		t.Fatalf("Unexpected error calling GetCall, %s", err.Error())
+	}
+
+	actual := c.Model().Type
+	if expected != actual {
+		t.Fatalf("Expected %s got %s", expected, actual)
+	}
+}
+
+// We verify that we can add callOptions which are executed after the option supplied to  GetCall
+func TestWithLBCallOptions(t *testing.T) {
+	expected := models.TypeDetached
+	a, err := NewLBAgent(nil, nil, nil, WithLBCallOptions(ModifyCallRequest(expected)))
+	if err != nil {
+		t.Fatalf("Unexpected error in creating LB Agent, %s", err.Error())
+	}
+
+	lbAgent, ok := a.(*lbAgent)
+	if !ok {
+		t.Fatal("NewLBAgent doesn't return an lbAgent")
+	}
+
+	c, err := lbAgent.GetCall(SetCallType(models.TypeSync))
+	if err != nil {
+		t.Fatalf("Unexpected error calling GetCall, %s", err.Error())
+	}
+
+	actual := len(lbAgent.callOpts)
+	if actual != 1 {
+		t.Fatalf("Expected 1 call Options got %d call Option", actual)
+	}
+
+	actualType := c.Model().Type
+	if expected != actualType {
+		t.Fatalf("Expected %s got %s", expected, actualType)
+	}
+}
