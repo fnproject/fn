@@ -210,25 +210,6 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
-func (ch *callHandle) enqueueDetached(err error) {
-	statusCode := http.StatusAccepted
-	if err != nil {
-		if models.IsAPIError(err) {
-			statusCode = models.GetAPIErrorCode(err)
-		} else {
-			statusCode = http.StatusInternalServerError
-		}
-	}
-
-	err = ch.enqueueMsg(&runner.RunnerMsg{
-		Body: &runner.RunnerMsg_ResultStart{
-			ResultStart: &runner.CallResultStart{
-				Meta: &runner.CallResultStart_Http{
-					Http: &runner.HttpRespMeta{
-						Headers:    ch.prepHeaders(),
-						StatusCode: int32(statusCode)}}}}})
-}
-
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
@@ -399,6 +380,32 @@ func (ch *callHandle) Header() http.Header {
 // is used by Agent to push http status to pure runner
 func (ch *callHandle) WriteHeader(status int) {
 	ch.status = status
+	var err error
+	ch.headerOnce.Do(func() {
+		// WARNING: we do fetch Status and Headers without
+		// a lock below. This is a problem in agent in general, and needs
+		// to be fixed in all accessing go-routines such as protocol/http.go,
+		// protocol/json.go, agent.go, etc. In practice however, one go routine
+		// accesses them (which also compiles and writes headers), but this
+		// is fragile and needs to be fortified.
+		err = ch.enqueueMsgStrict(&runner.RunnerMsg{
+			Body: &runner.RunnerMsg_ResultStart{
+				ResultStart: &runner.CallResultStart{
+					Meta: &runner.CallResultStart_Http{
+						Http: &runner.HttpRespMeta{
+							Headers:    ch.prepHeaders(),
+							StatusCode: int32(status),
+						},
+					},
+				},
+			},
+		})
+	})
+
+	if err != nil {
+		logrus.WithError(err).Info("Error in WriteHeader, unable to send RunnerMsg_ResultStart, shutting down callHandler")
+	}
+
 }
 
 // prepHeaders is a utility function to compile http headers
@@ -425,31 +432,22 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 		//If it is an detached call we just /dev/null the data coming back from the container
 		return len(data), nil
 	}
-	var err error
-	ch.headerOnce.Do(func() {
-		// WARNING: we do fetch Status and Headers without
-		// a lock below. This is a problem in agent in general, and needs
-		// to be fixed in all accessing go-routines such as protocol/http.go,
-		// protocol/json.go, agent.go, etc. In practice however, one go routine
-		// accesses them (which also compiles and writes headers), but this
-		// is fragile and needs to be fortified.
-		err = ch.enqueueMsg(&runner.RunnerMsg{
-			Body: &runner.RunnerMsg_ResultStart{
-				ResultStart: &runner.CallResultStart{
-					Meta: &runner.CallResultStart_Http{
-						Http: &runner.HttpRespMeta{
-							Headers:    ch.prepHeaders(),
-							StatusCode: int32(ch.status),
-						},
-					},
-				},
-			},
-		})
-	})
 
-	if err != nil {
-		return 0, err
+	ch.WriteHeader(ch.status)
+	// if we have any error during the WriteHeader the doneQueue will be closed by the
+	// shutdown process. We check here if that happens, if so we return immediately
+	// as there is no point to proceed with the Write
+	select {
+
+	case <-ch.ctx.Done():
+		return 0, io.EOF
+	case <-ch.doneQueue:
+		return 0, io.EOF
+	default:
+
 	}
+
+	var err error
 	total := 0
 	// split up data into gRPC chunks
 	for {
@@ -630,8 +628,8 @@ func (pr *pureRunner) spawnDetachSubmit(state *callHandle) {
 	go func() {
 		pr.saveCallHandle(state)
 		err := pr.a.Submit(state.c)
-		pr.removeCallHandle(state.c.Model().ID)
 		state.enqueueCallResponse(err)
+		pr.removeCallHandle(state.c.Model().ID)
 	}()
 }
 
@@ -992,7 +990,7 @@ func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
 		err = models.ErrCallHandlerNotFound
 		return err
 	}
-	ch.enqueueDetached(err)
+	ch.WriteHeader(http.StatusAccepted)
 	return nil
 }
 
