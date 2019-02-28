@@ -43,7 +43,11 @@ func registerViews() {
 	agent.RegisterRunnerViews(keys, latencyDist)
 	agent.RegisterAgentViews(keys, latencyDist)
 	agent.RegisterDockerViews(keys, latencyDist, ioDist, ioDist, memoryDist, cpuDist)
-	agent.RegisterContainerViews(keys, latencyDist)
+
+	// container views have additional metrics, optional to turn on
+	// TODO more cohesive plan for wiring these in
+	cKeys := append(keys, agent.AppIDMetricKey.Name(), agent.FnIDMetricKey.Name(), agent.ImageNameMetricKey.Name())
+	agent.RegisterContainerViews(cKeys, latencyDist)
 
 	// Register docker client views
 	docker.RegisterViews(keys, latencyDist)

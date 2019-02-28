@@ -455,7 +455,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 		return
 	}
 
-	state := NewContainerState(a.cfg.EnableContainerMetrics)
+	state := NewContainerState()
 	state.UpdateState(ctx, ContainerStateWait, call)
 
 	mem := call.Memory + uint64(call.TmpFsSize)

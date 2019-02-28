@@ -2,22 +2,20 @@ package agent
 
 import (
 	"context"
-	"go.opencensus.io/tag"
 	"sync"
 	"time"
 
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 )
 
 type RequestStateType int
 type ContainerStateType int
 
 type containerState struct {
-	lock                  sync.Mutex
-	state                 ContainerStateType
-	start                 time.Time
-	cfg                   *Config
-	containerStateMetrics bool
+	lock  sync.Mutex
+	state ContainerStateType
+	start time.Time
 }
 
 type requestState struct {
@@ -38,10 +36,8 @@ func NewRequestState() RequestState {
 	return &requestState{}
 }
 
-func NewContainerState(containerStateMetrics bool) ContainerState {
-	cs := &containerState{}
-	cs.containerStateMetrics = containerStateMetrics
-	return cs
+func NewContainerState() ContainerState {
+	return new(containerState)
 }
 
 const (
@@ -141,12 +137,11 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 	var oldState ContainerStateType
 	var before time.Time
 
-	if c.containerStateMetrics {
-		ctx, _ = tag.New(ctx,
-			tag.Upsert(appIdKey, call.AppID),
-			tag.Upsert(functionIdKey, call.FnID),
-			tag.Upsert(imageNameKey, call.Image))
-	}
+	ctx, _ = tag.New(ctx,
+		tag.Upsert(AppIDMetricKey, call.AppID),
+		tag.Upsert(FnIDMetricKey, call.FnID),
+		tag.Upsert(ImageNameMetricKey, call.Image),
+	)
 
 	c.lock.Lock()
 
@@ -171,7 +166,6 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 		return
 	}
 
-	//call.AppID, call.FnID, call.Image
 	// reflect this change to slot mgr if defined (AKA hot)
 	if slots != nil {
 		slots.enterContainerState(newState)

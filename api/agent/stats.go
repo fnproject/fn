@@ -23,10 +23,12 @@ var (
 	statusCallSuccessKey  = common.MakeKey("success")
 	statusCallNetReadyKey = common.MakeKey("network")
 
-	appIdKey      = common.MakeKey("app_id")
-	functionIdKey = common.MakeKey("function_id")
-	imageNameKey  = common.MakeKey("image_name")
-	containerKeys = []tag.Key{appIdKey, functionIdKey, imageNameKey}
+	// AppIDMetricKey is a tag for metrics
+	AppIDMetricKey = common.MakeKey("app_id")
+	// FnIDMetricKey is a tag for metrics
+	FnIDMetricKey = common.MakeKey("fn_id")
+	// ImageNameMetricKey is a tag for metrics
+	ImageNameMetricKey = common.MakeKey("image_name")
 )
 
 func statsCalls(ctx context.Context) {
@@ -315,7 +317,7 @@ func RegisterContainerViews(tagKeys []string, latencyDist []float64) {
 		if key == "" {
 			continue
 		}
-		v := common.CreateViewWithTags(containerGaugeMeasures[i], view.Sum(), containerKeys)
+		v := common.CreateView(containerGaugeMeasures[i], view.Sum(), tagKeys)
 
 		if err := view.Register(v); err != nil {
 			logrus.WithError(err).Fatal("cannot register view")
