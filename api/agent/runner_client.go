@@ -110,7 +110,7 @@ func isTooBusy(err error) bool {
 	return false
 }
 
-// isUnavailable convert an error and assert if what we have is an gRPC.Unavailable error.
+// isUnavailable converts an error to a gRPC status and asserts if what we have is an gRPC.Unavailable error.
 func isUnavailable(err error) bool {
 	st := status.Convert(err)
 	if st.Code() == codes.Unavailable {
