@@ -161,6 +161,11 @@ var (
 		error: errors.New("Unable to service the request for the reservation period"),
 	}
 
+	ErrRunnerUnavailable = err{
+		code:  http.StatusBadGateway,
+		error: errors.New("Received a gRPC error Unavailable from a runner."),
+	}
+
 	// func errors
 
 	ErrDockerPullTimeout = ferr{

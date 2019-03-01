@@ -110,6 +110,15 @@ func isTooBusy(err error) bool {
 	return false
 }
 
+// isUnavailable convert an error and assert if what we have is an gRPC.Unavailable error.
+func isUnavailable(err error) bool {
+	st := status.Convert(err)
+	if st.Code() == codes.Unavailable {
+		return true
+	}
+	return false
+}
+
 // Translate runner.RunnerStatus to runnerpool.RunnerStatus
 func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStatus {
 	if status == nil {
@@ -186,7 +195,8 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	}
 	runnerConnection, err := r.client.Engage(ctx)
 	if err != nil {
-		log.WithError(err).Error("Unable to create client to runner node")
+		// We are going to retry on a different runner, it is ok to log this error as Info
+		log.WithError(err).Info("Unable to create client to runner node")
 		// Try on next runner
 		return false, err
 	}
@@ -197,7 +207,8 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		Extensions:     call.Extensions(),
 	}}})
 	if err != nil {
-		log.WithError(err).Error("Failed to send message to runner node")
+		// We are going to retry on a different runner, it is ok to log this error as Info
+		log.WithError(err).Info("Failed to send message to runner node")
 		// Let's ensure this is a codes.Unavailable error, otherwise we should
 		// not assume that no data was transferred to the server. If the error is
 		// retriable, then we can bubble up "not placed" to the caller to enable
@@ -357,7 +368,14 @@ DataLoop:
 		msg, err := protocolClient.Recv()
 		if err != nil {
 			log.WithError(err).Info("Receive error from runner")
+			// check if this is a Unavailable gRPC error
+			if isUnavailable(err) {
+				// This will be translated in a 502 error. The gRPC unavailable is likely to be
+				// a transient condition and may be corrected by retrying.
+				err = ErrRunnerUnavailable
+			}
 			tryQueueError(err, done)
+
 			return
 		}
 
@@ -419,6 +437,11 @@ DataLoop:
 		}
 		if err != nil {
 			log.WithError(err).Infof("Call Waiting EOF received error")
+			if isUnavailable(err) {
+				// This will be translated in a 502 error. The gRPC unavailable is likely to be
+				// a transient condition and may be corrected by retrying.
+				err = ErrRunnerUnavailable
+			}
 			tryQueueError(err, done)
 			break
 		}
