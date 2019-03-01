@@ -165,9 +165,6 @@ const (
 	// ServerTypeLB runs only /r/ endpoints, routing to runner nodes.
 	ServerTypeLB
 
-	// ServerTypeRunner runs only /r/ endpoints, to execute tasks.
-	ServerTypeRunner
-
 	// ServerTypePureRunner runs only grpc server, to execute tasks.
 	ServerTypePureRunner
 )
@@ -192,8 +189,6 @@ func (s NodeType) String() string {
 		return "api"
 	case ServerTypeLB:
 		return "lb"
-	case ServerTypeRunner:
-		return "runner"
 	case ServerTypePureRunner:
 		return "pure-runner"
 	default:
@@ -244,8 +239,6 @@ func nodeTypeFromString(value string) NodeType {
 		return ServerTypeAPI
 	case "lb":
 		return ServerTypeLB
-	case "runner":
-		return ServerTypeRunner
 	case "pure-runner":
 		return ServerTypePureRunner
 	default:
@@ -260,7 +253,6 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
 	switch nodeType {
 	case ServerTypeLB: // nothing
-	case ServerTypeRunner: // nothing
 	case ServerTypePureRunner: // nothing
 	default:
 		// only want to activate these for full and api nodes
@@ -278,7 +270,6 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLogDBURL, "")))
-	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
 
 	opts = append(opts, LimitRequestBody(int64(getEnvInt(EnvMaxRequestSize, 0))))
@@ -401,21 +392,6 @@ func WithLogURL(logstoreURL string) Option {
 	}
 }
 
-// WithRunnerURL maps EnvRunnerURL
-func WithRunnerURL(runnerURL string) Option {
-	return func(ctx context.Context, s *Server) error {
-
-		if runnerURL != "" {
-			cl, err := hybrid.NewClient(runnerURL)
-			if err != nil {
-				return err
-			}
-			s.lbReadAccess = agent.NewCachedDataAccess(cl)
-		}
-		return nil
-	}
-}
-
 // WithType maps EnvNodeType
 func WithType(t NodeType) Option {
 	return func(ctx context.Context, s *Server) error {
@@ -529,17 +505,6 @@ func WithAgentFromEnv() Option {
 		switch s.nodeType {
 		case ServerTypeAPI:
 			return errors.New("should not initialize an agent for an Fn API node")
-		case ServerTypeRunner:
-			runnerURL := getEnv(EnvRunnerURL, "")
-			if runnerURL == "" {
-				return errors.New("no FN_RUNNER_API_URL provided for an Fn Runner node")
-			}
-			cl, err := hybrid.NewClient(runnerURL)
-			if err != nil {
-				return err
-			}
-
-			s.agent = agent.New(cl)
 		case ServerTypePureRunner:
 			if s.datastore != nil {
 				return errors.New("pure runner nodes must not be configured with a datastore (FN_DB_URL)")
@@ -718,10 +683,6 @@ func New(ctx context.Context, opts ...Option) *Server {
 		requireConfigSet("lbReadAccess", s.lbReadAccess)
 		requireConfigSet("agent", s.agent)
 		requireConfigSet("lbEnqueue", s.lbEnqueue)
-
-	case ServerTypeRunner:
-		requireConfigSet("lbReadAccess", s.lbReadAccess)
-		requireConfigSet("agent", s.agent)
 
 	case ServerTypePureRunner:
 		requireConfigSet("agent", s.agent)
@@ -1149,7 +1110,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	}
 
 	switch s.nodeType {
-	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
+	case ServerTypeFull, ServerTypeLB:
 		if !s.noHTTTPTriggerEndpoint {
 			lbTriggerGroup := engine.Group("/t")
 			lbTriggerGroup.Any("/:app_name", s.handleHTTPTriggerCall)
