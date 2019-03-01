@@ -372,7 +372,7 @@ DataLoop:
 			if isUnavailable(err) {
 				// This will be translated in a 502 error. The gRPC unavailable is likely to be
 				// a transient condition and may be corrected by retrying.
-				err = ErrRunnerUnavailable
+				err = models.ErrRunnerUnavailable
 			}
 			tryQueueError(err, done)
 
@@ -440,7 +440,7 @@ DataLoop:
 			if isUnavailable(err) {
 				// This will be translated in a 502 error. The gRPC unavailable is likely to be
 				// a transient condition and may be corrected by retrying.
-				err = ErrRunnerUnavailable
+				err = models.ErrRunnerUnavailable
 			}
 			tryQueueError(err, done)
 			break
