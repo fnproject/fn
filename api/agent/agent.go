@@ -1339,6 +1339,7 @@ func (c *container) DisableEviction(call *call) {
 func (c *container) Close() {
 	if c.close != nil {
 		c.close()
+		c.close = nil
 	}
 	// evictor can be nil (for tests)
 	if c.evictor == nil {
@@ -1347,6 +1348,7 @@ func (c *container) Close() {
 
 	if c.evictToken != nil {
 		c.evictor.DeleteEvictToken(c.evictToken)
+		c.evictToken = nil
 	}
 }
 
