@@ -110,16 +110,19 @@ func isTooBusy(err error) bool {
 	return false
 }
 
-// isUnavailable converts an error to a gRPC status and asserts if what we have is an gRPC.Unavailable error.
-func isUnavailable(err error) bool {
-	st := status.Convert(err)
-	if st.Code() == codes.Unavailable {
-		return true
+// inspectError inspect the error trying to convert it to a gRPC status and compare the gRPC code to find a mapping with
+// a models.Error. If there is not a valid mapping the original error is returned back.
+func inspectError(err error) error {
+	if status.Convert(err).Code() == codes.Unavailable {
+		return models.NewRetryableError(
+			// TODO: Determine a better delay value here (perhaps ask Agent). For now 15 secs with
+			// the hopes that fnlb will land this on a better server immediately.
+			models.NewAPIErrorWrapper(models.ErrRetryableError, errors.New("received a gRPC error Unavailable from a runner")), 15)
 	}
-	return false
+	return err
 }
 
-// Translate runner.RunnerStatus to runnerpool.RunnerStatus
+// TranslateGRPCStatusToRunnerStatus runner.RunnerStatus to runnerpool.RunnerStatus
 func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStatus {
 	if status == nil {
 		return nil
@@ -368,12 +371,7 @@ DataLoop:
 		msg, err := protocolClient.Recv()
 		if err != nil {
 			log.WithError(err).Info("Receive error from runner")
-			// check if this is a Unavailable gRPC error
-			if isUnavailable(err) {
-				// This will be translated in a 502 error. The gRPC unavailable is likely to be
-				// a transient condition and may be corrected by retrying.
-				err = models.ErrRunnerUnavailable
-			}
+			err = inspectError(err)
 			tryQueueError(err, done)
 
 			return
@@ -437,11 +435,7 @@ DataLoop:
 		}
 		if err != nil {
 			log.WithError(err).Infof("Call Waiting EOF received error")
-			if isUnavailable(err) {
-				// This will be translated in a 502 error. The gRPC unavailable is likely to be
-				// a transient condition and may be corrected by retrying.
-				err = models.ErrRunnerUnavailable
-			}
+			err = inspectError(err)
 			tryQueueError(err, done)
 			break
 		}

@@ -161,9 +161,9 @@ var (
 		error: errors.New("Unable to service the request for the reservation period"),
 	}
 
-	ErrRunnerUnavailable = err{
-		code:  http.StatusBadGateway,
-		error: errors.New("Received a gRPC error Unavailable from a runner."),
+	ErrRetryableError = err{
+		code:  http.StatusServiceUnavailable,
+		error: errors.New("The server is currently unable to handle the request due to a temporary issue"),
 	}
 
 	// func errors
@@ -296,5 +296,34 @@ func NewAPIErrorWrapper(apiErr APIError, rootErr error) APIErrorWrapper {
 	return &apiErrorWrapper{
 		APIError: apiErr,
 		root:     rootErr,
+	}
+}
+
+type RetryableError interface {
+	APIErrorWrapper() APIErrorWrapper
+	RetryAfter() int // the number of seconds before retry
+	Error() string
+}
+
+type retryableError struct {
+	apiErrWrapper APIErrorWrapper
+	delay         int
+}
+
+func (re retryableError) RetryAfter() int {
+	return re.delay
+}
+
+func (re retryableError) Error() string {
+	return re.apiErrWrapper.Error()
+}
+
+func (re retryableError) APIErrorWrapper() APIErrorWrapper {
+	return re.apiErrWrapper
+}
+func NewRetryableError(ew APIErrorWrapper, d int) RetryableError {
+	return &retryableError{
+		apiErrWrapper: ew,
+		delay:         d,
 	}
 }

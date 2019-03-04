@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -38,21 +39,27 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 	}
 
 	var statuscode int
-	if e, ok := err.(models.APIError); ok {
-		if e.Code() >= 500 {
-			log.WithFields(logrus.Fields{"code": e.Code()}).WithError(e).Error("api error")
+
+	switch e := err.(type) {
+	case models.APIError:
+		code := e.Code()
+		if code >= 500 {
+			log.WithFields(logrus.Fields{"code": code}).WithError(e).Error("api error")
 		}
-		if err == models.ErrCallTimeoutServerBusy {
-			// TODO: Determine a better delay value here (perhaps ask Agent). For now 15 secs with
-			// the hopes that fnlb will land this on a better server immediately.
-			w.Header().Set("Retry-After", "15")
-		}
-		statuscode = e.Code()
-	} else {
+		statuscode = code
+	case models.RetryableError:
+		statuscode = e.APIErrorWrapper().Code()
+		w.Header().Set("Retry-After", strconv.Itoa(e.RetryAfter()))
+		// Set the generic error for retry
+		err = e.APIErrorWrapper()
+		// Log the root cause, this error doesn't go back to the client
+		log.WithError(e.APIErrorWrapper().RootError()).Error("api retrayable error")
+	default:
 		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
 		statuscode = http.StatusInternalServerError
 		err = ErrInternalServerError
 	}
+
 	WriteError(ctx, w, statuscode, err)
 }
 
