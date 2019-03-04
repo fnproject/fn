@@ -1314,7 +1314,7 @@ func TestDockerAuthExtn(t *testing.T) {
 
 	errC := make(chan error, 10)
 
-	c := newHotContainer(ctx, call, cfg, id.New().String(), errC)
+	c := newHotContainer(ctx, nil, call, cfg, id.New().String(), errC)
 	if c == nil {
 		err := <-errC
 		t.Fatal("got unexpected err: ", err)
@@ -1332,7 +1332,7 @@ func TestDockerAuthExtn(t *testing.T) {
 	extn["FN_REGISTRY_TOKEN"] = "TestRegistryToken"
 	call.extensions = extn
 
-	c = newHotContainer(ctx, call, cfg, id.New().String(), errC)
+	c = newHotContainer(ctx, nil, call, cfg, id.New().String(), errC)
 	if c == nil {
 		err := <-errC
 		t.Fatal("got unexpected err: ", err)
@@ -1441,7 +1441,7 @@ func TestContainerDisableIO(t *testing.T) {
 
 	errC := make(chan error, 10)
 
-	c := newHotContainer(ctx, call, cfg, id.New().String(), errC)
+	c := newHotContainer(ctx, nil, call, cfg, id.New().String(), errC)
 	if c == nil {
 		err := <-errC
 		t.Fatal("got unexpected err: ", err)

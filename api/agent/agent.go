@@ -783,6 +783,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
 	defer span.End()
 
+	var childDone chan struct{} // if not nil, a closed channel means child go-routine is done
 	var container *container
 	var cookie drivers.Cookie
 	var err error
@@ -795,25 +796,20 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	udsWait := make(chan error, 1)     // track UDS state and errors
 	errQueue := make(chan error, 1)    // errors to be reflected back to the slot queue
 
-	evictor := a.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
-
 	statsUtilization(ctx, a.resources.GetUtilization())
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 
 	// stack unwind spelled out with strict ordering below.
 	defer func() {
-		// IMPORTANT: we ignore any errors due to eviction and do not reflect these to clients.
-		if !evictor.isEvicted() {
-			select {
-			case <-initialized:
-			default:
-				tryQueueErr(models.ErrContainerInitFail, errQueue)
-			}
-			select {
-			case err := <-errQueue:
-				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
-			default:
-			}
+		select {
+		case <-initialized:
+		default:
+			tryQueueErr(models.ErrContainerInitFail, errQueue)
+		}
+		select {
+		case err := <-errQueue:
+			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+		default:
 		}
 
 		// shutdown the container and related I/O operations and go routines
@@ -825,27 +821,20 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		}
 
 		if container != nil {
+			// if there was a child, then let's wait for it, this avoids container.Close()
+			// synchronization issues since child may still be modifying the container.
+			if childDone != nil {
+				<-childDone
+			}
 			container.Close()
 		}
-
-		lastState := state.GetState()
-		state.UpdateState(ctx, ContainerStateDone, call.slots)
-
 		tok.Close() // release cpu/mem
 
-		// IMPORTANT: evict token is deleted *after* resource token.
-		// This ordering allows resource token to be freed first, which means once evict token
-		// is deleted, eviction is considered to be completed.
-		a.evictor.DeleteEvictToken(evictor)
-
+		state.UpdateState(ctx, ContainerStateDone, call.slots)
 		statsUtilization(ctx, a.resources.GetUtilization())
-		if evictor.isEvicted() {
-			logger.Debugf("Hot function evicted")
-			statsContainerEvicted(ctx, lastState)
-		}
 	}()
 
-	// Monitor initialization and evictability. Closes 'initialized' channel
+	// Monitor initialization. Closes 'initialized' channel
 	// to hand over the processing to main request processing go-routine
 	go func() {
 		for {
@@ -862,17 +851,11 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			case <-a.shutWg.Closer(): // agent shutdown
 				cancel()
 				return
-			case <-caller.done: // original caller disconnected or serviced by another container?
-				evictor.SetEvictable(true)
-				caller.done = nil // block 'caller.done' after this point
-			case <-evictor.C: // eviction
-				cancel()
-				return
 			}
 		}
 	}()
 
-	container = newHotContainer(ctx, call, &a.cfg, id, udsWait)
+	container = newHotContainer(ctx, a.evictor, call, &a.cfg, id, udsWait)
 	if container == nil {
 		return
 	}
@@ -912,8 +895,11 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		return
 	}
 
+	childDone = make(chan struct{})
+
 	// Main request processing go-routine
 	go func() {
+		defer close(childDone)
 		defer cancel() // also close if we get an agent shutdown / idle timeout
 
 		// We record init wait for three basic states below: "initialized", "canceled", "timedout"
@@ -931,36 +917,24 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		case <-ctx.Done():
 			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "canceled")
 			return
-		case <-evictor.C: // eviction
-			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "canceled")
-			return
 		case <-time.After(a.cfg.HotStartTimeout):
 			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "timedout")
 			tryQueueErr(models.ErrContainerInitTimeout, errQueue)
 			return
 		}
 
-		for {
-			// Below we are rather defensive and poll on evictor/ctx
-			// to reduce the likelyhood of attempting to queue a hotSlot when these
-			// two cases occur.
-			select {
-			case <-ctx.Done():
-				return
-			case <-evictor.C: // eviction
-				return
-			default:
-			}
-
+		for ctx.Err() == nil {
 			slot := &hotSlot{
 				done:          make(chan struct{}),
 				container:     container,
 				cfg:           &a.cfg,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
 			}
-			if !a.runHotReq(ctx, call, state, logger, cookie, slot, evictor) {
+
+			if !a.runHotReq(ctx, call, state, logger, cookie, slot, container) {
 				return
 			}
+
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
 			<-slot.done
@@ -1074,7 +1048,7 @@ func inotifyAwait(ctx context.Context, iofsDir string, udsWait chan error) {
 // runHotReq enqueues a free slot to slot queue manager and watches various timers and the consumer until
 // the slot is consumed. A return value of false means, the container should shutdown and no subsequent
 // calls should be made to this function.
-func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState, logger logrus.FieldLogger, cookie drivers.Cookie, slot *hotSlot, evictor *EvictToken) bool {
+func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState, logger logrus.FieldLogger, cookie drivers.Cookie, slot *hotSlot, c *container) bool {
 
 	var err error
 	isFrozen := false
@@ -1083,7 +1057,6 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
 
 	defer func() {
-		evictor.SetEvictable(false)
 		freezeTimer.Stop()
 		idleTimer.Stop()
 		// log if any error is encountered
@@ -1092,10 +1065,13 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		}
 	}()
 
-	evictor.SetEvictable(true)
 	state.UpdateState(ctx, ContainerStateIdle, call.slots)
+	c.EnableEviction(call)
 
 	s := call.slots.queueSlot(slot)
+
+	// WARNING: Do not hold on to channel after calling Enable/DisableEviction
+	evicted := c.GetEvictChan()
 
 	for {
 		select {
@@ -1115,20 +1091,28 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 				state.UpdateState(ctx, ContainerStatePaused, call.slots)
 			}
 			continue
-		case <-evictor.C:
+		case <-evicted:
 		}
 		break
 	}
 
-	evictor.SetEvictable(false)
-
 	// if we can acquire token, that means we are here due to
-	// abort/shutdown/timeout, attempt to acquire and terminate,
+	// abort/shutdown/timeout/evict, attempt to acquire and terminate,
 	// otherwise continue processing the request
 	if call.slots.acquireSlot(s) {
 		slot.Close()
+		select {
+		case <-evicted:
+			logger.Debugf("Hot function evicted")
+			statsContainerEvicted(ctx, state.GetState())
+		default:
+		}
 		return false
 	}
+
+	// We disable eviction after acquisition attempt above, since
+	// this can reinstall an eviction token if eviction has taken place.
+	c.DisableEviction(call)
 
 	// In case, timer/acquireSlot failure landed us here, make
 	// sure to unfreeze.
@@ -1172,10 +1156,13 @@ type container struct {
 	// swapMu protects the stats swapping
 	swapMu sync.Mutex
 	stats  *drivers.Stats
+
+	evictor    Evictor
+	evictToken *EvictToken
 }
 
 // newHotContainer creates a container that can be used for multiple sequential events
-func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, udsWait chan error) *container {
+func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Config, id string, udsWait chan error) *container {
 
 	var iofs iofs
 	var err error
@@ -1252,6 +1239,7 @@ func newHotContainer(ctx context.Context, call *call, cfg *Config, id string, ud
 				},
 			},
 		},
+		evictor: evictor,
 		close: func() {
 			stderr.Close()
 			for _, b := range bufs {
@@ -1292,7 +1280,6 @@ func (c *container) Input() io.Reader                   { return common.NoopRead
 func (c *container) Logger() (io.Writer, io.Writer)     { return c.stderr, c.stderr }
 func (c *container) Volumes() [][2]string               { return nil }
 func (c *container) WorkDir() string                    { return "" }
-func (c *container) Close()                             { c.close() }
 func (c *container) Image() string                      { return c.image }
 func (c *container) EnvVars() map[string]string         { return c.env }
 func (c *container) Memory() uint64                     { return c.memory * 1024 * 1024 } // convert MB
@@ -1319,6 +1306,59 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 		*(c.stats) = append(*(c.stats), stat)
 	}
 	c.swapMu.Unlock()
+}
+
+// EnableEviction allows container eviction
+func (c *container) EnableEviction(call *call) {
+	if c.evictToken == nil {
+		c.evictToken = c.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
+	}
+	c.evictToken.SetEvictable(true)
+}
+
+// DisableEviction disables container eviction.
+func (c *container) DisableEviction(call *call) {
+	if c.evictToken == nil {
+		return
+	}
+
+	c.evictToken.SetEvictable(false)
+
+	// if we are too late, then delete already evicted token. Let's refresh the token
+	select {
+	case <-c.evictToken.C:
+	default:
+		return
+	}
+
+	c.evictor.DeleteEvictToken(c.evictToken)
+	c.evictToken = c.evictor.CreateEvictToken(call.slotHashId, call.Memory+uint64(call.TmpFsSize), uint64(call.CPUs))
+}
+
+// Close closes container and releases resources associated with it
+func (c *container) Close() {
+	if c.close != nil {
+		c.close()
+		c.close = nil
+	}
+	// evictor can be nil (for tests)
+	if c.evictor == nil {
+		return
+	}
+
+	if c.evictToken != nil {
+		c.evictor.DeleteEvictToken(c.evictToken)
+		c.evictToken = nil
+	}
+}
+
+// GetEvictChan returns a channel that closes if an eviction occurs. Do not
+// refer to the same channel after calls to EnableEviction/DisableEviction flags or Close().
+func (c *container) GetEvictChan() chan struct{} {
+	if c.evictToken != nil {
+		return c.evictToken.C
+	}
+	return nil
 }
 
 // assert we implement this at compile time
