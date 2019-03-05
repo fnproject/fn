@@ -38,28 +38,7 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 		return
 	}
 
-	var statuscode int
-
-	switch e := err.(type) {
-	case models.APIError:
-		code := e.Code()
-		if code >= 500 {
-			log.WithFields(logrus.Fields{"code": code}).WithError(e).Error("api error")
-		}
-		statuscode = code
-	case models.RetryableError:
-		statuscode = e.APIErrorWrapper().Code()
-		w.Header().Set("Retry-After", strconv.Itoa(e.RetryAfter()))
-		// Set the generic error for retry
-		err = e.APIErrorWrapper()
-		// Log the root cause, this error doesn't go back to the client
-		log.WithError(e.APIErrorWrapper().RootError()).Error("api retrayable error")
-	default:
-		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
-		statuscode = http.StatusInternalServerError
-		err = ErrInternalServerError
-	}
-
+	err, statuscode := getErrorAndStatusCode(err, w, log)
 	WriteError(ctx, w, statuscode, err)
 }
 
@@ -72,4 +51,25 @@ func WriteError(ctx context.Context, w http.ResponseWriter, statuscode int, err 
 	if err != nil {
 		log.WithError(err).Errorln("error encoding error json")
 	}
+}
+
+func getErrorAndStatusCode(err error, w http.ResponseWriter, log logrus.FieldLogger) (error, int) {
+	var statuscode int
+	switch e := err.(type) {
+	case models.APIError:
+		code := e.Code()
+		if code >= 500 {
+			log.WithFields(logrus.Fields{"code": code}).WithError(e).Error("api error")
+		}
+		statuscode = code
+	case models.RetryableError:
+		statuscode = e.InnerCode()
+		w.Header().Set("Retry-After", strconv.Itoa(e.RetryAfter()))
+		log.WithError(err).Info("retryable error")
+	default:
+		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
+		statuscode = http.StatusInternalServerError
+		err = ErrInternalServerError
+	}
+	return err, statuscode
 }

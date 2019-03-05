@@ -280,8 +280,7 @@ func (a *agent) Submit(callI Call) error {
 	err := a.submit(ctx, call)
 	// if we have received a CallTimeoutServerBusy error we convert it in a RetryableError so as we can set the Retry-Header on the response
 	if err == models.ErrCallTimeoutServerBusy {
-		err = models.NewRetryableError(
-			models.NewAPIErrorWrapper(models.ErrCallTimeoutServerBusy, errors.New("request not placed received server too busy from runner(s)")), 15)
+		err = models.NewRetryableError(models.ErrCallTimeoutServerBusy, 15, models.ErrCallTimeoutServerBusy.Code())
 	}
 	return err
 }

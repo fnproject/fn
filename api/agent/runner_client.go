@@ -114,10 +114,7 @@ func isTooBusy(err error) bool {
 // a models.Error. If there is not a valid mapping the original error is returned back.
 func inspectError(err error) error {
 	if status.Convert(err).Code() == codes.Unavailable {
-		return models.NewRetryableError(
-			// TODO: Determine a better delay value here (perhaps ask Agent). For now 15 secs with
-			// the hopes that fnlb will land this on a better server immediately.
-			models.NewAPIErrorWrapper(models.ErrRetryableError, errors.New("received a gRPC error Unavailable from a runner")), 15)
+		return models.NewAPIErrorWrapper(models.ErrgRPCUnavailable, errors.New("received a gRPC error Unavailable from a runner"))
 	}
 	return err
 }

@@ -161,9 +161,9 @@ var (
 		error: errors.New("Unable to service the request for the reservation period"),
 	}
 
-	ErrRetryableError = err{
-		code:  http.StatusServiceUnavailable,
-		error: errors.New("The server is currently unable to handle the request due to a temporary issue"),
+	ErrgRPCUnavailable = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Internal server error"),
 	}
 
 	// func errors
@@ -299,15 +299,21 @@ func NewAPIErrorWrapper(apiErr APIError, rootErr error) APIErrorWrapper {
 	}
 }
 
+// RetryableError is used to define an error where we can specify a delay (in seconds)
+// to signal that the error is likely to be temporary and the caller can retry the operation
+// after a RetryAfter() seconds
 type RetryableError interface {
-	APIErrorWrapper() APIErrorWrapper
 	RetryAfter() int // the number of seconds before retry
-	Error() string
+	error
+	// Return the status code value, please do not call this Code() otherwise RetryableError will implement
+	// APIError interface as well which will lead to bad side effect. This is guarded by a unit test
+	InnerCode() int
 }
 
 type retryableError struct {
-	apiErrWrapper APIErrorWrapper
-	delay         int
+	err   error
+	delay int
+	code  int
 }
 
 func (re retryableError) RetryAfter() int {
@@ -315,15 +321,20 @@ func (re retryableError) RetryAfter() int {
 }
 
 func (re retryableError) Error() string {
-	return re.apiErrWrapper.Error()
+	return re.err.Error()
 }
 
-func (re retryableError) APIErrorWrapper() APIErrorWrapper {
-	return re.apiErrWrapper
+func (re retryableError) InnerCode() int {
+	return re.code
 }
-func NewRetryableError(ew APIErrorWrapper, d int) RetryableError {
+
+// NewRetryableError returns a retryableError
+func NewRetryableError(err error, delay, code int) RetryableError {
 	return &retryableError{
-		apiErrWrapper: ew,
-		delay:         d,
+		err:   err,
+		delay: delay,
+		code:  code,
 	}
 }
+
+var _ RetryableError = retryableError{}
