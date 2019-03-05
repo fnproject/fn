@@ -1264,7 +1264,7 @@ func TestNBIOResourceTracker(t *testing.T) {
 		t.Logf("Got response %v", err)
 		if err == nil {
 			ok++
-		} else if err == models.ErrCallTimeoutServerBusy {
+		} else if models.IsErrEqualsTo(err, models.ErrCallTimeoutServerBusy) {
 		} else {
 			t.Fatalf("Unexpected error %v", err)
 		}

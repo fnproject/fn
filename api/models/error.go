@@ -308,6 +308,7 @@ type RetryableError interface {
 	// Return the status code value, please do not call this Code() otherwise RetryableError will implement
 	// APIError interface as well which will lead to bad side effect. This is guarded by a unit test
 	InnerCode() int
+	InnerError() error
 }
 
 type retryableError struct {
@@ -328,12 +329,33 @@ func (re retryableError) InnerCode() int {
 	return re.code
 }
 
+func (re retryableError) InnerError() error {
+	return re.err
+}
+
 // NewRetryableError returns a retryableError
 func NewRetryableError(err error, delay, code int) RetryableError {
 	return &retryableError{
 		err:   err,
 		delay: delay,
 		code:  code,
+	}
+}
+
+// IsErrEqualsTo compare two errors and return true if they are equal
+// It is possible to pass an APIERrrorWrapper and a REtryableError to this
+// function and the funcion will use the inner error to make the comparison
+func IsErrEqualsTo(e, toCompare error) bool {
+	switch v := e.(type) {
+	case APIErrorWrapper:
+		return v.RootError() == toCompare
+	case APIError:
+		return v == toCompare
+	case RetryableError:
+		re, _ := e.(RetryableError)
+		return re.InnerError() == toCompare
+	default:
+		return e == toCompare
 	}
 }
 
