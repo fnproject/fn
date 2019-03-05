@@ -123,8 +123,8 @@ That's it! You just deployed and ran your first function! Try updating the funct
 ## Get Involved
 
 * Join our [Slack Community](http://slack.fnproject.io)
-* See our new [Community Page](https://github.com/fnproject/docs/blob/master/COMMUNITY.md)
-* Learn how to [contribute](CONTRIBUTING.md)
+* See our new [Community Page](https://github.com/fnproject/docs/blob/master/community/)
+* Learn how to [contribute](https://github.com/fnproject/docs/blob/master/community/CONTRIBUTING.md)
 * Find [issues](https://github.com/fnproject/fn/issues) and become a contributor
 * Join us at one of our [Fn Events](http://events.fnproject.io) or even speak at one!
 * Coming in Q1'19: Regularly scheduled planning meetings for contributing to the Fn Project
