@@ -2,11 +2,11 @@
 
 ## Start Here
 
-We're excited that you're interested in contributing to the Fn Project! Please see the general projects [contributing guidelines](https://github.com/fnproject/docs/blob/master/community/CONTRIBUTING.md) page first.
+We're excited that you're interested in contributing to the Fn Project! Please see the general project [contributing guidelines](https://github.com/fnproject/docs/blob/master/community/CONTRIBUTING.md) page first!
 
 ## Fn Server (this repo) Specifics
 
-The Fn Server (core) is only for the essential parts of the entire Fn ecosystem.
+The Fn Server is only for the essential parts of the entire Fn ecosystem.
 
 These include:
 
@@ -29,7 +29,7 @@ We WILL do whatever we can to make it easy for users to add extensions (easy bui
 
 Graduation: Some extensions can graduate into core if they become commonplace in the community (ie: majority of users are using it). 
 
-## How to build and get up and running
+## How to Build and Run the Fn Server
 
 ### Build Dependencies ###
 - [Go](https://golang.org/doc/install)
