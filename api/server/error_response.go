@@ -38,7 +38,23 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 		return
 	}
 
-	err, statuscode := getErrorAndStatusCode(err, w, log)
+	var statuscode int
+	if e, ok := err.(models.APIError); ok {
+		if e.Code() >= 500 {
+			log.WithFields(logrus.Fields{"code": e.Code()}).WithError(e).Error("api error")
+		}
+		if err == models.ErrCallTimeoutServerBusy {
+			// TODO: Determine a better delay value here (perhaps ask Agent). For now 15 secs with
+			// the hopes that fnlb will land this on a better server immediately.
+			w.Header().Set("Retry-After", "15")
+		}
+		statuscode = e.Code()
+	} else {
+		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
+		statuscode = http.StatusInternalServerError
+		err = ErrInternalServerError
+	}
+
 	WriteError(ctx, w, statuscode, err)
 }
 
@@ -51,25 +67,4 @@ func WriteError(ctx context.Context, w http.ResponseWriter, statuscode int, err 
 	if err != nil {
 		log.WithError(err).Errorln("error encoding error json")
 	}
-}
-
-func getErrorAndStatusCode(err error, w http.ResponseWriter, log logrus.FieldLogger) (error, int) {
-	var statuscode int
-	switch e := err.(type) {
-	case models.APIError:
-		code := e.Code()
-		if code >= 500 {
-			log.WithFields(logrus.Fields{"code": code}).WithError(e).Error("api error")
-		}
-		statuscode = code
-	case models.RetryableError:
-		statuscode = e.InnerCode()
-		w.Header().Set("Retry-After", strconv.Itoa(e.RetryAfter()))
-		log.WithError(err).Info("retryable error")
-	default:
-		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
-		statuscode = http.StatusInternalServerError
-		err = ErrInternalServerError
-	}
-	return err, statuscode
 }

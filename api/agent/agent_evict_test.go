@@ -194,7 +194,7 @@ func TestPlainNoEvict(t *testing.T) {
 		defer wg.Done()
 		time.Sleep(3000 * time.Millisecond)
 		err := execFn(`{"sleepTime": 0}`, getFn(0), getApp(), a, 20000)
-		if !models.IsErrEqualsTo(err, models.ErrCallTimeoutServerBusy) {
+		if err != models.ErrCallTimeoutServerBusy {
 			t.Fatalf("unexpected error %v", err)
 		}
 	}()
@@ -255,7 +255,7 @@ func TestHungFDKNoEvict(t *testing.T) {
 		defer wg.Done()
 		time.Sleep(3000 * time.Millisecond)
 		err := execFn(`{"sleepTime": 0}`, getFn(0), getApp(), a, 20000)
-		if !models.IsErrEqualsTo(err, models.ErrCallTimeoutServerBusy) {
+		if err != models.ErrCallTimeoutServerBusy {
 			t.Fatalf("unexpected error %v", err)
 		}
 	}()
@@ -359,7 +359,7 @@ func TestDockerPullHungNoEvict(t *testing.T) {
 		defer wg.Done()
 		time.Sleep(3000 * time.Millisecond)
 		err := execFn(`{"sleepTime": 0}`, getFn(0), getApp(), a, 20000)
-		if !models.IsErrEqualsTo(err, models.ErrCallTimeoutServerBusy) {
+		if err != models.ErrCallTimeoutServerBusy {
 			t.Fatalf("unexpected error %v", err)
 		}
 	}()

@@ -278,10 +278,6 @@ func (a *agent) Submit(callI Call) error {
 	defer a.shutWg.DoneSession()
 
 	err := a.submit(ctx, call)
-	// if we have received a CallTimeoutServerBusy error we convert it in a RetryableError so as we can set the Retry-Header on the response
-	if err == models.ErrCallTimeoutServerBusy {
-		err = models.NewRetryableError(models.ErrCallTimeoutServerBusy, 15, models.ErrCallTimeoutServerBusy.Code())
-	}
 	return err
 }
 
