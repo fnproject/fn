@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"runtime/debug"
-	"strconv"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
