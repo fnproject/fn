@@ -27,7 +27,7 @@ func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogSto
 		WithAgent(rnr),
 		WithType(nodeType),
 		WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()),
-		WithFnAnnotator(NewRequestBasedFnAnnotator()),
+		WithFnAnnotator(NewRequestBasedFnAnnotator(DefaultInvokeGroup, DefaultInvokeTemplate)),
 	)...)
 }
 
