@@ -19,7 +19,8 @@ type PlacerConfig struct {
 func NewPlacerConfig() PlacerConfig {
 	return PlacerConfig{
 		RetryAllDelay: 10 * time.Millisecond,
-		// kubernetes terminationGracePeriod needs to be updated when PlacerTimeout is updated.
+		// If running on a container orchestration platform, container termination period needs to be updated when PlacerTimeout is changed.
+		// For example in kubernetes, pod terminationGracePeriod needs to be updated.
 		PlacerTimeout:         360 * time.Second,
 		DetachedPlacerTimeout: 30 * time.Second,
 	}
