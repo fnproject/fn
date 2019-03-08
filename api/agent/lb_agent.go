@@ -160,7 +160,7 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	// If overrider is present, let's allow it to modify models.Call
 	// and call extensions
 	if a.callOverrider != nil {
-		ext, err := a.callOverrider(c.Call, c.extensions)
+		ext, err := a.callOverrider(c.req, c.Call, c.extensions)
 		if err != nil {
 			return nil, err
 		}

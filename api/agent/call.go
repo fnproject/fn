@@ -42,7 +42,7 @@ type Call interface {
 }
 
 // CallOverrider should die. Interceptor in GetCall
-type CallOverrider func(*models.Call, map[string]string) (map[string]string, error)
+type CallOverrider func(*http.Request, *models.Call, map[string]string) (map[string]string, error)
 
 // CallOpt allows configuring a call before execution
 // TODO(reed): consider the interface here, all options must be defined in agent and flexible
@@ -241,7 +241,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	// If overrider is present, let's allow it to modify models.Call
 	// and call extensions
 	if a.callOverrider != nil {
-		ext, err := a.callOverrider(c.Call, c.extensions)
+		ext, err := a.callOverrider(c.req, c.Call, c.extensions)
 		if err != nil {
 			return nil, err
 		}

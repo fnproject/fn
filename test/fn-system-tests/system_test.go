@@ -405,7 +405,7 @@ func TestMain(m *testing.M) {
 }
 
 // Memory Only LB Agent Call Option
-func LBCallOverrider(c *models.Call, exts map[string]string) (map[string]string, error) {
+func LBCallOverrider(req *http.Request, c *models.Call, exts map[string]string) (map[string]string, error) {
 
 	// Set TmpFsSize and CPU to unlimited. This means LB operates on Memory
 	// only. Operators/Service providers are expected to override this
@@ -425,7 +425,7 @@ func LBCallOverrider(c *models.Call, exts map[string]string) (map[string]string,
 }
 
 // Pure Runner Agent Call Option
-func PureRunnerCallOverrider(c *models.Call, exts map[string]string) (map[string]string, error) {
+func PureRunnerCallOverrider(req *http.Request, c *models.Call, exts map[string]string) (map[string]string, error) {
 
 	if exts == nil {
 		exts = make(map[string]string)
