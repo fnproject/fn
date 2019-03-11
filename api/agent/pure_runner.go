@@ -68,11 +68,6 @@ import (
 
 */
 
-var (
-	ErrorExpectedTry  = errors.New("Protocol failure: expected ClientMsg_Try")
-	ErrorExpectedData = errors.New("Protocol failure: expected ClientMsg_Data")
-)
-
 // callHandle represents the state of the call as handled by the pure runner, and additionally it implements the
 // interface of http.ResponseWriter so that it can be used for streaming the output back.
 type callHandle struct {
@@ -500,7 +495,7 @@ func (ch *callHandle) getTryMsg() *runner.TryCall {
 		}
 	}
 	if msg == nil {
-		ch.shutdown(ErrorExpectedTry)
+		ch.shutdown(models.ErrExpectedTry)
 	}
 	return msg
 }
@@ -519,7 +514,7 @@ func (ch *callHandle) getDataMsg() *runner.DataFrame {
 		}
 	}
 	if msg == nil {
-		ch.shutdown(ErrorExpectedData)
+		ch.shutdown(models.ErrExpectedData)
 	}
 	return msg
 }

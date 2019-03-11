@@ -53,7 +53,6 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 		statuscode = http.StatusInternalServerError
 		err = ErrInternalServerError
 	}
-
 	WriteError(ctx, w, statuscode, err)
 }
 

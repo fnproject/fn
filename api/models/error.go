@@ -166,6 +166,41 @@ var (
 		error: errors.New("Internal server error"),
 	}
 
+	// ErrShortWrite is a kind of wrapper around io.ErrShortWrite
+	ErrShortWrite = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Short write. The write accepted fewer bytes than requested but failed to return an explicit error"),
+	}
+
+	ErrPureRunnerNoEOF = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Purerunner missing EOF response"),
+	}
+
+	ErrRunnerClosed = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Runner is closed"),
+	}
+
+	ErrExpectedTry = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Protocol failure: expected ClientMsg_Try"),
+	}
+
+	ErrExpectedData = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Protocol failure: expected ClientMsg_Data"),
+	}
+
+	ErrJSONEncode = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Fail to do JSON encoding"),
+	}
+
+	ErrgRPCClientEngage = err{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Unable to create gRPC client"),
+	}
 	// func errors
 
 	ErrDockerPullTimeout = ferr{

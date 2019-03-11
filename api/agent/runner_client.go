@@ -26,11 +26,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	ErrorRunnerClosed    = errors.New("Runner is closed")
-	ErrorPureRunnerNoEOF = errors.New("Purerunner missing EOF response")
-)
-
 const (
 	// max buffer size for grpc data messages, 10K
 	MaxDataChunk = 10 * 1024
@@ -175,7 +170,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	log.Debug("Attempting to place call")
 	if !r.shutWg.AddSession(1) {
 		// try another runner if this one is closed.
-		return false, ErrorRunnerClosed
+		return false, models.ErrRunnerClosed
 	}
 	defer r.shutWg.DoneSession()
 
@@ -184,7 +179,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	if err != nil {
 		log.WithError(err).Error("Failed to encode model as JSON")
 		// If we can't encode the model, no runner will ever be able to run this. Give up.
-		return true, err
+		return true, models.ErrJSONEncode
 	}
 
 	rid := common.RequestIDFromContext(ctx)
@@ -198,7 +193,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		// We are going to retry on a different runner, it is ok to log this error as Info
 		log.WithError(err).Info("Unable to create client to runner node")
 		// Try on next runner
-		return false, err
+		return false, models.ErrgRPCClientEngage
 	}
 
 	err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{
@@ -370,7 +365,6 @@ DataLoop:
 			log.WithError(err).Info("Receive error from runner")
 			err = inspectError(err)
 			tryQueueError(err, done)
-
 			return
 		}
 
@@ -403,7 +397,7 @@ DataLoop:
 					isPartialWrite = true
 					log.WithError(err).Infof("Failed to write full response (%d of %d) to client", n, len(body.Data.Data))
 					if err == nil {
-						err = io.ErrShortWrite
+						err = models.ErrShortWrite
 					}
 					tryQueueError(err, done)
 				}
@@ -441,7 +435,7 @@ DataLoop:
 		default:
 			log.Infof("Call Waiting EOF ignoring message %T", body)
 		}
-		tryQueueError(ErrorPureRunnerNoEOF, done)
+		tryQueueError(models.ErrPureRunnerNoEOF, done)
 	}
 }
 
