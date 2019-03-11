@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/gin-gonic/gin"
@@ -54,6 +56,20 @@ func getEnvInt(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+func getEnvDuration(key string, fallback time.Duration) time.Duration {
+	var err error
+	res := fallback
+	if tmp := os.Getenv(key); tmp != "" {
+		res, err = time.ParseDuration(tmp)
+		if err != nil {
+			res = fallback
+			err = fmt.Errorf("%s invalid %s=%s", err.Error(), key, tmp)
+			panic(err)
+		}
+	}
+	return res
 }
 
 func contextWithSignal(ctx context.Context, signals ...os.Signal) (context.Context, context.CancelFunc) {
