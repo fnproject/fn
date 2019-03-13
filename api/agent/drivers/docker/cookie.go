@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -405,26 +404,10 @@ func (c *cookie) PullImage(ctx context.Context) error {
 
 	log = common.Logger(ctx).WithFields(logrus.Fields{"registry": cfg.ServerAddress, "username": cfg.Username})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "image": c.task.Image()}).Debug("docker pull")
+	ctx = common.WithLogger(ctx, log)
 
-	err = c.drv.docker.PullImage(docker.PullImageOptions{Repository: repo, Tag: c.imgTag, Context: ctx}, *cfg)
-	if err != nil {
-		log.WithError(err).Info("Failed to pull image")
-
-		// TODO need to inspect for hub or network errors and pick; for now, assume
-		// 500 if not a docker error
-		msg := err.Error()
-		code := http.StatusBadGateway
-		if dErr, ok := err.(*docker.Error); ok {
-			msg = dockerMsg(dErr)
-			if dErr.Status >= 400 && dErr.Status < 500 {
-				code = dErr.Status // decap 4xx errors
-			}
-		}
-
-		err := models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", c.task.Image(), msg))
-		return models.NewFuncError(err)
-	}
-	return nil
+	errC := c.drv.imgPuller.PullImage(ctx, cfg, c.task.Image(), repo, c.imgTag)
+	return <-errC
 }
 
 // implements Cookie
@@ -462,22 +445,6 @@ func (c *cookie) CreateContainer(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// removes docker err formatting: 'API Error (code) {"message":"..."}'
-func dockerMsg(derr *docker.Error) string {
-	// derr.Message is a JSON response from docker, which has a "message" field we want to extract if possible.
-	// this is pretty lame, but it is what it is
-	var v struct {
-		Msg string `json:"message"`
-	}
-
-	err := json.Unmarshal([]byte(derr.Message), &v)
-	if err != nil {
-		// If message was not valid JSON, the raw body is still better than nothing.
-		return derr.Message
-	}
-	return v.Msg
 }
 
 var _ drivers.Cookie = &cookie{}

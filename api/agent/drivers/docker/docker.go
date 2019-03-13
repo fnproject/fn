@@ -65,7 +65,8 @@ type DockerDriver struct {
 
 	instanceId string
 
-	imgCache ImageCacher
+	imgCache  ImageCacher
+	imgPuller ImagePuller
 }
 
 // NewDocker implements drivers.Driver
@@ -119,6 +120,8 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 	if err != nil {
 		logrus.WithError(err).Fatalf("cannot load docker images in %s", conf.DockerLoadFile)
 	}
+
+	driver.imgPuller = NewImagePuller(conf, driver.docker)
 
 	// finally spawn pool if enabled
 	if conf.PreForkPoolSize != 0 {
