@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -575,6 +576,7 @@ type pureRunner struct {
 	callHandleMap  map[string]*callHandle
 	callHandleLock sync.Mutex
 	enableDetach   bool
+	configPath     string
 }
 
 // implements Agent
@@ -976,6 +978,40 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 	return status, err
 }
 
+// implements RunnerProtocolServer
+func (pr *pureRunner) ConfigureRunner(ctx context.Context, config *runner.ConfigMsg) (*runner.ConfigStatus, error) {
+	if pr.configPath == "" {
+		return nil, errors.New("runner not configured with configPath")
+	}
+	// Marshal config data into json text
+	configBytes, err := json.Marshal(config.Config)
+	if err != nil {
+		common.Logger(ctx).WithError(err).WithField("config", config.Config).Error("Failed to marshal config data")
+		return nil, err
+	}
+	// Ensure config directory exists
+	configDir := filepath.Dir(pr.configPath)
+	dir, err := os.Stat(configDir)
+	if err != nil {
+		return nil, err
+	}
+	if !dir.IsDir() {
+		return nil, fmt.Errorf("%s is not a directory", configDir)
+	}
+	// Write the config data to a temporary file
+	fileName := filepath.Base(pr.configPath)
+	tempPath := fmt.Sprintf("%s/.%s", configDir, fileName)
+	err = ioutil.WriteFile(tempPath, configBytes, 0600)
+	if err != nil {
+		return nil, err
+	}
+	// rename the temporary file to the config file
+	// this is an atomic operation
+	os.Rename(tempPath, pr.configPath)
+	common.Logger(ctx).WithField("config", config.Config).Info("ConfigureRunner wrote the configuration data")
+	return &runner.ConfigStatus{}, nil
+}
+
 // BeforeCall called before a function is executed
 func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
 	if call.Type != models.TypeDetached {
@@ -1025,6 +1061,17 @@ func PureRunnerWithStatusNetworkEnabler(barrierPath string) PureRunnerOption {
 			return errors.New("Failed to create pure runner: status barrier path already created")
 		}
 		pr.status.barrierPath = barrierPath
+		return nil
+	}
+}
+
+func PureRunnerWithConfigPath(configPath string) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		// configPath is the absolute path of the file that will be created by ConfigureRunner call.
+		if pr.configPath != "" {
+			return errors.New("Failed to create pure runner: config path already created")
+		}
+		pr.configPath = configPath
 		return nil
 	}
 }

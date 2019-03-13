@@ -45,6 +45,7 @@ const (
 
 	StatusImage       = "fnproject/fn-status-checker:latest"
 	StatusBarrierFile = "./barrier_file.txt"
+	ConfigFile        = "./config_file.txt"
 )
 
 var (
@@ -348,6 +349,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile str
 		agent.PureRunnerWithDetached(),
 		agent.PureRunnerWithGRPCServerOptions(grpcOpts...),
 		agent.PureRunnerWithStatusNetworkEnabler(StatusBarrierFile),
+		agent.PureRunnerWithConfigPath(ConfigFile),
 	)
 	if err != nil {
 		return nil, err

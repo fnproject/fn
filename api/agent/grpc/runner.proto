@@ -84,9 +84,19 @@ message RunnerStatus {
     bool isNetworkDisabled = 17; // returns true if runner network is not ready
 }
 
+message ConfigMsg {
+    map<string,string> config = 1;
+}
+
+message ConfigStatus {
+}
+
 service RunnerProtocol {
     rpc Engage (stream ClientMsg) returns (stream RunnerMsg);
 
     // Rather than rely on Prometheus for this, expose status that's specific to the runner lifecycle through this.
     rpc Status(google.protobuf.Empty) returns (RunnerStatus);
+
+    // Configure the remote runner by passing config data.
+    rpc ConfigureRunner(ConfigMsg) returns (ConfigStatus);
 }

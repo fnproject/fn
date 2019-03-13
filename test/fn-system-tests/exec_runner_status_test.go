@@ -3,14 +3,19 @@ package tests
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/fnproject/fn/api/agent/grpc"
+	"google.golang.org/grpc"
 
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -264,4 +269,45 @@ func TestExecuteRunnerStatusNoNet(t *testing.T) {
 		t.Logf("Runner %v got Status=%+v", dest.Address(), status)
 	}
 
+}
+
+func TestConfigureRunner(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	r := "127.0.0.1:9193"
+	conn, err := grpc.Dial(r, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial into runner %s due to err=%+v", r, err)
+	}
+	client := runner.NewRunnerProtocolClient(conn)
+
+	var config = make(map[string]string)
+	config["domain"] = "unix"
+	config["company"] = "fn"
+	_, err = client.ConfigureRunner(ctx, &runner.ConfigMsg{Config: config})
+	if err != nil {
+		t.Fatalf("Failed to configure runner due to %+v", err)
+	}
+
+	b, err := ioutil.ReadFile(ConfigFile)
+	if err != nil {
+		t.Fatalf("Failed to read configuration file due to %+v", err)
+	}
+	os.Remove(ConfigFile)
+
+	config = make(map[string]string)
+	json.Unmarshal(b, &config)
+	if _, ok := config["domain"]; !ok {
+		t.Fatalf("Configuration file not written as expected")
+	}
+	if _, ok := config["company"]; !ok {
+		t.Fatalf("Configuration file not written as expected")
+	}
 }
