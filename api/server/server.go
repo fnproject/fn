@@ -117,7 +117,7 @@ const (
 	EnvLBPlacementAlg = "FN_PLACER"
 
 	// EnvMaxRequestSize sets the limit in bytes for any API request body's length.
-	EnvMaxRequestSize = "FN_MAX_REQUEST_BODY_SIZE"
+	EnvMaxRequestSize = "FN_MAX_REQUEST_SIZE"
 
 	// EnvMaxHeaderSize sets the limit in bytes for any API request body's length.
 	EnvMaxHeaderSize = "FN_MAX_REQUEST_HEADER_SIZE"
