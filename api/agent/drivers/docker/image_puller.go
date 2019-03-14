@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
@@ -23,6 +24,7 @@ import (
 
 type ImagePuller interface {
 	PullImage(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan error
+	SetRetryPolicy(policy common.BackOffConfig, checker drivers.RetryErrorChecker) error
 }
 
 type transfer struct {
@@ -43,15 +45,26 @@ type imagePuller struct {
 
 	lock      sync.Mutex
 	transfers map[string]*transfer
+
+	// backoff/retry settings
+	isRetriable drivers.RetryErrorChecker
+	backOffCfg  common.BackOffConfig
 }
 
-func NewImagePuller(conf drivers.Config, docker dockerClient) ImagePuller {
+func NewImagePuller(docker dockerClient) ImagePuller {
 	c := imagePuller{
-		docker:    docker,
-		transfers: make(map[string]*transfer),
+		docker:      docker,
+		transfers:   make(map[string]*transfer),
+		isRetriable: func(error) (bool, string) { return false, "" },
 	}
 
 	return &c
+}
+
+func (i *imagePuller) SetRetryPolicy(policy common.BackOffConfig, checker drivers.RetryErrorChecker) error {
+	i.isRetriable = checker
+	i.backOffCfg = policy
+	return nil
 }
 
 // newTransfer initiates a new docker-pull if there's no active docker-pull present for the same image.
@@ -88,12 +101,36 @@ func (i *imagePuller) newTransfer(ctx context.Context, cfg *docker.AuthConfigura
 	return errC
 }
 
+func (i *imagePuller) pullWithRetry(trx *transfer) error {
+
+	backoff := common.NewBackOff(i.backOffCfg)
+	for {
+		err := i.docker.PullImage(docker.PullImageOptions{Repository: trx.repo, Tag: trx.tag, Context: trx.ctx}, *trx.cfg)
+		ok, reason := i.isRetriable(err)
+		if !ok {
+			return err
+		}
+
+		delay, ok := backoff.NextBackOff()
+		if !ok {
+			return err
+		}
+
+		select {
+		case <-time.After(delay):
+			recordRetry(trx.ctx, "docker_pull_image", reason)
+		case <-trx.ctx.Done():
+			return trx.ctx.Err()
+		}
+	}
+}
+
 func (i *imagePuller) startTransfer(trx *transfer) {
-	ctx := trx.ctx
 	var ferr error
-	err := i.docker.PullImage(docker.PullImageOptions{Repository: trx.repo, Tag: trx.tag, Context: ctx}, *trx.cfg)
+
+	err := i.pullWithRetry(trx)
 	if err != nil {
-		common.Logger(ctx).WithError(err).Info("Failed to pull image")
+		common.Logger(trx.ctx).WithError(err).Info("Failed to pull image")
 
 		// TODO need to inspect for hub or network errors and pick; for now, assume
 		// 500 if not a docker error

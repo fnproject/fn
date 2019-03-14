@@ -68,8 +68,14 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 	var m [1]*models.Call // avoid alloc
 	resp.M = m[:0]
 
+	// Sequence of 25..75  25..175  25..200  25..725  25..1575, etc.
+	backoff := common.NewBackOff(common.BackOffConfig{
+		MaxRetries: common.RetryForever,
+		Interval:   50,
+		MinDelay:   25,
+	})
+
 	// long poll until ctx expires / we find a message
-	var b common.Backoff
 	for {
 		call, err := s.mq.Reserve(ctx)
 		if err != nil {
@@ -82,13 +88,13 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 			return
 		}
 
-		b.Sleep(ctx)
+		delay, _ := backoff.NextBackOff()
 
 		select {
 		case <-ctx.Done():
 			c.JSON(200, resp) // TODO assert this return `[]` & not 'nil'
 			return
-		default: // poll until we find a cookie
+		case <-time.After(delay):
 		}
 	}
 }

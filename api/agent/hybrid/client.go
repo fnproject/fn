@@ -173,19 +173,17 @@ type httpErr struct {
 }
 
 func (cl *client) do(ctx context.Context, request, result interface{}, method string, query map[string]string, url ...string) error {
-	// TODO determine policy (should we count to infinity?)
 
-	var b common.Backoff
-	var err error
-	for i := 0; i < 5; i++ {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	// Sequence of 25..75  25..175  25..200  25..725  25..1575
+	backoff := common.NewBackOff(common.BackOffConfig{
+		MaxRetries: 5,
+		Interval:   50,
+		MinDelay:   25,
+	})
 
+	for {
 		// TODO this isn't re-using buffers very efficiently, but retries should be rare...
-		err = cl.once(ctx, request, result, method, query, url...)
+		err := cl.once(ctx, request, result, method, query, url...)
 		switch err := err.(type) {
 		case nil:
 			return nil
@@ -199,12 +197,17 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		}
 
 		common.Logger(ctx).WithError(err).Error("error from API server, retrying")
+		delay, ok := backoff.NextBackOff()
+		if !ok {
+			return err
+		}
 
-		b.Sleep(ctx)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
 	}
-
-	// return last error
-	return err
 }
 
 func (cl *client) once(ctx context.Context, request, result interface{}, method string, query map[string]string, path ...string) error {

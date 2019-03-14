@@ -67,13 +67,16 @@ type WaitResult interface {
 	Wait(context.Context) RunResult
 }
 
+// Check if the provided error is retriable. Returns true and a tag reason if the error is retriable.
+type RetryErrorChecker func(error) (bool, string)
+
 type Driver interface {
 	// Create a new cookie with defaults and/or settings from container task.
 	// Callers should Close the cookie regardless of whether they prepare or run it.
 	CreateCookie(ctx context.Context, task ContainerTask) (Cookie, error)
 
-	// Obsoleted. No-Op
-	PrepareCookie(ctx context.Context, cookie Cookie) error
+	// Set image pull retry policy and retriable error checker
+	SetPullImageRetryPolicy(policy common.BackOffConfig, checker RetryErrorChecker) error
 
 	// close & shutdown the driver
 	Close() error
