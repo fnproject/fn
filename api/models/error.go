@@ -160,12 +160,6 @@ var (
 		code:  http.StatusInternalServerError,
 		error: errors.New("Unable to service the request for the reservation period"),
 	}
-
-	ErrgRPCUnavailable = err{
-		code:  http.StatusInternalServerError,
-		error: errors.New("Internal server error"),
-	}
-
 	// func errors
 
 	ErrDockerPullTimeout = ferr{
