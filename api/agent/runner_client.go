@@ -26,6 +26,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	ErrorRunnerClosed    = errors.New("Runner is closed")
+	ErrorPureRunnerNoEOF = errors.New("Purerunner missing EOF response")
+)
+
 const (
 	// max buffer size for grpc data messages, 10K
 	MaxDataChunk = 10 * 1024
@@ -105,15 +110,6 @@ func isTooBusy(err error) bool {
 	return false
 }
 
-// inspectError inspect the error trying to convert it to a gRPC status and compare the gRPC code to find a mapping with
-// a models.Error. If there is not a valid mapping the original error is returned back.
-func inspectError(err error) error {
-	if status.Convert(err).Code() == codes.Unavailable {
-		return models.NewAPIErrorWrapper(models.ErrgRPCUnavailable, errors.New("received a gRPC error Unavailable from a runner"))
-	}
-	return err
-}
-
 // TranslateGRPCStatusToRunnerStatus runner.RunnerStatus to runnerpool.RunnerStatus
 func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStatus {
 	if status == nil {
@@ -170,7 +166,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	log.Debug("Attempting to place call")
 	if !r.shutWg.AddSession(1) {
 		// try another runner if this one is closed.
-		return false, models.ErrRunnerClosed
+		return false, ErrorRunnerClosed
 	}
 	defer r.shutWg.DoneSession()
 
@@ -179,7 +175,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	if err != nil {
 		log.WithError(err).Error("Failed to encode model as JSON")
 		// If we can't encode the model, no runner will ever be able to run this. Give up.
-		return true, models.ErrJSONEncode
+		return true, err
 	}
 
 	rid := common.RequestIDFromContext(ctx)
@@ -193,7 +189,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		// We are going to retry on a different runner, it is ok to log this error as Info
 		log.WithError(err).Info("Unable to create client to runner node")
 		// Try on next runner
-		return false, models.ErrgRPCClientEngage
+		return false, err
 	}
 
 	err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{
@@ -363,7 +359,6 @@ DataLoop:
 		msg, err := protocolClient.Recv()
 		if err != nil {
 			log.WithError(err).Info("Receive error from runner")
-			err = inspectError(err)
 			tryQueueError(err, done)
 			return
 		}
@@ -397,7 +392,7 @@ DataLoop:
 					isPartialWrite = true
 					log.WithError(err).Infof("Failed to write full response (%d of %d) to client", n, len(body.Data.Data))
 					if err == nil {
-						err = models.ErrShortWrite
+						err = io.ErrShortWrite
 					}
 					tryQueueError(err, done)
 				}
@@ -426,7 +421,6 @@ DataLoop:
 		}
 		if err != nil {
 			log.WithError(err).Infof("Call Waiting EOF received error")
-			err = inspectError(err)
 			tryQueueError(err, done)
 			break
 		}
@@ -435,7 +429,7 @@ DataLoop:
 		default:
 			log.Infof("Call Waiting EOF ignoring message %T", body)
 		}
-		tryQueueError(models.ErrPureRunnerNoEOF, done)
+		tryQueueError(ErrorPureRunnerNoEOF, done)
 	}
 }
 
