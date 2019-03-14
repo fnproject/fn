@@ -75,7 +75,8 @@ var (
 	eventActionKey = common.MakeKey("event_action")
 	eventTypeKey   = common.MakeKey("event_type")
 
-	dockerExitMeasure = common.MakeMeasure("docker_exits", "docker exit counts", "")
+	dockerRetriesMeasure = common.MakeMeasure("docker_api_retries", "docker api retries", "")
+	dockerExitMeasure    = common.MakeMeasure("docker_exits", "docker exit counts", "")
 
 	// WARNING: this metric reports total latency per *wrapper* call, which will add up multiple retry latencies per wrapper call.
 	dockerLatencyMeasure = common.MakeMeasure("docker_api_latency", "Docker wrapper latency", "msecs")
@@ -150,6 +151,20 @@ func (d *dockerWrap) listenEvents(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// record a retry attempt for the api with status/reason provided
+func recordRetry(ctx context.Context, apiName, apiStatus string) {
+
+	ctx, err := tag.New(ctx,
+		tag.Upsert(apiNameKey, apiName),
+		tag.Upsert(apiStatusKey, apiStatus),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatalf("cannot add tags %v=%v %v=%v", apiNameKey, apiName, apiStatusKey, apiStatus)
+	}
+
+	stats.Record(ctx, dockerRetriesMeasure.M(0))
 }
 
 // Create a span/tracker with required context tags
@@ -234,6 +249,7 @@ func RegisterViews(tagKeys []string, latencyDist []float64) {
 	emptyTags := []tag.Key{}
 
 	err := view.Register(
+		common.CreateViewWithTags(dockerRetriesMeasure, view.Count(), defaultTags),
 		common.CreateViewWithTags(dockerExitMeasure, view.Count(), exitTags),
 		common.CreateViewWithTags(dockerLatencyMeasure, view.Distribution(latencyDist...), defaultTags),
 		common.CreateViewWithTags(dockerEventsMeasure, view.Count(), eventTags),

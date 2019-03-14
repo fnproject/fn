@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
+	"github.com/fnproject/fn/api/common"
 )
 
 func New() drivers.Driver {
@@ -21,7 +22,7 @@ func (m *Mocker) CreateCookie(context.Context, drivers.ContainerTask) (drivers.C
 	return &cookie{m}, nil
 }
 
-func (m *Mocker) PrepareCookie(context.Context, drivers.Cookie) error {
+func (m *Mocker) SetPullImageRetryPolicy(policy common.BackOffConfig, checker drivers.RetryErrorChecker) error {
 	return nil
 }
 

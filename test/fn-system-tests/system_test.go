@@ -475,8 +475,8 @@ func (d *customDriver) CreateCookie(ctx context.Context, task drivers.ContainerT
 }
 
 // implements Driver
-func (d *customDriver) PrepareCookie(ctx context.Context, cookie drivers.Cookie) error {
-	return d.drv.PrepareCookie(ctx, cookie)
+func (d *customDriver) SetPullImageRetryPolicy(policy common.BackOffConfig, checker drivers.RetryErrorChecker) error {
+	return d.drv.SetPullImageRetryPolicy(policy, checker)
 }
 
 // implements Driver
