@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/agent/drivers"
 	_ "github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
@@ -20,11 +21,11 @@ import (
 
 // create a simple non-blocking agent. Non-blocking does not queue, so it's
 // easier to test and see if evictions took place.
-func getAgent() (Agent, error) {
+func getAgentWithDriver() (Agent, drivers.Driver, error) {
 	ls := logs.NewMock()
 	cfg, err := NewConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// 160MB memory
@@ -34,7 +35,20 @@ func getAgent() (Agent, error) {
 	cfg.HotPullTimeout = time.Duration(10000) * time.Millisecond
 	cfg.HotStartTimeout = time.Duration(10000) * time.Millisecond
 
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	drv, err := NewDockerDriver(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg), WithDockerDriver(drv))
+	return a, drv, nil
+}
+
+func getAgent() (Agent, error) {
+	a, _, err := getAgentWithDriver()
+	if err != nil {
+		return nil, err
+	}
 	return a, nil
 }
 
