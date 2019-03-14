@@ -21,7 +21,9 @@ type BackOff interface {
 const RetryForever uint64 = math.MaxUint64
 
 type backoff struct {
-	cfg      BackOffConfig
+	cfg BackOffConfig
+
+	lock     sync.Mutex
 	rand     *rand.Rand
 	attempts uint64
 	pow      uint64
@@ -37,7 +39,7 @@ func NewBackOff(cfg BackOffConfig) BackOff {
 
 	b := &backoff{
 		cfg:  cfg,
-		rand: rand.New(&lockedSource{src: rand.NewSource(time.Now().UnixNano())}),
+		rand: rand.New(rand.NewSource(time.Now().UnixNano())),
 		pow:  1,
 	}
 
@@ -45,6 +47,10 @@ func NewBackOff(cfg BackOffConfig) BackOff {
 }
 
 func (b *backoff) NextBackOff() (time.Duration, bool) {
+
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	// check if retries disabled
 	if b.cfg.MaxRetries == 0 {
 		return 0, false
@@ -93,22 +99,4 @@ func (b *backoff) NextBackOff() (time.Duration, bool) {
 		return time.Duration(math.MaxInt64), true
 	}
 	return time.Duration(delay) * time.Millisecond, true
-}
-
-type lockedSource struct {
-	lk  sync.Mutex
-	src rand.Source
-}
-
-func (r *lockedSource) Int63() (n int64) {
-	r.lk.Lock()
-	n = r.src.Int63()
-	r.lk.Unlock()
-	return
-}
-
-func (r *lockedSource) Seed(seed int64) {
-	r.lk.Lock()
-	r.src.Seed(seed)
-	r.lk.Unlock()
 }

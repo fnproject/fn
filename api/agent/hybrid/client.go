@@ -174,10 +174,10 @@ type httpErr struct {
 
 func (cl *client) do(ctx context.Context, request, result interface{}, method string, query map[string]string, url ...string) error {
 
+	// Sequence of 25..75  25..175  25..200  25..725  25..1575
 	backoff := common.NewBackOff(common.BackOffConfig{
 		MaxRetries: 5,
-		Interval:   25,
-		MaxDelay:   1000,
+		Interval:   50,
 		MinDelay:   25,
 	})
 

@@ -68,10 +68,10 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 	var m [1]*models.Call // avoid alloc
 	resp.M = m[:0]
 
+	// Sequence of 25..75  25..175  25..200  25..725  25..1575, etc.
 	backoff := common.NewBackOff(common.BackOffConfig{
 		MaxRetries: common.RetryForever,
-		Interval:   25,
-		MaxDelay:   6400,
+		Interval:   50,
 		MinDelay:   25,
 	})
 
