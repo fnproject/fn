@@ -62,7 +62,7 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 	var err error
 	res := fallback
 	if tmp := os.Getenv(key); tmp != "" {
-		res, err = time.ParseDuration(tmp)
+		res, err = time.ParseDuration(tmp + "s")
 		if err != nil {
 			res = fallback
 			err = fmt.Errorf("%s invalid %s=%s", err.Error(), key, tmp)

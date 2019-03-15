@@ -660,7 +660,6 @@ func New(ctx context.Context, opts ...Option) *Server {
 				ReadTimeout:       getEnvDuration(EnvReadTimeout, 0),
 				WriteTimeout:      getEnvDuration(EnvWriteTimeout, 0),
 				IdleTimeout:       getEnvDuration(EnvHTTPIdleTimeout, 0),
-				// TODO is it okay to leave the defaults to 0? check if go http library takes care of this
 			},
 			AdminServer: &http.Server{},
 			GRPCServer:  &http.Server{},
