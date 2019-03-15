@@ -11,6 +11,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/status"
 )
 
 // ErrInternalServerError returned when something exceptional happens.
@@ -48,6 +49,10 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 			w.Header().Set("Retry-After", "15")
 		}
 		statuscode = e.Code()
+	} else if isGRPCError(err) {
+		log.WithError(err).Info("gRPC error received")
+		statuscode = http.StatusInternalServerError
+		err = ErrInternalServerError
 	} else {
 		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
 		statuscode = http.StatusInternalServerError
@@ -65,4 +70,11 @@ func WriteError(ctx context.Context, w http.ResponseWriter, statuscode int, err 
 	if err != nil {
 		log.WithError(err).Errorln("error encoding error json")
 	}
+}
+
+// isGRPCError inspect the error to verify if it is gRPC status and return a bool as results
+// of this operation true means the error is a gRPC error false that it is not.
+func isGRPCError(err error) bool {
+	_, ok := status.FromError(err)
+	return ok
 }

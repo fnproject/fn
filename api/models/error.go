@@ -160,7 +160,6 @@ var (
 		code:  http.StatusInternalServerError,
 		error: errors.New("Unable to service the request for the reservation period"),
 	}
-
 	// func errors
 
 	ErrDockerPullTimeout = ferr{
