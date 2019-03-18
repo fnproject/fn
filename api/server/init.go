@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -41,7 +40,7 @@ func getEnvInt(key string, fallback int) int {
 		var err error
 		var i int
 		if i, err = strconv.Atoi(value); err != nil {
-			panic(err) // not sure how to handle this
+			logrus.WithError(err).WithFields(logrus.Fields{"string": value, "environment_key": key}).Fatal("Failed to convert string to int")
 		}
 		return i
 	} else if value, ok := os.LookupEnv(key + "_FILE"); ok {
@@ -50,7 +49,7 @@ func getEnvInt(key string, fallback int) int {
 			var err error
 			var i int
 			if i, err = strconv.Atoi(strings.TrimSpace(string(dat))); err != nil {
-				panic(err) // not sure how to handle this
+				logrus.WithError(err).WithFields(logrus.Fields{"string": dat, "environment_key": key}).Fatal("Failed to convert string to int")
 			}
 			return i
 		}
@@ -64,8 +63,7 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 	if tmp := os.Getenv(key); tmp != "" {
 		res, err = time.ParseDuration(tmp + "s")
 		if err != nil {
-			err = fmt.Errorf("%s invalid %s=%s", err.Error(), key, tmp)
-			panic(err)
+			logrus.WithError(err).WithFields(logrus.Fields{"duration_string": tmp, "environment_key": key}).Fatal("Failed to parse duration from environment")
 		}
 	}
 	return res
