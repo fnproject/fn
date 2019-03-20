@@ -91,6 +91,54 @@ message ConfigMsg {
 message ConfigStatus {
 }
 
+// Collector to Runner messages
+message LogRequestMsg {
+    // Initial Logging session message sent by Collectors to Runners
+    message Start {
+        map<string,string> config = 1;
+    }
+
+    // Acknowledgement and re-enable stream message sent by Collectors to Runners
+    message Ack {
+    }
+
+    oneof body {
+        Start start = 1;
+        Ack ack = 2;
+    }
+}
+
+// Runners to Collectors
+message LogResponseMsg {                
+    string compartmentId = 1;          // compartment id
+
+    // Per container log data
+    message Container {            
+        string applicationId = 1;     // application id
+        string functionId = 2;        // function id
+        string containerId = 3;       // container id
+
+        // Per request log data
+        message Request {
+            string requestId = 1;     // call request id
+
+            // Log lines
+            message Line {
+                string timestamp = 1; // utc timestamp
+                enum Source {
+                    STDOUT = 0;
+                    STDERR = 1;
+                }
+                Source source = 2;    // stderr or stdout
+                bytes data = 3;       // opaque log data
+            }
+            repeated Line data = 2;   // log lines
+        }
+        repeated Request data = 4;    // request logs
+    }
+    repeated Container data = 2;      // container logs
+}
+
 service RunnerProtocol {
     rpc Engage (stream ClientMsg) returns (stream RunnerMsg);
 
@@ -99,4 +147,7 @@ service RunnerProtocol {
 
     // Configure the remote runner by passing config data.
     rpc ConfigureRunner(ConfigMsg) returns (ConfigStatus);
+
+    // Logging Interface
+    rpc StreamLogs(stream LogRequestMsg) returns (stream LogResponseMsg);
 }

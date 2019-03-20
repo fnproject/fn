@@ -311,3 +311,66 @@ func TestConfigureRunner(t *testing.T) {
 		t.Fatalf("Configuration file not written as expected")
 	}
 }
+
+func TestExampleLogStreamer(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	r := "127.0.0.1:9193"
+	conn, err := grpc.Dial(r, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial into runner %s due to err=%+v", r, err)
+	}
+	client := runner.NewRunnerProtocolClient(conn)
+
+	logStream, err := client.StreamLogs(ctx)
+	if err != nil {
+		t.Fatalf("Failed to configure runner due to %+v", err)
+	}
+
+	start := runner.LogRequestMsg_Start{}
+	ack := runner.LogRequestMsg_Ack{}
+
+	err = logStream.Send(&runner.LogRequestMsg{Body: &runner.LogRequestMsg_Start_{Start: &start}})
+	if err != nil {
+		t.Fatalf("Failed to send start session %+v", err)
+	}
+
+	err = logStream.Send(&runner.LogRequestMsg{Body: &runner.LogRequestMsg_Ack_{Ack: &ack}})
+	if err != nil {
+		t.Fatalf("Failed to send ack %+v", err)
+	}
+
+	resp, err := logStream.Recv()
+	if err != nil {
+		t.Fatalf("Failed to get logs %+v", err)
+	}
+
+	t.Logf("Got log msg %+v", resp)
+
+	if resp.CompartmentId != "zoo" {
+		t.Fatalf("Bad compartment id %+v", resp)
+	}
+
+	cont := resp.Data[0]
+	if cont == nil || cont.ApplicationId != "app1" || cont.FunctionId != "fun1" || cont.ContainerId != "container1" {
+		t.Fatalf("Bad container data %+v", cont)
+	}
+
+	req := cont.Data[0]
+	if req == nil || req.RequestId != "101" {
+		t.Fatalf("Bad request data %+v", req)
+	}
+
+	data := req.Data[0]
+	if data == nil || data.Timestamp != "now" || data.Source != runner.LogResponseMsg_Container_Request_Line_STDOUT {
+		t.Fatalf("Bad log data %+v", data)
+	}
+
+}
