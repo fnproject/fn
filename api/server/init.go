@@ -61,9 +61,16 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 	var err error
 	res := fallback
 	if tmp := os.Getenv(key); tmp != "" {
-		res, err = time.ParseDuration(tmp + "s")
+		// if the retuned value is not null it needs to be either an integral value in seconds or a parsable duration-format string
+		res, err = time.ParseDuration(tmp)
 		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"duration_string": tmp, "environment_key": key}).Fatal("Failed to parse duration from environment")
+			// try to parse an int
+			s, perr := strconv.Atoi(tmp)
+			if perr != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{"duration_string": tmp, "environment_key": key}).Fatal("Failed to parse duration from env")
+			} else {
+				res = time.Duration(s) * time.Second
+			}
 		}
 	}
 	return res
