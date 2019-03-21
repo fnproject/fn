@@ -615,6 +615,9 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// link the container id and id in the logs [for us!]
 	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
 
+	// Set current & about to execute call id
+	s.container.SetCallId(call.ID)
+
 	// link the container span to ours for additional context (start/freeze/etc.)
 	span.AddLink(trace.Link{
 		TraceID: s.containerSpan.TraceID,
@@ -1159,6 +1162,10 @@ type container struct {
 
 	evictor    Evictor
 	evictToken *EvictToken
+
+	// current executing call id & its lock
+	callIdLck sync.Mutex
+	callId    string
 }
 
 // newHotContainer creates a container that can be used for multiple sequential events
@@ -1292,6 +1299,20 @@ func (c *container) UDSAgentPath() string               { return c.iofs.AgentPat
 func (c *container) UDSDockerPath() string              { return c.iofs.DockerPath() }
 func (c *container) UDSDockerDest() string              { return iofsDockerMountDest }
 func (c *container) DisableNet() bool                   { return c.disableNet }
+
+func (c *container) SetCallId(callId string) {
+	c.callIdLck.Lock()
+	c.callId = callId
+	c.callIdLck.Unlock()
+}
+
+func (c *container) GetCallId() string {
+	var callId string
+	c.callIdLck.Lock()
+	callId = c.callId
+	c.callIdLck.Unlock()
+	return callId
+}
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

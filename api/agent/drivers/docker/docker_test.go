@@ -47,6 +47,8 @@ func (f *taskDockerTest) UDSAgentPath() string  { return "" }
 func (f *taskDockerTest) UDSDockerPath() string { return "" }
 func (f *taskDockerTest) UDSDockerDest() string { return "" }
 func (f *taskDockerTest) DisableNet() bool      { return f.disableNet }
+func (f *taskDockerTest) GetCallId() string     { return "" }
+func (f *taskDockerTest) SetCallId(string)      {}
 
 func createTask(id string) *taskDockerTest {
 	return &taskDockerTest{

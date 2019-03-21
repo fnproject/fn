@@ -181,6 +181,12 @@ type ContainerTask interface {
 
 	// Returns true if network is disabled.
 	DisableNet() bool
+
+	// Set Currently Executing Call Id
+	SetCallId(id string)
+
+	// Get Current or Last Executed Call Id
+	GetCallId() string
 }
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.
