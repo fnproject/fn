@@ -565,6 +565,11 @@ type statusTracker struct {
 	wait   chan struct{}
 }
 
+// Log Streamer to manage log gRPC interface
+type LogStreamer interface {
+	StreamLogs(runner.RunnerProtocol_StreamLogsServer) error
+}
+
 // pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
 // and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
@@ -572,6 +577,7 @@ type pureRunner struct {
 	gRPCOptions    []grpc.ServerOption
 	creds          credentials.TransportCredentials
 	a              Agent
+	logStreamer    LogStreamer
 	status         statusTracker
 	callHandleMap  map[string]*callHandle
 	callHandleLock sync.Mutex
@@ -1012,6 +1018,14 @@ func (pr *pureRunner) ConfigureRunner(ctx context.Context, config *runner.Config
 	return &runner.ConfigStatus{}, nil
 }
 
+// implements RunnerProtocolServer
+func (pr *pureRunner) StreamLogs(logStream runner.RunnerProtocol_StreamLogsServer) error {
+	if pr.logStreamer != nil {
+		return pr.logStreamer.StreamLogs(logStream)
+	}
+	return errors.New("runner not configured with logStreamer")
+}
+
 // BeforeCall called before a function is executed
 func (pr *pureRunner) BeforeCall(ctx context.Context, call *models.Call) error {
 	if call.Type != models.TypeDetached {
@@ -1061,6 +1075,16 @@ func PureRunnerWithStatusNetworkEnabler(barrierPath string) PureRunnerOption {
 			return errors.New("Failed to create pure runner: status barrier path already created")
 		}
 		pr.status.barrierPath = barrierPath
+		return nil
+	}
+}
+
+func PureRunnerWithLogStreamer(logStreamer LogStreamer) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		if pr.logStreamer != nil {
+			return errors.New("Failed to create pure runner: logStreamer already created")
+		}
+		pr.logStreamer = logStreamer
 		return nil
 	}
 }

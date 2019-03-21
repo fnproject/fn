@@ -3,11 +3,14 @@ package tests
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/drivers"
+	rproto "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -283,6 +286,71 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	return server.New(ctx, opts...), nil
 }
 
+type logStream struct {
+}
+
+func (l *logStream) StreamLogs(logStream rproto.RunnerProtocol_StreamLogsServer) error {
+
+	msg, err := logStream.Recv()
+	if err != nil {
+		return err
+	}
+	start := msg.GetStart()
+	if start == nil {
+		return errors.New("expected start session")
+	}
+
+	logrus.Infof("StreamLogs received start message %+v", start)
+
+	for {
+		msg, err := logStream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		ack := msg.GetAck()
+		if ack == nil {
+			return errors.New("expected ack")
+		}
+		logrus.Infof("StreamLogs received ACK message %+v", ack)
+
+		line := &rproto.LogResponseMsg_Container_Request_Line{
+			Timestamp: "now",
+			Source:    rproto.LogResponseMsg_Container_Request_Line_STDOUT,
+		}
+
+		request := &rproto.LogResponseMsg_Container_Request{
+			RequestId: "101",
+			Data:      make([]*rproto.LogResponseMsg_Container_Request_Line, 0, 1),
+		}
+		request.Data = append(request.Data, line)
+
+		container := &rproto.LogResponseMsg_Container{
+			ApplicationId: "app1",
+			FunctionId:    "fun1",
+			ContainerId:   "container1",
+			Data:          make([]*rproto.LogResponseMsg_Container_Request, 0, 1),
+		}
+		container.Data = append(container.Data, request)
+
+		resp := &rproto.LogResponseMsg{
+			Data: make([]*rproto.LogResponseMsg_Container, 0, 1),
+		}
+		resp.Data = append(resp.Data, container)
+
+		logrus.Infof("StreamLogs sending Resp message %+v", resp)
+
+		err = logStream.Send(resp)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile string) (*server.Server, error) {
 	nodeType := server.ServerTypePureRunner
 	opts := make([]server.Option, 0)
@@ -342,6 +410,8 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile str
 		PermitWithoutStream: true,                           // allow client pings even if no active stream
 	}))
 
+	var streamer logStream
+
 	// now create pure-runner that wraps agent.
 	pureRunner, err := agent.NewPureRunner(cancel, grpcAddr,
 		agent.PureRunnerWithAgent(innerAgent),
@@ -350,6 +420,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile str
 		agent.PureRunnerWithGRPCServerOptions(grpcOpts...),
 		agent.PureRunnerWithStatusNetworkEnabler(StatusBarrierFile),
 		agent.PureRunnerWithConfigPath(ConfigFile),
+		agent.PureRunnerWithLogStreamer(&streamer),
 	)
 	if err != nil {
 		return nil, err
