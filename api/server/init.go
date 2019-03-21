@@ -61,7 +61,7 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 	var err error
 	res := fallback
 	if tmp := os.Getenv(key); tmp != "" {
-		// if the retuned value is not null it needs to be either an integral value in seconds or a parsable duration-format string
+		// if the returned value is not null it needs to be either an integral value in seconds or a parsable duration-format string
 		res, err = time.ParseDuration(tmp)
 		if err != nil {
 			// try to parse an int
