@@ -122,6 +122,11 @@ const (
 	// EnvMaxHeaderSize sets the limit in bytes for any API request body's length.
 	EnvMaxHeaderSize = "FN_MAX_REQUEST_HEADER_SIZE"
 
+	// The following 4 env-vars (FN_REQUEST_BODY_READ_TIMEOUT, FN_REQUEST_HEADER_READ_TIMEOUT, FN_RESPONSE_WRITE_TIMEOUT, FN_HTTP_IDLE_TIMEOUT)
+	// need to be set as strings that are either :
+	// 1. Valid integral values of duration in seconds ("120", "125")
+	// 2. Valid duration-format strings ("120s", "2m5s")
+
 	// EnvReadTimeout sets the timeout limit for reading a http request body.
 	EnvReadTimeout = "FN_REQUEST_BODY_READ_TIMEOUT"
 
