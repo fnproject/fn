@@ -336,8 +336,7 @@ func (l *logStream) StreamLogs(logStream rproto.RunnerProtocol_StreamLogsServer)
 		container.Data = append(container.Data, request)
 
 		resp := &rproto.LogResponseMsg{
-			CompartmentId: "zoo",
-			Data:          make([]*rproto.LogResponseMsg_Container, 0, 1),
+			Data: make([]*rproto.LogResponseMsg_Container, 0, 1),
 		}
 		resp.Data = append(resp.Data, container)
 

@@ -354,10 +354,6 @@ func TestExampleLogStreamer(t *testing.T) {
 
 	t.Logf("Got log msg %+v", resp)
 
-	if resp.CompartmentId != "zoo" {
-		t.Fatalf("Bad compartment id %+v", resp)
-	}
-
 	cont := resp.Data[0]
 	if cont == nil || cont.ApplicationId != "app1" || cont.FunctionId != "fun1" || cont.ContainerId != "container1" {
 		t.Fatalf("Bad container data %+v", cont)
