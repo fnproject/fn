@@ -317,7 +317,7 @@ func (l *logStream) StreamLogs(logStream rproto.RunnerProtocol_StreamLogsServer)
 		logrus.Infof("StreamLogs received ACK message %+v", ack)
 
 		line := &rproto.LogResponseMsg_Container_Request_Line{
-			Timestamp: "now",
+			Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 			Source:    rproto.LogResponseMsg_Container_Request_Line_STDOUT,
 		}
 

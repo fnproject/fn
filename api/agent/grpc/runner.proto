@@ -122,7 +122,7 @@ message LogResponseMsg {
 
             // Log lines
             message Line {
-                string timestamp = 1; // utc timestamp
+                int64 timestamp = 1; // utc unix time msecs
                 enum Source {
                     STDOUT = 0;
                     STDERR = 1;
