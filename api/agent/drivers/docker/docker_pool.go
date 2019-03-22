@@ -73,6 +73,8 @@ func (c *poolTask) WriteStat(ctx context.Context, stat drivers.Stat) {}
 func (c *poolTask) UDSAgentPath() string                             { return "" }
 func (c *poolTask) UDSDockerPath() string                            { return "" }
 func (c *poolTask) UDSDockerDest() string                            { return "" }
+func (c *poolTask) GetCallId() string                                { return "" }
+func (c *poolTask) SetCallId(string)                                 {}
 
 type dockerPoolItem struct {
 	id     string
