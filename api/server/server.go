@@ -116,8 +116,28 @@ const (
 	// EnvLBPlacementAlg is the algorithm to place fn calls to fn runners in lb.[0w
 	EnvLBPlacementAlg = "FN_PLACER"
 
-	// EnvMaxRequestSize sets the limit in bytes for any API request's length.
+	// EnvMaxRequestSize sets the limit in bytes for any API request body's length.
 	EnvMaxRequestSize = "FN_MAX_REQUEST_SIZE"
+
+	// EnvMaxHeaderSize sets the limit in bytes for any API request body's length.
+	EnvMaxHeaderSize = "FN_MAX_REQUEST_HEADER_SIZE"
+
+	// The following 4 env-vars (FN_REQUEST_BODY_READ_TIMEOUT, FN_REQUEST_HEADER_READ_TIMEOUT, FN_RESPONSE_WRITE_TIMEOUT, FN_HTTP_IDLE_TIMEOUT)
+	// need to be set as strings that are either :
+	// 1. Valid integral values of duration in seconds ("120", "125")
+	// 2. Valid duration-format strings ("120s", "2m5s")
+
+	// EnvReadTimeout sets the timeout limit for reading a http request body.
+	EnvReadTimeout = "FN_REQUEST_BODY_READ_TIMEOUT"
+
+	// EnvReadHeaderTimeout sets the timeout limit for reading a http request header.
+	EnvReadHeaderTimeout = "FN_REQUEST_HEADER_READ_TIMEOUT"
+
+	// EnvWriteTimeout sets the timeout limit for writing a http response.
+	EnvWriteTimeout = "FN_RESPONSE_WRITE_TIMEOUT"
+
+	// EnvHTTPIdleTimeout maximum amount of time to wait for the next request.
+	EnvHTTPIdleTimeout = "FN_HTTP_IDLE_TIMEOUT"
 
 	// DefaultLogFormat is text
 	DefaultLogFormat = "text"
@@ -639,7 +659,13 @@ func New(ctx context.Context, opts ...Option) *Server {
 		AdminRouter: engine,
 		lbEnqueue:   agent.NewUnsupportedAsyncEnqueueAccess(),
 		svcConfigs: map[string]*http.Server{
-			WebServer:   &http.Server{},
+			WebServer: &http.Server{
+				MaxHeaderBytes:    getEnvInt(EnvMaxHeaderSize, http.DefaultMaxHeaderBytes),
+				ReadHeaderTimeout: getEnvDuration(EnvReadHeaderTimeout, 0),
+				ReadTimeout:       getEnvDuration(EnvReadTimeout, 0),
+				WriteTimeout:      getEnvDuration(EnvWriteTimeout, 0),
+				IdleTimeout:       getEnvDuration(EnvHTTPIdleTimeout, 0),
+			},
 			AdminServer: &http.Server{},
 			GRPCServer:  &http.Server{},
 		},

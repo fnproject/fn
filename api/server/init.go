@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/gin-gonic/gin"
@@ -39,7 +40,7 @@ func getEnvInt(key string, fallback int) int {
 		var err error
 		var i int
 		if i, err = strconv.Atoi(value); err != nil {
-			panic(err) // not sure how to handle this
+			logrus.WithError(err).WithFields(logrus.Fields{"string": value, "environment_key": key}).Fatal("Failed to convert string to int")
 		}
 		return i
 	} else if value, ok := os.LookupEnv(key + "_FILE"); ok {
@@ -48,12 +49,31 @@ func getEnvInt(key string, fallback int) int {
 			var err error
 			var i int
 			if i, err = strconv.Atoi(strings.TrimSpace(string(dat))); err != nil {
-				panic(err) // not sure how to handle this
+				logrus.WithError(err).WithFields(logrus.Fields{"string": dat, "environment_key": key}).Fatal("Failed to convert string to int")
 			}
 			return i
 		}
 	}
 	return fallback
+}
+
+func getEnvDuration(key string, fallback time.Duration) time.Duration {
+	var err error
+	res := fallback
+	if tmp := os.Getenv(key); tmp != "" {
+		// if the returned value is not null it needs to be either an integral value in seconds or a parsable duration-format string
+		res, err = time.ParseDuration(tmp)
+		if err != nil {
+			// try to parse an int
+			s, perr := strconv.Atoi(tmp)
+			if perr != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{"duration_string": tmp, "environment_key": key}).Fatal("Failed to parse duration from env")
+			} else {
+				res = time.Duration(s) * time.Second
+			}
+		}
+	}
+	return res
 }
 
 func contextWithSignal(ctx context.Context, signals ...os.Signal) (context.Context, context.CancelFunc) {
