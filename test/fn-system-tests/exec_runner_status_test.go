@@ -364,8 +364,10 @@ func TestExampleLogStreamer(t *testing.T) {
 		t.Fatalf("Bad request data %+v", req)
 	}
 
+	now := time.Now().UnixNano() / 1000 / 1000
+
 	data := req.Data[0]
-	if data == nil || data.Timestamp != "now" || data.Source != runner.LogResponseMsg_Container_Request_Line_STDOUT {
+	if data == nil || data.Timestamp > now || data.Source != runner.LogResponseMsg_Container_Request_Line_STDOUT {
 		t.Fatalf("Bad log data %+v", data)
 	}
 
