@@ -266,6 +266,14 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 	}
 }
 
+func (c *cookie) configureSecurity(log logrus.FieldLogger) {
+	c.opts.Config.User = "1000:1000"
+	c.opts.HostConfig.CapDrop = []string{"all"}
+	c.opts.HostConfig.SecurityOpt = []string{"no-new-privileges:true"}
+	log.WithFields(logrus.Fields{"user": c.opts.Config.User,
+		"CapDrop": c.opts.HostConfig.CapDrop, "SecurityOpt": c.opts.HostConfig.SecurityOpt, "call_id": c.task.Id()}).Debug("setting security")
+}
+
 // implements Cookie
 func (c *cookie) Close(ctx context.Context) error {
 	var err error
