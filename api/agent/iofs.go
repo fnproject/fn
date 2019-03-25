@@ -64,6 +64,13 @@ func newDirectoryIOFS(ctx context.Context, cfg *Config) (*directoryIOFS, error) 
 		}
 		return nil, fmt.Errorf("cannot create tmpdir for iofs: %v", err)
 	}
+	if !cfg.DisableUnprivilegedContainers && !cfg.IOFSEnableTmpfs {
+		err = os.Chmod(iofsAgentDir, 0777) // #nosec G302
+		if err != nil {
+			common.Logger(ctx).WithError(err).Error("failed to change mode")
+			return nil, fmt.Errorf("cannot change iofs mod: %v", err)
+		}
+	}
 
 	if cfg.IOFSMountRoot != "" {
 		iofsRelPath, err := filepath.Rel(dir, iofsAgentDir)
