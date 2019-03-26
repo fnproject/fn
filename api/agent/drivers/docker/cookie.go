@@ -16,7 +16,15 @@ import (
 	"go.opencensus.io/trace"
 )
 
-var ErrImageWithVolume = models.NewAPIError(http.StatusBadRequest, errors.New("image has Volume definition"))
+const (
+	FnUserId  = 1000
+	FnGroupId = 1000
+)
+
+var (
+	ErrImageWithVolume = models.NewAPIError(http.StatusBadRequest, errors.New("image has Volume definition"))
+	FnDockerUser       = fmt.Sprintf("%v:%v", FnUserId, FnGroupId)
+)
 
 // A cookie identifies a unique request to run a task.
 type cookie struct {
@@ -148,6 +156,7 @@ func (c *cookie) configureIOFS(log logrus.FieldLogger) {
 
 	bind := fmt.Sprintf("%s:%s", path, c.task.UDSDockerDest())
 	c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, bind)
+	log.WithFields(logrus.Fields{"bind": bind, "call_id": c.task.Id()}).Debug("setting bind")
 }
 
 func (c *cookie) configureVolumes(log logrus.FieldLogger) {
@@ -267,7 +276,10 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 }
 
 func (c *cookie) configureSecurity(log logrus.FieldLogger) {
-	c.opts.Config.User = "1000:1000"
+	if c.drv.conf.DockerDisableSecurity {
+		return
+	}
+	c.opts.Config.User = FnDockerUser
 	c.opts.HostConfig.CapDrop = []string{"all"}
 	c.opts.HostConfig.SecurityOpt = []string{"no-new-privileges:true"}
 	log.WithFields(logrus.Fields{"user": c.opts.Config.User,

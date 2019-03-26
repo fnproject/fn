@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"io"
 	"io/ioutil"
 	"os"
@@ -63,6 +64,13 @@ func newDirectoryIOFS(ctx context.Context, cfg *Config) (*directoryIOFS, error) 
 			common.Logger(ctx).WithError(err).Error("failed to clean up iofs dir")
 		}
 		return nil, fmt.Errorf("cannot create tmpdir for iofs: %v", err)
+	}
+	if !cfg.DockerDisableSecurity {
+		err = os.Chown(iofsAgentDir, docker.FnUserId, docker.FnGroupId)
+		if err != nil {
+			common.Logger(ctx).WithError(err).Error("failed to change owner")
+			return nil, fmt.Errorf("cannot change iofs owner: %v", err)
+		}
 	}
 
 	if cfg.IOFSMountRoot != "" {

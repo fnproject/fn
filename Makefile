@@ -117,7 +117,7 @@ run: build
 
 .PHONY: docker-build
 docker-build:
-	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/fnserver:latest .
+	docker build --rm --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/fnserver:latest .
 
 .PHONY: docker-run
 docker-run: docker-build

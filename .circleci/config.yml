@@ -56,7 +56,7 @@ jobs:
       # Rebuild fnserver if necessary
       - run: |
           if [[ -n "$FN_NEEDED" ]]; then
-            make test -j $(nproc)
+            sudo PATH=/usr/local/go/bin:$PATH make test -j $(nproc)
           fi
 
       - deploy:

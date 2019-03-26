@@ -15,6 +15,7 @@ type Config struct {
 	ContainerLabelTag       string        `json:"container_label_tag"`
 	DockerNetworks          string        `json:"docker_networks"`
 	DockerLoadFile          string        `json:"docker_load_file"`
+	DockerDisableSecurity   bool          `json:"docker_disable_security"`
 	FreezeIdle              time.Duration `json:"freeze_idle_msecs"`
 	HotPoll                 time.Duration `json:"hot_poll_msecs"`
 	HotLauncherTimeout      time.Duration `json:"hot_launcher_timeout_msecs"`
@@ -58,6 +59,8 @@ const (
 	EnvDockerNetworks = "FN_DOCKER_NETWORKS"
 	// EnvDockerLoadFile is a file location for a file that contains a tarball of a docker image to load on startup
 	EnvDockerLoadFile = "FN_DOCKER_LOAD_FILE"
+	// EnvDockerDisableSecurity disables docker security features like user name, cap drop etc.
+	EnvDockerDisableSecurity = "FN_DISABLE_DOCKER_SECURITY"
 	// EnvFreezeIdle is the delay between a container being last used and being frozen
 	EnvFreezeIdle = "FN_FREEZE_IDLE_MSECS"
 	// EnvHotPoll is the interval to ping for a slot manager thread to check if a container should be
@@ -162,6 +165,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvStr(err, EnvContainerLabelTag, &cfg.ContainerLabelTag)
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
 	err = setEnvStr(err, EnvDockerLoadFile, &cfg.DockerLoadFile)
+	err = setEnvBool(err, EnvDockerDisableSecurity, &cfg.DockerDisableSecurity)
 	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)
 	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSAgentPath)
 	err = setEnvStr(err, EnvIOFSDockerPath, &cfg.IOFSMountRoot)
