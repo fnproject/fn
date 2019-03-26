@@ -170,6 +170,10 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("function response too large"),
 	}
+	ErrFunctionResponseHdrTooBig = ferr{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("function response header too large"),
+	}
 	ErrFunctionResponse = ferr{
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("error receiving function response"),

@@ -23,6 +23,7 @@ type Config struct {
 	AsyncChewPoll           time.Duration `json:"async_chew_poll_msecs"`
 	DetachedHeadRoom        time.Duration `json:"detached_head_room_msecs"`
 	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
+	MaxHdrResponseSize      uint64        `json:"max_hdr_response_size_bytes"`
 	MaxLogSize              uint64        `json:"max_log_size_bytes"`
 	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
 	MaxTotalMemory          uint64        `json:"max_total_memory_bytes"`
@@ -73,6 +74,8 @@ const (
 	EnvAsyncChewPoll = "FN_ASYNC_CHEW_POLL_MSECS"
 	// EnvMaxResponseSize is the maximum number of bytes that a function may return from an invocation
 	EnvMaxResponseSize = "FN_MAX_RESPONSE_SIZE"
+	// EnvHdrMaxResponseSize is the maximum number of bytes that a function may return in an invocation header
+	EnvMaxHdrResponseSize = "FN_MAX_HDR_RESPONSE_SIZE"
 	// EnvMaxLogSize is the maximum size that a function's log may reach
 	EnvMaxLogSize = "FN_MAX_LOG_SIZE_BYTES"
 	// EnvMaxTotalCPU is the maximum CPU that will be reserved across all containers
@@ -141,7 +144,6 @@ func NewConfig() (*Config, error) {
 	}
 
 	var err error
-
 	err = setEnvMsecs(err, EnvFreezeIdle, &cfg.FreezeIdle, 50*time.Millisecond)
 	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, DefaultHotPoll)
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
@@ -150,6 +152,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
 	err = setEnvMsecs(err, EnvDetachedHeadroom, &cfg.DetachedHeadRoom, time.Duration(360)*time.Second)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
+	err = setEnvUint(err, EnvMaxHdrResponseSize, &cfg.MaxHdrResponseSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
