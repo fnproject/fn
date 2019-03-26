@@ -242,8 +242,10 @@ func TestTriggerRunnerExecEmptyBody(t *testing.T) {
 func TestTriggerRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
-	tweaker := envTweaker("FN_MAX_RESPONSE_SIZE", "2048")
-	defer tweaker()
+	tweaker1 := envTweaker("FN_MAX_RESPONSE_SIZE", "2048")
+	tweaker2 := envTweaker("FN_MAX_HDR_RESPONSE_SIZE", "1024")
+	defer tweaker1()
+	defer tweaker2()
 
 	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
 	// for figuring out why things failed.
@@ -294,7 +296,10 @@ func TestTriggerRunnerExecution(t *testing.T) {
 
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
 	multiLog := `{"echoContent": "_TRX_ID_", "sleepTime": 1000, "isDebug": true}`
-	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}`                                                          // 1000 trailers to exceed 2K
+	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
+
+	bighdroutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "returnHeaders": {"zoo": ["` + strings.Repeat("a", 1024) + `"]}}` // big header to exceed
+
 	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1, "responseContentType": "application/json; charset=utf-8"}` // 1 trailer < 2K
 
 	statusChecker := `{"echoContent": "_TRX_ID_", "isDebug": true, "responseCode":202, "responseContentType": "application/json; charset=utf-8"}`
@@ -334,6 +339,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		{"/t/myapp/httpstream", nil, crasher, "POST", http.StatusBadGateway, expHeaders, "error receiving function response", nil},
 		// XXX(reed): we could stop buffering function responses so that we can stream things?
 		{"/t/myapp/httpstream", nil, bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},
+		{"/t/myapp/httpstream", nil, bighdroutput, "POST", http.StatusBadGateway, nil, "function response header too large", nil},
 		{"/t/myapp/httpstream", nil, smalloutput, "POST", http.StatusOK, expHeaders, "", nil},
 		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
 		{"/t/myapp/httpstream", nil, oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},

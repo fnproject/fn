@@ -124,8 +124,10 @@ func TestFnInvokeRunnerExecEmptyBody(t *testing.T) {
 func TestFnInvokeRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
-	tweaker := envTweaker("FN_MAX_RESPONSE_SIZE", "2048")
-	defer tweaker()
+	tweaker1 := envTweaker("FN_MAX_RESPONSE_SIZE", "2048")
+	tweaker2 := envTweaker("FN_MAX_HDR_RESPONSE_SIZE", "1024")
+	defer tweaker1()
+	defer tweaker2()
 
 	// Log once after we are done, flow of events are important (hot containers, idle timeout, etc.)
 	// for figuring out why things failed.
@@ -185,8 +187,11 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	//over sized request
 	var bigbufa [32257]byte
 	rand.Read(bigbufa[:])
-	bigbuf := base64.StdEncoding.EncodeToString(bigbufa[:])                                                                                    // this will be > bigbufa, but json compatible
-	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}`                                                         // 1000 trailers to exceed 2K
+	bigbuf := base64.StdEncoding.EncodeToString(bigbufa[:])                            // this will be > bigbufa, but json compatible
+	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
+
+	bighdroutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "returnHeaders": {"zoo": ["` + strings.Repeat("a", 1024) + `"]}}` // big header to exceed
+
 	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "responseContentType":"application/json; charset=utf-8", "trailerRepeat": 1}` // 1 trailer < 2K
 
 	testCases := []struct {
@@ -203,6 +208,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/http_stream_fn_id", respTypeLie, http.MethodPost, http.StatusOK, expCTHeaders, "", nil},
 		{"/invoke/http_stream_fn_id", crasher, http.MethodPost, http.StatusBadGateway, expHeaders, "error receiving function response", nil},
 		// XXX(reed): we could stop buffering function responses so that we can stream things?
+		{"/invoke/http_stream_fn_id", bighdroutput, http.MethodPost, http.StatusBadGateway, nil, "function response header too large", nil},
 		{"/invoke/http_stream_fn_id", bigoutput, http.MethodPost, http.StatusBadGateway, nil, "function response too large", nil},
 		{"/invoke/http_stream_fn_id", smalloutput, http.MethodPost, http.StatusOK, expHeaders, "", nil},
 		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?

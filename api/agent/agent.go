@@ -682,6 +682,9 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 		if ctx.Err() == context.DeadlineExceeded {
 			return context.DeadlineExceeded
 		}
+		if strings.Contains(err.Error(), "server response headers exceeded ") {
+			return models.ErrFunctionResponseHdrTooBig
+		}
 		return models.ErrFunctionResponse
 	}
 	defer resp.Body.Close()
@@ -1229,8 +1232,9 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		stderr: stderr,
 		udsClient: http.Client{
 			Transport: &http.Transport{
-				MaxIdleConns:        1,
-				MaxIdleConnsPerHost: 1,
+				MaxIdleConns:           1,
+				MaxIdleConnsPerHost:    1,
+				MaxResponseHeaderBytes: int64(cfg.MaxHdrResponseSize),
 				// XXX(reed): other settings ?
 				IdleConnTimeout: 1 * time.Second,
 				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
