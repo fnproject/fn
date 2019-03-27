@@ -1,8 +1,0 @@
-This software uses third-party software.
-
-For: api/server/tree.go
-Copyright 2013 Julien Schmidt. All rights reserved. BSD-license
-
-For: api/server/internal/routecache/lru.go
-For: api/server/singleflight.go
-Copyright 2012 Google Inc. All rights reserved. Apache 2 license
