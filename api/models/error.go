@@ -279,20 +279,27 @@ func (m *ErrorWrapper) Validate() error {
 type APIErrorWrapper interface {
 	APIError
 	RootError() error
+	Blame() string
 }
 
 type apiErrorWrapper struct {
 	APIError
-	root error
+	root  error
+	blame string
 }
 
 func (w apiErrorWrapper) RootError() error {
 	return w.root
 }
 
-func NewAPIErrorWrapper(apiErr APIError, rootErr error) APIErrorWrapper {
+func (w apiErrorWrapper) Blame() string {
+	return w.blame
+}
+
+func NewAPIErrorWrapper(apiErr APIError, rootErr error, blame string) APIErrorWrapper {
 	return &apiErrorWrapper{
 		APIError: apiErr,
 		root:     rootErr,
+		blame:    blame,
 	}
 }
