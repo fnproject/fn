@@ -9,6 +9,8 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
+// XXX(reed): this is only used by the front end now, this should be in the server/ package
+
 // ReadDataAccess represents read operations required to operate a load balancer node
 type ReadDataAccess interface {
 	GetAppID(ctx context.Context, appName string) (string, error)
