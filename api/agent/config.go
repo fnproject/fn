@@ -135,7 +135,6 @@ const (
 
 // NewConfig returns a config set from env vars, plus defaults
 func NewConfig() (*Config, error) {
-
 	cfg := &Config{
 		MinDockerVersion: "17.10.0-ce",
 		MaxLogSize:       1 * 1024 * 1024,
@@ -176,6 +175,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvUint(err, EnvImageCleanMaxSize, &cfg.ImageCleanMaxSize)
 	err = setEnvStr(err, EnvImageCleanExemptTags, &cfg.ImageCleanExemptTags)
 	err = setEnvBool(err, EnvImageEnableVolume, &cfg.ImageEnableVolume)
+
 	if err != nil {
 		return cfg, err
 	}

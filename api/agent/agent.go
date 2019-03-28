@@ -456,7 +456,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 	}
 
 	state := NewContainerState()
-	state.UpdateState(ctx, ContainerStateWait, call.slots)
+	state.UpdateState(ctx, ContainerStateWait, call)
 
 	mem := call.Memory + uint64(call.TmpFsSize)
 
@@ -521,7 +521,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 		tok.Close()
 	}
 
-	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
+	defer state.UpdateState(ctx, ContainerStateDone, call)
 
 	// IMPORTANT: we wait here for any possible evictions to finalize. Otherwise
 	// hotLauncher could call checkLaunch again and cause a capacity full (http 503)
@@ -803,7 +803,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	errQueue := make(chan error, 1)    // errors to be reflected back to the slot queue
 
 	statsUtilization(ctx, a.resources.GetUtilization())
-	state.UpdateState(ctx, ContainerStateStart, call.slots)
+	state.UpdateState(ctx, ContainerStateStart, call)
 
 	// stack unwind spelled out with strict ordering below.
 	defer func() {
@@ -834,9 +834,10 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			}
 			container.Close()
 		}
+
 		tok.Close() // release cpu/mem
 
-		state.UpdateState(ctx, ContainerStateDone, call.slots)
+		state.UpdateState(ctx, ContainerStateDone, call)
 		statsUtilization(ctx, a.resources.GetUtilization())
 	}()
 
@@ -1071,7 +1072,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		}
 	}()
 
-	state.UpdateState(ctx, ContainerStateIdle, call.slots)
+	state.UpdateState(ctx, ContainerStateIdle, call)
 	c.EnableEviction(call)
 
 	s := call.slots.queueSlot(slot)
@@ -1094,7 +1095,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 					return false
 				}
 				isFrozen = true
-				state.UpdateState(ctx, ContainerStatePaused, call.slots)
+				state.UpdateState(ctx, ContainerStatePaused, call)
 			}
 			continue
 		case <-evicted:
@@ -1132,7 +1133,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		isFrozen = false
 	}
 
-	state.UpdateState(ctx, ContainerStateBusy, call.slots)
+	state.UpdateState(ctx, ContainerStateBusy, call)
 	return true
 }
 

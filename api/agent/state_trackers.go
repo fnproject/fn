@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 )
 
 type RequestStateType int
@@ -24,7 +25,7 @@ type requestState struct {
 }
 
 type ContainerState interface {
-	UpdateState(ctx context.Context, newState ContainerStateType, slots *slotQueue)
+	UpdateState(ctx context.Context, newState ContainerStateType, call *call)
 	GetState() string
 }
 type RequestState interface {
@@ -36,7 +37,7 @@ func NewRequestState() RequestState {
 }
 
 func NewContainerState() ContainerState {
-	return &containerState{}
+	return new(containerState)
 }
 
 const (
@@ -129,11 +130,18 @@ func (c *containerState) GetState() string {
 	return containerStateKeys[res]
 }
 
-func (c *containerState) UpdateState(ctx context.Context, newState ContainerStateType, slots *slotQueue) {
+func (c *containerState) UpdateState(ctx context.Context, newState ContainerStateType, call *call) {
+	var slots = call.slots
 
 	var now time.Time
 	var oldState ContainerStateType
 	var before time.Time
+
+	ctx, _ = tag.New(ctx,
+		tag.Upsert(AppIDMetricKey, call.AppID),
+		tag.Upsert(FnIDMetricKey, call.FnID),
+		tag.Upsert(ImageNameMetricKey, call.Image),
+	)
 
 	c.lock.Lock()
 
