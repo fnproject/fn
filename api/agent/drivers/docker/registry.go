@@ -40,6 +40,13 @@ func preprocessAuths(auths *docker.AuthConfigurations) (map[string]driverAuthCon
 			return drvAuths, err
 		}
 
+		if u.Scheme == "" {
+			// url.Parse won't return an error for urls who do not provide a scheme, and
+			// host field will be unset. docker defaults to bare hosts without scheme
+			// in its configs, so support this here as well.
+			u.Host = v.ServerAddress
+		}
+
 		drvAuths[key] = driverAuthConfig{
 			auth:       v,
 			subdomains: getSubdomains(u.Host),

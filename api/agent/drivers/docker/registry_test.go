@@ -67,7 +67,8 @@ func TestRegistryEnv(t *testing.T) {
 	"auths":{
 		"https://my.registry.com":{"auth":"Y29jbzpjaGVlc2UK"},
 		"https://my.registry.com:5000":{"auth":"Y29jbzpjaGVlc2UK"},
-		"https://index.docker.io/v2/":{"auth":"Y29jbzpjaGVlc2UK"}
+		"https://index.docker.io/v2/":{"auth":"Y29jbzpjaGVlc2UK"},
+		"rawregistry.com":{"auth":"Y29jbzpjaGVlc2UK"}
 	}}`
 
 	auths, err := docker.NewAuthConfigurations(strings.NewReader(testCfg))
@@ -109,5 +110,8 @@ func TestRegistryEnv(t *testing.T) {
 	if res == nil || res.ServerAddress != "https://my.registry.com:5000" {
 		t.Fatalf("registry.com:5000 registry should pickup my.registry.com:5000 cfg %v", res)
 	}
-
+	res = findRegistryConfig("rawregistry.com", drvAuths)
+	if res == nil || res.ServerAddress != "rawregistry.com" {
+		t.Fatalf("rawregistry.com registry should pickup rawregistry.com cfg %v", res)
+	}
 }
