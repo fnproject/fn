@@ -13,7 +13,6 @@ import (
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 )
 
 type funcTestCase struct {
@@ -27,7 +26,7 @@ type funcTestCase struct {
 
 func (test *funcTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 	rnr, cancel := testRunner(t)
-	srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+	srv := testServer(test.ds, rnr, ServerTypeFull)
 
 	body := bytes.NewBuffer([]byte(test.body))
 	_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
@@ -112,22 +111,21 @@ func TestFnUpdate(t *testing.T) {
 	f := &models.Fn{ID: "fn_id", Name: "f", AppID: a.ID}
 	f.SetDefaults()
 	ds := datastore.NewMockInit([]*models.App{a}, []*models.Fn{f})
-	ls := logs.NewMock()
 
 	for i, test := range []funcTestCase{
-		{ds, ls, http.MethodPut, "/v2/fns/missing", `{ }`, http.StatusNotFound, models.ErrFnsNotFound},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "id": "nottheid" }`, http.StatusBadRequest, models.ErrFnsIDMismatch},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "image": "fnproject/test" }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 1000 }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "timeout": 10 }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "idle_timeout": 10 }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "config": {"k":"v"} }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "annotations": {"k":"v"} }`, http.StatusOK, nil},
+		{ds, http.MethodPut, "/v2/fns/missing", `{ }`, http.StatusNotFound, models.ErrFnsNotFound},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "id": "nottheid" }`, http.StatusBadRequest, models.ErrFnsIDMismatch},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "image": "fnproject/test" }`, http.StatusOK, nil},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 1000 }`, http.StatusOK, nil},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "timeout": 10 }`, http.StatusOK, nil},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "idle_timeout": 10 }`, http.StatusOK, nil},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "config": {"k":"v"} }`, http.StatusOK, nil},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "annotations": {"k":"v"} }`, http.StatusOK, nil},
 
 		// test that partial update fails w/ same errors as create
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "timeout": 3601 }`, http.StatusBadRequest, models.ErrFnsInvalidTimeout},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "idle_timeout": 3601 }`, http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
-		{ds, ls, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 100000000000000 }`, http.StatusBadRequest, models.ErrInvalidMemory},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "timeout": 3601 }`, http.StatusBadRequest, models.ErrFnsInvalidTimeout},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "idle_timeout": 3601 }`, http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
+		{ds, http.MethodPut, fmt.Sprintf("/v2/fns/%s", f.ID), `{ "memory": 100000000000000 }`, http.StatusBadRequest, models.ErrInvalidMemory},
 	} {
 		test.run(t, i, buf)
 	}
@@ -152,7 +150,7 @@ func TestFnDelete(t *testing.T) {
 		{commonDS, fmt.Sprintf("/v2/fns/%s", f.ID), "", http.StatusNoContent, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		srv := testServer(test.ds, rnr, ServerTypeFull)
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {

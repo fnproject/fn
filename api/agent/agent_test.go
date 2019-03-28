@@ -94,8 +94,6 @@ func TestCallConfigurationRequest(t *testing.T) {
 		},
 	}
 
-	ls := logs.NewMock()
-
 	a := New()
 	defer checkClose(t, a)
 
@@ -384,10 +382,7 @@ func TestSubmitError(t *testing.T) {
 		Method:      method,
 	}
 
-	// FromModel doesn't need a datastore, for now...
-	ls := logs.NewMock()
-
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	var wg sync.WaitGroup
@@ -442,10 +437,9 @@ func TestHungFDK(t *testing.T) {
 
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 
-	ls := logs.NewMock()
 	cfg, err := NewConfig()
 	cfg.HotStartTimeout = time.Duration(3) * time.Second
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	a := New(WithConfig(cfg))
 	defer checkClose(t, a)
 
 	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(`{}`)})
@@ -496,10 +490,9 @@ func TestDockerPullHungRepo(t *testing.T) {
 
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 
-	ls := logs.NewMock()
 	cfg, err := NewConfig()
 	cfg.HotPullTimeout = time.Duration(5) * time.Second
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	a := New(WithConfig(cfg))
 	defer checkClose(t, a)
 
 	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(`{}`)})
@@ -549,10 +542,9 @@ func TestDockerPullUnAuthorizedRepo(t *testing.T) {
 
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 
-	ls := logs.NewMock()
 	cfg, err := NewConfig()
 	cfg.HotPullTimeout = time.Duration(5) * time.Second
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	a := New(WithConfig(cfg))
 	defer checkClose(t, a)
 
 	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(`{}`)})
@@ -597,9 +589,8 @@ func TestDockerPullBadRepo(t *testing.T) {
 
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 
-	ls := logs.NewMock()
 	cfg, err := NewConfig()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	a := New(WithConfig(cfg))
 	defer checkClose(t, a)
 
 	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(`{}`)})
@@ -638,8 +629,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	bodOne := `{"echoContent":"yodawg"}`
@@ -698,8 +688,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 		Memory:      math.MaxUint64,
 	}
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	_, err := a.GetCall(FromModel(call))
@@ -727,8 +716,7 @@ func TestTmpFsRW(t *testing.T) {
 
 	url := "http://127.0.0.1:8080/invoke/" + fn.ID
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
@@ -822,8 +810,7 @@ func TestTmpFsSize(t *testing.T) {
 
 	cfg.MaxTmpFsInodes = 1025
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	a := New()
 	defer checkClose(t, a)
 
 	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
@@ -977,8 +964,7 @@ func TestPipesAreClear(t *testing.T) {
 		},
 	}
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	// test read this body after 5s (after call times out) and make sure we don't get yodawg
@@ -1121,8 +1107,7 @@ func TestCallsDontInterlace(t *testing.T) {
 		},
 	}
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	bodOne := `{"echoContent":"yodawg"}`
@@ -1222,8 +1207,7 @@ func TestNBIOResourceTracker(t *testing.T) {
 	cfg.MaxTotalMemory = 280 * 1024 * 1024
 	cfg.HotPoll = 20 * time.Millisecond
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg))
+	a := New(WithConfig(cfg))
 	defer checkClose(t, a)
 
 	reqCount := 20
@@ -1289,8 +1273,7 @@ func TestDockerAuthExtn(t *testing.T) {
 		t.Fatalf("bad config %+v", cfg)
 	}
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	callIf, err := a.GetCall(FromModel(modelCall))
@@ -1410,8 +1393,7 @@ func TestContainerDisableIO(t *testing.T) {
 		t.Fatalf("bad config %+v", cfg)
 	}
 
-	ls := logs.NewMock()
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	// NOTE: right now we disable stdin by default so this test should pass.

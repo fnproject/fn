@@ -158,10 +158,10 @@ const (
 	// ServerTypeFull runs all API endpoints, including executing tasks.
 	ServerTypeFull NodeType = iota
 
-	// ServerTypeAPI runs only /v1 endpoints, to manage resources.
+	// ServerTypeAPI runs only control plane endpoints, to manage resources.
 	ServerTypeAPI
 
-	// ServerTypeLB runs only /r/ endpoints, routing to runner nodes.
+	// ServerTypeLB runs only invoke/http trigger endpoints, routing to runner nodes.
 	ServerTypeLB
 
 	// ServerTypePureRunner runs only grpc server, to execute tasks.
@@ -952,7 +952,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/", handlePing)
 	admin.GET("/version", handleVersion)
 
-	// TODO: move under v1 ?
 	if s.promExporter != nil {
 		admin.GET("/metrics", gin.WrapH(s.promExporter))
 	}

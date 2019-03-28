@@ -86,12 +86,8 @@ img-mysql:
 img-postgres:
 	/bin/bash -c "source ./helpers.sh && docker_pull_postgres"
 
-.PHONY: img-minio
-img-minio:
-	/bin/bash -c "source ./helpers.sh && docker_pull_minio"
-
 .PHONY: pull-images
-pull-images: img-mysql img-postgres img-minio img-busybox
+pull-images: img-mysql img-postgres img-busybox
 
 .PHONY: test-datastore
 test-datastore:

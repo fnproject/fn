@@ -77,7 +77,7 @@ func TestFnInvokeRunnerExecEmptyBody(t *testing.T) {
 		[]*models.Fn{f1},
 	)
 
-	rnr, cancelrnr := testRunner(t, ds, ls)
+	rnr, cancelrnr := testRunner(t, ds)
 	defer cancelrnr()
 
 	srv := testServer(ds, rnr, ServerTypeFull)
@@ -159,7 +159,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn, failQuickFn, failTimeoutFn, bigMemHotFn},
 	)
 
-	rnr, cancelrnr := testRunner(t, ds, ls)
+	rnr, cancelrnr := testRunner(t, ds)
 	defer cancelrnr()
 
 	srv := testServer(ds, rnr, ServerTypeFull, LimitRequestBody(32256))
@@ -281,7 +281,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	for i, test := range testCases {
 		if test.expectedLogsSubStr != nil {
-			if !checkLogs(t, i, ls, callIds[i], test.expectedLogsSubStr) {
+			if !checkLogs(t, i, callIds[i], test.expectedLogsSubStr) {
 				isFailure = true
 			}
 		}

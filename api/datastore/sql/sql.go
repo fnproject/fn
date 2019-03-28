@@ -69,6 +69,13 @@ var tables = [...]string{
     CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id, name)
 );`,
 
+	`CREATE TABLE IF NOT EXISTS logs (
+	id varchar(256) NOT NULL PRIMARY KEY,
+	app_id varchar(256),
+	fn_id varchar(256),
+	log text NOT NULL
+);`,
+
 	`CREATE TABLE IF NOT EXISTS fns (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL,
