@@ -1023,9 +1023,8 @@ func (pr *pureRunner) AfterCall(ctx context.Context, call *models.Call) error {
 	return nil
 }
 
-func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, tlsCfg *tls.Config) (Agent, error) {
-
-	agent := New(da)
+func DefaultPureRunner(cancel context.CancelFunc, addr string, tlsCfg *tls.Config) (Agent, error) {
+	agent := New()
 
 	// WARNING: SSL creds are optional.
 	if tlsCfg == nil {

@@ -96,7 +96,6 @@ type Agent interface {
 
 type agent struct {
 	cfg           Config
-	da            CallHandler
 	callListeners []fnext.CallListener
 
 	driver drivers.Driver
@@ -128,7 +127,7 @@ type Option func(*agent) error
 const RegistryToken = "FN_REGISTRY_TOKEN"
 
 // New creates an Agent that executes functions locally as Docker containers.
-func New(da CallHandler, options ...Option) Agent {
+func New(options ...Option) Agent {
 
 	cfg, err := NewConfig()
 	if err != nil {
@@ -140,7 +139,6 @@ func New(da CallHandler, options ...Option) Agent {
 	}
 
 	a.shutWg = common.NewWaitGroup()
-	a.da = da
 	a.slotMgr = NewSlotQueueMgr()
 	a.evictor = NewEvictor()
 
@@ -173,19 +171,6 @@ func New(da CallHandler, options ...Option) Agent {
 func (a *agent) addStartup(sup func()) {
 	a.onStartup = append(a.onStartup, sup)
 
-}
-
-// WithAsync Enables Async  operations on the agent
-func WithAsync(dqda DequeueDataAccess) Option {
-	return func(a *agent) error {
-		a.addStartup(func() {
-			if !a.shutWg.AddSession(1) {
-				logrus.Fatal("cannot start agent, unable to add session")
-			}
-			go a.asyncDequeue(dqda) // safe shutdown can nanny this fine
-		})
-		return nil
-	}
 }
 
 // WithConfig sets the agent config to the provided config

@@ -13,9 +13,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 	"reflect"
 )
 
@@ -41,17 +39,7 @@ func envTweaker(name, value string) func() {
 }
 
 func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
-	ls := logs.NewMock()
-	var mq models.MessageQueue = &mqs.Mock{}
-	for _, a := range args {
-		switch arg := a.(type) {
-		case models.MessageQueue:
-			mq = arg
-		case models.LogStore:
-			ls = arg
-		}
-	}
-	r := agent.New(agent.NewDirectCallDataAccess(ls, mq))
+	r := agent.New()
 	return r, func() { r.Close() }
 }
 
@@ -97,8 +85,7 @@ func TestTriggerRunnerGet(t *testing.T) {
 
 	rnr, cancel := testRunner(t, ds)
 	defer cancel()
-	logDB := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -141,7 +128,7 @@ func TestTriggerRunnerPost(t *testing.T) {
 	defer cancel()
 
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -202,7 +189,7 @@ func TestTriggerRunnerExecEmptyBody(t *testing.T) {
 	rnr, cancelrnr := testRunner(t, ds, ls)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	emptyBody := `{"echoContent": "_TRX_ID_", "isDebug": true, "isEmptyBody": true}`
 
@@ -280,7 +267,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 	rnr, cancelrnr := testRunner(t, ds, ls)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
@@ -445,7 +432,7 @@ func TestTriggerRunnerTimeout(t *testing.T) {
 	rnr, cancelrnr := testRunner(t, ds, fnl)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path            string
@@ -511,7 +498,7 @@ func TestTriggerRunnerMinimalConcurrentHotSync(t *testing.T) {
 	rnr, cancelrnr := testRunner(t, ds, fnl)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path            string

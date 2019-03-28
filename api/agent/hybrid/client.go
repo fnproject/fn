@@ -21,6 +21,9 @@ import (
 	"go.opencensus.io/trace"
 )
 
+// TODO(reed): this should use the fn_go bindings now, most likely, but get trigger by source
+// needs to be dealt with before that can happen.
+
 // client implements agent.DataAccess
 type client struct {
 	base string
@@ -67,58 +70,6 @@ func NewClient(u string) (agent.DataAccess, error) {
 }
 
 var noQuery = map[string]string{}
-
-func (cl *client) Enqueue(ctx context.Context, c *models.Call) error {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_enqueue")
-	defer span.End()
-
-	err := cl.do(ctx, c, nil, "PUT", noQuery, "runner", "async")
-	return err
-}
-
-func (cl *client) Dequeue(ctx context.Context) (*models.Call, error) {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_dequeue")
-	defer span.End()
-
-	var c struct {
-		C []*models.Call `json:"calls"`
-	}
-	err := cl.do(ctx, nil, &c, "GET", noQuery, "runner", "async")
-	if len(c.C) > 0 {
-		return c.C[0], nil
-	}
-	return nil, err
-}
-
-func (cl *client) Start(ctx context.Context, c *models.Call) error {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_start")
-	defer span.End()
-
-	err := cl.do(ctx, c, nil, "POST", noQuery, "runner", "start")
-	return err
-}
-
-func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async bool) error {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_end")
-	defer span.End()
-
-	var b bytes.Buffer // TODO pool / we should multipart this?
-	_, err := io.Copy(&b, r)
-	if err != nil {
-		return err
-	}
-	bod := struct {
-		C *models.Call `json:"call"`
-		L string       `json:"log"`
-	}{
-		C: c,
-		L: b.String(),
-	}
-
-	// TODO add async bit to query params or body
-	err = cl.do(ctx, bod, nil, "POST", noQuery, "runner", "finish")
-	return err
-}
 
 func (cl *client) GetAppID(ctx context.Context, appName string) (string, error) {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app_id")

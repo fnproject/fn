@@ -5,7 +5,6 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/drivers/docker"
-	"github.com/fnproject/fn/api/logs/s3"
 	"github.com/fnproject/fn/api/server"
 	// The trace package is imported in several places by different dependencies and if we don't import explicity here it is
 	// initialized every time it is imported and that creates a panic at run time as we register multiple time the handler for
@@ -51,9 +50,6 @@ func registerViews() {
 
 	// Register docker client views
 	docker.RegisterViews(keys, latencyDist)
-
-	// Register s3 log views
-	s3.RegisterViews(keys, latencyDist)
 
 	server.RegisterAPIViews(keys, latencyDist)
 }

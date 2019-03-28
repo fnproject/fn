@@ -9,9 +9,7 @@ import (
 
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 )
 
 func TestHybridEndpoints(t *testing.T) {
@@ -23,9 +21,7 @@ func TestHybridEndpoints(t *testing.T) {
 		[]*models.Fn{fn},
 	)
 
-	logDB := logs.NewMock()
-
-	srv := testServer(ds, &mqs.Mock{}, logDB, nil /* TODO */, ServerTypeAPI)
+	srv := testServer(ds, nil /* TODO */, ServerTypeAPI)
 
 	newCallBody := func() string {
 		call := &models.Call{

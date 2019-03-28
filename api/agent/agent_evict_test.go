@@ -14,15 +14,12 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers"
 	_ "github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/id"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 )
 
 // create a simple non-blocking agent. Non-blocking does not queue, so it's
 // easier to test and see if evictions took place.
 func getAgentWithDriver() (Agent, drivers.Driver, error) {
-	ls := logs.NewMock()
 	cfg, err := NewConfig()
 	if err != nil {
 		return nil, nil, err
@@ -40,7 +37,7 @@ func getAgentWithDriver() (Agent, drivers.Driver, error) {
 		return nil, nil, err
 	}
 
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)), WithConfig(cfg), WithDockerDriver(drv))
+	a := New(WithConfig(cfg), WithDockerDriver(drv))
 	return a, drv, nil
 }
 

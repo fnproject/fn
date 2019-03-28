@@ -10,9 +10,7 @@ import (
 	"testing"
 
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 )
 
 func TestBadRequests(t *testing.T) {
@@ -25,8 +23,7 @@ func TestBadRequests(t *testing.T) {
 	)
 	rnr, cancel := testRunner(t, ds)
 	defer cancel()
-	logDB := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -79,12 +76,11 @@ func TestFnInvokeRunnerExecEmptyBody(t *testing.T) {
 		[]*models.App{app},
 		[]*models.Fn{f1},
 	)
-	ls := logs.NewMock()
 
 	rnr, cancelrnr := testRunner(t, ds, ls)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	emptyBody := `{"echoContent": "_TRX_ID_", "isDebug": true, "isEmptyBody": true}`
 
@@ -162,12 +158,11 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		[]*models.App{app},
 		[]*models.Fn{dneFn, dneRegistryFn, httpStreamFn, failQuickFn, failTimeoutFn, bigMemHotFn},
 	)
-	ls := logs.NewMock()
 
 	rnr, cancelrnr := testRunner(t, ds, ls)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull, LimitRequestBody(32256))
+	srv := testServer(ds, rnr, ServerTypeFull, LimitRequestBody(32256))
 
 	expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
@@ -313,11 +308,10 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 		[]*models.Fn{httpStreamFn},
 	)
 
-	fnl := logs.NewMock()
-	rnr, cancelrnr := testRunner(t, ds, fnl)
+	rnr, cancelrnr := testRunner(t, ds)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path            string
@@ -384,11 +378,10 @@ func TestInvokeRunnerMinimalConcurrentHotSync(t *testing.T) {
 		[]*models.Fn{fn},
 	)
 
-	fnl := logs.NewMock()
-	rnr, cancelrnr := testRunner(t, ds, fnl)
+	rnr, cancelrnr := testRunner(t, ds)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path            string

@@ -10,7 +10,6 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/id"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
 )
@@ -19,19 +18,18 @@ type mock struct {
 	Apps     []*models.App
 	Fns      []*models.Fn
 	Triggers []*models.Trigger
-
-	models.LogStore
 }
 
+// NewMock creates a new mock datastore
 func NewMock() models.Datastore {
 	return NewMockInit()
 }
 
 var _ models.Datastore = &mock{}
 
-func (m *mock) GetTriggerBySource(ctx context.Context, appId string, triggerType, source string) (*models.Trigger, error) {
+func (m *mock) GetTriggerBySource(ctx context.Context, appID string, triggerType, source string) (*models.Trigger, error) {
 	for _, t := range m.Triggers {
-		if t.AppID == appId && t.Type == triggerType && t.Source == source {
+		if t.AppID == appID && t.Type == triggerType && t.Source == source {
 			return t, nil
 		}
 	}
@@ -39,7 +37,7 @@ func (m *mock) GetTriggerBySource(ctx context.Context, appId string, triggerType
 	return nil, models.ErrTriggerNotFound
 }
 
-// args helps break tests less if we change stuff
+// NewMockInit allows specifying certain apps/fns/triggers. args helps break tests less if we change stuff
 func NewMockInit(args ...interface{}) models.Datastore {
 	var mocker mock
 	for _, a := range args {
@@ -55,7 +53,6 @@ func NewMockInit(args ...interface{}) models.Datastore {
 			panic("not accounted for data type sent to mock init. add it")
 		}
 	}
-	mocker.LogStore = logs.NewMock()
 	return datastoreutil.NewValidator(&mocker)
 }
 

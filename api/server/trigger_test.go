@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 )
 
 const (
@@ -37,7 +35,6 @@ func TestTriggerCreate(t *testing.T) {
 
 	for i, test := range []struct {
 		mock          models.Datastore
-		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
@@ -69,7 +66,7 @@ func TestTriggerCreate(t *testing.T) {
 	} {
 
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		srv := testServer(test.mock, rnr, ServerTypeFull)
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
@@ -147,17 +144,16 @@ func TestTriggerDelete(t *testing.T) {
 	ds := datastore.NewMockInit([]*models.Trigger{trig})
 	for i, test := range []struct {
 		ds            models.Datastore
-		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
-		{datastore.NewMock(), logs.NewMock(), BaseRoute + "/triggerid", "", http.StatusNotFound, nil},
-		{ds, logs.NewMock(), BaseRoute + "/triggerid", "", http.StatusNoContent, nil},
+		{datastore.NewMock(), BaseRoute + "/triggerid", "", http.StatusNotFound, nil},
+		{ds, BaseRoute + "/triggerid", "", http.StatusNoContent, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		srv := testServer(test.ds, rnr, ServerTypeFull)
 
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
@@ -284,7 +280,6 @@ func TestTriggerGet(t *testing.T) {
 
 	for i, test := range []struct {
 		mock         models.Datastore
-		logDB        models.LogStore
 		path         string
 		expectedCode int
 	}{
@@ -293,7 +288,7 @@ func TestTriggerGet(t *testing.T) {
 	} {
 		rnr, cancel := testRunner(t)
 		defer cancel()
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		srv := testServer(test.mock, rnr, ServerTypeFull)
 		router := srv.Router
 
 		_, rec := routerRequest(t, router, "GET", test.path, bytes.NewBuffer([]byte("")))
@@ -409,7 +404,6 @@ func TestTriggerUpdate(t *testing.T) {
 
 	for i, test := range []struct {
 		mock          models.Datastore
-		logDB         models.LogStore
 		path          string
 		body          string
 		name          string
@@ -425,7 +419,7 @@ func TestTriggerUpdate(t *testing.T) {
 	} {
 		rnr, cancel := testRunner(t)
 		defer cancel()
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		srv := testServer(test.mock, rnr, ServerTypeFull)
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))

@@ -83,10 +83,6 @@ type Call struct {
 	// Method of the http request used to make this call.
 	Method string `json:"method,omitempty" db:"-"`
 
-	// Priority of the call. Higher has more priority. 3 levels from 0-2. Calls
-	// at same priority are processed in FIFO order.
-	Priority *int32 `json:"priority,omitempty" db:"-"`
-
 	// Maximum runtime in seconds.
 	Timeout int32 `json:"timeout,omitempty" db:"-"`
 

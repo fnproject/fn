@@ -23,9 +23,7 @@ import (
 	_ "github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 
 	"github.com/sirupsen/logrus"
 )
@@ -98,7 +96,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	ls := logs.NewMock()
 
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	w := httptest.NewRecorder()
@@ -139,9 +137,6 @@ func TestCallConfigurationRequest(t *testing.T) {
 	}
 	if model.Type != "sync" {
 		t.Fatal("fn type mismatch", model.Type)
-	}
-	if model.Priority == nil {
-		t.Fatal("GetCall should make priority non-nil so that async works because for whatever reason some clowns plumbed it all over the mqs even though the user can't specify it gg")
 	}
 	if model.Timeout != timeout {
 		t.Fatal("timeout mismatch", model.Timeout, timeout)
@@ -222,10 +217,7 @@ func TestCallConfigurationModel(t *testing.T) {
 		Method:      method,
 	}
 
-	// FromModel doesn't need a datastore, for now...
-	ls := logs.NewMock()
-
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -259,10 +251,7 @@ func TestGetCallFromModelRoundTripACall(t *testing.T) {
 		Payload: payload,
 	}
 
-	// FromModel doesn't need a datastore, for now...
-	ls := logs.NewMock()
-
-	a := New(NewDirectCallDataAccess(ls, new(mqs.Mock)))
+	a := New()
 	defer checkClose(t, a)
 
 	callI, err := a.GetCall(FromModel(cm))

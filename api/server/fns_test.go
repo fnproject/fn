@@ -12,14 +12,12 @@ import (
 
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 )
 
 type funcTestCase struct {
 	ds            models.Datastore
-	logDB         models.LogStore
 	method        string
 	path          string
 	body          string
@@ -88,21 +86,20 @@ func TestFnCreate(t *testing.T) {
 
 	a := &models.App{Name: "a", ID: "aid"}
 	ds := datastore.NewMockInit([]*models.App{a})
-	ls := logs.NewMock()
 	for i, test := range []funcTestCase{
 		// errors
-		{ds, ls, http.MethodPost, "/v2/fns", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{ds, ls, http.MethodPost, "/v2/fns", `{ }`, http.StatusBadRequest, models.ErrFnsMissingAppID},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingName},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingImage},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": " ", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidName},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "idle_timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrInvalidMemory},
+		{ds, http.MethodPost, "/v2/fns", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{ds, http.MethodPost, "/v2/fns", `{ }`, http.StatusBadRequest, models.ErrFnsMissingAppID},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingName},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingImage},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": " ", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidName},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "idle_timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrInvalidMemory},
 
 		// success create & update
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusOK, nil},
-		{ds, ls, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusConflict, models.ErrFnsExists},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusOK, nil},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusConflict, models.ErrFnsExists},
 	} {
 		test.run(t, i, buf)
 	}
@@ -146,14 +143,13 @@ func TestFnDelete(t *testing.T) {
 
 	for i, test := range []struct {
 		ds            models.Datastore
-		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
-		{commonDS, logs.NewMock(), "/v2/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound},
-		{commonDS, logs.NewMock(), fmt.Sprintf("/v2/fns/%s", f.ID), "", http.StatusNoContent, nil},
+		{commonDS, "/v2/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound},
+		{commonDS, fmt.Sprintf("/v2/fns/%s", f.ID), "", http.StatusNoContent, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -227,9 +223,7 @@ func TestFnList(t *testing.T) {
 			},
 		},
 	)
-	fnl := logs.NewMock()
-
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	fn1b := base64.RawURLEncoding.EncodeToString([]byte(fn1))
 	fn2b := base64.RawURLEncoding.EncodeToString([]byte(fn2))
@@ -304,8 +298,6 @@ func TestFnGet(t *testing.T) {
 				Image: "fnproject/fn-test-utils",
 			},
 		})
-	fnl := logs.NewMock()
-
 	nilFn := new(models.Fn)
 
 	expectedFn := &models.Fn{
@@ -313,7 +305,7 @@ func TestFnGet(t *testing.T) {
 		Name:  "myfunc",
 		Image: "fnproject/fn-test-utils"}
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -362,7 +354,7 @@ func TestFnInvokeEndpointAnnotations(t *testing.T) {
 
 	commonDS := datastore.NewMockInit([]*models.App{a})
 
-	srv := testServer(commonDS, &mqs.Mock{}, logs.NewMock(), nil, ServerTypeAPI)
+	srv := testServer(commonDS, nil, ServerTypeAPI)
 	body, err := json.Marshal(fn)
 	if err != nil {
 		t.Fatalf("Failed to marshal json to create fn %s", err)

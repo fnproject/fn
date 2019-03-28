@@ -13,7 +13,6 @@ import (
 	_ "github.com/fnproject/fn/api/datastore/sql/mysql"
 	_ "github.com/fnproject/fn/api/datastore/sql/postgres"
 	_ "github.com/fnproject/fn/api/datastore/sql/sqlite"
-	logstoretest "github.com/fnproject/fn/api/logs/testing"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
 )
@@ -69,9 +68,6 @@ func TestDatastore(t *testing.T) {
 		datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider())
 	})
 
-	// also logs
-	logstoretest.Test(t, f(t))
-
 	// NOTE: sqlite3 does not like ALTER TABLE DROP COLUMN so do not run
 	// migration tests against it, only pg and mysql -- should prove UP migrations
 	// will likely work for sqlite3, but may need separate testing by devs :(
@@ -100,9 +96,6 @@ func TestDatastore(t *testing.T) {
 		// test fresh w/o migrations
 		t.Run(u.Scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
 
-		// also test sql implements logstore
-		logstoretest.Test(t, f(t))
-
 		f = func(t *testing.T) *SQLStore {
 			t.Log("with migrations now!")
 			ds, err := newWithMigrations(ctx, u)
@@ -122,9 +115,6 @@ func TestDatastore(t *testing.T) {
 
 		// test that migrations work & things work with them
 		t.Run(u.Scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
-
-		// also test sql implements logstore
-		logstoretest.Test(t, f(t))
 	}
 
 	if pg := os.Getenv("POSTGRES_URL"); pg != "" {

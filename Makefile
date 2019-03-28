@@ -97,10 +97,6 @@ pull-images: img-mysql img-postgres img-minio img-busybox
 test-datastore:
 	cd api/datastore && go test  ./...
 
-.PHONY: test-log-datastore
-test-log-datastore:
-	cd api/logs && go test  ./...
-
 .PHONY: test-build-arm
 test-build-arm:
 	GOARCH=arm GOARM=5 $(MAKE) build

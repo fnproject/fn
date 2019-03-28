@@ -6,11 +6,9 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/fnproject/fn/api/common"
@@ -19,7 +17,6 @@ import (
 	"github.com/fnproject/fn/api/datastore/sql/migratex"
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/id"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
@@ -72,13 +69,6 @@ var tables = [...]string{
     CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id, name)
 );`,
 
-	`CREATE TABLE IF NOT EXISTS logs (
-	id varchar(256) NOT NULL PRIMARY KEY,
-	app_id varchar(256),
-	fn_id varchar(256),
-	log text NOT NULL
-);`,
-
 	`CREATE TABLE IF NOT EXISTS fns (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL,
@@ -113,9 +103,9 @@ const (
 
 var ( // compiler will yell nice things about our upbringing as a child
 	_ models.Datastore = new(SQLStore)
-	_ models.LogStore  = new(SQLStore)
 )
 
+// SQLStore implements models.Datastore
 type SQLStore struct {
 	helper dbhelper.Helper
 	db     *sqlx.DB
@@ -140,21 +130,6 @@ func (sqlDsProvider) New(ctx context.Context, u *url.URL) (models.Datastore, err
 
 func (sqlDsProvider) String() string {
 	return "sql"
-}
-
-type sqlLogsProvider int
-
-func (sqlLogsProvider) String() string {
-	return "sql"
-}
-
-func (sqlLogsProvider) Supports(u *url.URL) bool {
-	_, ok := dbhelper.GetHelper(u.Scheme)
-	return ok
-}
-
-func (sqlLogsProvider) New(ctx context.Context, u *url.URL) (models.LogStore, error) {
-	return newDS(ctx, u)
 }
 
 // for test methods, return concrete type, but don't expose
@@ -323,12 +298,6 @@ func (ds *SQLStore) clear() error {
 
 		query = tx.Rebind(`DELETE FROM fns`)
 		_, err = tx.Exec(query)
-		if err != nil {
-			return err
-		}
-
-		query = tx.Rebind(`DELETE FROM logs`)
-		_, err = tx.Exec(query)
 		return err
 	})
 }
@@ -453,7 +422,6 @@ func (ds *SQLStore) RemoveApp(ctx context.Context, appID string) error {
 		}
 
 		deletes := []string{
-			`DELETE FROM logs WHERE app_id=?`,
 			`DELETE FROM calls WHERE app_id=?`,
 			`DELETE FROM fns WHERE app_id=?`,
 			`DELETE FROM triggers WHERE app_id=?`,
@@ -838,40 +806,6 @@ func (ds *SQLStore) GetCalls1(ctx context.Context, filter *models.CallFilter) ([
 	return res, nil
 }
 
-func (ds *SQLStore) InsertLog(ctx context.Context, call *models.Call, logR io.Reader) error {
-	// coerce this into a string for sql
-	var log string
-	if stringer, ok := logR.(fmt.Stringer); ok {
-		log = stringer.String()
-	} else {
-		// TODO we could optimize for Size / buffer pool, but atm we aren't hitting
-		// this code path anyway (a fallback)
-		var b bytes.Buffer
-		io.Copy(&b, logR)
-		log = b.String()
-	}
-
-	query := ds.db.Rebind(`INSERT INTO logs (id, app_id, fn_id, log) VALUES (?, ?, ?, ?);`)
-	_, err := ds.db.ExecContext(ctx, query, call.ID, call.AppID, call.FnID, log)
-	return err
-}
-
-func (ds *SQLStore) GetLog(ctx context.Context, fnID, callID string) (io.Reader, error) {
-	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND fn_id=?`)
-	row := ds.db.QueryRowContext(ctx, query, callID, fnID)
-
-	var log string
-	err := row.Scan(&log)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, models.ErrCallLogNotFound
-		}
-		return nil, err
-	}
-
-	return strings.NewReader(log), nil
-}
-
 func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}, error) {
 	var args []interface{}
 	if filter == nil {
@@ -1254,5 +1188,4 @@ func (ds *SQLStore) Close() error {
 
 func init() {
 	datastore.Register(sqlDsProvider(0))
-	logs.Register(sqlLogsProvider(0))
 }
