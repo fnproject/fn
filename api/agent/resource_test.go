@@ -12,11 +12,9 @@ func setTrackerTestVals(tr *resourceTracker, vals *trackerVals) {
 
 	tr.ramTotal = vals.mt
 	tr.ramUsed = vals.mu
-	tr.ramAsyncHWMark = vals.mam
 
 	tr.cpuTotal = vals.ct
 	tr.cpuUsed = vals.cu
-	tr.cpuAsyncHWMark = vals.cam
 
 	tr.cond.L.Unlock()
 	tr.cond.Broadcast()
@@ -28,11 +26,9 @@ func getTrackerTestVals(tr *resourceTracker, vals *trackerVals) {
 
 	vals.mt = tr.ramTotal
 	vals.mu = tr.ramUsed
-	vals.mam = tr.ramAsyncHWMark
 
 	vals.ct = tr.cpuTotal
 	vals.cu = tr.cpuUsed
-	vals.cam = tr.cpuAsyncHWMark
 
 	tr.cond.L.Unlock()
 }
@@ -48,12 +44,12 @@ type trackerVals struct {
 }
 
 func (vals *trackerVals) setDefaults() {
-	// set set these to known vals (4GB total: 1GB async hw mark)
+	// set set these to known vals (4GB total)
 	vals.mt = 4 * Mem1GB
 	vals.mu = 0
 	vals.mam = 1 * Mem1GB
 
-	// let's assume 10 CPUs (6 CPU async hw mark)
+	// let's assume 10 CPUs
 	vals.ct = 10000
 	vals.cu = 0
 	vals.cam = 6000
@@ -77,74 +73,6 @@ func isClosed(ch <-chan ResourceToken) bool {
 	default:
 	}
 	return false
-}
-
-func TestResourceAsyncWait(t *testing.T) {
-
-	var vals trackerVals
-
-	trI := NewResourceTracker(nil)
-
-	tr := trI.(*resourceTracker)
-
-	getTrackerTestVals(tr, &vals)
-	if vals.mt <= 0 || vals.mu != 0 || vals.mam <= 0 {
-		t.Fatalf("faulty init MEM %#v", vals)
-	}
-	if vals.ct <= 0 || vals.cu != 0 || vals.cam <= 0 {
-		t.Fatalf("faulty init CPU %#v", vals)
-	}
-
-	vals.setDefaults()
-
-	// should block & wait
-	vals.mu = vals.mam
-	setTrackerTestVals(tr, &vals)
-
-	ctx1, cancel1 := context.WithCancel(context.Background())
-	ch1 := tr.WaitAsyncResource(ctx1)
-	defer cancel1()
-
-	select {
-	case <-ch1:
-		t.Fatal("high water mark MEM over, should not trigger")
-	case <-time.After(time.Duration(500) * time.Millisecond):
-	}
-
-	// should not block & wait
-	vals.mu = 0
-	setTrackerTestVals(tr, &vals)
-
-	select {
-	case <-ch1:
-	case <-time.After(time.Duration(500) * time.Millisecond):
-		t.Fatal("high water mark MEM not over, should trigger")
-	}
-
-	// get a new channel to prevent previous test interference
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	ch2 := tr.WaitAsyncResource(ctx2)
-	defer cancel2()
-
-	// should block & wait
-	vals.cu = vals.cam
-	setTrackerTestVals(tr, &vals)
-
-	select {
-	case <-ch2:
-		t.Fatal("high water mark CPU over, should not trigger")
-	case <-time.After(time.Duration(500) * time.Millisecond):
-	}
-
-	// should not block & wait
-	vals.cu = 0
-	setTrackerTestVals(tr, &vals)
-
-	select {
-	case <-ch2:
-	case <-time.After(time.Duration(500) * time.Millisecond):
-		t.Fatal("high water mark CPU not over, should trigger")
-	}
 }
 
 func TestResourceGetSimple(t *testing.T) {

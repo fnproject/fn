@@ -614,8 +614,6 @@ func TestDockerPullBadRepo(t *testing.T) {
 }
 
 func TestHTTPWithoutContentLengthWorks(t *testing.T) {
-	// TODO it may be a good idea to mock out the http server and use a real
-	// response writer with sync, and also test that this works with async + log
 	app := &models.App{ID: "app_id"}
 	fn := &models.Fn{
 		ID:    "fn_id",

@@ -20,7 +20,6 @@ type Config struct {
 	HotLauncherTimeout      time.Duration `json:"hot_launcher_timeout_msecs"`
 	HotPullTimeout          time.Duration `json:"hot_pull_timeout_msecs"`
 	HotStartTimeout         time.Duration `json:"hot_start_timeout_msecs"`
-	AsyncChewPoll           time.Duration `json:"async_chew_poll_msecs"`
 	DetachedHeadRoom        time.Duration `json:"detached_head_room_msecs"`
 	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
 	MaxHdrResponseSize      uint64        `json:"max_hdr_response_size_bytes"`
@@ -70,8 +69,6 @@ const (
 	EnvHotPullTimeout = "FN_HOT_PULL_TIMEOUT_MSECS"
 	// EnvHotStartTimeout is the timeout for a hot container to become available for use for requests after EnvHotStartTimeout
 	EnvHotStartTimeout = "FN_HOT_START_TIMEOUT_MSECS"
-	// EnvAsyncChewPoll is the interval to poll the queue that contains async function invocations
-	EnvAsyncChewPoll = "FN_ASYNC_CHEW_POLL_MSECS"
 	// EnvMaxResponseSize is the maximum number of bytes that a function may return from an invocation
 	EnvMaxResponseSize = "FN_MAX_RESPONSE_SIZE"
 	// EnvHdrMaxResponseSize is the maximum number of bytes that a function may return in an invocation header
@@ -148,7 +145,6 @@ func NewConfig() (*Config, error) {
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
 	err = setEnvMsecs(err, EnvHotPullTimeout, &cfg.HotPullTimeout, time.Duration(10)*time.Minute)
 	err = setEnvMsecs(err, EnvHotStartTimeout, &cfg.HotStartTimeout, time.Duration(5)*time.Second)
-	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
 	err = setEnvMsecs(err, EnvDetachedHeadroom, &cfg.DetachedHeadRoom, time.Duration(360)*time.Second)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
 	err = setEnvUint(err, EnvMaxHdrResponseSize, &cfg.MaxHdrResponseSize)

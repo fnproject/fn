@@ -15,7 +15,6 @@ import (
 	"sync"
 
 	"github.com/fnproject/fn/api/models"
-
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 )
@@ -44,10 +43,6 @@ type ResourceUtilization struct {
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: disk, network IO for future
 type ResourceTracker interface {
-	// WaitAsyncResource returns a channel that will send once when there seem to be sufficient
-	// resource levels to run an async task, it is up to the implementer to create policy here.
-	WaitAsyncResource(ctx context.Context) chan struct{}
-
 	// GetResourceToken returns a channel to wait for a resource token on. If the provided context is canceled,
 	// the channel will never receive anything. If it is not possible to fulfill this resource, the channel
 	// will never receive anything (use IsResourcePossible). If a resource token is available for the provided
@@ -72,14 +67,10 @@ type resourceTracker struct {
 	ramTotal uint64
 	// ramUsed is ram reserved for running containers including hot/idle
 	ramUsed uint64
-	// memory in use in which agent stops dequeuing async jobs
-	ramAsyncHWMark uint64
 	// cpuTotal is the total usable cpu for functions
 	cpuTotal uint64
 	// cpuUsed is cpu reserved for running containers including hot/idle
 	cpuUsed uint64
-	// cpu in use in which agent stops dequeuing async jobs
-	cpuAsyncHWMark uint64
 }
 
 func NewResourceTracker(cfg *Config) ResourceTracker {
@@ -167,9 +158,9 @@ func (a *resourceTracker) allocResourcesLocked(memory uint64, cpuQuota models.Mi
 		a.cpuUsed -= uint64(cpuQuota)
 		a.cond.L.Unlock()
 
-		// WARNING: yes, we wake up everyone even async waiters when only sync pool has space, but
-		// the cost of this spurious wake up is unlikely to impact much performance. Simpler
-		// to use one cond variable for the time being.
+		// WARNING: yes, we wake up everyone pool has space, but the cost of this
+		// spurious wake up is unlikely to impact much performance. Simpler to use
+		// one cond variable for the time being.
 		a.cond.Broadcast()
 	}}
 }
@@ -287,47 +278,6 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	return ch
 }
 
-// WaitAsyncResource will send a signal on the returned channel when RAM and CPU in-use
-// in the async area is less than high water mark
-func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
-	ch := make(chan struct{}, 1)
-
-	isWaiting := false
-	c := a.cond
-
-	// if we find a resource token, shut down the thread waiting on ctx finish.
-	// alternatively, if the ctx is done, wake up the cond loop.
-	ctx, cancel := context.WithCancel(ctx)
-
-	go func() {
-		<-ctx.Done()
-		c.L.Lock()
-		if isWaiting {
-			c.Broadcast()
-		}
-		c.L.Unlock()
-	}()
-
-	ctx, span := trace.StartSpan(ctx, "agent_wait_async_resource")
-	go func() {
-		defer span.End()
-		defer cancel()
-		c.L.Lock()
-		isWaiting = true
-		for (a.ramUsed >= a.ramAsyncHWMark || a.cpuUsed >= a.cpuAsyncHWMark) && ctx.Err() == nil {
-			c.Wait()
-		}
-		isWaiting = false
-		c.L.Unlock()
-
-		if ctx.Err() == nil {
-			ch <- struct{}{}
-		}
-	}()
-
-	return ch
-}
-
 func minUint64(a, b uint64) uint64 {
 	if a <= b {
 		return a
@@ -392,11 +342,9 @@ func (a *resourceTracker) initializeCPU(cfg *Config) {
 	}).Info("available cpu")
 
 	a.cpuTotal = availCPU
-	a.cpuAsyncHWMark = availCPU * 8 / 10
 
 	logrus.WithFields(logrus.Fields{
-		"cpu":               a.cpuTotal,
-		"cpu_async_hw_mark": a.cpuAsyncHWMark,
+		"cpu": a.cpuTotal,
 	}).Info("cpu reservations")
 
 	if a.cpuTotal == 0 {
@@ -450,12 +398,10 @@ func (a *resourceTracker) initializeMemory(cfg *Config) {
 	}
 
 	a.ramTotal = availMemory
-	a.ramAsyncHWMark = availMemory * 8 / 10
 
 	// For non-linux OS, we expect these (or their defaults) properly configured from command-line/env
 	logrus.WithFields(logrus.Fields{
-		"avail_memory":      a.ramTotal,
-		"ram_async_hw_mark": a.ramAsyncHWMark,
+		"avail_memory": a.ramTotal,
 	}).Info("ram reservations")
 
 	if a.ramTotal == 0 {

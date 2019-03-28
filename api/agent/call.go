@@ -22,9 +22,6 @@ import (
 // Call is an agent specific instance of a call object, that is runnable.
 type Call interface {
 	// Model will return the underlying models.Call configuration for this call.
-	// TODO we could respond to async correctly from agent but layering, this
-	// is only because the front end has different responses based on call type.
-	// try to discourage use elsewhere until this gets pushed down more...
 	Model() *models.Call
 
 	// Start will be called before this call is executed, it may be used to
@@ -267,7 +264,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
 	}
 	if c.respWriter == nil {
-		// send function output to logs if no writer given (async...)
+		// send function output to logs if no writer given (TODO no longer need w/o async?)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
 		c.respWriter = c.stderr
 	}

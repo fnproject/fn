@@ -247,7 +247,6 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 					completedAt = mcall.CompletedAt.String()
 				} else {
 					// IMPORTANT: We punch this in ourselves.
-					// This is because call.End() is executed asynchronously.
 					completedAt = common.DateTime(time.Now()).String()
 				}
 			}
@@ -847,7 +846,6 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 				result.CompletedAt = c.CompletedAt.String()
 			} else {
 				// IMPORTANT: We punch this in ourselves.
-				// This is because call.End() is executed asynchronously.
 				result.CompletedAt = common.DateTime(time.Now()).String()
 			}
 		}
