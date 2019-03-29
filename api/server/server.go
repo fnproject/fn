@@ -204,9 +204,7 @@ type Server struct {
 	// Agent enqueue  and read stores
 	lbReadAccess           agent.ReadDataAccess
 	noHTTTPTriggerEndpoint bool
-	noHybridAPI            bool
 	noFnInvokeEndpoint     bool
-	noCallEndpoints        bool
 	appListeners           *appListeners
 	fnListeners            *fnListeners
 	triggerListeners       *triggerListeners
@@ -663,22 +661,6 @@ func WithoutFnInvokeEndpoints() Option {
 	}
 }
 
-// WithoutHybridAPI unconditionally disables the Hybrid API on a server
-func WithoutHybridAPI() Option {
-	return func(ctx context.Context, s *Server) error {
-		s.noHybridAPI = true
-		return nil
-	}
-}
-
-// WithoutCallEndpoints unconditionally disables the call resources in the api
-func WithoutCallEndpoints() Option {
-	return func(ctx context.Context, s *Server) error {
-		s.noCallEndpoints = true
-		return nil
-	}
-}
-
 // WithJaeger maps EnvJaegerURL
 func WithJaeger(jaegerURL string) Option {
 	return func(ctx context.Context, s *Server) error {
@@ -982,14 +964,12 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		v2.GET("/fns/:fn_id/calls/:call_id", s.goneResponse)
 		v2.GET("/fns/:fn_id/calls/:call_id/log", s.goneResponse)
 
-		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers
-			runner := cleanv2.Group("/runner")
+		runner := cleanv2.Group("/runner")
 
-			runnerAppAPI := runner.Group("/apps/:app_id")
-			runnerAppAPI.Use(setAppIDInCtx)
-			// TODO figure out how to deprecate
-			runnerAppAPI.GET("/triggerBySource/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
-		}
+		runnerAppAPI := runner.Group("/apps/:app_id")
+		runnerAppAPI.Use(setAppIDInCtx)
+		// TODO figure out how to deprecate
+		runnerAppAPI.GET("/triggerBySource/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
 	}
 
 	switch s.nodeType {
