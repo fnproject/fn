@@ -21,7 +21,6 @@ import (
 	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/version"
