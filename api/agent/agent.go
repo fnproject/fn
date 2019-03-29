@@ -8,11 +8,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-
-	"path/filepath"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	dockerdriver "github.com/fnproject/fn/api/agent/drivers/docker"
@@ -23,9 +23,10 @@ import (
 	"github.com/fsnotify/fsnotify"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
-	"os"
+	"go.opencensus.io/trace/propagation"
 )
 
 const (
@@ -677,7 +678,17 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 	swapBack := s.container.swap(call.stderr, &call.Stats)
 	defer swapBack()
 
-	resp, err := s.container.udsClient.Do(createUDSRequest(ctx, call))
+	req := createUDSRequest(ctx, call)
+
+	var resp *http.Response
+	var err error
+	{ // don't leak ctx scope
+		ctx, span := trace.StartSpan(ctx, "agent_dispatch_uds_do")
+		req = req.WithContext(ctx)
+		resp, err = s.container.udsClient.Do(req)
+		span.End()
+	}
+
 	if err != nil {
 		// IMPORTANT: Container contract: If http-uds errors/timeout, container cannot continue
 		s.trySetError(err)
@@ -1218,6 +1229,17 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		bufs = append(bufs, buf1)
 	}
 
+	baseTransport := &http.Transport{
+		MaxIdleConns:           1,
+		MaxIdleConnsPerHost:    1,
+		MaxResponseHeaderBytes: int64(cfg.MaxHdrResponseSize),
+		IdleConnTimeout:        120 * time.Second, // TODO(reed): since we only allow one, and we close them, this is gratuitous?
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", filepath.Join(iofs.AgentPath(), udsFilename))
+		},
+	}
+
 	return &container{
 		id:         id, // XXX we could just let docker generate ids...
 		image:      call.Image,
@@ -1239,16 +1261,12 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		},
 		stderr: stderr,
 		udsClient: http.Client{
-			Transport: &http.Transport{
-				MaxIdleConns:           1,
-				MaxIdleConnsPerHost:    1,
-				MaxResponseHeaderBytes: int64(cfg.MaxHdrResponseSize),
-				// XXX(reed): other settings ?
-				IdleConnTimeout: 1 * time.Second,
-				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-					var d net.Dialer
-					return d.DialContext(ctx, "unix", filepath.Join(iofs.AgentPath(), udsFilename))
-				},
+			// use this transport so we can trace the requests to container, handy for debugging...
+			Transport: &ochttp.Transport{
+				NewClientTrace: ochttp.NewSpanAnnotatingClientTrace,
+				Propagation:    noopOCHTTPFormat{}, // we do NOT want to send our tracers to user function, they default to b3
+				Base:           baseTransport,
+				// NOTE: the global trace sampler will be used, this is what we want for now at least
 			},
 		},
 		evictor: evictor,
@@ -1260,9 +1278,22 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 			if err := iofs.Close(); err != nil {
 				logger.WithError(err).Error("Error closing IOFS")
 			}
+			baseTransport.CloseIdleConnections()
 		},
 	}
 }
+
+var _ propagation.HTTPFormat = noopOCHTTPFormat{}
+
+// we do not want to pass these to the user functions, since they're our internal traces...
+// it is useful for debugging, admittedly, we could make it more friendly for OSS debugging...
+type noopOCHTTPFormat struct{}
+
+func (noopOCHTTPFormat) SpanContextFromRequest(req *http.Request) (sc trace.SpanContext, ok bool) {
+	// our transport isn't receiving requests anyway
+	return trace.SpanContext{}, false
+}
+func (noopOCHTTPFormat) SpanContextToRequest(sc trace.SpanContext, req *http.Request) {}
 
 func (c *container) swap(stderr io.Writer, cs *drivers.Stats) func() {
 	// if they aren't using a ghost writer, the logs are disabled, we can skip swapping
