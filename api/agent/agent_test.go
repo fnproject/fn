@@ -808,7 +808,7 @@ func TestTmpFsSize(t *testing.T) {
 
 	cfg.MaxTmpFsInodes = 1025
 
-	a := New()
+	a := New(WithConfig(cfg))
 	defer checkClose(t, a)
 
 	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
