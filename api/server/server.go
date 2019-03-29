@@ -59,17 +59,9 @@ const (
 	// EnvLogPrefix is a prefix to affix to each log line.
 	EnvLogPrefix = "FN_LOG_PREFIX"
 
-	// EnvMQURL is a url to an MQ service:
-	// possible out-of-the-box schemes: { memory, redis, bolt }
-	EnvMQURL = "FN_MQ_URL"
-
 	// EnvDBURL is a url to a db service:
 	// possible schemes: { postgres, sqlite3, mysql }
 	EnvDBURL = "FN_DB_URL"
-
-	// EnvLogDBURL is a url to a log storage service:
-	// possible schemes: { postgres, sqlite3, mysql, s3 }
-	EnvLogDBURL = "FN_LOGSTORE_URL"
 
 	// EnvRunnerURL is a url pointing to an Fn API service.
 	EnvRunnerURL = "FN_RUNNER_API_URL"
