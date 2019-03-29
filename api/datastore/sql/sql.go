@@ -43,19 +43,6 @@ var tables = [...]string{
 	updated_at varchar(256)
 );`,
 
-	`CREATE TABLE IF NOT EXISTS calls (
-	created_at varchar(256) NOT NULL,
-	started_at varchar(256) NOT NULL,
-	completed_at varchar(256) NOT NULL,
-	status varchar(256) NOT NULL,
-	id varchar(256) NOT NULL,
-	app_id varchar(256),
-	fn_id varchar(256),
-	stats text,
-	error text,
-	PRIMARY KEY (id)
-);`,
-
 	`CREATE TABLE IF NOT EXISTS triggers (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL,
@@ -67,13 +54,6 @@ var tables = [...]string{
 	source varchar(256) NOT NULL,
     annotations text NOT NULL,
     CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id, name)
-);`,
-
-	`CREATE TABLE IF NOT EXISTS logs (
-	id varchar(256) NOT NULL PRIMARY KEY,
-	app_id varchar(256),
-	fn_id varchar(256),
-	log text NOT NULL
 );`,
 
 	`CREATE TABLE IF NOT EXISTS fns (
@@ -93,7 +73,6 @@ var tables = [...]string{
 }
 
 const (
-	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, fn_id, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 
@@ -285,14 +264,8 @@ func latestVersion(migs []migratex.Migration) int64 {
 func (ds *SQLStore) clear() error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
 
-		query := tx.Rebind(`DELETE FROM calls`)
+		query := tx.Rebind(`DELETE FROM apps`)
 		_, err := tx.Exec(query)
-		if err != nil {
-			return err
-		}
-
-		query = tx.Rebind(`DELETE FROM apps`)
-		_, err = tx.Exec(query)
 		if err != nil {
 			return err
 		}
@@ -429,7 +402,6 @@ func (ds *SQLStore) RemoveApp(ctx context.Context, appID string) error {
 		}
 
 		deletes := []string{
-			`DELETE FROM calls WHERE app_id=?`,
 			`DELETE FROM fns WHERE app_id=?`,
 			`DELETE FROM triggers WHERE app_id=?`,
 		}
@@ -701,118 +673,6 @@ func (ds *SQLStore) Tx(f func(*sqlx.Tx) error) error {
 	return tx.Commit()
 }
 
-func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
-	query := ds.db.Rebind(`INSERT INTO calls (
-		id,
-		created_at,
-		started_at,
-		completed_at,
-		status,
-		app_id,
-		fn_id,
-		stats,
-		error
-	)
-	VALUES (
-		:id,
-		:created_at,
-		:started_at,
-		:completed_at,
-		:status,
-		:app_id,
-		:fn_id,
-		:stats,
-		:error
-	);`)
-
-	_, err := ds.db.NamedExecContext(ctx, query, call)
-	return err
-}
-
-func (ds *SQLStore) GetCall1(ctx context.Context, appID, callID string) (*models.Call, error) {
-	/* #nosec */
-	query := fmt.Sprintf(`%s WHERE id=? AND app_id=?`, callSelector)
-	query = ds.db.Rebind(query)
-	row := ds.db.QueryRowxContext(ctx, query, callID, appID)
-
-	var call models.Call
-	err := row.StructScan(&call)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, models.ErrCallNotFound
-		}
-		return nil, err
-	}
-	return &call, nil
-}
-
-func (ds *SQLStore) GetCall(ctx context.Context, fnID, callID string) (*models.Call, error) {
-	/* #nosec */
-	query := fmt.Sprintf(`%s WHERE id=? AND fn_id=?`, callSelector)
-	query = ds.db.Rebind(query)
-	row := ds.db.QueryRowxContext(ctx, query, callID, fnID)
-
-	var call models.Call
-	err := row.StructScan(&call)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, models.ErrCallNotFound
-		}
-		return nil, err
-	}
-	return &call, nil
-}
-
-func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) (*models.CallList, error) {
-	if filter.Cursor != "" {
-		cursor, err := base64.RawURLEncoding.DecodeString(filter.Cursor)
-		if err != nil {
-			return nil, err
-		}
-		filter.Cursor = string(cursor)
-	}
-
-	calls, err := ds.GetCalls1(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-
-	callList := &models.CallList{Items: calls}
-
-	if len(calls) > 0 && len(calls) == filter.PerPage {
-		last := []byte(calls[len(calls)-1].ID)
-		callList.NextCursor = base64.RawURLEncoding.EncodeToString(last)
-	}
-
-	return callList, nil
-}
-
-func (ds *SQLStore) GetCalls1(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
-	res := []*models.Call{}
-	query, args := buildFilterCallQuery(filter)
-	/* #nosec */
-	query = fmt.Sprintf("%s %s", callSelector, query)
-	query = ds.db.Rebind(query)
-	rows, err := ds.db.QueryxContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var call models.Call
-		err := rows.StructScan(&call)
-		if err != nil {
-			continue
-		}
-		res = append(res, &call)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}, error) {
 	var args []interface{}
 	if filter == nil {
@@ -836,31 +696,6 @@ func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}, error
 	fmt.Fprintf(&b, ` LIMIT ?`)
 	args = append(args, filter.PerPage)
 	return b.String(), args, nil
-}
-
-func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
-	if filter == nil {
-		return "", nil
-	}
-	var b bytes.Buffer
-	var args []interface{}
-
-	args = where(&b, args, "id<?", filter.Cursor)
-	if !time.Time(filter.ToTime).IsZero() {
-		args = where(&b, args, "created_at<?", filter.ToTime.String())
-	}
-	if !time.Time(filter.FromTime).IsZero() {
-		args = where(&b, args, "created_at>?", filter.FromTime.String())
-	}
-	if filter.FnID != "" {
-		args = where(&b, args, "fn_id=?", filter.FnID)
-	}
-
-	fmt.Fprintf(&b, ` ORDER BY id DESC`) // TODO assert this is indexed
-	fmt.Fprintf(&b, ` LIMIT ?`)
-	args = append(args, filter.PerPage)
-
-	return b.String(), args
 }
 
 func buildFilterFnQuery(filter *models.FnFilter) (string, []interface{}, error) {
