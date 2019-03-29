@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/common/singleflight"
 	"github.com/fnproject/fn/api/models"
+	"github.com/golang/groupcache/singleflight"
 	"github.com/patrickmn/go-cache"
 )
 
@@ -58,7 +58,7 @@ type cachedDataAccess struct {
 	ReadDataAccess
 
 	cache        *cache.Cache
-	singleflight singleflight.SingleFlight
+	singleflight singleflight.Group
 }
 
 func NewCachedDataAccess(da ReadDataAccess) ReadDataAccess {
