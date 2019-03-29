@@ -2,45 +2,8 @@
 git.apache.org/thrift.git/lib/go/thrift
 # github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5
 github.com/Nvveen/Gotty
-# github.com/aws/aws-sdk-go v1.15.57
-github.com/aws/aws-sdk-go/aws
-github.com/aws/aws-sdk-go/aws/awserr
-github.com/aws/aws-sdk-go/aws/credentials
-github.com/aws/aws-sdk-go/aws/session
-github.com/aws/aws-sdk-go/service/s3
-github.com/aws/aws-sdk-go/service/s3/s3manager
-github.com/aws/aws-sdk-go/aws/endpoints
-github.com/aws/aws-sdk-go/internal/sdkio
-github.com/aws/aws-sdk-go/internal/shareddefaults
-github.com/aws/aws-sdk-go/aws/client
-github.com/aws/aws-sdk-go/aws/corehandlers
-github.com/aws/aws-sdk-go/aws/credentials/stscreds
-github.com/aws/aws-sdk-go/aws/csm
-github.com/aws/aws-sdk-go/aws/defaults
-github.com/aws/aws-sdk-go/aws/request
-github.com/aws/aws-sdk-go/aws/awsutil
-github.com/aws/aws-sdk-go/aws/client/metadata
-github.com/aws/aws-sdk-go/aws/signer/v4
-github.com/aws/aws-sdk-go/internal/s3err
-github.com/aws/aws-sdk-go/private/protocol
-github.com/aws/aws-sdk-go/private/protocol/eventstream
-github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamapi
-github.com/aws/aws-sdk-go/private/protocol/rest
-github.com/aws/aws-sdk-go/private/protocol/restxml
-github.com/aws/aws-sdk-go/service/s3/s3iface
-github.com/aws/aws-sdk-go/internal/sdkrand
-github.com/aws/aws-sdk-go/service/sts
-github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
-github.com/aws/aws-sdk-go/aws/credentials/endpointcreds
-github.com/aws/aws-sdk-go/aws/ec2metadata
-github.com/aws/aws-sdk-go/private/protocol/query
-github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
-github.com/aws/aws-sdk-go/internal/sdkuri
-github.com/aws/aws-sdk-go/private/protocol/query/queryutil
 # github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 github.com/beorn7/perks/quantile
-# github.com/boltdb/bolt v0.0.0-20170907202052-fa5367d20c99
-github.com/boltdb/bolt
 # github.com/containerd/continuity v0.0.0-20181003075958-be9bd761db19
 github.com/containerd/continuity/pathdriver
 # github.com/coreos/go-semver v0.2.1-0.20180108230905-e214231b295a
@@ -85,9 +48,6 @@ github.com/fsouza/go-dockerclient
 github.com/fsouza/go-dockerclient/internal/archive
 github.com/fsouza/go-dockerclient/internal/jsonmessage
 github.com/fsouza/go-dockerclient/internal/term
-# github.com/garyburd/redigo v1.6.0
-github.com/garyburd/redigo/redis
-github.com/garyburd/redigo/internal
 # github.com/gin-contrib/cors v0.0.0-20170318125340-cf4846e6a636
 github.com/gin-contrib/cors
 # github.com/gin-contrib/sse v0.0.0-20170109093832-22d885f9ecc7
@@ -97,27 +57,21 @@ github.com/gin-gonic/gin
 github.com/gin-gonic/gin/binding
 github.com/gin-gonic/gin/json
 github.com/gin-gonic/gin/render
-# github.com/go-ini/ini v1.39.0
-github.com/go-ini/ini
 # github.com/go-sql-driver/mysql v1.4.0
 github.com/go-sql-driver/mysql
 # github.com/gogo/protobuf v1.1.1
 github.com/gogo/protobuf/proto
 # github.com/golang/groupcache v0.0.0-20180924190550-6f2cf27854a4
 github.com/golang/groupcache/singleflight
-# github.com/golang/protobuf v1.2.1-0.20190109072247-347cf4a86c1c
+# github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/ptypes/empty
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c
-github.com/google/btree
 # github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 github.com/grpc-ecosystem/go-grpc-middleware
-# github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
-github.com/jmespath/go-jmespath
 # github.com/jmoiron/sqlx v1.2.0
 github.com/jmoiron/sqlx
 github.com/jmoiron/sqlx/reflectx

@@ -3,8 +3,6 @@ module github.com/fnproject/fn
 replace cloud.google.com/go => github.com/google/go-cloud v0.4.1-0.20181025204856-f29236cc19de
 
 require (
-	github.com/aws/aws-sdk-go v1.15.57
-	github.com/boltdb/bolt v0.0.0-20170907202052-fa5367d20c99
 	github.com/containerd/continuity v0.0.0-20181003075958-be9bd761db19 // indirect
 	github.com/coreos/go-semver v0.2.1-0.20180108230905-e214231b295a
 	github.com/dchest/siphash v1.2.0
@@ -12,14 +10,12 @@ require (
 	github.com/fnproject/fdk-go v0.0.0-20181025170718-26ed643bea68
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/fsouza/go-dockerclient v1.3.2-0.20181102000906-311c4469e611
-	github.com/garyburd/redigo v1.6.0
 	github.com/gin-contrib/cors v0.0.0-20170318125340-cf4846e6a636
 	github.com/gin-contrib/sse v0.0.0-20170109093832-22d885f9ecc7 // indirect
 	github.com/gin-gonic/gin v1.3.0
 	github.com/go-sql-driver/mysql v1.4.0
 	github.com/golang/groupcache v0.0.0-20180924190550-6f2cf27854a4
 	github.com/golang/protobuf v1.3.1
-	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/json-iterator/go v1.1.5 // indirect
@@ -39,6 +35,7 @@ require (
 	golang.org/x/sys v0.0.0-20181218192612-074acd46bca6
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
 	google.golang.org/grpc v1.17.0
+	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
 )
 
