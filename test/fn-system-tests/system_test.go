@@ -220,9 +220,7 @@ func CleanUpSystem(st *state) error {
 
 func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	curDir := pwd()
-	var defaultDB, defaultMQ string
-	defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
-	defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
+	defaultDB := fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 	nodeType := server.ServerTypeAPI
 	opts := make([]server.Option, 0)
 	opts = append(opts, server.WithWebPort(APIPort))
@@ -231,9 +229,6 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
 	opts = append(opts, server.WithLogDest(getEnv(server.EnvLogDest, server.DefaultLogDest), "API"))
 	opts = append(opts, server.WithDBURL(getEnv(server.EnvDBURL, defaultDB)))
-	opts = append(opts, server.WithMQURL(getEnv(server.EnvMQURL, defaultMQ)))
-	opts = append(opts, server.WithLogURL(""))
-	opts = append(opts, server.WithLogstoreFromDatastore())
 	opts = append(opts, server.WithTriggerAnnotator(server.NewStaticURLTriggerAnnotator(LBAddress)))
 	opts = append(opts, server.WithFnAnnotator(server.NewStaticURLFnAnnotator(LBAddress)))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
@@ -249,8 +244,6 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
 	opts = append(opts, server.WithLogDest(getEnv(server.EnvLogDest, server.DefaultLogDest), "LB"))
 	opts = append(opts, server.WithDBURL(""))
-	opts = append(opts, server.WithMQURL(""))
-	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
 	ridProvider := &server.RIDProvider{
 		HeaderName:   "fn_request_id",
@@ -360,14 +353,8 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile str
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
 	opts = append(opts, server.WithLogDest(getEnv(server.EnvLogDest, server.DefaultLogDest), "PURE-RUNNER"))
 	opts = append(opts, server.WithDBURL(""))
-	opts = append(opts, server.WithMQURL(""))
-	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
 
-	ds, err := hybrid.NewNopDataStore()
-	if err != nil {
-		return nil, err
-	}
 	grpcAddr := fmt.Sprintf(":%d", RunnerStartGRPCPort+nodeNum)
 
 	// This is our Agent config, which we will use for both inner agent and docker.
@@ -388,7 +375,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile str
 	}
 
 	// inner agent for pure-runners
-	innerAgent := agent.New(ds,
+	innerAgent := agent.New(
 		agent.WithConfig(cfg),
 		agent.WithDockerDriver(drv),
 		agent.WithCallOverrider(PureRunnerCallOverrider))

@@ -985,6 +985,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v2.DELETE("/triggers/:trigger_id", s.handleTriggerDelete)
 		}
 
+		// TODO remove these in 30 days or something
+		v2.GET("/fns/:fn_id/calls", s.goneResponse)
+		v2.GET("/fns/:fn_id/calls/:call_id", s.goneResponse)
+		v2.GET("/fns/:fn_id/calls/:call_id/log", s.goneResponse)
+
 		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers
 			runner := cleanv2.Group("/runner")
 
