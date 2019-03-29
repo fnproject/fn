@@ -39,8 +39,8 @@ func (s *Server) apiAppHandlerWrapperFn(apiHandler fnext.APIAppHandler) gin.Hand
 
 // AddEndpoint adds an endpoint to /v1/x
 func (s *Server) AddEndpoint(method, path string, handler fnext.APIHandler) {
+	// TODO(reed): these need to change to v2
 	v1 := s.Router.Group("/v1")
-	// v1.GET("/apps/:app/log", logHandler(cfg))
 	v1.Handle(method, path, s.apiHandlerWrapperFn(handler))
 }
 
