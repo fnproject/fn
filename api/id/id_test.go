@@ -33,6 +33,26 @@ func BenchmarkUnmarshalText(b *testing.B) {
 	}
 }
 
+func BenchmarkValidateText(b *testing.B) {
+	id := New()
+	byts, _ := id.MarshalText()
+	for i := 0; i < b.N; i++ {
+		ValidateText(byts)
+	}
+}
+
+func TestValidInValid(t *testing.T) {
+	id := New()
+	byts, _ := id.MarshalText()
+	if !ValidateText(byts) {
+		t.Fatal("valid id should pass")
+	}
+	byts[5] = ' '
+	if ValidateText(byts) {
+		t.Fatal("invalid id should not pass")
+	}
+}
+
 func TestIdRaw(t *testing.T) {
 	SetMachineIdHost(net.IP{127, 0, 0, 1}, 8080)
 

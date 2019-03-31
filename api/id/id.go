@@ -213,6 +213,25 @@ var dec = [...]byte{
 // EncodedSize is the length of a text encoded Id.
 const EncodedSize = 26
 
+// ValidateText returns true if the data is a valid
+// encoding.
+func ValidateText(v []byte) bool {
+	return len(v) == EncodedSize &&
+		dec[v[0]] != 0xFF && dec[v[1]] != 0xFF &&
+		dec[v[2]] != 0xFF && dec[v[3]] != 0xFF &&
+		dec[v[4]] != 0xFF && dec[v[5]] != 0xFF &&
+		dec[v[6]] != 0xFF && dec[v[7]] != 0xFF &&
+		dec[v[8]] != 0xFF && dec[v[9]] != 0xFF &&
+		dec[v[10]] != 0xFF && dec[v[11]] != 0xFF &&
+		dec[v[12]] != 0xFF && dec[v[13]] != 0xFF &&
+		dec[v[14]] != 0xFF && dec[v[15]] != 0xFF &&
+		dec[v[16]] != 0xFF && dec[v[17]] != 0xFF &&
+		dec[v[18]] != 0xFF && dec[v[19]] != 0xFF &&
+		dec[v[20]] != 0xFF && dec[v[21]] != 0xFF &&
+		dec[v[22]] != 0xFF && dec[v[23]] != 0xFF &&
+		dec[v[24]] != 0xFF && dec[v[25]] != 0xFF
+}
+
 // UnmarshalText implements the encoding.TextUnmarshaler interface by
 // parsing the data as string encoded Id.
 //
