@@ -98,13 +98,18 @@ message LogRequestMsg {
         map<string,string> config = 1;
     }
 
-    // Acknowledgement and re-enable stream message sent by Collectors to Runners
+    // Acknowledgement of last data in stream: a message sent by Collectors to Runners
     message Ack {
+    }
+
+    // Enable stream readiness for push: a message sent by Collectors to Runners
+    message Ready {
     }
 
     oneof body {
         Start start = 1;
         Ack ack = 2;
+        Ready ready = 3;
     }
 }
 
