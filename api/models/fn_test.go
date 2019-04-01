@@ -106,3 +106,88 @@ func TestFnEquality(t *testing.T) {
 
 	properties.TestingRun(t)
 }
+
+func TestValidateFnName(t *testing.T) {
+	testCases := []struct {
+		Name string
+		Want error
+	}{
+		{"valid_name-101", nil},
+		{"unescaped/path", ErrFnsInvalidName},
+		{"a_function_with_a_name_that_is_too_long", ErrFnsTooLongName},
+		{"", ErrFnsMissingName},
+	}
+
+	for _, testCase := range testCases {
+		fn := Fn{Name: testCase.Name}
+		got := fn.ValidateName()
+
+		if got != testCase.Want {
+			t.Errorf("Fn.ValidateName() failed for %q - wanted: %q but got: %q",
+				testCase.Name, testCase.Want, got)
+		}
+	}
+}
+
+func TestValidateFn(t *testing.T) {
+	type test struct {
+		Fn   Fn
+		Want error
+	}
+
+	testCases := []test{
+		{generateValidFn(), nil},
+	}
+
+	// Generate valid Fn objects then break them to check validation is working
+	testFn := generateValidFn()
+	testFn.Name = ""
+	testCases = append(testCases, test{testFn, ErrFnsMissingName})
+
+	testFn = generateValidFn()
+	testFn.Name = "unescaped/path"
+	testCases = append(testCases, test{testFn, ErrFnsInvalidName})
+
+	testFn = generateValidFn()
+	testFn.AppID = ""
+	testCases = append(testCases, test{testFn, ErrFnsMissingAppID})
+
+	testFn = generateValidFn()
+	testFn.Image = ""
+	testCases = append(testCases, test{testFn, ErrFnsMissingImage})
+
+	testFn = generateValidFn()
+	testFn.Timeout = 0
+	testCases = append(testCases, test{testFn, ErrFnsInvalidTimeout})
+
+	testFn = generateValidFn()
+	testFn.IdleTimeout = 0
+	testCases = append(testCases, test{testFn, ErrFnsInvalidIdleTimeout})
+
+	testFn = generateValidFn()
+	testFn.Memory = 0
+	testCases = append(testCases, test{testFn, ErrInvalidMemory})
+
+	for _, testCase := range testCases {
+		got := testCase.Fn.Validate()
+
+		if got != testCase.Want {
+			t.Errorf("Fn.Validate() failed for '%+v' - wanted: %q but got: %q",
+				testCase.Fn, testCase.Want, got)
+		}
+	}
+}
+
+// Generate an Fn structure which passes validation
+func generateValidFn() Fn {
+	return Fn{
+		Name:  "valid_name",
+		AppID: "valid_app",
+		Image: "valid_image",
+		ResourceConfig: ResourceConfig{
+			Timeout:     1,
+			IdleTimeout: 1,
+			Memory:      1,
+		},
+	}
+}

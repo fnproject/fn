@@ -140,21 +140,12 @@ var (
 
 //Validate checks that trigger has valid data for inserting into a store
 func (t *Trigger) Validate() error {
-	if t.Name == "" {
-		return ErrTriggerMissingName
-	}
-
 	if t.AppID == "" {
 		return ErrTriggerMissingAppID
 	}
 
-	if len(t.Name) > MaxTriggerName {
-		return ErrTriggerTooLongName
-	}
-	for _, c := range t.Name {
-		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
-			return ErrTriggerInvalidName
-		}
+	if err := t.ValidateName(); err != nil {
+		return err
 	}
 
 	if t.FnID == "" {
@@ -176,6 +167,24 @@ func (t *Trigger) Validate() error {
 	err := t.Annotations.Validate()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (t *Trigger) ValidateName() error {
+	if t.Name == "" {
+		return ErrTriggerMissingName
+	}
+
+	if len(t.Name) > MaxTriggerName {
+		return ErrTriggerTooLongName
+	}
+
+	for _, c := range t.Name {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
+			return ErrTriggerInvalidName
+		}
 	}
 
 	return nil
