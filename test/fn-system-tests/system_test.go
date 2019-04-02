@@ -48,7 +48,6 @@ const (
 
 	StatusImage       = "fnproject/fn-status-checker:latest"
 	StatusBarrierFile = "./barrier_file.txt"
-	ConfigFile        = "./config_file.txt"
 )
 
 var (
@@ -419,7 +418,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile str
 		agent.PureRunnerWithDetached(),
 		agent.PureRunnerWithGRPCServerOptions(grpcOpts...),
 		agent.PureRunnerWithStatusNetworkEnabler(StatusBarrierFile),
-		agent.PureRunnerWithConfigPath(ConfigFile),
+		agent.PureRunnerWithConfigFunc(configureRunner),
 		agent.PureRunnerWithLogStreamer(&streamer),
 	)
 	if err != nil {
@@ -566,4 +565,13 @@ func setLogBuffer() *bytes.Buffer {
 	gin.DefaultWriter = &buf
 	log.SetOutput(&buf)
 	return &buf
+}
+
+var configureRunnerSetsThis map[string]string
+
+func configureRunner(ctx context.Context, config *rproto.ConfigMsg) (*rproto.ConfigStatus, error) {
+	if config.Config != nil {
+		configureRunnerSetsThis = config.Config
+	}
+	return &rproto.ConfigStatus{}, nil
 }

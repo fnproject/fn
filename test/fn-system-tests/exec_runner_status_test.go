@@ -3,10 +3,8 @@ package tests
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -296,19 +294,11 @@ func TestConfigureRunner(t *testing.T) {
 		t.Fatalf("Failed to configure runner due to %+v", err)
 	}
 
-	b, err := ioutil.ReadFile(ConfigFile)
-	if err != nil {
-		t.Fatalf("Failed to read configuration file due to %+v", err)
+	if configureRunnerSetsThis == nil {
+		t.Fatal("Configuration was not handled as expected")
 	}
-	os.Remove(ConfigFile)
-
-	config = make(map[string]string)
-	json.Unmarshal(b, &config)
-	if _, ok := config["domain"]; !ok {
-		t.Fatalf("Configuration file not written as expected")
-	}
-	if _, ok := config["company"]; !ok {
-		t.Fatalf("Configuration file not written as expected")
+	if _, ok := configureRunnerSetsThis["domain"]; !ok {
+		t.Fatalf("Configuration was not handled as expected")
 	}
 }
 

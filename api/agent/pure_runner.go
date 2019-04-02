@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -582,7 +581,7 @@ type pureRunner struct {
 	callHandleMap  map[string]*callHandle
 	callHandleLock sync.Mutex
 	enableDetach   bool
-	configPath     string
+	configFunc     func(context.Context, *runner.ConfigMsg) (*runner.ConfigStatus, error)
 }
 
 // implements Agent
@@ -986,36 +985,11 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 
 // implements RunnerProtocolServer
 func (pr *pureRunner) ConfigureRunner(ctx context.Context, config *runner.ConfigMsg) (*runner.ConfigStatus, error) {
-	if pr.configPath == "" {
-		return nil, errors.New("runner not configured with configPath")
+	if pr.configFunc == nil {
+		common.Logger(ctx).WithField("config", config.Config).Warn("configFunc was not configured to handle ConfigureRunner")
+		return &runner.ConfigStatus{}, nil
 	}
-	// Marshal config data into json text
-	configBytes, err := json.Marshal(config.Config)
-	if err != nil {
-		common.Logger(ctx).WithError(err).WithField("config", config.Config).Error("Failed to marshal config data")
-		return nil, err
-	}
-	// Ensure config directory exists
-	configDir := filepath.Dir(pr.configPath)
-	dir, err := os.Stat(configDir)
-	if err != nil {
-		return nil, err
-	}
-	if !dir.IsDir() {
-		return nil, fmt.Errorf("%s is not a directory", configDir)
-	}
-	// Write the config data to a temporary file
-	fileName := filepath.Base(pr.configPath)
-	tempPath := fmt.Sprintf("%s/.%s", configDir, fileName)
-	err = ioutil.WriteFile(tempPath, configBytes, 0600)
-	if err != nil {
-		return nil, err
-	}
-	// rename the temporary file to the config file
-	// this is an atomic operation
-	os.Rename(tempPath, pr.configPath)
-	common.Logger(ctx).WithField("config", config.Config).Info("ConfigureRunner wrote the configuration data")
-	return &runner.ConfigStatus{}, nil
+	return pr.configFunc(ctx, config)
 }
 
 // implements RunnerProtocolServer
@@ -1089,13 +1063,13 @@ func PureRunnerWithLogStreamer(logStreamer LogStreamer) PureRunnerOption {
 	}
 }
 
-func PureRunnerWithConfigPath(configPath string) PureRunnerOption {
+func PureRunnerWithConfigFunc(configFunc func(context.Context, *runner.ConfigMsg) (*runner.ConfigStatus, error)) PureRunnerOption {
 	return func(pr *pureRunner) error {
-		// configPath is the absolute path of the file that will be created by ConfigureRunner call.
-		if pr.configPath != "" {
-			return errors.New("Failed to create pure runner: config path already created")
+		// configFunc is the handler for runner config passed to ConfigureRunner
+		if pr.configFunc != nil {
+			return errors.New("Failed to create pure runner: config func already set")
 		}
-		pr.configPath = configPath
+		pr.configFunc = configFunc
 		return nil
 	}
 }
