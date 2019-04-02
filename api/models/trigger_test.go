@@ -147,3 +147,87 @@ func TestTriggerEquality(t *testing.T) {
 
 	properties.TestingRun(t)
 }
+
+func TestValidateTriggerName(t *testing.T) {
+	testCases := []struct {
+		Name string
+		Want error
+	}{
+		{"valid_name-101", nil},
+		{"a_trigger_with_a_name_that_is_too_long", ErrTriggerTooLongName},
+		{"", ErrTriggerMissingName},
+		{"invalid.character", ErrTriggerInvalidName},
+	}
+
+	for _, testCase := range testCases {
+		trigger := Trigger{Name: testCase.Name}
+		got := trigger.ValidateName()
+
+		if got != testCase.Want {
+			t.Errorf(
+				"Trigger.ValidateName() failed for %q - wanted: %q but got: %q",
+				testCase.Name, testCase.Want, got)
+		}
+	}
+}
+
+func TestValidateTrigger(t *testing.T) {
+	type test struct {
+		Trigger Trigger
+		Want    error
+	}
+
+	testCases := []test{
+		{
+			Trigger: generateValidTrigger(),
+			Want:    nil,
+		},
+	}
+
+	// Generate valid Triggers then break them to check validation is work
+	testTrigger := generateValidTrigger()
+	testTrigger.Name = ""
+	testCases = append(testCases, test{testTrigger, ErrTriggerMissingName})
+
+	testTrigger = generateValidTrigger()
+	testTrigger.AppID = ""
+	testCases = append(testCases, test{testTrigger, ErrTriggerMissingAppID})
+
+	testTrigger = generateValidTrigger()
+	testTrigger.FnID = ""
+	testCases = append(testCases, test{testTrigger, ErrTriggerMissingFnID})
+
+	testTrigger = generateValidTrigger()
+	testTrigger.Type = ""
+	testCases = append(testCases, test{testTrigger, ErrTriggerTypeUnknown})
+
+	testTrigger = generateValidTrigger()
+	testTrigger.Source = ""
+	testCases = append(testCases, test{testTrigger, ErrTriggerMissingSource})
+
+	testTrigger = generateValidTrigger()
+	testTrigger.Source = "invalid-src"
+	testCases =
+		append(testCases, test{testTrigger, ErrTriggerMissingSourcePrefix})
+
+	for _, testCase := range testCases {
+		got := testCase.Trigger.Validate()
+
+		if got != testCase.Want {
+			t.Errorf(
+				"Trigger.Validate() failed for '%+v' - wanted: %q but got: %q",
+				testCase.Trigger, testCase.Want, got)
+		}
+	}
+}
+
+// Generate a Trigger structure which passes validation
+func generateValidTrigger() Trigger {
+	return Trigger{
+		Name:   "valid_name",
+		AppID:  "valid_app",
+		FnID:   "valid_fn_id",
+		Type:   "http",
+		Source: "/valid-src",
+	}
+}

@@ -147,3 +147,48 @@ func TestAppEquality(t *testing.T) {
 
 	properties.TestingRun(t)
 }
+
+func TestValidateAppName(t *testing.T) {
+	testCases := []struct {
+		Name string
+		Want error
+	}{
+		{"valid_name-101", nil},
+		{"an_app_with_a_name_that_is_too_long", ErrAppsTooLongName},
+		{"", ErrMissingName},
+		{"invalid.character", ErrAppsInvalidName},
+	}
+
+	for _, testCase := range testCases {
+		app := App{Name: testCase.Name}
+		got := app.ValidateName()
+
+		if got != testCase.Want {
+			t.Errorf(
+				"App.ValidateName() failed for %q - wanted: %q but got: %q",
+				testCase.Name, testCase.Want, got)
+		}
+	}
+}
+
+func TestValidateApp(t *testing.T) {
+	valid_name := "valid_name"
+	valid_syslog := "tcp://localhost:13371"
+
+	testCases := []struct {
+		App  App
+		Want error
+	}{
+		{App{Name: valid_name, SyslogURL: &valid_syslog}, nil},
+		{App{Name: ""}, ErrMissingName},
+	}
+
+	for _, testCase := range testCases {
+		got := testCase.App.Validate()
+
+		if got != testCase.Want {
+			t.Errorf("App.Validate() failed for '%+v' - wanted: %q but got: %q",
+				testCase.App, testCase.Want, got)
+		}
+	}
+}
