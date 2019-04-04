@@ -1221,8 +1221,8 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 	return &container{
 		id:         id, // XXX we could just let docker generate ids...
 		image:      call.Image,
-		env:        map[string]string(call.Config),
-		extensions: call.extensions,
+		env:        cloneStrMap(call.Config),     // avoid data race
+		extensions: cloneStrMap(call.extensions), // avoid date race
 		memory:     call.Memory,
 		cpus:       uint64(call.CPUs),
 		fsSize:     cfg.MaxFsSize,
@@ -1404,4 +1404,12 @@ func (c *container) DockerAuth(ctx context.Context, image string) (*docker.AuthC
 		}, nil
 	}
 	return nil, nil
+}
+
+func cloneStrMap(src map[string]string) map[string]string {
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }
