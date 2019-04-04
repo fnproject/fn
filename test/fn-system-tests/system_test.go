@@ -21,7 +21,7 @@ import (
 
 	// We need docker client here, since we have a custom driver that wraps generic
 	// docker driver.
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -419,6 +419,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int, StatusBarrierFile str
 		agent.PureRunnerWithGRPCServerOptions(grpcOpts...),
 		agent.PureRunnerWithStatusNetworkEnabler(StatusBarrierFile),
 		agent.PureRunnerWithConfigFunc(configureRunner),
+		agent.PureRunnerWithCustomHealthCheckerFunc(customHealthChecker),
 		agent.PureRunnerWithLogStreamer(&streamer),
 	)
 	if err != nil {
@@ -574,4 +575,16 @@ func configureRunner(ctx context.Context, config *rproto.ConfigMsg) (*rproto.Con
 		configureRunnerSetsThis = config.Config
 	}
 	return &rproto.ConfigStatus{}, nil
+}
+
+var shouldCustomHealthCheckerFail = false
+
+func customHealthChecker(ctx context.Context) (map[string]string, error) {
+	if !shouldCustomHealthCheckerFail {
+		return map[string]string{
+			"custom": "works",
+		}, nil
+	}
+
+	return nil, models.NewAPIError(450, errors.New("Custom healthcheck failed"))
 }

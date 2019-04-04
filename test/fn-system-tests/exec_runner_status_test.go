@@ -12,12 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fnproject/fn/api/agent/grpc"
+	runner "github.com/fnproject/fn/api/agent/grpc"
 	"google.golang.org/grpc"
 
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runnerpool"
+	pb_empty "github.com/golang/protobuf/ptypes/empty"
 )
 
 func callFN(ctx context.Context, u string, content io.Reader, output io.Writer, invokeType string) (*http.Response, error) {
@@ -267,6 +268,48 @@ func TestExecuteRunnerStatusNoNet(t *testing.T) {
 		t.Logf("Runner %v got Status=%+v", dest.Address(), status)
 	}
 
+}
+
+// Test custom health checker scenarios
+func TestCustomHealthChecker(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	r := "127.0.0.1:9191"
+	conn, err := grpc.Dial(r, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial into runner %s due to err=%+v", r, err)
+	}
+	client := runner.NewRunnerProtocolClient(conn)
+	status, err := client.Status(ctx, &pb_empty.Empty{})
+	if err != nil {
+		t.Fatalf("Status check failed due to err=%+v", err)
+	}
+	if status.CustomStatus == nil || status.CustomStatus["custom"] != "works" {
+		t.Fatalf("Custom status did not match expected status actual=%+v", status.CustomStatus)
+	}
+
+	// Let status hc caches expire.
+	select {
+	case <-time.After(time.Duration(2 * time.Second)):
+	case <-ctx.Done():
+		t.Fatal("Timeout")
+	}
+	shouldCustomHealthCheckerFail = true
+	defer func() { shouldCustomHealthCheckerFail = false }()
+	status, err = client.Status(ctx, &pb_empty.Empty{})
+	if err != nil {
+		t.Fatalf("Status check failed due to err=%+v", err)
+	}
+	if status.ErrorCode != 450 {
+		t.Fatalf("Custom status check should have failed with 450 but actual status was %+v", status)
+	}
 }
 
 func TestConfigureRunner(t *testing.T) {

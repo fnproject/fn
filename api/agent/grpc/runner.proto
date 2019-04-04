@@ -82,6 +82,7 @@ message RunnerStatus {
     int64 schedulerDuration = 15; // the amount of time for scheduler execution
     int64 executionDuration = 16; // the amount of time for function execution
     bool isNetworkDisabled = 17; // returns true if runner network is not ready
+    map<string,string> customStatus = 18; // returns any user defined healthcheck status
 }
 
 message ConfigMsg {

@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/fnproject/fn/api/agent/grpc"
+	runner "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -572,16 +572,17 @@ type LogStreamer interface {
 // pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
 // and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
-	gRPCServer     *grpc.Server
-	gRPCOptions    []grpc.ServerOption
-	creds          credentials.TransportCredentials
-	a              Agent
-	logStreamer    LogStreamer
-	status         statusTracker
-	callHandleMap  map[string]*callHandle
-	callHandleLock sync.Mutex
-	enableDetach   bool
-	configFunc     func(context.Context, *runner.ConfigMsg) (*runner.ConfigStatus, error)
+	gRPCServer              *grpc.Server
+	gRPCOptions             []grpc.ServerOption
+	creds                   credentials.TransportCredentials
+	a                       Agent
+	logStreamer             LogStreamer
+	status                  statusTracker
+	callHandleMap           map[string]*callHandle
+	callHandleLock          sync.Mutex
+	enableDetach            bool
+	configFunc              func(context.Context, *runner.ConfigMsg) (*runner.ConfigStatus, error)
+	customHealthCheckerFunc func(context.Context) (map[string]string, error)
 }
 
 // implements Agent
@@ -805,12 +806,22 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 		}
 	}
 
+	var err error
+	// handle custom healthcheck
+	if pr.customHealthCheckerFunc != nil {
+		result.CustomStatus, err = pr.customHealthCheckerFunc(ctx)
+	}
+
+	var agentCall Call
 	var mcall *call
-	agentCall, err := pr.a.GetCall(FromModelAndInput(&c, player),
-		WithLogger(common.NoopReadWriteCloser{}),
-		WithWriter(recorder),
-		WithContext(ctx),
-	)
+	if err == nil {
+		agentCall, err = pr.a.GetCall(FromModelAndInput(&c, player),
+			WithLogger(common.NoopReadWriteCloser{}),
+			WithWriter(recorder),
+			WithContext(ctx),
+		)
+	}
+
 	if err == nil {
 		mcall = agentCall.(*call)
 
@@ -897,6 +908,12 @@ func (pr *pureRunner) fetchStatusCall(ctx context.Context) (*runner.RunnerStatus
 	pr.status.lock.Lock()
 
 	cacheObj = *pr.status.cache // cannot be null
+	// deepcopy of custom healthcheck status is needed
+	cacheObj.CustomStatus = make(map[string]string)
+	for k, v := range pr.status.cache.CustomStatus {
+		cacheObj.CustomStatus[k] = v
+	}
+
 	pr.status.cache.Cached = true
 
 	pr.status.lock.Unlock()
@@ -978,6 +995,7 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 		success = strconv.FormatBool(!status.Failed)
 		network = strconv.FormatBool(!status.IsNetworkDisabled)
 	}
+
 	statsStatusCall(ctx, cached, success, network)
 
 	return status, err
@@ -1070,6 +1088,17 @@ func PureRunnerWithConfigFunc(configFunc func(context.Context, *runner.ConfigMsg
 			return errors.New("Failed to create pure runner: config func already set")
 		}
 		pr.configFunc = configFunc
+		return nil
+	}
+}
+
+func PureRunnerWithCustomHealthCheckerFunc(customHealthCheckerFunc func(context.Context) (map[string]string, error)) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		// customHealthChecker can return any custom healthcheck status
+		if pr.customHealthCheckerFunc != nil {
+			return errors.New("Failed to create pure runner: custom healthchecker fun is alredy set")
+		}
+		pr.customHealthCheckerFunc = customHealthCheckerFunc
 		return nil
 	}
 }
