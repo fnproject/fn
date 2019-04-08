@@ -31,7 +31,7 @@ var (
 	}
 	ErrAppsTooLongName = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("App name must be %v characters or less", maxAppName),
+		error: fmt.Errorf("App name must be %v characters or less", MaxLengthAppName),
 	}
 	ErrAppsInvalidName = err{
 		code:  http.StatusBadRequest,
@@ -98,7 +98,7 @@ func (a *App) ValidateName() error {
 		return ErrMissingName
 	}
 
-	if len(a.Name) > maxAppName {
+	if len(a.Name) > MaxLengthAppName {
 		return ErrAppsTooLongName
 	}
 

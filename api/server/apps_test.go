@@ -5,13 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"fmt"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
@@ -36,6 +36,11 @@ func TestAppCreate(t *testing.T) {
 		}
 	}()
 
+	tooLongName := "7"
+	for i := 0; i < models.MaxLengthAppName+1; i++ {
+		tooLongName += "7"
+	}
+
 	for i, test := range []struct {
 		mock          models.Datastore
 		path          string
@@ -48,7 +53,7 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), "/v2/apps", `{}`, http.StatusBadRequest, models.ErrMissingName},
 		{datastore.NewMock(), "/v2/apps", `{"name": "app", "id":"badId"}`, http.StatusBadRequest, models.ErrAppIDProvided},
 		{datastore.NewMock(), "/v2/apps", `{ "name": "" }`, http.StatusBadRequest, models.ErrMissingName},
-		{datastore.NewMock(), "/v2/apps", `{"name": "1234567890123456789012345678901" }`, http.StatusBadRequest, models.ErrAppsTooLongName},
+		{datastore.NewMock(), "/v2/apps", fmt.Sprintf(`{"name": "%s" }`, tooLongName), http.StatusBadRequest, models.ErrAppsTooLongName},
 		{datastore.NewMock(), "/v2/apps", `{ "name": "&&%@!#$#@$" }`, http.StatusBadRequest, models.ErrAppsInvalidName},
 		{datastore.NewMock(), "/v2/apps", `{ "name": "app", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
 		{datastore.NewMock(), "/v2/apps", `{"name": "app", "annotations" : { "key":"" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationValue},

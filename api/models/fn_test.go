@@ -108,13 +108,18 @@ func TestFnEquality(t *testing.T) {
 }
 
 func TestValidateFnName(t *testing.T) {
+	tooLongName := "7"
+	for i := 0; i < MaxLengthFnName+1; i++ {
+		tooLongName += "7"
+	}
+
 	testCases := []struct {
 		Name string
 		Want error
 	}{
 		{"valid_name-101", nil},
 		{"unescaped/path", ErrFnsInvalidName},
-		{"a_function_with_a_name_that_is_too_long", ErrFnsTooLongName},
+		{tooLongName, ErrFnsTooLongName},
 		{"", ErrFnsMissingName},
 	}
 

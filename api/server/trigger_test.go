@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -33,6 +34,11 @@ func TestTriggerCreate(t *testing.T) {
 	fn.SetDefaults()
 	commonDS := datastore.NewMockInit([]*models.App{a, a2}, []*models.Fn{fn})
 
+	tooLongName := "7"
+	for i := 0; i < models.MaxLengthTriggerName+1; i++ {
+		tooLongName += "7"
+	}
+
 	for i, test := range []struct {
 		mock          models.Datastore
 		path          string
@@ -50,7 +56,7 @@ func TestTriggerCreate(t *testing.T) {
 		{commonDS, BaseRoute, `{ "name": "Test", "app_id": "appid", "fn_id": "fnid", "type":"http"}`, http.StatusBadRequest, models.ErrTriggerMissingSource},
 		{commonDS, BaseRoute, `{ "name": "Test", "app_id": "appid", "fn_id": "fnid", "type":"http", "source":"src"}`, http.StatusBadRequest, models.ErrTriggerMissingSourcePrefix},
 
-		{commonDS, BaseRoute, `{ "name": "1234567890123456789012345678901", "app_id": "appid", "fn_id": "fnid", "type":"http"}`, http.StatusBadRequest, models.ErrTriggerTooLongName},
+		{commonDS, BaseRoute, fmt.Sprintf(`{ "name": "%s", "app_id": "appid", "fn_id": "fnid", "type":"http"}`, tooLongName), http.StatusBadRequest, models.ErrTriggerTooLongName},
 		{commonDS, BaseRoute, `{ "name": "&&%@!#$#@$","app_id": "appid", "fn_id": "fnid", "type":"http" }`, http.StatusBadRequest, models.ErrTriggerInvalidName},
 		{commonDS, BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "/src", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
 		{commonDS, BaseRoute, `{ "id": "asdasca", "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "http", "source": "/src"}`, http.StatusBadRequest, models.ErrTriggerIDProvided},

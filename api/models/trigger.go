@@ -95,7 +95,7 @@ var (
 	//ErrTriggerTooLongName - name exceeds maximum permitted name
 	ErrTriggerTooLongName = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("Trigger name must be %v characters or less", MaxTriggerName)}
+		error: fmt.Errorf("Trigger name must be %v characters or less", MaxLengthTriggerName)}
 	//ErrTriggerInvalidName - name does not comply with naming spec
 	ErrTriggerInvalidName = err{
 		code:  http.StatusBadRequest,
@@ -177,7 +177,7 @@ func (t *Trigger) ValidateName() error {
 		return ErrTriggerMissingName
 	}
 
-	if len(t.Name) > MaxTriggerName {
+	if len(t.Name) > MaxLengthTriggerName {
 		return ErrTriggerTooLongName
 	}
 
