@@ -11,7 +11,7 @@ The Fn Server is only for the essential parts of the entire Fn ecosystem.
 These include:
 
 - The core API (apps, routes, calls, logs)
-- Executing functions (sync and async)
+- Executing functions (sync)
 - Extension points (callbacks, middleware, API additions)
 
 This does __not__ include:

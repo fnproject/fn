@@ -10,7 +10,6 @@
 //	* manage the container lifecycle for calls
 //	* execute calls against containers
 //	* invoke Start and End for each call appropriately
-//	* check the mq for any async calls, and submit them
 //
 // For more information about how an agent executes a call see the
 // documentation on the Agent interface.

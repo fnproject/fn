@@ -21,9 +21,7 @@ import (
 	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/version"
 	"github.com/fnproject/fn/fnext"
@@ -61,17 +59,9 @@ const (
 	// EnvLogPrefix is a prefix to affix to each log line.
 	EnvLogPrefix = "FN_LOG_PREFIX"
 
-	// EnvMQURL is a url to an MQ service:
-	// possible out-of-the-box schemes: { memory, redis, bolt }
-	EnvMQURL = "FN_MQ_URL"
-
 	// EnvDBURL is a url to a db service:
 	// possible schemes: { postgres, sqlite3, mysql }
 	EnvDBURL = "FN_DB_URL"
-
-	// EnvLogDBURL is a url to a log storage service:
-	// possible schemes: { postgres, sqlite3, mysql, s3 }
-	EnvLogDBURL = "FN_LOGSTORE_URL"
 
 	// EnvRunnerURL is a url pointing to an Fn API service.
 	EnvRunnerURL = "FN_RUNNER_API_URL"
@@ -159,14 +149,11 @@ const (
 	// ServerTypeFull runs all API endpoints, including executing tasks.
 	ServerTypeFull NodeType = iota
 
-	// ServerTypeAPI runs only /v1 endpoints, to manage resources.
+	// ServerTypeAPI runs only control plane endpoints, to manage resources.
 	ServerTypeAPI
 
-	// ServerTypeLB runs only /r/ endpoints, routing to runner nodes.
+	// ServerTypeLB runs only invoke/http trigger endpoints, routing to runner nodes.
 	ServerTypeLB
-
-	// ServerTypeRunner runs only /r/ endpoints, to execute tasks.
-	ServerTypeRunner
 
 	// ServerTypePureRunner runs only grpc server, to execute tasks.
 	ServerTypePureRunner
@@ -192,8 +179,6 @@ func (s NodeType) String() string {
 		return "api"
 	case ServerTypeLB:
 		return "lb"
-	case ServerTypeRunner:
-		return "runner"
 	case ServerTypePureRunner:
 		return "pure-runner"
 	default:
@@ -209,8 +194,6 @@ type Server struct {
 
 	agent     agent.Agent
 	datastore models.Datastore
-	mq        models.MessageQueue
-	logstore  models.LogStore
 	nodeType  NodeType
 
 	// Service Settings for Admin/Web/gRPC. Note that for gRPC only
@@ -219,12 +202,9 @@ type Server struct {
 	svcConfigs map[string]*http.Server
 
 	// Agent enqueue  and read stores
-	lbEnqueue              agent.EnqueueDataAccess
 	lbReadAccess           agent.ReadDataAccess
 	noHTTTPTriggerEndpoint bool
-	noHybridAPI            bool
 	noFnInvokeEndpoint     bool
-	noCallEndpoints        bool
 	appListeners           *appListeners
 	fnListeners            *fnListeners
 	triggerListeners       *triggerListeners
@@ -244,8 +224,6 @@ func nodeTypeFromString(value string) NodeType {
 		return ServerTypeAPI
 	case "lb":
 		return ServerTypeLB
-	case "runner":
-		return ServerTypeRunner
 	case "pure-runner":
 		return ServerTypePureRunner
 	default:
@@ -256,16 +234,14 @@ func nodeTypeFromString(value string) NodeType {
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	curDir := pwd()
-	var defaultDB, defaultMQ string
+	var defaultDB string
 	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
 	switch nodeType {
 	case ServerTypeLB: // nothing
-	case ServerTypeRunner: // nothing
 	case ServerTypePureRunner: // nothing
 	default:
 		// only want to activate these for full and api nodes
 		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
-		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	}
 	opts = append(opts, WithWebPort(getEnvInt(EnvPort, DefaultPort)))
 	opts = append(opts, WithGRPCPort(getEnvInt(EnvGRPCPort, DefaultGRPCPort)))
@@ -276,9 +252,6 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	opts = append(opts, WithJaeger(getEnv(EnvJaegerURL, "")))
 	opts = append(opts, WithPrometheus()) // TODO option to turn this off?
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
-	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
-	opts = append(opts, WithLogURL(getEnv(EnvLogDBURL, "")))
-	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
 
 	opts = append(opts, LimitRequestBody(int64(getEnvInt(EnvMaxRequestSize, 0))))
@@ -297,9 +270,6 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	// Also we only need to create an agent if this is not an API node.
 	if nodeType != ServerTypeAPI {
 		opts = append(opts, WithAgentFromEnv())
-	} else {
-		// NOTE: ensures logstore is set or there will be troubles
-		opts = append(opts, WithLogstoreFromDatastore())
 	}
 
 	return New(ctx, opts...)
@@ -372,50 +342,6 @@ func WithDBURL(dbURL string) Option {
 	}
 }
 
-// WithMQURL maps EnvMQURL
-func WithMQURL(mqURL string) Option {
-	return func(ctx context.Context, s *Server) error {
-		if mqURL != "" {
-			mq, err := mqs.New(mqURL)
-			if err != nil {
-				return err
-			}
-			s.mq = mq
-			s.lbEnqueue = agent.NewDirectEnqueueAccess(mq)
-		}
-		return nil
-	}
-}
-
-// WithLogURL maps EnvLogURL
-func WithLogURL(logstoreURL string) Option {
-	return func(ctx context.Context, s *Server) error {
-		if ldb := logstoreURL; ldb != "" {
-			logDB, err := logs.New(ctx, logstoreURL)
-			if err != nil {
-				return err
-			}
-			s.logstore = logDB
-		}
-		return nil
-	}
-}
-
-// WithRunnerURL maps EnvRunnerURL
-func WithRunnerURL(runnerURL string) Option {
-	return func(ctx context.Context, s *Server) error {
-
-		if runnerURL != "" {
-			cl, err := hybrid.NewClient(runnerURL)
-			if err != nil {
-				return err
-			}
-			s.lbReadAccess = agent.NewCachedDataAccess(cl)
-		}
-		return nil
-	}
-}
-
 // WithType maps EnvNodeType
 func WithType(t NodeType) Option {
 	return func(ctx context.Context, s *Server) error {
@@ -451,23 +377,6 @@ func WithDatastore(ds models.Datastore) Option {
 	}
 }
 
-// WithMQ allows directly setting an MQ
-func WithMQ(mq models.MessageQueue) Option {
-	return func(ctx context.Context, s *Server) error {
-		s.mq = mq
-		s.lbEnqueue = agent.NewDirectEnqueueAccess(mq)
-		return nil
-	}
-}
-
-// WithLogstore allows directly setting a logstore
-func WithLogstore(ls models.LogStore) Option {
-	return func(ctx context.Context, s *Server) error {
-		s.logstore = ls
-		return nil
-	}
-}
-
 // WithAgent allows directly setting an agent
 func WithAgent(agent agent.Agent) Option {
 	return func(ctx context.Context, s *Server) error {
@@ -484,40 +393,15 @@ func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
 	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ",")), nil
 }
 
-// WithLogstoreFromDatastore sets the logstore to the datastore, iff
-// the datastore implements the logstore interface.
-func WithLogstoreFromDatastore() Option {
-	return func(ctx context.Context, s *Server) error {
-		if s.datastore == nil {
-			return errors.New("Need a datastore in order to use it as a logstore")
-		}
-		if s.logstore == nil {
-			if ls, ok := s.datastore.(models.LogStore); ok {
-				s.logstore = ls
-			} else {
-				return errors.New("datastore must implement logstore interface")
-			}
-		}
-		return nil
-	}
-}
-
 // WithFullAgent is a shorthand for WithAgent(... create a full agent here ...)
 func WithFullAgent() Option {
 	return func(ctx context.Context, s *Server) error {
 		s.nodeType = ServerTypeFull
 
-		// ensure logstore is set (TODO compat only?)
-		if s.logstore == nil {
-			WithLogstoreFromDatastore()(ctx, s)
+		if s.datastore == nil {
+			return errors.New("full nodes must configure FN_DB_URL")
 		}
-
-		if s.datastore == nil || s.logstore == nil || s.mq == nil {
-			return errors.New("full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL")
-		}
-		da := agent.NewDirectCallDataAccess(s.logstore, s.mq)
-		dq := agent.NewDirectDequeueAccess(s.mq)
-		s.agent = agent.New(da, agent.WithAsync(dq))
+		s.agent = agent.New()
 		return nil
 	}
 }
@@ -529,30 +413,12 @@ func WithAgentFromEnv() Option {
 		switch s.nodeType {
 		case ServerTypeAPI:
 			return errors.New("should not initialize an agent for an Fn API node")
-		case ServerTypeRunner:
-			runnerURL := getEnv(EnvRunnerURL, "")
-			if runnerURL == "" {
-				return errors.New("no FN_RUNNER_API_URL provided for an Fn Runner node")
-			}
-			cl, err := hybrid.NewClient(runnerURL)
-			if err != nil {
-				return err
-			}
-
-			s.agent = agent.New(cl)
 		case ServerTypePureRunner:
 			if s.datastore != nil {
 				return errors.New("pure runner nodes must not be configured with a datastore (FN_DB_URL)")
 			}
-			if s.mq != nil {
-				return errors.New("pure runner nodes must not be configured with a message queue (FN_MQ_URL)")
-			}
-			ds, err := hybrid.NewNopDataStore()
-			if err != nil {
-				return err
-			}
 			cancelCtx, cancel := context.WithCancel(ctx)
-			prAgent, err := agent.DefaultPureRunner(cancel, s.svcConfigs[GRPCServer].Addr, ds, s.svcConfigs[GRPCServer].TLSConfig)
+			prAgent, err := agent.DefaultPureRunner(cancel, s.svcConfigs[GRPCServer].Addr, s.svcConfigs[GRPCServer].TLSConfig)
 			if err != nil {
 				return err
 			}
@@ -566,9 +432,6 @@ func WithAgentFromEnv() Option {
 			}
 			if s.datastore != nil {
 				return errors.New("lb nodes must not be configured with a datastore (FN_DB_URL)")
-			}
-			if s.mq != nil {
-				return errors.New("lb nodes must not be configured with a message queue (FN_MQ_URL)")
 			}
 
 			cl, err := hybrid.NewClient(runnerURL)
@@ -592,7 +455,7 @@ func WithAgentFromEnv() Option {
 			}
 
 			s.lbReadAccess = agent.NewCachedDataAccess(cl)
-			s.agent, err = agent.NewLBAgent(cl, runnerPool, placer)
+			s.agent, err = agent.NewLBAgent(runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
 			}
@@ -654,7 +517,6 @@ func New(ctx context.Context, opts ...Option) *Server {
 	s := &Server{
 		Router:      engine,
 		AdminRouter: engine,
-		lbEnqueue:   agent.NewUnsupportedAsyncEnqueueAccess(),
 		svcConfigs: map[string]*http.Server{
 			WebServer: &http.Server{
 				MaxHeaderBytes:    getEnvInt(EnvMaxHeaderSize, http.DefaultMaxHeaderBytes),
@@ -708,18 +570,12 @@ func New(ctx context.Context, opts ...Option) *Server {
 		requireConfigSet("datastore", s.datastore)
 		requireConfigSet("triggerAnnotator", s.triggerAnnotator)
 	case ServerTypeFull:
-		requireConfigSet("enqueue", s.lbEnqueue)
 		requireConfigSet("agent", s.agent)
 		requireConfigSet("lbReadAccess", s.lbReadAccess)
 		requireConfigSet("datastore", s.datastore)
 		requireConfigSet("triggerAnnotator", s.triggerAnnotator)
 
 	case ServerTypeLB:
-		requireConfigSet("lbReadAccess", s.lbReadAccess)
-		requireConfigSet("agent", s.agent)
-		requireConfigSet("lbEnqueue", s.lbEnqueue)
-
-	case ServerTypeRunner:
 		requireConfigSet("lbReadAccess", s.lbReadAccess)
 		requireConfigSet("agent", s.agent)
 
@@ -747,7 +603,6 @@ func New(ctx context.Context, opts ...Option) *Server {
 	// TODO it's not clear that this is always correct as the read store  won't  get wrapping
 	s.datastore = datastore.Wrap(s.datastore)
 	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.fnListeners, s.triggerListeners)
-	s.logstore = logs.Wrap(s.logstore)
 
 	return s
 }
@@ -802,22 +657,6 @@ func WithoutHTTPTriggerEndpoints() Option {
 func WithoutFnInvokeEndpoints() Option {
 	return func(ctx context.Context, s *Server) error {
 		s.noFnInvokeEndpoint = true
-		return nil
-	}
-}
-
-// WithoutHybridAPI unconditionally disables the Hybrid API on a server
-func WithoutHybridAPI() Option {
-	return func(ctx context.Context, s *Server) error {
-		s.noHybridAPI = true
-		return nil
-	}
-}
-
-// WithoutCallEndpoints unconditionally disables the call resources in the api
-func WithoutCallEndpoints() Option {
-	return func(ctx context.Context, s *Server) error {
-		s.noCallEndpoints = true
 		return nil
 	}
 }
@@ -1086,7 +925,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/", handlePing)
 	admin.GET("/version", handleVersion)
 
-	// TODO: move under v1 ?
 	if s.promExporter != nil {
 		admin.GET("/metrics", gin.WrapH(s.promExporter))
 	}
@@ -1121,35 +959,21 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v2.DELETE("/triggers/:trigger_id", s.handleTriggerDelete)
 		}
 
-		if !s.noCallEndpoints {
-			v2.GET("/fns/:fn_id/calls", s.handleCallList)
-			v2.GET("/fns/:fn_id/calls/:call_id", s.handleCallGet)
-			v2.GET("/fns/:fn_id/calls/:call_id/log", s.handleCallLogGet)
-		} else {
-			v2.GET("/fns/:fn_id/calls", s.goneResponse)
-			v2.GET("/fns/:fn_id/calls/:call_id", s.goneResponse)
-			v2.GET("/fns/:fn_id/calls/:call_id/log", s.goneResponse)
-		}
+		// TODO remove these in 30 days or something
+		v2.GET("/fns/:fn_id/calls", s.goneResponse)
+		v2.GET("/fns/:fn_id/calls/:call_id", s.goneResponse)
+		v2.GET("/fns/:fn_id/calls/:call_id/log", s.goneResponse)
 
-		if !s.noHybridAPI { // Hybrid API - this should only be enabled on API servers
-			runner := cleanv2.Group("/runner")
-			runner.PUT("/async", s.handleRunnerEnqueue)
-			runner.GET("/async", s.handleRunnerDequeue)
+		runner := cleanv2.Group("/runner")
 
-			runner.POST("/start", s.handleRunnerStart)
-			runner.POST("/finish", s.handleRunnerFinish)
-
-			runnerAppAPI := runner.Group(
-				"/apps/:app_id")
-			runnerAppAPI.Use(setAppIDInCtx)
-			// Both of these are somewhat odd -
-			// Deprecate, remove with routes
-			runnerAppAPI.GET("/triggerBySource/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
-		}
+		runnerAppAPI := runner.Group("/apps/:app_id")
+		runnerAppAPI.Use(setAppIDInCtx)
+		// TODO figure out how to deprecate
+		runnerAppAPI.GET("/triggerBySource/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
 	}
 
 	switch s.nodeType {
-	case ServerTypeFull, ServerTypeLB, ServerTypeRunner:
+	case ServerTypeFull, ServerTypeLB:
 		if !s.noHTTTPTriggerEndpoint {
 			lbTriggerGroup := engine.Group("/t")
 			lbTriggerGroup.Any("/:app_name", s.handleHTTPTriggerCall)

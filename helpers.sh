@@ -25,13 +25,10 @@ function get_port {
     local PORT_START=${FN_TEST_PORT_RANGE_START:-33000}
 
     local SERVICE_LIST=(
-        "fn_basic_tests_minio"
         "fn_basic_tests_mysql"
         "fn_basic_tests_postgres"
-        "fn_api_tests_minio"
         "fn_api_tests_mysql"
         "fn_api_tests_postgres"
-        "fn_system_tests_minio"
         "fn_system_tests_mysql"
         "fn_system_tests_postgres"
     )
@@ -82,19 +79,6 @@ function spawn_postgres {
     echo "postgres://postgres:root@${HOST}:${PORT}/funcs?sslmode=disable"
 }
 
-function spawn_minio {
-    local CONTEXT=$1
-    local PORT=$(get_port ${CONTEXT}_minio)
-    local HOST=$(get_host ${CONTEXT}_minio)
-    local ID=$(docker run --name ${CONTEXT}_minio \
-        -p ${PORT}:9000 \
-        -e "MINIO_ACCESS_KEY=admin" \
-        -e "MINIO_SECRET_KEY=password" \
-        -d minio/minio server /data)
-
-    echo "s3://admin:password@${HOST}:${PORT}/us-east-1/fnlogs"
-}
-
 function docker_pull_postgres {
 	docker pull postgres:9.3-alpine
 }
@@ -103,13 +87,9 @@ function docker_pull_mysql {
 	docker pull mysql:5.7.22
 }
 
-function docker_pull_minio {
-	docker pull minio/minio
-}
-
 function remove_containers {
     local CONTEXT=$1
-    for i in mysql minio postgres
+    for i in mysql postgres
     do
         docker rm -fv ${CONTEXT}_${i} 2>/dev/null || true
     done

@@ -13,9 +13,7 @@ import (
 
 	"fmt"
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -40,31 +38,30 @@ func TestAppCreate(t *testing.T) {
 
 	for i, test := range []struct {
 		mock          models.Datastore
-		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{}`, http.StatusBadRequest, models.ErrMissingName},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "id":"badId"}`, http.StatusBadRequest, models.ErrAppIDProvided},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "" }`, http.StatusBadRequest, models.ErrMissingName},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "1234567890123456789012345678901" }`, http.StatusBadRequest, models.ErrAppsTooLongName},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "&&%@!#$#@$" }`, http.StatusBadRequest, models.ErrAppsInvalidName},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "app", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "annotations" : { "key":"" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationValue},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "app", "syslog_url":"yo"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo"`)},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "syslog_url":"yo://sup.com:1"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo://sup.com:1" invalid scheme, only [tcp, udp, unix, unixgram, tcp+tls] are supported`)},
+		{datastore.NewMock(), "/v2/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), "/v2/apps", `{}`, http.StatusBadRequest, models.ErrMissingName},
+		{datastore.NewMock(), "/v2/apps", `{"name": "app", "id":"badId"}`, http.StatusBadRequest, models.ErrAppIDProvided},
+		{datastore.NewMock(), "/v2/apps", `{ "name": "" }`, http.StatusBadRequest, models.ErrMissingName},
+		{datastore.NewMock(), "/v2/apps", `{"name": "1234567890123456789012345678901" }`, http.StatusBadRequest, models.ErrAppsTooLongName},
+		{datastore.NewMock(), "/v2/apps", `{ "name": "&&%@!#$#@$" }`, http.StatusBadRequest, models.ErrAppsInvalidName},
+		{datastore.NewMock(), "/v2/apps", `{ "name": "app", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
+		{datastore.NewMock(), "/v2/apps", `{"name": "app", "annotations" : { "key":"" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationValue},
+		{datastore.NewMock(), "/v2/apps", `{ "name": "app", "syslog_url":"yo"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo"`)},
+		{datastore.NewMock(), "/v2/apps", `{"name": "app", "syslog_url":"yo://sup.com:1"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo://sup.com:1" invalid scheme, only [tcp, udp, unix, unixgram, tcp+tls] are supported`)},
 		// success
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "teste"  }`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{  "name": "teste" , "annotations": {"k1":"v1", "k2":[]}}`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "teste", "syslog_url":"tcp://example.com:443" } `, http.StatusOK, nil},
-		{datastore.NewMockInit([]*models.App{&models.App{ID: "appid", Name: "teste"}}), logs.NewMock(), "/v2/apps", `{ "name": "teste"  }`, http.StatusConflict, models.ErrAppsAlreadyExists},
+		{datastore.NewMock(), "/v2/apps", `{ "name": "teste"  }`, http.StatusOK, nil},
+		{datastore.NewMock(), "/v2/apps", `{  "name": "teste" , "annotations": {"k1":"v1", "k2":[]}}`, http.StatusOK, nil},
+		{datastore.NewMock(), "/v2/apps", `{"name": "teste", "syslog_url":"tcp://example.com:443" } `, http.StatusOK, nil},
+		{datastore.NewMockInit([]*models.App{&models.App{ID: "appid", Name: "teste"}}), "/v2/apps", `{ "name": "teste"  }`, http.StatusConflict, models.ErrAppsAlreadyExists},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		srv := testServer(test.mock, rnr, ServerTypeFull)
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
@@ -122,17 +119,16 @@ func TestAppDelete(t *testing.T) {
 	ds := datastore.NewMockInit([]*models.App{app})
 	for i, test := range []struct {
 		ds            models.Datastore
-		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps/myapp", "", http.StatusNotFound, nil},
-		{ds, logs.NewMock(), "/v2/apps/appId", "", http.StatusNoContent, nil},
+		{datastore.NewMock(), "/v2/apps/myapp", "", http.StatusNotFound, nil},
+		{ds, "/v2/apps/appId", "", http.StatusNoContent, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		srv := testServer(test.ds, rnr, ServerTypeFull)
 
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
@@ -170,8 +166,7 @@ func TestAppList(t *testing.T) {
 			{Name: "myapp3"},
 		},
 	)
-	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	a1b := base64.RawURLEncoding.EncodeToString([]byte("myapp"))
 	a2b := base64.RawURLEncoding.EncodeToString([]byte("myapp2"))
@@ -239,8 +234,7 @@ func TestAppGet(t *testing.T) {
 		Name: "app",
 	}
 	ds := datastore.NewMockInit([]*models.App{app})
-	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -285,36 +279,35 @@ func TestAppUpdate(t *testing.T) {
 
 	for i, test := range []struct {
 		mock          models.Datastore
-		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{ds, logs.NewMock(), "/v2/apps/not_app", `{ }`, http.StatusNotFound, models.ErrAppsNotFound},
+		{ds, "/v2/apps/not_app", `{ }`, http.StatusNotFound, models.ErrAppsNotFound},
 
-		{ds, logs.NewMock(), "/v2/apps/appId", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{ds, "/v2/apps/appId", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 
 		// Addresses #380
-		{ds, logs.NewMock(), "/v2/apps/appId", `{  "name": "othername" }`, http.StatusConflict, models.ErrAppsNameImmutable},
+		{ds, "/v2/apps/appId", `{  "name": "othername" }`, http.StatusConflict, models.ErrAppsNameImmutable},
 
 		// success: add/set MD key
-		{ds, logs.NewMock(), "/v2/apps/appId", `{ "annotations":{"foo":"bar"}}`, http.StatusOK, nil},
+		{ds, "/v2/apps/appId", `{ "annotations":{"foo":"bar"}}`, http.StatusOK, nil},
 
 		// success
-		{ds, logs.NewMock(), "/v2/apps/appId", `{  "config": { "test": "1" }  }`, http.StatusOK, nil},
+		{ds, "/v2/apps/appId", `{  "config": { "test": "1" }  }`, http.StatusOK, nil},
 
 		// success
-		{ds, logs.NewMock(), "/v2/apps/appId", `{  "config": { "test": "1" } }`, http.StatusOK, nil},
+		{ds, "/v2/apps/appId", `{  "config": { "test": "1" } }`, http.StatusOK, nil},
 
 		// success
-		{ds, logs.NewMock(), "/v2/apps/appId", `{ "syslog_url":"tcp://example.com:443" }`, http.StatusOK, nil},
+		{ds, "/v2/apps/appId", `{ "syslog_url":"tcp://example.com:443" }`, http.StatusOK, nil},
 	} {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			rnr, cancel := testRunner(t)
 			defer cancel()
-			srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+			srv := testServer(test.mock, rnr, ServerTypeFull)
 
 			body := bytes.NewBuffer([]byte(test.body))
 			_, rec := routerRequest(t, srv.Router, "PUT", test.path, body)

@@ -247,7 +247,6 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 					completedAt = mcall.CompletedAt.String()
 				} else {
 					// IMPORTANT: We punch this in ourselves.
-					// This is because call.End() is executed asynchronously.
 					completedAt = common.DateTime(time.Now()).String()
 				}
 			}
@@ -858,7 +857,6 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 				result.CompletedAt = c.CompletedAt.String()
 			} else {
 				// IMPORTANT: We punch this in ourselves.
-				// This is because call.End() is executed asynchronously.
 				result.CompletedAt = common.DateTime(time.Now()).String()
 			}
 		}
@@ -1041,9 +1039,8 @@ func (pr *pureRunner) AfterCall(ctx context.Context, call *models.Call) error {
 	return nil
 }
 
-func DefaultPureRunner(cancel context.CancelFunc, addr string, da CallHandler, tlsCfg *tls.Config) (Agent, error) {
-
-	agent := New(da)
+func DefaultPureRunner(cancel context.CancelFunc, addr string, tlsCfg *tls.Config) (Agent, error) {
+	agent := New()
 
 	// WARNING: SSL creds are optional.
 	if tlsCfg == nil {

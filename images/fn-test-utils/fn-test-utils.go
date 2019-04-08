@@ -78,7 +78,7 @@ type AppRequest struct {
 
 	// TODO: simulate slow read/slow write
 	// TODO: simulate partial IO write/read
-	// TODO: simulate high cpu usage (async and sync)
+	// TODO: simulate high cpu usage
 	// TODO: simulate large body upload/download
 	// TODO: infinite loop
 }

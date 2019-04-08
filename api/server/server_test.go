@@ -17,13 +17,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType NodeType, opts ...Option) *Server {
+func testServer(ds models.Datastore, rnr agent.Agent, nodeType NodeType, opts ...Option) *Server {
 	return New(context.Background(), append(opts,
 		WithLogFormat("text"),
 		WithLogLevel("debug"),
 		WithDatastore(ds),
-		WithMQ(mq),
-		WithLogstore(logDB),
 		WithAgent(rnr),
 		WithType(nodeType),
 		WithTriggerAnnotator(NewRequestBasedTriggerAnnotator()),

@@ -12,8 +12,6 @@ const (
 	TypeNone = ""
 	// TypeSync ...
 	TypeSync = "sync"
-	// TypeAsync ...
-	TypeAsync = "async"
 	// TypeDetached is used for calls which return an ack to the caller as soon as the call starts
 	TypeDetached = "detached"
 )
@@ -70,7 +68,7 @@ type Call struct {
 	// "delayed" and transition to "running" after delay seconds.
 	Delay int32 `json:"delay,omitempty" db:"-"`
 
-	// Type indicates whether a task is to be run synchronously or asynchronously.
+	// Type indicates a call's type
 	Type string `json:"type,omitempty" db:"-"`
 
 	// Payload for the call. This is only used by async calls, to store their input.
@@ -82,10 +80,6 @@ type Call struct {
 
 	// Method of the http request used to make this call.
 	Method string `json:"method,omitempty" db:"-"`
-
-	// Priority of the call. Higher has more priority. 3 levels from 0-2. Calls
-	// at same priority are processed in FIFO order.
-	Priority *int32 `json:"priority,omitempty" db:"-"`
 
 	// Maximum runtime in seconds.
 	Timeout int32 `json:"timeout,omitempty" db:"-"`

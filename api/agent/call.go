@@ -22,9 +22,6 @@ import (
 // Call is an agent specific instance of a call object, that is runnable.
 type Call interface {
 	// Model will return the underlying models.Call configuration for this call.
-	// TODO we could respond to async correctly from agent but layering, this
-	// is only because the front end has different responses based on call type.
-	// try to discourage use elsewhere until this gets pushed down more...
 	Model() *models.Call
 
 	// Start will be called before this call is executed, it may be used to
@@ -63,9 +60,7 @@ func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOp
 			ID:    id,
 			Image: fn.Image,
 			// Delay: 0,
-			Type: models.TypeSync,
-			// Payload: TODO,
-			Priority:    new(int32), // TODO this is crucial, apparently
+			Type:        models.TypeSync,
 			Timeout:     fn.Timeout,
 			IdleTimeout: fn.IdleTimeout,
 			TmpFsSize:   0, // TODO clean up this
@@ -262,7 +257,6 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	setupCtx(&c)
 
-	c.handler = a.da
 	c.ct = a
 	if c.stderr == nil {
 		// TODO(reed): is line writer is vulnerable to attack?
@@ -270,7 +264,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
 	}
 	if c.respWriter == nil {
-		// send function output to logs if no writer given (async...)
+		// send function output to logs if no writer given (TODO no longer need w/o async?)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
 		c.respWriter = c.stderr
 	}
@@ -287,7 +281,6 @@ func setupCtx(c *call) {
 type call struct {
 	*models.Call
 
-	handler      CallHandler
 	respWriter   io.Writer
 	req          *http.Request
 	stderr       io.ReadWriteCloser
@@ -358,23 +351,6 @@ func (c *call) Start(ctx context.Context) error {
 	c.StartedAt = common.DateTime(time.Now())
 	c.Status = "running"
 
-	if c.Type == models.TypeAsync {
-		// XXX (reed): make sure MQ reservation is lengthy. to skirt MQ semantics,
-		// we could add a new message to MQ w/ delay of call.Timeout and delete the
-		// old one (in that order), after marking the call as running in the db
-		// (see below)
-
-		// XXX (reed): should we store the updated started_at + status? we could
-		// use this so that if we pick up a call from mq and find its status is
-		// running to avoid running the call twice and potentially mark it as
-		// errored (built in long running task detector, so to speak...)
-
-		err := c.handler.Start(ctx, c.Model())
-		if err != nil {
-			return err // let another thread try this
-		}
-	}
-
 	return c.ct.fireBeforeCall(ctx, c.Model())
 }
 
@@ -396,11 +372,6 @@ func (c *call) End(ctx context.Context, errIn error) error {
 
 	// ensure stats histogram is reasonably bounded
 	c.Call.Stats = drivers.Decimate(240, c.Call.Stats)
-
-	if err := c.handler.Finish(ctx, c.Model(), c.stderr, c.Type == models.TypeAsync); err != nil {
-		common.Logger(ctx).WithError(err).Error("error finalizing call on datastore/mq")
-		// note: Not returning err here since the job could have already finished successfully.
-	}
 
 	// NOTE call this after InsertLog or the buffer will get reset
 	c.stderr.Close()

@@ -32,25 +32,6 @@ const (
 	pauseTimeout = 5 * time.Second // docker pause/unpause
 )
 
-// TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
-// TODO async calls need to add route.Headers as well
-// TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
-// see also: server/runner.go wrapping the response writer there, but need to handle async too (push down?)
-// TODO storing logs / call can push call over the timeout
-// TODO async is still broken, but way less so. we need to modify mq semantics
-// to be much more robust. now we're at least running it if we delete the msg,
-// but we may never store info about that execution so still broked (if fn
-// dies). need coordination w/ db.
-// TODO if async would store requests (or interchange format) it would be slick, but
-// if we're going to store full calls in db maybe we should only queue pointers to ids?
-// TODO examine cases where hot can't start a container and the user would never see an error
-// about why that may be so (say, whatever it is takes longer than the timeout, e.g.)
-// TODO if an image is not found or similar issues in getting a slot, then async should probably
-// mark the call as errored rather than forever trying & failing to run it
-// TODO it would be really nice if we made the ramToken wrap the driver cookie (less brittle,
-// if those leak the container leaks too...) -- not the allocation, but the token.Close and cookie.Close
-// TODO if machine is out of ram, just timeout immediately / wait for hot slot? (discuss policy)
-
 // Agent exposes an api to create calls from various parameters and then submit
 // those calls, it also exposes a 'safe' shutdown mechanism via its Close method.
 // Agent has a few roles:
@@ -58,7 +39,6 @@ const (
 //	* manage the container lifecycle for calls
 //	* execute calls against containers
 //	* invoke Start and End for each call appropriately
-//	* check the mq for any async calls, and submit them
 //
 // Overview:
 // Upon submission of a call, Agent will start the call's timeout timer
@@ -96,7 +76,6 @@ type Agent interface {
 
 type agent struct {
 	cfg           Config
-	da            CallHandler
 	callListeners []fnext.CallListener
 
 	driver drivers.Driver
@@ -128,7 +107,7 @@ type Option func(*agent) error
 const RegistryToken = "FN_REGISTRY_TOKEN"
 
 // New creates an Agent that executes functions locally as Docker containers.
-func New(da CallHandler, options ...Option) Agent {
+func New(options ...Option) Agent {
 
 	cfg, err := NewConfig()
 	if err != nil {
@@ -140,7 +119,6 @@ func New(da CallHandler, options ...Option) Agent {
 	}
 
 	a.shutWg = common.NewWaitGroup()
-	a.da = da
 	a.slotMgr = NewSlotQueueMgr()
 	a.evictor = NewEvictor()
 
@@ -173,19 +151,6 @@ func New(da CallHandler, options ...Option) Agent {
 func (a *agent) addStartup(sup func()) {
 	a.onStartup = append(a.onStartup, sup)
 
-}
-
-// WithAsync Enables Async  operations on the agent
-func WithAsync(dqda DequeueDataAccess) Option {
-	return func(a *agent) error {
-		a.addStartup(func() {
-			if !a.shutWg.AddSession(1) {
-				logrus.Fatal("cannot start agent, unable to add session")
-			}
-			go a.asyncDequeue(dqda) // safe shutdown can nanny this fine
-		})
-		return nil
-	}
 }
 
 // WithConfig sets the agent config to the provided config
@@ -353,18 +318,6 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 // for other containers to become idle or it may wait for resources to become
 // available to launch a new container.
 func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
-	if call.Type == models.TypeAsync {
-		// *) for async, slot deadline is also call.Timeout. This is because we would like to
-		// allocate enough time for docker-pull, slot-wait, docker-start, etc.
-		// and also make sure we have call.Timeout inside the container. Total time
-		// to run an async becomes 2 * call.Timeout.
-		// *) for sync, there's no slot deadline, the timeout is controlled by http-client
-		// context (or runner gRPC context)
-		tmp, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
-		ctx = tmp
-		defer cancel()
-	}
-
 	ctx, span := trace.StartSpan(ctx, "agent_get_slot")
 	defer span.End()
 
@@ -714,8 +667,7 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 func (s *hotSlot) writeResp(ctx context.Context, max uint64, resp *http.Response, w io.Writer) error {
 	rw, ok := w.(http.ResponseWriter)
 	if !ok {
-		// WARNING: this bypasses container contract translation. Assuming this is
-		// async mode, where we are storing response in call.stderr.
+		// TODO(reed): this is strange, we should just enforce the response writer type?
 		w = common.NewClampWriter(w, max, models.ErrFunctionResponseTooBig)
 		return resp.Write(w)
 	}

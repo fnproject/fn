@@ -13,9 +13,7 @@ import (
 	"fmt"
 
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
 )
@@ -89,8 +87,7 @@ func TestRootMiddleware(t *testing.T) {
 	rnr, cancelrnr := testRunner(t, ds)
 	defer cancelrnr()
 
-	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, rnr, ServerTypeFull)
 	srv.AddRootMiddlewareFunc(func(next http.Handler) http.Handler {
 		// this one will override a call to the API based on a header
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
