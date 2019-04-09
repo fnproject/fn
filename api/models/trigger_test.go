@@ -149,12 +149,17 @@ func TestTriggerEquality(t *testing.T) {
 }
 
 func TestValidateTriggerName(t *testing.T) {
+	tooLongName := "7"
+	for i := 0; i < MaxLengthTriggerName+1; i++ {
+		tooLongName += "7"
+	}
+
 	testCases := []struct {
 		Name string
 		Want error
 	}{
 		{"valid_name-101", nil},
-		{"a_trigger_with_a_name_that_is_too_long", ErrTriggerTooLongName},
+		{tooLongName, ErrTriggerTooLongName},
 		{"", ErrTriggerMissingName},
 		{"invalid.character", ErrTriggerInvalidName},
 	}

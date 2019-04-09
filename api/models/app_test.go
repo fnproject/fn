@@ -149,12 +149,17 @@ func TestAppEquality(t *testing.T) {
 }
 
 func TestValidateAppName(t *testing.T) {
+	tooLongName := "7"
+	for i := 0; i < MaxLengthAppName+1; i++ {
+		tooLongName += "7"
+	}
+
 	testCases := []struct {
 		Name string
 		Want error
 	}{
 		{"valid_name-101", nil},
-		{"an_app_with_a_name_that_is_too_long", ErrAppsTooLongName},
+		{tooLongName, ErrAppsTooLongName},
 		{"", ErrMissingName},
 		{"invalid.character", ErrAppsInvalidName},
 	}

@@ -44,7 +44,7 @@ var (
 	}
 	ErrFnsTooLongName = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("Fn name must be %v characters or less", maxFnName),
+		error: fmt.Errorf("Fn name must be %v characters or less", MaxLengthFnName),
 	}
 	ErrFnsMissingAppID = err{
 		code:  http.StatusBadRequest,
@@ -178,7 +178,7 @@ func (f *Fn) ValidateName() error {
 		return ErrFnsMissingName
 	}
 
-	if len(f.Name) > maxFnName {
+	if len(f.Name) > MaxLengthFnName {
 		return ErrFnsTooLongName
 	}
 

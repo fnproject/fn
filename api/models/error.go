@@ -6,11 +6,13 @@ import (
 	"net/http"
 )
 
-// TODO we can put constants all in this file too
 const (
-	maxAppName     = 30
-	maxFnName      = 30
-	MaxTriggerName = 30
+	// MaxLengthAppName is the max length for an app name
+	MaxLengthAppName = 255
+	// MaxLengthFnName is the max length for an fn name
+	MaxLengthFnName = 255
+	// MaxLengthTriggerName is the max length for a trigger name
+	MaxLengthTriggerName = 255
 )
 
 var (

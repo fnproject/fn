@@ -83,6 +83,11 @@ func (test *funcTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 func TestFnCreate(t *testing.T) {
 	buf := setLogBuffer()
 
+	tooLongName := "7"
+	for i := 0; i < models.MaxLengthAppName+1; i++ {
+		tooLongName += "7"
+	}
+
 	a := &models.App{Name: "a", ID: "aid"}
 	ds := datastore.NewMockInit([]*models.App{a})
 	for i, test := range []funcTestCase{
@@ -92,6 +97,7 @@ func TestFnCreate(t *testing.T) {
 		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingName},
 		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingImage},
 		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": " ", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidName},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "%s", "image": "fnproject/fn-test-utils" }`, a.ID, tooLongName), http.StatusBadRequest, models.ErrFnsTooLongName},
 		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
 		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "idle_timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
 		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrInvalidMemory},
