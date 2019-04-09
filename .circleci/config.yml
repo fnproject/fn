@@ -7,6 +7,8 @@ jobs:
     environment: # apparently expansion doesn't work here yet: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
       - GOPATH=/home/circleci/go
       - GOVERSION=1.12.1
+      - GO111MODULE=on
+      - GOFLAGS=-mod=vendor
       - OS=linux
       - ARCH=amd64
       - FN_LOG_LEVEL=debug
