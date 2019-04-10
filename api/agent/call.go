@@ -274,7 +274,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 func setupCtx(c *call) {
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app_id": c.AppID, "fn_id": c.FnID})
+		logrus.Fields{"call_id": c.ID, "app_id": c.AppID, "fn_id": c.FnID})
 	c.req = c.req.WithContext(ctx)
 }
 

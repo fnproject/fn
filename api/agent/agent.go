@@ -758,7 +758,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	var err error
 
 	id := id.New().String()
-	logger := logrus.WithFields(logrus.Fields{"id": id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"container_id": id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx, cancel := context.WithCancel(common.WithLogger(ctx, logger))
 
 	initialized := make(chan struct{}) // when closed, container is ready to handle requests
