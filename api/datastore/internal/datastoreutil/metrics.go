@@ -3,9 +3,8 @@ package datastoreutil
 import (
 	"context"
 
-	"go.opencensus.io/trace"
-
 	"github.com/fnproject/fn/api/models"
+	"go.opencensus.io/trace"
 )
 
 func MetricDS(ds models.Datastore) models.Datastore {
