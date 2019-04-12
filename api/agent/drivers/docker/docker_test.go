@@ -38,6 +38,7 @@ func (f *taskDockerTest) Volumes() [][2]string                                  
 func (f *taskDockerTest) Memory() uint64                                             { return 256 * 1024 * 1024 }
 func (f *taskDockerTest) CPUs() uint64                                               { return 0 }
 func (f *taskDockerTest) FsSize() uint64                                             { return 0 }
+func (f *taskDockerTest) PIDs() uint64                                               { return 0 }
 func (f *taskDockerTest) TmpFsSize() uint64                                          { return 0 }
 func (f *taskDockerTest) WorkDir() string                                            { return "" }
 func (f *taskDockerTest) Close()                                                     {}
@@ -46,6 +47,7 @@ func (f *taskDockerTest) WrapBeforeCall(func(drivers.BeforeCall) drivers.BeforeC
 func (f *taskDockerTest) WrapAfterCall(func(drivers.AfterCall) drivers.AfterCall)    {}
 func (f *taskDockerTest) Input() io.Reader                                           { return f.input }
 func (f *taskDockerTest) Extensions() map[string]string                              { return nil }
+
 func (f *taskDockerTest) LoggerConfig() drivers.LoggerConfig {
 	return drivers.LoggerConfig{URL: f.logURL}
 }
