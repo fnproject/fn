@@ -1133,6 +1133,7 @@ type container struct {
 	memory     uint64
 	cpus       uint64
 	fsSize     uint64
+	pids       uint64
 	tmpFsSize  uint64
 	disableNet bool
 	iofs       iofs
@@ -1221,6 +1222,7 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		memory:     call.Memory,
 		cpus:       uint64(call.CPUs),
 		fsSize:     cfg.MaxFsSize,
+		pids:       uint64(cfg.MaxPIDs),
 		tmpFsSize:  uint64(call.TmpFsSize),
 		disableNet: call.disableNet,
 		iofs:       iofs,
@@ -1303,6 +1305,7 @@ func (c *container) EnvVars() map[string]string         { return c.env }
 func (c *container) Memory() uint64                     { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                       { return c.cpus }
 func (c *container) FsSize() uint64                     { return c.fsSize }
+func (c *container) PIDs() uint64                       { return c.pids }
 func (c *container) TmpFsSize() uint64                  { return c.tmpFsSize }
 func (c *container) Extensions() map[string]string      { return c.extensions }
 func (c *container) LoggerConfig() drivers.LoggerConfig { return c.logCfg }
