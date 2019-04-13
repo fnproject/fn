@@ -359,7 +359,7 @@ func WithTLS(service string, tlsCfg *tls.Config) Option {
 // WithReadDataAccess overrides the LB read DataAccess for a server
 func WithReadDataAccess(ds agent.ReadDataAccess) Option {
 	return func(ctx context.Context, s *Server) error {
-		s.lbReadAccess = ds
+		s.lbReadAccess = agent.NewMetricReadDataAccess(ds)
 		return nil
 	}
 }
@@ -371,7 +371,7 @@ func WithDatastore(ds models.Datastore) Option {
 		s.datastore = datastore.Wrap(s.datastore)
 		s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.fnListeners, s.triggerListeners)
 		if s.lbReadAccess == nil {
-			s.lbReadAccess = agent.NewCachedDataAccess(s.datastore)
+			return WithReadDataAccess(agent.NewCachedDataAccess(s.datastore))(ctx, s)
 		}
 		return nil
 	}
@@ -444,7 +444,10 @@ func WithAgentFromEnv() Option {
 				placer = pool.NewNaivePlacer(&placerCfg)
 			}
 
-			s.lbReadAccess = agent.NewCachedDataAccess(cl)
+			err = WithReadDataAccess(agent.NewCachedDataAccess(cl))(ctx, s)
+			if err != nil {
+				return errors.New("LBAgent creation failed")
+			}
 			s.agent, err = agent.NewLBAgent(runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
