@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -212,6 +213,14 @@ func WithDockerAuth(auth docker.Auther) CallOpt {
 	}
 }
 
+func (a *agent) WithStderrLogger() CallOpt {
+	return func(c *call) error {
+		// XXX(reed): allow configuring the level / turning off
+		c.stderr = setupLogger(c.Call)
+		return nil
+	}
+}
+
 // GetCall builds a Call that can be used to submit jobs to the agent.
 func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	var c call
@@ -253,20 +262,17 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	}
 	c.Call.Config["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
 	c.Call.Config["FN_FORMAT"] = "http-stream" // TODO: remove this after fdk's forget what it means
-	// TODO we could set type here too, for now, or anything else not based in fn/app/trigger config
 
 	setupCtx(&c)
 
 	c.ct = a
 	if c.stderr == nil {
-		// TODO(reed): is line writer is vulnerable to attack?
-		// XXX(reed): forcing this as default is not great / configuring it isn't great either. reconsider.
-		c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
+		// this disables logs in driver (at container level)
+		c.stderr = common.NoopReadWriteCloser{}
 	}
 	if c.respWriter == nil {
-		// send function output to logs if no writer given (TODO no longer need w/o async?)
-		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
-		c.respWriter = c.stderr
+		// TODO: we could make this an error, up to us
+		c.respWriter = ioutil.Discard
 	}
 
 	return &c, nil
@@ -283,7 +289,7 @@ type call struct {
 
 	respWriter   io.Writer
 	req          *http.Request
-	stderr       io.ReadWriteCloser
+	stderr       io.WriteCloser
 	ct           callTrigger
 	slots        *slotQueue
 	requestState RequestState
@@ -372,9 +378,6 @@ func (c *call) End(ctx context.Context, errIn error) error {
 
 	// ensure stats histogram is reasonably bounded
 	c.Call.Stats = stats.Decimate(240, c.Call.Stats)
-
-	// NOTE call this after InsertLog or the buffer will get reset
-	c.stderr.Close()
 
 	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
 		return err

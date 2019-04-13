@@ -645,8 +645,8 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 	defer span.End()
 
 	// TODO it's possible we can get rid of this (after getting rid of logs API) - may need for call id/debug mode still
-	// TODO there's a timeout race for swapping this back if the container doesn't get killed for timing out, and don't you forget it
 	swapBack := s.container.swap(call.stderr, &call.Stats)
+	defer call.stderr.Close()
 	defer swapBack()
 
 	req := createUDSRequest(ctx, call)
@@ -1204,9 +1204,11 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 	if _, ok := stderr.(common.NoopReadWriteCloser); !ok {
 		gw := common.NewGhostWriter()
 		buf1 := bufPool.Get().(*bytes.Buffer)
-		sec := &nopCloser{&logWriter{
+		// TODO(reed): this logger may have garbage in it between calls, easy fix
+		// is to make a new one each swap, it's cheap enough to be doable.
+		sec := &nopCloser{newLogWriter(
 			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
-		}}
+		)}
 		gw.Swap(newLineWriterWithBuffer(buf1, sec))
 		stderr = gw
 		bufs = append(bufs, buf1)
@@ -1336,6 +1338,7 @@ func (c *container) DisableNet() bool                   { return c.disableNet }
 func (c *container) WriteStat(ctx context.Context, stat driver_stats.Stat) {
 	for key, value := range stat.Metrics {
 		if m, ok := dockerMeasures[key]; ok {
+			common.Logger(ctx).WithField(key, value).Info("container stats")
 			stats.Record(ctx, m.M(int64(value)))
 		}
 	}
