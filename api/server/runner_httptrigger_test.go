@@ -245,7 +245,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 	multiLogExpectHot := []string{"BeginOfLogs" /*, "EndOfLogs" */}
 
 	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`                                     // crash container
-	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 120000000}`                           // ask for 120MB
+	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 120000000000}`                        // ask for 120GB
 	ok := `{"echoContent": "_TRX_ID_", "responseContentType": "application/json; charset=utf-8", "isDebug": true}` // good response / ok
 	respTypeLie := `{"echoContent": "_TRX_ID_", "responseContentType": "foo/bar", "isDebug": true}`                // Content-Type: foo/bar
 

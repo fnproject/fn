@@ -171,8 +171,8 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	// Therefore, not testing for EndOfLogs for hot containers (which has complex I/O processing) anymore.
 	multiLogExpectHot := []string{"BeginOfLogs" /*, "EndOfLogs" */}
 
-	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`           // crash container
-	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 120000000}` // ask for 120MB
+	crasher := `{"echoContent": "_TRX_ID_", "isDebug": true, "isCrash": true}`              // crash container
+	oomer := `{"echoContent": "_TRX_ID_", "isDebug": true, "allocateMemory": 120000000000}` // ask for 120GB
 	// XXX(reed): do we have an invalid http response? no right?
 	ok := `{"echoContent": "_TRX_ID_", "responseContentType": "application/json; charset=utf-8", "isDebug": true}` // good response / ok
 	respTypeLie := `{"echoContent": "_TRX_ID_", "responseContentType": "foo/bar", "isDebug": true}`                // Content-Type: foo/bar
