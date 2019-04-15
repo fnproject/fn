@@ -664,14 +664,15 @@ func WithoutFnInvokeEndpoints() Option {
 // WithJaeger maps EnvJaegerURL
 func WithJaeger(jaegerURL string) Option {
 	return func(ctx context.Context, s *Server) error {
-		// ex: "http://localhost:14268"
+		// ex: "http://localhost:14268/api/traces?format=jaeger.thrift"
 		if jaegerURL == "" {
 			return nil
 		}
 
 		exporter, err := jaeger.NewExporter(jaeger.Options{
-			Endpoint:    jaegerURL,
-			ServiceName: "fn",
+			CollectorEndpoint: jaegerURL,
+			Process:           jaeger.Process{ServiceName: "fnserver"},
+			OnError:           func(err error) { logrus.WithError(err).Error("Error when uploading spans to Jaeger") },
 		})
 		if err != nil {
 			return fmt.Errorf("error connecting to jaeger: %v", err)

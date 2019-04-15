@@ -66,20 +66,15 @@ func optionalCorsWrap(r *gin.Engine) {
 
 // we should use http grr
 func traceWrap(c *gin.Context) {
-	appKey, err := tag.NewKey("fn_appname")
+	appIDKey, err := tag.NewKey("fn.app_id")
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	appIDKey, err := tag.NewKey("fn_app_id")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	fnKey, err := tag.NewKey("fn_fn_id")
+	fnKey, err := tag.NewKey("fn.fn_id")
 	if err != nil {
 		logrus.Fatal(err)
 	}
 	ctx, err := tag.New(c.Request.Context(),
-		tag.Insert(appKey, c.Param(api.AppName)),
 		tag.Insert(appIDKey, c.Param(api.AppID)),
 		tag.Insert(fnKey, c.Param(api.FnID)),
 	)
@@ -90,8 +85,14 @@ func traceWrap(c *gin.Context) {
 	// TODO inspect opencensus more and see if we need to define a header ourselves
 	// to trigger per-request spans (we will want this), we can set sampler here per request.
 
-	ctx, serverSpan := trace.StartSpan(ctx, "serve_http")
-	defer serverSpan.End()
+	ctx, span := trace.StartSpan(ctx, "serve_http")
+	defer span.End()
+
+	// spans like these, not tags
+	span.AddAttributes(
+		trace.StringAttribute("fn.app_id", c.Param(api.AppID)),
+		trace.StringAttribute("fn.fn_id", c.Param(api.FnID)),
+	)
 
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()

@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/propagation"
 )
@@ -232,19 +233,24 @@ func (a *agent) Close() error {
 
 func (a *agent) Submit(callI Call) error {
 	call := callI.(*call)
-	ctx, span := trace.StartSpan(call.req.Context(), "agent_submit")
+
+	ctx := call.req.Context()
+
+	callIDKey, err := tag.NewKey("agent.call_id")
+	if err != nil {
+		return err
+	}
+	ctx, err = tag.New(ctx, tag.Insert(callIDKey, call.ID))
+	if err != nil {
+		return err
+	}
+
+	ctx, span := trace.StartSpan(ctx, "agent_submit")
 	defer span.End()
 
-	statsCalls(ctx)
+	span.AddAttributes(trace.StringAttribute("agent.call_id", call.ID))
 
-	if !a.shutWg.AddSession(1) {
-		statsTooBusy(ctx)
-		return models.ErrCallTimeoutServerBusy
-	}
-	defer a.shutWg.DoneSession()
-
-	err := a.submit(ctx, call)
-	return err
+	return a.submit(ctx, call)
 }
 
 func (a *agent) startStateTrackers(ctx context.Context, call *call) {
@@ -256,6 +262,14 @@ func (a *agent) endStateTrackers(ctx context.Context, call *call) {
 }
 
 func (a *agent) submit(ctx context.Context, call *call) error {
+	statsCalls(ctx)
+
+	if !a.shutWg.AddSession(1) {
+		statsTooBusy(ctx)
+		return models.ErrCallTimeoutServerBusy
+	}
+	defer a.shutWg.DoneSession()
+
 	statsEnqueue(ctx)
 
 	a.startStateTrackers(ctx, call)
