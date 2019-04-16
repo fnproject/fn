@@ -201,7 +201,6 @@ type Server struct {
 	// TODO: extend this to cover gRPC options.
 	svcConfigs map[string]*http.Server
 
-	// Agent enqueue  and read stores
 	lbReadAccess           agent.ReadDataAccess
 	noHTTTPTriggerEndpoint bool
 	noFnInvokeEndpoint     bool
@@ -335,8 +334,7 @@ func WithDBURL(dbURL string) Option {
 			if err != nil {
 				return err
 			}
-			s.datastore = ds
-			s.lbReadAccess = agent.NewCachedDataAccess(s.datastore)
+			return WithDatastore(ds)(ctx, s)
 		}
 		return nil
 	}
@@ -361,7 +359,7 @@ func WithTLS(service string, tlsCfg *tls.Config) Option {
 // WithReadDataAccess overrides the LB read DataAccess for a server
 func WithReadDataAccess(ds agent.ReadDataAccess) Option {
 	return func(ctx context.Context, s *Server) error {
-		s.lbReadAccess = ds
+		s.lbReadAccess = agent.NewMetricReadDataAccess(ds)
 		return nil
 	}
 }
@@ -370,8 +368,10 @@ func WithReadDataAccess(ds agent.ReadDataAccess) Option {
 func WithDatastore(ds models.Datastore) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.datastore = ds
+		s.datastore = datastore.Wrap(s.datastore)
+		s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.fnListeners, s.triggerListeners)
 		if s.lbReadAccess == nil {
-			s.lbReadAccess = agent.NewCachedDataAccess(ds)
+			return WithReadDataAccess(agent.NewCachedDataAccess(s.datastore))(ctx, s)
 		}
 		return nil
 	}
@@ -397,10 +397,6 @@ func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
 func WithFullAgent() Option {
 	return func(ctx context.Context, s *Server) error {
 		s.nodeType = ServerTypeFull
-
-		if s.datastore == nil {
-			return errors.New("full nodes must configure FN_DB_URL")
-		}
 		s.agent = agent.New()
 		return nil
 	}
@@ -414,9 +410,6 @@ func WithAgentFromEnv() Option {
 		case ServerTypeAPI:
 			return errors.New("should not initialize an agent for an Fn API node")
 		case ServerTypePureRunner:
-			if s.datastore != nil {
-				return errors.New("pure runner nodes must not be configured with a datastore (FN_DB_URL)")
-			}
 			cancelCtx, cancel := context.WithCancel(ctx)
 			prAgent, err := agent.DefaultPureRunner(cancel, s.svcConfigs[GRPCServer].Addr, s.svcConfigs[GRPCServer].TLSConfig)
 			if err != nil {
@@ -429,9 +422,6 @@ func WithAgentFromEnv() Option {
 			runnerURL := getEnv(EnvRunnerURL, "")
 			if runnerURL == "" {
 				return errors.New("no FN_RUNNER_API_URL provided for an Fn NuLB node")
-			}
-			if s.datastore != nil {
-				return errors.New("lb nodes must not be configured with a datastore (FN_DB_URL)")
 			}
 
 			cl, err := hybrid.NewClient(runnerURL)
@@ -454,7 +444,10 @@ func WithAgentFromEnv() Option {
 				placer = pool.NewNaivePlacer(&placerCfg)
 			}
 
-			s.lbReadAccess = agent.NewCachedDataAccess(cl)
+			err = WithReadDataAccess(agent.NewCachedDataAccess(cl))(ctx, s)
+			if err != nil {
+				return errors.New("LBAgent creation failed")
+			}
 			s.agent, err = agent.NewLBAgent(runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
@@ -499,6 +492,7 @@ func WithAdminServer(port int) Option {
 	}
 }
 
+// WithHTTPConfig allows configuring specific http servers
 func WithHTTPConfig(service string, cfg *http.Server) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.svcConfigs[service] = cfg
@@ -528,6 +522,11 @@ func New(ctx context.Context, opts ...Option) *Server {
 			AdminServer: &http.Server{},
 			GRPCServer:  &http.Server{},
 		},
+		// MUST initialize these before opts
+		appListeners:     new(appListeners),
+		fnListeners:      new(fnListeners),
+		triggerListeners: new(triggerListeners),
+
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
 
@@ -595,14 +594,6 @@ func New(ctx context.Context, opts ...Option) *Server {
 	s.Router.Use(panicWrap)
 	s.AdminRouter.Use(panicWrap)
 	s.bindHandlers(ctx)
-
-	s.appListeners = new(appListeners)
-	s.fnListeners = new(fnListeners)
-	s.triggerListeners = new(triggerListeners)
-
-	// TODO it's not clear that this is always correct as the read store  won't  get wrapping
-	s.datastore = datastore.Wrap(s.datastore)
-	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.fnListeners, s.triggerListeners)
 
 	return s
 }

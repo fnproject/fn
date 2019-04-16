@@ -57,12 +57,13 @@ func (s *Server) handleFnInvokeCall(c *gin.Context) {
 // handleTriggerHTTPFunctionCall2 executes the function and returns an error
 // Requires the following in the context:
 func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
-	fn, err := s.lbReadAccess.GetFnByID(c, c.Param(api.FnID))
+	ctx := c.Request.Context()
+	fn, err := s.lbReadAccess.GetFnByID(ctx, c.Param(api.FnID))
 	if err != nil {
 		return err
 	}
 
-	app, err := s.lbReadAccess.GetAppByID(c, fn.AppID)
+	app, err := s.lbReadAccess.GetAppByID(ctx, fn.AppID)
 	if err != nil {
 		return err
 	}
@@ -71,7 +72,7 @@ func (s *Server) handleFnInvokeCall2(c *gin.Context) error {
 	if models.IsFuncError(err) || err == nil {
 		// report all user-directed errors and function responses from here, after submit has run.
 		// this is our never ending attempt to distinguish user and platform errors.
-		ctx, err := tag.New(c.Request.Context(),
+		ctx, err := tag.New(ctx,
 			tag.Insert(whodunitKey, "user"),
 		)
 		if err != nil {
