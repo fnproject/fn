@@ -644,7 +644,6 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 	ctx, span := trace.StartSpan(ctx, "agent_dispatch_httpstream")
 	defer span.End()
 
-	// TODO it's possible we can get rid of this (after getting rid of logs API) - may need for call id/debug mode still
 	swapBack := s.container.swap(call.stderr, &call.Stats)
 	defer call.stderr.Close()
 	defer swapBack()
