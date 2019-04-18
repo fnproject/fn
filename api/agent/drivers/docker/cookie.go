@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -36,7 +37,8 @@ type cookie struct {
 	netId string
 
 	// docker container create options created by Driver.CreateCookie
-	opts docker.CreateContainerOptions
+	opts     *container.Config
+	hostOpts *container.HostConfig
 	// task associated with this cookie
 	task drivers.ContainerTask
 	// pointer to docker driver
@@ -50,7 +52,7 @@ type cookie struct {
 	image *CachedImage
 
 	// contains created container if CreateContainer() is called
-	container *docker.Container
+	containerCreated bool
 }
 
 func (c *cookie) configureImage(log logrus.FieldLogger) {
@@ -62,25 +64,25 @@ func (c *cookie) configureLabels(log logrus.FieldLogger) {
 		return
 	}
 
-	if c.opts.Config.Labels == nil {
-		c.opts.Config.Labels = make(map[string]string)
+	if c.opts.Labels == nil {
+		c.opts.Labels = make(map[string]string)
 	}
 
-	c.opts.Config.Labels[FnAgentClassifierLabel] = c.drv.conf.ContainerLabelTag
-	c.opts.Config.Labels[FnAgentInstanceLabel] = c.drv.instanceId
+	c.opts.Labels[FnAgentClassifierLabel] = c.drv.conf.ContainerLabelTag
+	c.opts.Labels[FnAgentInstanceLabel] = c.drv.instanceId
 }
 
 func (c *cookie) configureLogger(log logrus.FieldLogger) {
 
 	conf := c.task.LoggerConfig()
 	if conf.URL == "" {
-		c.opts.HostConfig.LogConfig = docker.LogConfig{
+		c.hostOpts.LogConfig = container.LogConfig{
 			Type: "none",
 		}
 		return
 	}
 
-	c.opts.HostConfig.LogConfig = docker.LogConfig{
+	c.hostOpts.LogConfig = container.LogConfig{
 		Type: "syslog",
 		Config: map[string]string{
 			"syslog-address":  conf.URL,
@@ -94,7 +96,7 @@ func (c *cookie) configureLogger(log logrus.FieldLogger) {
 		tags = append(tags, fmt.Sprintf("%s=%s", pair.Name, pair.Value))
 	}
 	if len(tags) > 0 {
-		c.opts.HostConfig.LogConfig.Config["tag"] = strings.Join(tags, ",")
+		c.hostOpts.LogConfig.Config["tag"] = strings.Join(tags, ",")
 	}
 }
 
@@ -105,13 +107,11 @@ func (c *cookie) configureMem(log logrus.FieldLogger) {
 
 	mem := int64(c.task.Memory())
 
-	c.opts.Config.Memory = mem
-	c.opts.Config.MemorySwap = mem // disables swap
-	c.opts.Config.KernelMemory = mem
-	c.opts.HostConfig.MemorySwap = mem
-	c.opts.HostConfig.KernelMemory = mem
+	c.hostOpts.Memory = mem
+	c.hostOpts.MemorySwap = mem // disables swap TODO(reed): this doesn't seem to actually work but swappiness disables anyway?
+	c.hostOpts.KernelMemory = mem
 	var zero int64
-	c.opts.HostConfig.MemorySwappiness = &zero // disables host swap
+	c.hostOpts.MemorySwappiness = &zero
 }
 
 func (c *cookie) configureFsSize(log logrus.FieldLogger) {
@@ -120,13 +120,13 @@ func (c *cookie) configureFsSize(log logrus.FieldLogger) {
 	}
 
 	// If defined, impose file system size limit. In MB units.
-	if c.opts.HostConfig.StorageOpt == nil {
-		c.opts.HostConfig.StorageOpt = make(map[string]string)
+	if c.hostOpts.StorageOpt == nil {
+		c.hostOpts.StorageOpt = make(map[string]string)
 	}
 
 	opt := fmt.Sprintf("%vM", c.task.FsSize())
 	log.WithFields(logrus.Fields{"size": opt, "call_id": c.task.Id()}).Debug("setting storage option")
-	c.opts.HostConfig.StorageOpt["size"] = opt
+	c.hostOpts.StorageOpt["size"] = opt
 }
 
 func (c *cookie) configurePIDs(log logrus.FieldLogger) {
@@ -137,7 +137,7 @@ func (c *cookie) configurePIDs(log logrus.FieldLogger) {
 
 	pids64 := int64(pids)
 	log.WithFields(logrus.Fields{"pids": pids64, "call_id": c.task.Id()}).Debug("setting PIDs")
-	c.opts.HostConfig.PidsLimit = &pids64
+	c.hostOpts.PidsLimit = &pids64
 }
 
 func (c *cookie) configureULimits(log logrus.FieldLogger) {
@@ -171,8 +171,8 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 		return
 	}
 
-	if c.opts.HostConfig.Tmpfs == nil {
-		c.opts.HostConfig.Tmpfs = make(map[string]string)
+	if c.hostOpts.Tmpfs == nil {
+		c.hostOpts.Tmpfs = make(map[string]string)
 	}
 
 	var tmpFsOption string
@@ -185,7 +185,7 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	}
 
 	log.WithFields(logrus.Fields{"target": "/tmp", "options": tmpFsOption, "call_id": c.task.Id()}).Debug("setting tmpfs")
-	c.opts.HostConfig.Tmpfs["/tmp"] = tmpFsOption
+	c.hostOpts.Tmpfs["/tmp"] = tmpFsOption
 }
 
 func (c *cookie) configureIOFS(log logrus.FieldLogger) {
@@ -196,7 +196,7 @@ func (c *cookie) configureIOFS(log logrus.FieldLogger) {
 	}
 
 	bind := fmt.Sprintf("%s:%s", path, c.task.UDSDockerDest())
-	c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, bind)
+	c.hostOpts.Binds = append(c.hostOpts.Binds, bind)
 	log.WithFields(logrus.Fields{"bind": bind, "call_id": c.task.Id()}).Debug("setting bind")
 }
 
@@ -205,16 +205,16 @@ func (c *cookie) configureVolumes(log logrus.FieldLogger) {
 		return
 	}
 
-	if c.opts.Config.Volumes == nil {
-		c.opts.Config.Volumes = map[string]struct{}{}
+	if c.opts.Volumes == nil {
+		c.opts.Volumes = map[string]struct{}{}
 	}
 
 	for _, mapping := range c.task.Volumes() {
 		hostDir := mapping[0]
 		containerDir := mapping[1]
-		c.opts.Config.Volumes[containerDir] = struct{}{}
+		c.opts.Volumes[containerDir] = struct{}{}
 		mapn := fmt.Sprintf("%s:%s", hostDir, containerDir)
-		c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, mapn)
+		c.hostOpts.Binds = append(c.hostOpts.Binds, mapn)
 		log.WithFields(logrus.Fields{"volumes": mapn, "call_id": c.task.Id()}).Debug("setting volumes")
 	}
 }
@@ -232,8 +232,8 @@ func (c *cookie) configureCPU(log logrus.FieldLogger) {
 	period := int64(100000)
 
 	log.WithFields(logrus.Fields{"quota": quota, "period": period, "call_id": c.task.Id()}).Debug("setting CPU")
-	c.opts.HostConfig.CPUQuota = quota
-	c.opts.HostConfig.CPUPeriod = period
+	c.hostOpts.CPUQuota = quota
+	c.hostOpts.CPUPeriod = period
 }
 
 func (c *cookie) configureWorkDir(log logrus.FieldLogger) {
@@ -243,16 +243,16 @@ func (c *cookie) configureWorkDir(log logrus.FieldLogger) {
 	}
 
 	log.WithFields(logrus.Fields{"wd": wd, "call_id": c.task.Id()}).Debug("setting work dir")
-	c.opts.Config.WorkingDir = wd
+	c.opts.WorkingDir = wd
 }
 
 func (c *cookie) configureNetwork(log logrus.FieldLogger) {
-	if c.opts.HostConfig.NetworkMode != "" {
+	if c.hostOpts.NetworkMode != "" {
 		return
 	}
 
 	if c.task.DisableNet() {
-		c.opts.HostConfig.NetworkMode = "none"
+		c.hostOpts.NetworkMode = "none"
 		return
 	}
 
@@ -262,9 +262,9 @@ func (c *cookie) configureNetwork(log logrus.FieldLogger) {
 		if id != "" {
 			// We are able to fetch a container from pool. Now, use its
 			// network, ipc and pid namespaces.
-			c.opts.HostConfig.NetworkMode = fmt.Sprintf("container:%s", id)
-			//c.opts.HostConfig.IpcMode = linker
-			//c.opts.HostConfig.PidMode = linker
+			c.hostOpts.NetworkMode = container.NetworkMode(fmt.Sprintf("container:%s", id))
+			//c.hostOpts.IpcMode = linker
+			//c.hostOpts.PidMode = linker
 			c.poolId = id
 			return
 		}
@@ -276,19 +276,19 @@ func (c *cookie) configureNetwork(log logrus.FieldLogger) {
 	// if pool is not enabled or fails, then pick from defined networks if any
 	id := c.drv.network.AllocNetwork()
 	if id != "" {
-		c.opts.HostConfig.NetworkMode = id
+		c.hostOpts.NetworkMode = container.NetworkMode(id)
 		c.netId = id
 	}
 }
 
 func (c *cookie) configureHostname(log logrus.FieldLogger) {
 	// hostname and container NetworkMode is not compatible.
-	if c.opts.HostConfig.NetworkMode != "" {
+	if c.hostOpts.NetworkMode != "" {
 		return
 	}
 
 	log.WithFields(logrus.Fields{"hostname": c.drv.hostname, "call_id": c.task.Id()}).Debug("setting hostname")
-	c.opts.Config.Hostname = c.drv.hostname
+	c.opts.Hostname = c.drv.hostname
 }
 
 func (c *cookie) configureCmd(log logrus.FieldLogger) {
@@ -299,7 +299,7 @@ func (c *cookie) configureCmd(log logrus.FieldLogger) {
 	// NOTE: this is hyper-sensitive and may not be correct like this even, but it passes old tests
 	cmd := strings.Fields(c.task.Command())
 	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "cmd": cmd, "len": len(cmd)}).Debug("docker command")
-	c.opts.Config.Cmd = cmd
+	c.opts.Cmd = cmd
 }
 
 func (c *cookie) configureEnv(log logrus.FieldLogger) {
@@ -307,12 +307,12 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 		return
 	}
 
-	if c.opts.Config.Env == nil {
-		c.opts.Config.Env = make([]string, 0, len(c.task.EnvVars()))
+	if c.opts.Env == nil {
+		c.opts.Env = make([]string, 0, len(c.task.EnvVars()))
 	}
 
 	for name, val := range c.task.EnvVars() {
-		c.opts.Config.Env = append(c.opts.Config.Env, name+"="+val)
+		c.opts.Env = append(c.opts.Env, name+"="+val)
 	}
 }
 
@@ -320,17 +320,16 @@ func (c *cookie) configureSecurity(log logrus.FieldLogger) {
 	if c.drv.conf.DisableUnprivilegedContainers {
 		return
 	}
-	c.opts.Config.User = FnDockerUser
-	c.opts.HostConfig.CapDrop = []string{"all"}
-	c.opts.HostConfig.SecurityOpt = []string{"no-new-privileges:true"}
-	log.WithFields(logrus.Fields{"user": c.opts.Config.User,
-		"CapDrop": c.opts.HostConfig.CapDrop, "SecurityOpt": c.opts.HostConfig.SecurityOpt, "call_id": c.task.Id()}).Debug("setting security")
+	c.opts.User = FnDockerUser
+	c.hostOpts.CapDrop = []string{"all"}
+	c.hostOpts.SecurityOpt = []string{"no-new-privileges:true"}
+	log.WithFields(logrus.Fields{"user": c.opts.User, "CapDrop": c.hostOpts.CapDrop, "SecurityOpt": c.hostOpts.SecurityOpt, "call_id": c.task.Id()}).Debug("setting security")
 }
 
 // implements Cookie
 func (c *cookie) Close(ctx context.Context) error {
 	var err error
-	if c.container != nil {
+	if c.containerCreated {
 		err = c.drv.docker.RemoveContainer(docker.RemoveContainerOptions{
 			ID: c.task.Id(), Force: true, RemoveVolumes: true, Context: ctx})
 		if err != nil {
@@ -479,7 +478,7 @@ func (c *cookie) CreateContainer(ctx context.Context) error {
 	if c.image == nil {
 		log.Fatal("invalid usage: image not validated")
 	}
-	if c.container != nil {
+	if c.containerCreated {
 		return nil
 	}
 
@@ -487,10 +486,9 @@ func (c *cookie) CreateContainer(ctx context.Context) error {
 
 	opts := c.opts
 	hostOpts := c.hostOpts
-	nwOpts := c.nwOpts
-	createOptions.Context = ctx
 
-	c.container, err = c.drv.realdocker.ContainerCreate(ctx, opts, hostOpps, nwOpts, "")
+	_, err = c.drv.docker.ContainerCreate(ctx, opts, hostOpts, nil, c.task.Id())
+	c.containerCreated = true
 
 	// IMPORTANT: The return code 503 here is controversial. Here we treat disk pressure as a temporary
 	// service too busy event that will likely to correct itself. Here with 503 we allow this request

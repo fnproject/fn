@@ -167,29 +167,26 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
 
-	containerOpts := &container.Config{
-		Name: task.Id(),
-		Config: &docker.Config{
-			Cmd:          strings.Fields(task.Command()),
-			Hostname:     task.Id(),
-			Image:        task.Image(),
-			Volumes:      map[string]struct{}{},
-			OpenStdin:    false,
-			AttachStdout: false,
-			AttachStderr: false,
-			AttachStdin:  false,
-			StdinOnce:    false,
-		},
+	config := &container.Config{
+		Cmd:          strings.Fields(task.Command()),
+		Hostname:     task.Id(),
+		Image:        task.Image(),
+		Volumes:      map[string]struct{}{},
+		OpenStdin:    false,
+		AttachStdout: false,
+		AttachStderr: false,
+		AttachStdin:  false,
+		StdinOnce:    false,
 	}
-	hostOpts := &container.HostConfig{
-		LogConfig: docker.LogConfig{
+	hostConfig := &container.HostConfig{
+		LogConfig: container.LogConfig{
 			Type: "none",
 		},
-		NetworkMode: task.netMode,
+		NetworkMode: container.NetworkMode(task.netMode),
 	}
 
 	if driver.conf.ContainerLabelTag != "" {
-		containerOpts.Config.Labels = map[string]string{
+		config.Labels = map[string]string{
 			FnAgentClassifierLabel: driver.conf.ContainerLabelTag,
 			FnAgentInstanceLabel:   driver.instanceId,
 		}
@@ -205,7 +202,7 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 	// ignore failure here
 	driver.docker.RemoveContainer(removeOpts)
 
-	_, err := driver.docker.CreateContainer(containerOpts)
+	_, err := driver.docker.ContainerCreate(ctx, config, hostConfig, nil, task.Id())
 	if err != nil {
 		log.WithError(err).Info("prefork pool container create failed")
 		return

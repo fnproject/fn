@@ -33,7 +33,6 @@ type dockerClient interface {
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	KillContainer(opts docker.KillContainerOptions) error
-	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	PauseContainer(id string, ctx context.Context) error
 	UnpauseContainer(id string, ctx context.Context) error
@@ -47,6 +46,9 @@ type dockerClient interface {
 	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
 	AddEventListener(ctx context.Context) (chan *docker.APIEvents, error)
 	RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) error
+
+	// real docker ones
+	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -56,7 +58,10 @@ func newClient(ctx context.Context) dockerClient {
 		logrus.WithError(err).Fatal("couldn't create docker client")
 	}
 
-	if err := realclient.Ping(ctx); err != nil {
+	// this syncs to the latest possible API based on running docker version and our bindings
+	realclient.NegotiateAPIVersion(ctx)
+
+	if _, err := realclient.Ping(ctx); err != nil {
 		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
 	}
 
@@ -77,7 +82,8 @@ func newClient(ctx context.Context) dockerClient {
 }
 
 type dockerWrap struct {
-	docker *docker.Client
+	realdocker *realdocker.Client
+	docker     *docker.Client
 }
 
 var (
@@ -360,10 +366,10 @@ func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.Hos
 	return err
 }
 
-func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *docker.Container, err error) {
-	_, closer := makeTracker(opts.Context, "docker_create_container")
+func (d *dockerWrap) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (c container.ContainerCreateCreatedBody, err error) {
+	ctx, closer := makeTracker(ctx, "docker_create_container")
 	defer func() { closer(err) }()
-	c, err = d.docker.CreateContainer(opts)
+	c, err = d.realdocker.ContainerCreate(ctx, config, hostConfig, networkingConfig, containerName)
 	return c, err
 }
 
@@ -389,6 +395,8 @@ func (d *dockerWrap) RemoveImage(image string, opts docker.RemoveImageOptions) (
 }
 
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
+	return nil // XXX(reed): remove
+
 	_, closer := makeTracker(opts.Context, "docker_remove_container")
 	defer func() { closer(err) }()
 	err = d.docker.RemoveContainer(opts)

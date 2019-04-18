@@ -14,6 +14,7 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/docker/docker/api/types/container"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -374,26 +375,25 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 	_, stdoutOff := stdout.(common.NoopReadWriteCloser)
 	_, stderrOff := stderr.(common.NoopReadWriteCloser)
 
-	opts := docker.CreateContainerOptions{
-		Name: task.Id(),
-		Config: &docker.Config{
-			Image:        task.Image(),
-			OpenStdin:    !stdinOff,
-			StdinOnce:    !stdinOff,
-			AttachStdin:  !stdinOff,
-			AttachStdout: !stdoutOff,
-			AttachStderr: !stderrOff,
-		},
-		HostConfig: &docker.HostConfig{
-			ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,
-			Init:           true,
-		},
+	opts := &container.Config{
+		Image:        task.Image(),
+		OpenStdin:    !stdinOff,
+		StdinOnce:    !stdinOff,
+		AttachStdin:  !stdinOff,
+		AttachStdout: !stdoutOff,
+		AttachStderr: !stderrOff,
+	}
+	tru := true
+	hostOpts := &container.HostConfig{
+		ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,
+		Init:           &tru,
 	}
 
 	cookie := &cookie{
-		opts: opts,
-		task: task,
-		drv:  drv,
+		opts:     opts,
+		hostOpts: hostOpts,
+		task:     task,
+		drv:      drv,
 	}
 
 	// Order is important, eg. Hostname doesn't play well with Network config
