@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/agent/drivers/stats"
+	docker "github.com/fsouza/go-dockerclient"
+
 	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 	"golang.org/x/time/rate"
@@ -568,7 +570,7 @@ func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan str
 	}
 }
 
-func cherryPick(ds *docker.Stats) drivers.Stat {
+func cherryPick(ds *docker.Stats) stats.Stat {
 	// TODO cpu % is as a % of the whole system... cpu is weird since we're sharing it
 	// across a bunch of containers and it scales based on how many we're sharing with,
 	// do we want users to see as a % of system?
@@ -598,7 +600,7 @@ func cherryPick(ds *docker.Stats) drivers.Stat {
 		}
 	}
 
-	return drivers.Stat{
+	return stats.Stat{
 		Timestamp: common.DateTime(ds.Read),
 		Metrics: map[string]uint64{
 			// source: https://godoc.org/github.com/fsouza/go-dockerclient#Stats

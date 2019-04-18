@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/drivers/docker"
+	"github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -371,7 +371,7 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	}
 
 	// ensure stats histogram is reasonably bounded
-	c.Call.Stats = drivers.Decimate(240, c.Call.Stats)
+	c.Call.Stats = stats.Decimate(240, c.Call.Stats)
 
 	// NOTE call this after InsertLog or the buffer will get reset
 	c.stderr.Close()

@@ -16,6 +16,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	dockerdriver "github.com/fnproject/fn/api/agent/drivers/docker"
+	driver_stats "github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -583,9 +584,6 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// link the container id and id in the logs [for us!]
 	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
 
-	// Set current & about to execute call id
-	s.container.SetCallId(call.ID)
-
 	// link the container span to ours for additional context (start/freeze/etc.)
 	span.AddLink(trace.Link{
 		TraceID: s.containerSpan.TraceID,
@@ -594,7 +592,16 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	})
 
 	call.req = call.req.WithContext(ctx) // TODO this is funny biz reed is bad
-	return s.dispatch(ctx, call)
+	err := s.container.BeforeCall(ctx, call.Model(), call.Extensions())
+	if err != nil {
+		return err
+	}
+	err = s.dispatch(ctx, call)
+	err2 := s.container.AfterCall(ctx, call.Model(), call.Extensions())
+	if err == nil {
+		err = err2
+	}
+	return err
 }
 
 var removeHeaders = map[string]bool{
@@ -1131,6 +1138,8 @@ type container struct {
 	iofs       iofs
 	logCfg     drivers.LoggerConfig
 	close      func()
+	beforeCall drivers.BeforeCall
+	afterCall  drivers.AfterCall
 	dockerAuth dockerdriver.Auther
 
 	stderr io.Writer
@@ -1139,15 +1148,13 @@ type container struct {
 
 	// swapMu protects the stats swapping
 	swapMu sync.Mutex
-	stats  *drivers.Stats
+	stats  *driver_stats.Stats
 
 	evictor    Evictor
 	evictToken *EvictToken
-
-	// current executing call id & its lock
-	callIdLck sync.Mutex
-	callId    string
 }
+
+var _ drivers.ContainerTask = &container{}
 
 // newHotContainer creates a container that can be used for multiple sequential events
 func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Config, id string, udsWait chan error) *container {
@@ -1235,7 +1242,9 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 				// NOTE: the global trace sampler will be used, this is what we want for now at least
 			},
 		},
-		evictor: evictor,
+		evictor:    evictor,
+		beforeCall: func(context.Context, *models.Call, drivers.CallExtensions) error { return nil },
+		afterCall:  func(context.Context, *models.Call, drivers.CallExtensions) error { return nil },
 		close: func() {
 			stderr.Close()
 			for _, b := range bufs {
@@ -1261,7 +1270,7 @@ func (noopOCHTTPFormat) SpanContextFromRequest(req *http.Request) (sc trace.Span
 }
 func (noopOCHTTPFormat) SpanContextToRequest(sc trace.SpanContext, req *http.Request) {}
 
-func (c *container) swap(stderr io.Writer, cs *drivers.Stats) func() {
+func (c *container) swap(stderr io.Writer, cs *driver_stats.Stats) func() {
 	// if they aren't using a ghost writer, the logs are disabled, we can skip swapping
 	gw, ok := c.stderr.(common.GhostWriter)
 	var ostderr io.Writer
@@ -1302,22 +1311,8 @@ func (c *container) UDSDockerPath() string              { return c.iofs.DockerPa
 func (c *container) UDSDockerDest() string              { return iofsDockerMountDest }
 func (c *container) DisableNet() bool                   { return c.disableNet }
 
-func (c *container) SetCallId(callId string) {
-	c.callIdLck.Lock()
-	c.callId = callId
-	c.callIdLck.Unlock()
-}
-
-func (c *container) GetCallId() string {
-	var callId string
-	c.callIdLck.Lock()
-	callId = c.callId
-	c.callIdLck.Unlock()
-	return callId
-}
-
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
-func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
+func (c *container) WriteStat(ctx context.Context, stat driver_stats.Stat) {
 	for key, value := range stat.Metrics {
 		if m, ok := dockerMeasures[key]; ok {
 			stats.Record(ctx, m.M(int64(value)))
@@ -1373,6 +1368,29 @@ func (c *container) Close() {
 		c.evictor.DeleteEvictToken(c.evictToken)
 		c.evictToken = nil
 	}
+}
+
+// WrapClose adds additional behaviour to the ContainerTask Close() call
+func (c *container) WrapClose(wrapper func(closer func()) func()) {
+	c.close = wrapper(c.close)
+}
+
+func (c *container) BeforeCall(ctx context.Context, call *models.Call, extn drivers.CallExtensions) error {
+	return c.beforeCall(ctx, call, extn)
+}
+
+// WrapBeforeCall adds additional behaviour to any BeforeCall invocation
+func (c *container) WrapBeforeCall(wrapper func(before drivers.BeforeCall) drivers.BeforeCall) {
+	c.beforeCall = wrapper(c.beforeCall)
+}
+
+func (c *container) AfterCall(ctx context.Context, call *models.Call, extn drivers.CallExtensions) error {
+	return c.afterCall(ctx, call, extn)
+}
+
+// WrapClose adds additional behaviour to the ContainerTask Close() call
+func (c *container) WrapAfterCall(wrapper func(after drivers.AfterCall) drivers.AfterCall) {
+	c.afterCall = wrapper(c.afterCall)
 }
 
 // GetEvictChan returns a channel that closes if an eviction occurs. Do not

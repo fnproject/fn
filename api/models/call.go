@@ -3,7 +3,7 @@ package models
 import (
 	"net/http"
 
-	"github.com/fnproject/fn/api/agent/drivers"
+	"github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
 )
 
@@ -120,7 +120,7 @@ type Call struct {
 	StartedAt common.DateTime `json:"started_at,omitempty" db:"started_at"`
 
 	// Stats is a list of metrics from this call's execution, possibly empty.
-	Stats drivers.Stats `json:"stats,omitempty" db:"stats"`
+	Stats stats.Stats `json:"stats,omitempty" db:"stats"`
 
 	// Error is the reason why the call failed, it is only non-empty if
 	// status is equal to "error".

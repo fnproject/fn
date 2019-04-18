@@ -10,11 +10,13 @@ import (
 	"strings"
 	"sync"
 
+	docker "github.com/fsouza/go-dockerclient"
+
 	"github.com/fnproject/fn/api/agent/drivers"
+	"github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 
-	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
@@ -54,27 +56,25 @@ type poolTask struct {
 	state   PoolTaskStateType
 }
 
-func (c *poolTask) Id() string                                       { return c.id }
-func (c *poolTask) Command() string                                  { return c.cmd }
-func (c *poolTask) Input() io.Reader                                 { return nil }
-func (c *poolTask) Logger() (io.Writer, io.Writer)                   { return nil, nil }
-func (c *poolTask) Volumes() [][2]string                             { return nil }
-func (c *poolTask) WorkDir() string                                  { return "" }
-func (c *poolTask) Close()                                           {}
-func (c *poolTask) Image() string                                    { return c.image }
-func (c *poolTask) EnvVars() map[string]string                       { return nil }
-func (c *poolTask) Memory() uint64                                   { return 0 }
-func (c *poolTask) CPUs() uint64                                     { return 0 }
-func (c *poolTask) FsSize() uint64                                   { return 0 }
-func (c *poolTask) TmpFsSize() uint64                                { return 0 }
-func (c *poolTask) Extensions() map[string]string                    { return nil }
-func (c *poolTask) LoggerConfig() drivers.LoggerConfig               { return drivers.LoggerConfig{} }
-func (c *poolTask) WriteStat(ctx context.Context, stat drivers.Stat) {}
-func (c *poolTask) UDSAgentPath() string                             { return "" }
-func (c *poolTask) UDSDockerPath() string                            { return "" }
-func (c *poolTask) UDSDockerDest() string                            { return "" }
-func (c *poolTask) GetCallId() string                                { return "" }
-func (c *poolTask) SetCallId(string)                                 {}
+func (c *poolTask) Id() string                                     { return c.id }
+func (c *poolTask) Command() string                                { return c.cmd }
+func (c *poolTask) Input() io.Reader                               { return nil }
+func (c *poolTask) Logger() (io.Writer, io.Writer)                 { return nil, nil }
+func (c *poolTask) Volumes() [][2]string                           { return nil }
+func (c *poolTask) WorkDir() string                                { return "" }
+func (c *poolTask) Close()                                         {}
+func (c *poolTask) Image() string                                  { return c.image }
+func (c *poolTask) EnvVars() map[string]string                     { return nil }
+func (c *poolTask) Memory() uint64                                 { return 0 }
+func (c *poolTask) CPUs() uint64                                   { return 0 }
+func (c *poolTask) FsSize() uint64                                 { return 0 }
+func (c *poolTask) TmpFsSize() uint64                              { return 0 }
+func (c *poolTask) Extensions() map[string]string                  { return nil }
+func (c *poolTask) LoggerConfig() drivers.LoggerConfig             { return drivers.LoggerConfig{} }
+func (c *poolTask) WriteStat(ctx context.Context, stat stats.Stat) {}
+func (c *poolTask) UDSAgentPath() string                           { return "" }
+func (c *poolTask) UDSDockerPath() string                          { return "" }
+func (c *poolTask) UDSDockerDest() string                          { return "" }
 
 type dockerPoolItem struct {
 	id     string
