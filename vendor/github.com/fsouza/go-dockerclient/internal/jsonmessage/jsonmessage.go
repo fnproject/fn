@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Nvveen/Gotty"
-	"github.com/docker/go-units"
+	units "github.com/docker/go-units"
 	"github.com/fsouza/go-dockerclient/internal/term"
+	gotty "github.com/ijc/Gotty"
 )
 
 // RFC3339NanoFixed is time.RFC3339Nano with nanoseconds padded using zeros to
@@ -144,13 +144,13 @@ type JSONMessage struct {
 	Stream          string        `json:"stream,omitempty"`
 	Status          string        `json:"status,omitempty"`
 	Progress        *JSONProgress `json:"progressDetail,omitempty"`
-	ProgressMessage string        `json:"progress,omitempty"` //deprecated
+	ProgressMessage string        `json:"progress,omitempty"` // deprecated
 	ID              string        `json:"id,omitempty"`
 	From            string        `json:"from,omitempty"`
 	Time            int64         `json:"time,omitempty"`
 	TimeNano        int64         `json:"timeNano,omitempty"`
 	Error           *JSONError    `json:"errorDetail,omitempty"`
-	ErrorMessage    string        `json:"error,omitempty"` //deprecated
+	ErrorMessage    string        `json:"error,omitempty"` // deprecated
 	// Aux contains out-of-band data, such as digests for push signing and image id after building.
 	Aux *json.RawMessage `json:"aux,omitempty"`
 }
@@ -248,11 +248,11 @@ func (jm *JSONMessage) Display(out io.Writer, termInfo termInfo) error {
 	if termInfo != nil && jm.Stream == "" && jm.Progress != nil {
 		clearLine(out, termInfo)
 		endl = "\r"
-		_, err := fmt.Fprintf(out, endl)
+		_, err := fmt.Fprint(out, endl)
 		if err != nil {
 			return err
 		}
-	} else if jm.Progress != nil && jm.Progress.String() != "" { //disable progressbar in non-terminal
+	} else if jm.Progress != nil && jm.Progress.String() != "" { // disable progressbar in non-terminal
 		return nil
 	}
 	if jm.TimeNano != 0 {
@@ -283,7 +283,7 @@ func (jm *JSONMessage) Display(out io.Writer, termInfo termInfo) error {
 		if err != nil {
 			return err
 		}
-	} else if jm.ProgressMessage != "" { //deprecated
+	} else if jm.ProgressMessage != "" { // deprecated
 		_, err := fmt.Fprintf(out, "%s %s%s", jm.Status, jm.ProgressMessage, endl)
 		if err != nil {
 			return err
