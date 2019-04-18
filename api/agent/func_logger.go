@@ -14,8 +14,8 @@ var (
 	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
-// * [always] writes bytes per line to stderr as DEBUG
-func setupLogger(level string, c *models.Call) io.WriteCloser {
+// the returned writer writes bytes per line to stderr
+func setupLogger(c *models.Call, level string) io.WriteCloser {
 	lbuf := bufPool.Get().(*bytes.Buffer)
 
 	close := func() {
@@ -27,14 +27,14 @@ func setupLogger(level string, c *models.Call) io.WriteCloser {
 	stderrLogger := logrus.WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "fn_id": c.FnID, "image": c.Image, "call_id": c.ID})
 	loggo := newLogWriter(stderrLogger, level)
 	linew := newLineWriterWithBuffer(lbuf, loggo)
-	linew = &fCloser{
+	return &fCloser{
+		Writer: linew,
 		close: func() error {
 			err := linew.Close()
 			close()
 			return err
 		},
 	}
-	return linew
 }
 
 // implements passthrough WriteCloser with overwritable Close

@@ -1206,10 +1206,10 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		// fix is to make a new one each swap, it's cheap enough to be doable.
 		// TODO(reed): we should only do this if they configure to log stderr, not if they use WithLogger(),
 		// for now use explicit disable with DisableDebugUserLogs
-		sec := &nopCloser{newLogWriter(
+		sec := newLogWriter(
 			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
 			cfg.UserLogLevel,
-		)}
+		)
 		gw.Swap(newLineWriterWithBuffer(buf1, sec))
 		stderr = gw
 		bufs = append(bufs, buf1)

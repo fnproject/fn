@@ -144,6 +144,3 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 	bufPool.Put(buf) // at this point, submit returned without timing out, so we can re-use this one
 	return nil
 }
-
-func getCallOptions(req *http.Request, app *models.App, fn *models.Fn, trig *models.Trigger, rw http.ResponseWriter) []agent.CallOpt {
-}

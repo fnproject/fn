@@ -45,11 +45,11 @@ type CallOverrider func(*http.Request, *models.Call, map[string]string) (map[str
 // CallOpt allows configuring a call before execution
 // TODO(reed): consider the interface here, all options must be defined in agent and flexible
 // enough for usage by extenders of fn, this straddling is painful. consider models.Call?
-type CallOpt func(c *call) error
+type CallOpt func(Config, *call) error
 
 // FromHTTPFnRequest Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		id := id.New().String()
 
 		var syslogURL string
@@ -121,7 +121,7 @@ func reqURL(req *http.Request) string {
 
 // FromModel creates a call object from an existing stored call model object, reading the body from the stored call payload
 func FromModel(mCall *models.Call) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.Call = mCall
 
 		req, err := http.NewRequest(c.Method, c.URL, strings.NewReader(c.Payload))
@@ -138,7 +138,7 @@ func FromModel(mCall *models.Call) CallOpt {
 
 // FromModelAndInput creates a call object from an existing stored call model object , reading the body from a provided stream
 func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.Call = mCall
 
 		req, err := http.NewRequest(c.Method, c.URL, in)
@@ -156,7 +156,7 @@ func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 // WithTrigger adds trigger specific bits to a call.
 // TODO consider removal, this is from a shuffle
 func WithTrigger(t *models.Trigger) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		// right now just set the trigger id
 		c.TriggerID = t.ID
 		return nil
@@ -166,7 +166,7 @@ func WithTrigger(t *models.Trigger) CallOpt {
 // WithWriter sets the writer that the call uses to send its output message to
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.respWriter = w
 		return nil
 	}
@@ -174,7 +174,7 @@ func WithWriter(w io.Writer) CallOpt {
 
 // WithLogger sets stderr to the provided one
 func WithLogger(w io.ReadWriteCloser) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.stderr = w
 		return nil
 	}
@@ -182,7 +182,7 @@ func WithLogger(w io.ReadWriteCloser) CallOpt {
 
 // InvokeDetached mark a call to be a detached call
 func InvokeDetached() CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.Model().Type = models.TypeDetached
 		return nil
 	}
@@ -190,7 +190,7 @@ func InvokeDetached() CallOpt {
 
 // WithContext overrides the context on the call
 func WithContext(ctx context.Context) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.req = c.req.WithContext(ctx)
 		return nil
 	}
@@ -199,7 +199,7 @@ func WithContext(ctx context.Context) CallOpt {
 // WithExtensions adds internal attributes to the call that can be interpreted by extensions in the agent
 // Pure runner can use this to pass an extension to the call
 func WithExtensions(extensions map[string]string) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.extensions = extensions
 		return nil
 	}
@@ -207,7 +207,7 @@ func WithExtensions(extensions map[string]string) CallOpt {
 
 // WithDockerAuth configures a call to retrieve credentials for an image pull
 func WithDockerAuth(auth docker.Auther) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.dockerAuth = auth
 		return nil
 	}
@@ -217,13 +217,12 @@ func WithDockerAuth(auth docker.Auther) CallOpt {
 // Configure UserLogLevel or DisableDebugUserLogs on agent to change behavior.
 func WithStderrLogger() CallOpt {
 	// TODO(reed): we could take a context here which would allow request level logging vars on ctx to be used here too
-	return func(c *call) error {
-		// TODO(reed): fucking hell this is a pain to configure
-		if a.cfg.DisableDebugUserLogs {
+	return func(cfg Config, c *call) error {
+		if cfg.DisableDebugUserLogs {
 			return nil
 		}
 
-		c.stderr = setupLogger(a.cfg.UserLogLevel, c.Call)
+		c.stderr = setupLogger(c.Call, cfg.UserLogLevel)
 		return nil
 	}
 }
@@ -238,7 +237,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	opts = append(opts, a.callOpts...)
 
 	for _, o := range opts {
-		err := o(&c)
+		err := o(a.cfg, &c)
 		if err != nil {
 			return nil, err
 		}
