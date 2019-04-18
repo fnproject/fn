@@ -10,13 +10,12 @@ import (
 	"strings"
 	"sync"
 
-	docker "github.com/fsouza/go-dockerclient"
-
+	"github.com/docker/docker/api/types/container"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
-
+	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
@@ -168,7 +167,7 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
 
-	containerOpts := docker.CreateContainerOptions{
+	containerOpts := &container.Config{
 		Name: task.Id(),
 		Config: &docker.Config{
 			Cmd:          strings.Fields(task.Command()),
@@ -181,13 +180,12 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 			AttachStdin:  false,
 			StdinOnce:    false,
 		},
-		HostConfig: &docker.HostConfig{
-			LogConfig: docker.LogConfig{
-				Type: "none",
-			},
-			NetworkMode: task.netMode,
+	}
+	hostOpts := &container.HostConfig{
+		LogConfig: docker.LogConfig{
+			Type: "none",
 		},
-		Context: ctx,
+		NetworkMode: task.netMode,
 	}
 
 	if driver.conf.ContainerLabelTag != "" {

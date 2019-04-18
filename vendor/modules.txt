@@ -8,29 +8,42 @@ github.com/containerd/continuity/pathdriver
 github.com/coreos/go-semver/semver
 # github.com/dchest/siphash v1.2.0
 github.com/dchest/siphash
-# github.com/docker/docker v0.7.3-0.20190309235953-33c3200e0d16
+# github.com/docker/distribution v2.7.1+incompatible
+github.com/docker/distribution/reference
+github.com/docker/distribution/registry/api/errcode
+github.com/docker/distribution/digestset
+# github.com/docker/docker v0.7.3-0.20190417225312-65e432abe335
+github.com/docker/docker/api/types/container
+github.com/docker/docker/api/types/network
+github.com/docker/docker/client
 github.com/docker/docker/api/types/registry
 github.com/docker/docker/api/types/swarm
 github.com/docker/docker/pkg/fileutils
 github.com/docker/docker/pkg/homedir
 github.com/docker/docker/pkg/stdcopy
-github.com/docker/docker/api/types/container
+github.com/docker/docker/api/types/blkiodev
 github.com/docker/docker/api/types/mount
-github.com/docker/docker/api/types/network
+github.com/docker/docker/api/types/strslice
+github.com/docker/docker/api/types/filters
+github.com/docker/docker/errdefs
+github.com/docker/docker/api
+github.com/docker/docker/api/types
+github.com/docker/docker/api/types/events
+github.com/docker/docker/api/types/image
+github.com/docker/docker/api/types/time
+github.com/docker/docker/api/types/versions
+github.com/docker/docker/api/types/volume
 github.com/docker/docker/api/types/swarm/runtime
 github.com/docker/docker/pkg/idtools
 github.com/docker/docker/pkg/longpath
 github.com/docker/docker/pkg/pools
 github.com/docker/docker/pkg/system
-github.com/docker/docker/api/types/blkiodev
-github.com/docker/docker/api/types/strslice
-github.com/docker/docker/api/types/filters
-github.com/docker/docker/errdefs
 github.com/docker/docker/pkg/ioutils
 github.com/docker/docker/pkg/mount
-github.com/docker/docker/api/types/versions
 # github.com/docker/go-connections v0.4.0
 github.com/docker/go-connections/nat
+github.com/docker/go-connections/sockets
+github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-units v0.3.3
 github.com/docker/go-units
 # github.com/fnproject/fdk-go v0.0.0-20181025170718-26ed643bea68
@@ -154,8 +167,10 @@ golang.org/x/net/context
 golang.org/x/net/internal/timeseries
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
+golang.org/x/net/proxy
 golang.org/x/net/http/httpguts
 golang.org/x/net/idna
+golang.org/x/net/internal/socks
 # golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
 golang.org/x/sync/semaphore
 # golang.org/x/sys v0.0.0-20190310054646-10058d7d4faa

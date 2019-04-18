@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	realdocker "github.com/docker/docker/client"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
@@ -30,7 +33,7 @@ type dockerClient interface {
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	KillContainer(opts docker.KillContainerOptions) error
-	CreateContainer(opts docker.CreateContainerOptions) (*docker.Container, error)
+	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	PauseContainer(id string, ctx context.Context) error
 	UnpauseContainer(id string, ctx context.Context) error
@@ -48,6 +51,15 @@ type dockerClient interface {
 
 // TODO: switch to github.com/docker/engine-api
 func newClient(ctx context.Context) dockerClient {
+	realclient, err := realdocker.NewClientWithOpts(realdocker.FromEnv)
+	if err != nil {
+		logrus.WithError(err).Fatal("couldn't create docker client")
+	}
+
+	if err := realclient.Ping(ctx); err != nil {
+		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
+	}
+
 	// TODO this was much easier, don't need special settings at the moment
 	// docker, err := docker.NewClient(conf.Docker)
 	client, err := docker.NewClientFromEnv()
@@ -59,7 +71,7 @@ func newClient(ctx context.Context) dockerClient {
 		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
 	}
 
-	wrap := &dockerWrap{docker: client}
+	wrap := &dockerWrap{realdocker: realclient, docker: client}
 	go wrap.listenEventLoop(ctx)
 	return wrap
 }

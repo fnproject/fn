@@ -35,7 +35,7 @@ type cookie struct {
 	// network name from docker networks if applicable
 	netId string
 
-	// docker container create options created by Driver.CreateCookie, required for Driver.Prepare()
+	// docker container create options created by Driver.CreateCookie
 	opts docker.CreateContainerOptions
 	// task associated with this cookie
 	task drivers.ContainerTask
@@ -485,10 +485,12 @@ func (c *cookie) CreateContainer(ctx context.Context) error {
 
 	var err error
 
-	createOptions := c.opts
+	opts := c.opts
+	hostOpts := c.hostOpts
+	nwOpts := c.nwOpts
 	createOptions.Context = ctx
 
-	c.container, err = c.drv.docker.CreateContainer(createOptions)
+	c.container, err = c.drv.realdocker.ContainerCreate(ctx, opts, hostOpps, nwOpts, "")
 
 	// IMPORTANT: The return code 503 here is controversial. Here we treat disk pressure as a temporary
 	// service too busy event that will likely to correct itself. Here with 503 we allow this request
