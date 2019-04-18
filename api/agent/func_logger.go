@@ -15,7 +15,7 @@ var (
 )
 
 // * [always] writes bytes per line to stderr as DEBUG
-func setupLogger(c *models.Call) io.WriteCloser {
+func setupLogger(level string, c *models.Call) io.WriteCloser {
 	lbuf := bufPool.Get().(*bytes.Buffer)
 
 	close := func() {
@@ -25,7 +25,7 @@ func setupLogger(c *models.Call) io.WriteCloser {
 	}
 
 	stderrLogger := logrus.WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "fn_id": c.FnID, "image": c.Image, "call_id": c.ID})
-	loggo := newLogWriter(stderrLogger)
+	loggo := newLogWriter(stderrLogger, level)
 	linew := newLineWriterWithBuffer(lbuf, loggo)
 	linew = &fCloser{
 		close: func() error {
@@ -54,13 +54,19 @@ func (n *nopCloser) Close() error { return nil }
 // logWriter will log (to real stderr) every call to Write as a line. it should
 // be wrapped with a lineWriter so that the output makes sense.
 type logWriter struct {
-	// level string // XXX(reed):
-	logrus.FieldLogger
+	level  logrus.Level
+	logger logrus.FieldLogger
 	closed uint32
 }
 
-func newLogWriter(logger logrus.FieldLogger) io.WriteCloser {
-	return &logWriter{FieldLogger: logger}
+func newLogWriter(logger logrus.FieldLogger, level string) io.WriteCloser {
+	lv, err := logrus.ParseLevel(level)
+	if err != nil {
+		// TODO(reed): we should do this at the config level instead? it's an optional option to begin with tho (StderrLogger)
+		lv = logrus.InfoLevel // default
+	}
+
+	return &logWriter{logger: logger, level: lv}
 }
 
 func (l *logWriter) Write(b []byte) (int, error) {
@@ -68,7 +74,7 @@ func (l *logWriter) Write(b []byte) (int, error) {
 		// we don't want to return 0/error or the container will get shut down
 		return len(b), nil
 	}
-	l.Debug(string(b))
+	l.logger.WithFields(nil).Log(l.level, string(b))
 	return len(b), nil
 }
 

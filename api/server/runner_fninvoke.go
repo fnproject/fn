@@ -109,7 +109,7 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 		}
 	}
 
-	opts = append(opts, agent.WithWriter(rw))
+	opts = append(opts, agent.WithWriter(writer))
 	opts = append(opts, agent.WithStderrLogger())
 	if trig != nil {
 		opts = append(opts, agent.WithTrigger(trig))

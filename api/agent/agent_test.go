@@ -275,65 +275,6 @@ func TestGetCallFromModelRoundTripACall(t *testing.T) {
 	}
 }
 
-func TestLoggerIsStringerAndWorks(t *testing.T) {
-	// TODO test limit writer, logrus writer, etc etc
-
-	var call models.Call
-	logger := setupLogger(context.Background(), 1*1024*1024, true, &call)
-
-	if _, ok := logger.(fmt.Stringer); !ok {
-		// NOTE: if you are reading, maybe what you've done is ok, but be aware we were relying on this for optimization...
-		t.Fatal("you turned the logger into something inefficient and possibly better all at the same time, how dare ye!")
-	}
-
-	str := "0 line\n1 line\n2 line\n\n4 line"
-	logger.Write([]byte(str))
-
-	strGot := logger.(fmt.Stringer).String()
-
-	if strGot != str {
-		t.Fatal("logs did not match expectations, like being an adult", strGot, str)
-	}
-
-	logger.Close() // idk maybe this would panic might as well ca this
-
-	// TODO we could check for the toilet to flush here to logrus
-}
-
-func TestLoggerTooBig(t *testing.T) {
-
-	var call models.Call
-	logger := setupLogger(context.Background(), 10, true, &call)
-
-	str := fmt.Sprintf("0 line\n1 l\n-----max log size 10 bytes exceeded, truncating log-----\n")
-
-	n, err := logger.Write([]byte(str))
-	if err != nil {
-		t.Fatalf("err returned, but should not fail err=%v n=%d", err, n)
-	}
-	if n != len(str) {
-		t.Fatalf("n should be %d, but got=%d", len(str), n)
-	}
-
-	// oneeeeee moreeee time... (cue in Daft Punk), the results appear as if we wrote
-	// again... But only "limit" bytes should succeed, ignoring the subsequent writes...
-	n, err = logger.Write([]byte(str))
-	if err != nil {
-		t.Fatalf("err returned, but should not fail err=%v n=%d", err, n)
-	}
-	if n != len(str) {
-		t.Fatalf("n should be %d, but got=%d", len(str), n)
-	}
-
-	strGot := logger.(fmt.Stringer).String()
-
-	if strGot != str {
-		t.Fatalf("logs did not match expectations, like being an adult got=\n%v\nexpected=\n%v\n", strGot, str)
-	}
-
-	logger.Close()
-}
-
 type testListener struct {
 	afterCall func(context.Context, *models.Call) error
 }

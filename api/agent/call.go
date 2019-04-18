@@ -213,10 +213,17 @@ func WithDockerAuth(auth docker.Auther) CallOpt {
 	}
 }
 
-func (a *agent) WithStderrLogger() CallOpt {
+// WithStderrLogger configures a call to have its container logs logged by fn.
+// Configure UserLogLevel or DisableDebugUserLogs on agent to change behavior.
+func WithStderrLogger() CallOpt {
+	// TODO(reed): we could take a context here which would allow request level logging vars on ctx to be used here too
 	return func(c *call) error {
-		// XXX(reed): allow configuring the level / turning off
-		c.stderr = setupLogger(c.Call)
+		// TODO(reed): fucking hell this is a pain to configure
+		if a.cfg.DisableDebugUserLogs {
+			return nil
+		}
+
+		c.stderr = setupLogger(a.cfg.UserLogLevel, c.Call)
 		return nil
 	}
 }
@@ -326,10 +333,6 @@ func (c *call) RequestBody() io.ReadCloser {
 
 func (c *call) ResponseWriter() http.ResponseWriter {
 	return c.respWriter.(http.ResponseWriter)
-}
-
-func (c *call) StdErr() io.ReadWriteCloser {
-	return c.stderr
 }
 
 func (c *call) AddUserExecutionTime(dur time.Duration) {

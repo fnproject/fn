@@ -1191,9 +1191,6 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 	// have to be read or *BOTH* blocked consistently. In other words, we cannot block one and continue
 	// reading from the other one without risking head-of-line blocking.
 
-	// TODO(reed): we should let the syslog driver pick this up really but our
-	// default story sucks there
-
 	// disable container logs if they're disabled on the call (pure_runner) -
 	// users may use syslog to get container logs, unrelated to this writer.
 	// otherwise, make a line writer and allow logrus DEBUG logs to host stderr
@@ -1201,13 +1198,17 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 
 	var bufs []*bytes.Buffer
 	var stderr io.WriteCloser = call.stderr
-	if _, ok := stderr.(common.NoopReadWriteCloser); !ok {
+	if _, ok := stderr.(common.NoopReadWriteCloser); !ok && !cfg.DisableDebugUserLogs {
 		gw := common.NewGhostWriter()
 		buf1 := bufPool.Get().(*bytes.Buffer)
-		// TODO(reed): this logger may have garbage in it between calls, easy fix
-		// is to make a new one each swap, it's cheap enough to be doable.
+		// TODO(reed): this logger may have garbage in it between calls (without
+		// calling Close() to flush newlines, since we're swapping we can't), easy
+		// fix is to make a new one each swap, it's cheap enough to be doable.
+		// TODO(reed): we should only do this if they configure to log stderr, not if they use WithLogger(),
+		// for now use explicit disable with DisableDebugUserLogs
 		sec := &nopCloser{newLogWriter(
 			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "container_id": id}),
+			cfg.UserLogLevel,
 		)}
 		gw.Swap(newLineWriterWithBuffer(buf1, sec))
 		stderr = gw
@@ -1338,7 +1339,6 @@ func (c *container) DisableNet() bool                   { return c.disableNet }
 func (c *container) WriteStat(ctx context.Context, stat driver_stats.Stat) {
 	for key, value := range stat.Metrics {
 		if m, ok := dockerMeasures[key]; ok {
-			common.Logger(ctx).WithField(key, value).Info("container stats")
 			stats.Record(ctx, m.M(int64(value)))
 		}
 	}
