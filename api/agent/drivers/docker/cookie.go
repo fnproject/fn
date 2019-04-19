@@ -127,7 +127,7 @@ func (c *cookie) configurePIDs(log logrus.FieldLogger) {
 
 	pids64 := int64(pids)
 	log.WithFields(logrus.Fields{"pids": pids64, "call_id": c.task.Id()}).Debug("setting PIDs")
-	c.opts.HostConfig.PidsLimit = pids64
+	c.opts.HostConfig.PidsLimit = &pids64
 }
 
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
