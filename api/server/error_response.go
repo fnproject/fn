@@ -61,7 +61,7 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 	WriteError(ctx, w, statuscode, err)
 }
 
-// WriteError easy way to do standard error response, but can set statuscode and error message easier than handleV1ErrorResponse
+// WriteError easy way to do standard error response, but can set statuscode and error message easier than handleErrorResponse
 func WriteError(ctx context.Context, w http.ResponseWriter, statuscode int, err error) {
 	log := common.Logger(ctx)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

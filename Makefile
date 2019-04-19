@@ -54,11 +54,11 @@ fn-test-volume:
 	cd images/fn-test-volume && ./build.sh
 
 .PHONY: test-middleware
-test-middleware: test-basic
+test-middleware:
 	cd examples/middleware && go build
 
 .PHONY: test-extensions
-test-extensions: test-basic
+test-extensions:
 	cd examples/extensions && go build
 
 .PHONY: test-basic

@@ -2,8 +2,6 @@ package fnext
 
 import (
 	"net/http"
-
-	"github.com/fnproject/fn/api/models"
 )
 
 // APIHandlerFunc is a convenience to make an APIHandler.
@@ -16,21 +14,5 @@ func (f APIHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // APIHandler may be used to add an http endpoint on the versioned route of the Fn API.
 type APIHandler interface {
-	// Handle(ctx context.Context)
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
-}
-
-// APIAppHandler may be used to add an http endpoint on the versioned route of fn API,
-// at /:version/apps/:app
-type APIAppHandler interface {
-	// Handle(ctx context.Context)
-	ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App)
-}
-
-// APIAppHandlerFunc is a convenience for getting an APIAppHandler.
-type APIAppHandlerFunc func(w http.ResponseWriter, r *http.Request, app *models.App)
-
-// ServeHTTP calls f(w, r).
-func (f APIAppHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App) {
-	f(w, r, app)
 }

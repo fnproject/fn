@@ -30,14 +30,10 @@ type ExtServer interface {
 	// AddRootMiddlewareFunc add middleware for end user applications
 	AddRootMiddlewareFunc(m MiddlewareFunc)
 
-	// AddEndpoint adds an endpoint to /v1/x
+	// AddEndpoint adds an endpoint to /v2/x
 	AddEndpoint(method, path string, handler APIHandler)
-	// AddEndpoint adds an endpoint to /v1/x
+	// AddEndpoint adds an endpoint to /v2/x
 	AddEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request))
-	// AddAppEndpoint adds an endpoints to /v1/apps/:app/x
-	AddAppEndpoint(method, path string, handler APIAppHandler)
-	// AddAppEndpoint adds an endpoints to /v1/apps/:app/x
-	AddAppEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request, app *models.App))
 
 	// Datastore returns the Datastore Fn is using
 	Datastore() models.Datastore

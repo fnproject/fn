@@ -15,7 +15,7 @@ import (
 func (s *Server) handleRunnerGetTriggerBySource(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appId := c.MustGet(api.AppID).(string)
+	appID := c.Param(api.AppID)
 
 	triggerType := c.Param(api.TriggerType)
 	if triggerType == "" {
@@ -24,7 +24,7 @@ func (s *Server) handleRunnerGetTriggerBySource(c *gin.Context) {
 	}
 	triggerSource := strings.TrimPrefix(c.Param(api.TriggerSource), "/")
 
-	trigger, err := s.datastore.GetTriggerBySource(ctx, appId, triggerType, triggerSource)
+	trigger, err := s.datastore.GetTriggerBySource(ctx, appID, triggerType, triggerSource)
 
 	if err != nil {
 		handleErrorResponse(c, err)
