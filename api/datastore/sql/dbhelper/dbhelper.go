@@ -12,7 +12,6 @@ var sqlHelpers []Helper
 
 // Register registers a new SQL helper
 func Register(helper Helper) {
-	logrus.Infof("Registering sql helper '%s'", helper)
 	sqlHelpers = append(sqlHelpers, helper)
 }
 

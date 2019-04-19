@@ -2,7 +2,6 @@ package drivers
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 )
 
 type DriverFunc func(config Config) (Driver, error)
@@ -11,7 +10,6 @@ var drivers = make(map[string]DriverFunc)
 
 // Register adds  a container driver by name to this process
 func Register(name string, driverFunc DriverFunc) {
-	logrus.Infof("Registering container driver '%s'", name)
 	drivers[name] = driverFunc
 }
 
