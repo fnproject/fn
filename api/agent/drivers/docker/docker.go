@@ -1,25 +1,27 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/fnproject/fn/api/agent/drivers/stats"
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/moby/moby/api/types"
-	"github.com/moby/moby/api/types/filters"
-
 	"github.com/coreos/go-semver/semver"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/fnproject/fn/api/agent/drivers"
+	"github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 	"golang.org/x/time/rate"
@@ -180,7 +182,7 @@ func killLeakedContainers(ctx context.Context, driver *DockerDriver) {
 		ctx, cancel := context.WithTimeout(ctx, containerListTimeout)
 		containers, err = driver.docker.ContainerList(ctx, types.ContainerListOptions{
 			All:     true, // let's include containers that are not running, but not destroyed
-			Filters: filters.NewArgs(filters.KeyValuePair("label", filter)),
+			Filters: filters.NewArgs(filters.KeyValuePair{Key: "label", Value: filter}),
 		})
 		cancel()
 		if err == nil {
@@ -347,7 +349,26 @@ func loadDockerImages(ctx context.Context, driver *DockerDriver) error {
 	var log logrus.FieldLogger
 	ctx, log = common.LoggerWithFields(ctx, logrus.Fields{"stack": "loadDockerImages"})
 	log.Infof("Loading docker images from %v", driver.conf.DockerLoadFile)
-	return driver.docker.LoadImages(ctx, driver.conf.DockerLoadFile)
+
+	file, err := os.Open(filepath.Clean(driver.conf.DockerLoadFile))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	quiet := false
+	resp, err := driver.docker.ImageLoad(ctx, file, quiet)
+	if err != nil {
+		return err
+	}
+
+	var b bytes.Buffer
+	io.Copy(&b, resp.Body)
+	resp.Body.Close()
+
+	// TODO(reed): idk that we need this/if quiet works... leaving, for science
+	log.Infoln("loaded docker images: ", b.String())
+	return nil
 }
 
 func (drv *DockerDriver) Close() error {

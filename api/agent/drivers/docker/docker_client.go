@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -42,11 +40,12 @@ type dockerClient interface {
 	RemoveImage(id string, opts docker.RemoveImageOptions) error
 	Stats(opts docker.StatsOptions) error
 	Info(ctx context.Context) (*docker.DockerInfo, error)
-	LoadImages(ctx context.Context, filePath string) error
 
 	// real docker ones
 	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
+
+	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -307,23 +306,11 @@ func (d *dockerWrap) ContainerList(ctx context.Context, options types.ContainerL
 	return containers, err
 }
 
-func (d *dockerWrap) LoadImages(ctx context.Context, filePath string) (err error) {
+func (d *dockerWrap) ImageLoad(ctx context.Context, input io.Reader, quiet bool) (resp types.ImageLoadResponse, err error) {
 	ctx, closer := makeTracker(ctx, "docker_load_images")
 	defer func() { closer(err) }()
-
-	file, err := os.Open(filepath.Clean(filePath))
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// No retries here. LoadImage is typically called at startup and we fail/timeout
-	// at first attempt.
-	err = d.docker.LoadImage(docker.LoadImageOptions{
-		InputStream: file,
-		Context:     ctx,
-	})
-	return err
+	resp, err = d.realdocker.ImageLoad(ctx, input, quiet)
+	return resp, err
 }
 
 func (d *dockerWrap) ListImages(opts docker.ListImagesOptions) (images []docker.APIImages, err error) {
