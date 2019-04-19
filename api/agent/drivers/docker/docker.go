@@ -12,6 +12,8 @@ import (
 
 	"github.com/fnproject/fn/api/agent/drivers/stats"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/moby/moby/api/types"
+	"github.com/moby/moby/api/types/filters"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/docker/docker/api/types/container"
@@ -171,17 +173,14 @@ func killLeakedContainers(ctx context.Context, driver *DockerDriver) {
 	limiter := rate.NewLimiter(2.0, 1)
 
 	filter := fmt.Sprintf("%s=%s", FnAgentClassifierLabel, driver.conf.ContainerLabelTag)
-	var containers []docker.APIContainers
+	var containers []types.Container
 
 	for limiter.Wait(ctx) == nil {
 		var err error
 		ctx, cancel := context.WithTimeout(ctx, containerListTimeout)
-		containers, err = driver.docker.ListContainers(docker.ListContainersOptions{
-			All: true, // let's include containers that are not running, but not destroyed
-			Filters: map[string][]string{
-				"label": []string{filter},
-			},
-			Context: ctx,
+		containers, err = driver.docker.ContainerList(ctx, types.ContainerListOptions{
+			All:     true, // let's include containers that are not running, but not destroyed
+			Filters: filters.NewArgs(filters.KeyValuePair("label", filter)),
 		})
 		cancel()
 		if err == nil {

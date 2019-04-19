@@ -4,7 +4,6 @@ package docker
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -13,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	realdocker "github.com/docker/docker/client"
@@ -43,11 +43,9 @@ type dockerClient interface {
 	Stats(opts docker.StatsOptions) error
 	Info(ctx context.Context) (*docker.DockerInfo, error)
 	LoadImages(ctx context.Context, filePath string) error
-	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
-	AddEventListener(ctx context.Context) (chan *docker.APIEvents, error)
-	RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) error
 
 	// real docker ones
+	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
 }
 
@@ -139,19 +137,19 @@ func (d *dockerWrap) listenEventLoop(ctx context.Context) {
 // listenEvents registers an event listener to docker to stream docker events
 // and records these in stats.
 func (d *dockerWrap) listenEvents(ctx context.Context) error {
-	listener, err := d.AddEventListener(ctx)
-	if err != nil {
-		return err
-	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // this removes the event listener
 
-	defer d.RemoveEventListener(ctx, listener)
+	listener, errCh := d.realdocker.Events(ctx, types.EventsOptions{})
 
 	for {
 		select {
-		case ev := <-listener:
-			if ev == nil {
-				return errors.New("event listener closed")
+		case err := <-errCh:
+			if err == io.EOF { // event stream closed
+				return nil
 			}
+			return err // other error
+		case ev := <-listener:
 
 			ctx, err := tag.New(context.Background(),
 				tag.Upsert(eventActionKey, ev.Action),
@@ -302,10 +300,10 @@ func (d *dockerWrap) RemoveEventListener(ctx context.Context, listener chan *doc
 	return err
 }
 
-func (d *dockerWrap) ListContainers(opts docker.ListContainersOptions) (containers []docker.APIContainers, err error) {
-	_, closer := makeTracker(opts.Context, "docker_list_containers")
+func (d *dockerWrap) ContainerList(ctx context.Context, options types.ContainerListOptions) (containers []types.Container, err error) {
+	_, closer := makeTracker(ctx, "docker_list_containers")
 	defer func() { closer(err) }()
-	containers, err = d.docker.ListContainers(opts)
+	containers, err = d.realdocker.ContainerList(ctx, options)
 	return containers, err
 }
 
@@ -395,8 +393,6 @@ func (d *dockerWrap) RemoveImage(image string, opts docker.RemoveImageOptions) (
 }
 
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
-	return nil // XXX(reed): remove
-
 	_, closer := makeTracker(opts.Context, "docker_remove_container")
 	defer func() { closer(err) }()
 	err = d.docker.RemoveContainer(opts)
