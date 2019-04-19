@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -440,7 +441,8 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
-func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
+func (drv *DockerDriver) run(ctx context.Context, task drivers.ContainerTask) (drivers.WaitResult, error) {
+	container := task.Id()
 
 	log := common.Logger(ctx)
 	stdout, stderr := task.Logger()
@@ -492,13 +494,13 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		return nil, err
 	}
 
-	// we want to stop trying to collect stats when the container exits
-	// collectStats will stop when stopSignal is closed or ctx is cancelled
-	stopSignal := make(chan struct{})
-	go drv.collectStats(ctx, stopSignal, container, task)
+	ctx, cancel := context.WithCancel(ctx)
+	go drv.collectStats(ctx, task)
 
 	err = drv.docker.StartContainerWithContext(container, nil, ctx)
 	if err != nil && ctx.Err() == nil {
+		cancel() // make sure we shut down stats
+
 		if isSyslogError(err) {
 			// syslog error is a func error
 			e := models.NewAPIError(http.StatusInternalServerError, errors.New("Syslog Unavailable"))
@@ -513,7 +515,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		container: container,
 		waiter:    waiter,
 		drv:       drv,
-		done:      stopSignal,
+		done:      cancel,
 	}, nil
 }
 
@@ -529,13 +531,12 @@ type waitResult struct {
 	container string
 	waiter    docker.CloseWaiter
 	drv       *DockerDriver
-	done      chan struct{}
+	done      func() // cancel for stats
 }
 
 // waitResult implements drivers.WaitResult
 func (w *waitResult) Wait(ctx context.Context) drivers.RunResult {
-	defer close(w.done)
-
+	defer w.done()
 	// wait until container is stopped (or ctx is cancelled if sooner)
 	status, err := w.wait(ctx)
 	return &runResult{
@@ -544,60 +545,49 @@ func (w *waitResult) Wait(ctx context.Context) drivers.RunResult {
 	}
 }
 
-// Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled
-func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan struct{}, container string, task drivers.ContainerTask) {
+// Repeatedly collect stats from the specified docker container until the context is cancelled
+func (drv *DockerDriver) collectStats(ctx context.Context, task drivers.ContainerTask) {
 	ctx, span := trace.StartSpan(ctx, "docker_collect_stats")
 	defer span.End()
 
+	container := task.Id()
 	log := common.Logger(ctx)
 
-	// dockerCallDone is used to cancel the call to drv.docker.Stats when this method exits
-	dockerCallDone := make(chan bool)
-	defer close(dockerCallDone)
+	// NOTE: docker only streams every 1s. beware of load on docker when not using streaming.
+	stream := true
+	resp, err := drv.docker.ContainerStats(ctx, container, stream)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{"container": container}).Error("error streaming docker stats for task")
+		return
+	}
+	defer resp.Body.Close()
 
-	dstats := make(chan *docker.Stats, 1)
-	go func() {
-		// NOTE: docker automatically streams every 1s. we can skip or avg samples if we'd like but
-		// the memory overhead is < 1MB for 3600 stat points so this seems fine, seems better to stream
-		// (internal docker api streams) than open/close stream for 1 sample over and over.
-		// must be called in goroutine, docker.Stats() blocks
-		err := drv.docker.Stats(docker.StatsOptions{
-			ID:      container,
-			Stats:   dstats,
-			Stream:  true,
-			Done:    dockerCallDone, // A flag that enables stopping the stats operation
-			Context: common.BackgroundContext(ctx),
-		})
+	// docker only does every 1s. ticker is supposed to adjust to missed ticks, should be ok here
+	tick := time.NewTicker(1 * time.Second)
+	defer tick.Stop()
 
-		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error streaming docker stats for task")
-		}
-	}()
-
-	// collect stats until context is done (i.e. until the container is terminated)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-stopSignal:
-			return
-		case ds, ok := <-dstats:
-			if !ok {
-				return
-			}
-			stats := cherryPick(ds)
-			if !time.Time(stats.Timestamp).IsZero() {
+		case <-tick.C:
+			dec := json.NewDecoder(resp.Body)
+			var stat types.StatsJSON
+			dec.Decode(&stat)
+
+			if !time.Time(stat.Read).IsZero() {
+				stats := cherryPick(stat)
 				task.WriteStat(ctx, stats)
 			}
 		}
 	}
 }
 
-func cherryPick(ds *docker.Stats) stats.Stat {
+func cherryPick(ds types.StatsJSON) stats.Stat {
 	// TODO cpu % is as a % of the whole system... cpu is weird since we're sharing it
 	// across a bunch of containers and it scales based on how many we're sharing with,
 	// do we want users to see as a % of system?
-	systemDelta := float64(ds.CPUStats.SystemCPUUsage - ds.PreCPUStats.SystemCPUUsage)
+	systemDelta := float64(ds.CPUStats.SystemUsage - ds.PreCPUStats.SystemUsage)
 	cores := float64(len(ds.CPUStats.CPUUsage.PercpuUsage))
 	var cpuUser, cpuKernel, cpuTotal float64
 	if systemDelta > 0 {
@@ -614,7 +604,7 @@ func cherryPick(ds *docker.Stats) stats.Stat {
 	}
 
 	var blkRead, blkWrite uint64
-	for _, bioEntry := range ds.BlkioStats.IOServiceBytesRecursive {
+	for _, bioEntry := range ds.BlkioStats.IoServiceBytesRecursive {
 		switch strings.ToLower(bioEntry.Op) {
 		case "read":
 			blkRead = blkRead + bioEntry.Value

@@ -38,14 +38,14 @@ type dockerClient interface {
 	InspectImage(ctx context.Context, name string) (*docker.Image, error)
 	ListImages(opts docker.ListImagesOptions) ([]docker.APIImages, error)
 	RemoveImage(id string, opts docker.RemoveImageOptions) error
-	Stats(opts docker.StatsOptions) error
-	Info(ctx context.Context) (*docker.DockerInfo, error)
 
 	// real docker ones
-	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
+	ContainerList(context.Context, types.ContainerListOptions) ([]types.Container, error)
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
 
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
+	Info(context.Context) (types.Info, error)
+	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -320,10 +320,10 @@ func (d *dockerWrap) ListImages(opts docker.ListImagesOptions) (images []docker.
 	return images, err
 }
 
-func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err error) {
+func (d *dockerWrap) Info(ctx context.Context) (info types.Info, err error) {
 	_, closer := makeTracker(ctx, "docker_info")
 	defer func() { closer(err) }()
-	info, err = d.docker.Info()
+	info, err = d.realdocker.Info(ctx)
 	return info, err
 }
 
@@ -407,12 +407,9 @@ func (d *dockerWrap) InspectImage(ctx context.Context, name string) (img *docker
 	return img, err
 }
 
-func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
-	_, closer := makeTracker(opts.Context, "docker_stats")
+func (d *dockerWrap) ContainerStats(ctx context.Context, containerID string, stream bool) (stats types.ContainerStats, err error) {
+	_, closer := makeTracker(ctx, "docker_stats")
 	defer func() { closer(err) }()
-	err = d.docker.Stats(opts)
-	if err == io.ErrClosedPipe {
-		err = nil // ignore io closed pipe errors since every normal stats streaming lifecycle ends with io pipe close
-	}
-	return err
+	stats, err = d.realdocker.ContainerStats(ctx, containerID, stream)
+	return stats, err
 }

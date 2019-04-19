@@ -352,7 +352,7 @@ func (c *cookie) Close(ctx context.Context) error {
 
 // implements Cookie
 func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
-	return c.drv.run(ctx, c.task.Id(), c.task)
+	return c.drv.run(ctx, c.task)
 }
 
 // implements Cookie
