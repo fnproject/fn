@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -28,14 +29,18 @@ type lbAgent struct {
 	callOpts      []CallOpt
 }
 
+// DetachedResponseWriter is a concurrency safe http.ResponseWriter which
+// implements http.ResponseWriter interface, it is safe for concurrent calls to
+// WriteHeader, Write, Status, while its returned headers are not safe for
+// concurrent use across threads.
 type DetachedResponseWriter struct {
-	Headers http.Header
-	status  int
+	headers http.Header
+	status  uint32
 	acked   chan struct{}
 }
 
 func (w *DetachedResponseWriter) Header() http.Header {
-	return w.Headers
+	return w.headers
 }
 
 func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
@@ -43,18 +48,18 @@ func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
 }
 
 func (w *DetachedResponseWriter) WriteHeader(statusCode int) {
-	w.status = statusCode
+	atomic.StoreUint32(&w.status, uint32(statusCode))
 	w.acked <- struct{}{}
 }
 
 func (w *DetachedResponseWriter) Status() int {
-	return w.status
+	return int(atomic.LoadUint32(&w.status))
 }
 
-func NewDetachedResponseWriter(h http.Header, statusCode int) *DetachedResponseWriter {
+func NewDetachedResponseWriter(statusCode int) *DetachedResponseWriter {
 	return &DetachedResponseWriter{
-		Headers: h,
-		status:  statusCode,
+		headers: make(http.Header), // TODO allocation waste, this is unused but need to satisfy interface
+		status:  uint32(statusCode),
 		acked:   make(chan struct{}, 1),
 	}
 }
