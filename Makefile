@@ -70,9 +70,9 @@ test: checkfmt pull-images test-basic test-middleware test-extensions test-syste
 
 .PHONY: test-system
 test-system:
-	./system_test.sh sqlite3
-	./system_test.sh mysql
-	./system_test.sh postgres
+	./system_test.sh sqlite3 $(run)
+	./system_test.sh mysql $(run)
+	./system_test.sh postgres $(run)
 
 .PHONY: img-busybox
 img-busybox:
