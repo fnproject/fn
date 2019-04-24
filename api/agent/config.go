@@ -27,6 +27,7 @@ type Config struct {
 	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
 	MaxTotalMemory          uint64        `json:"max_total_memory_bytes"`
 	MaxFsSize               uint64        `json:"max_fs_size_mb"`
+	MaxPIDs                 uint64        `json:"max_pids"`
 	PreForkPoolSize         uint64        `json:"pre_fork_pool_size"`
 	PreForkImage            string        `json:"pre_fork_image"`
 	PreForkCmd              string        `json:"pre_fork_pool_cmd"`
@@ -81,6 +82,8 @@ const (
 	EnvMaxTotalMemory = "FN_MAX_TOTAL_MEMORY_BYTES"
 	// EnvMaxFsSize is the maximum filesystem size that a function may use
 	EnvMaxFsSize = "FN_MAX_FS_SIZE_MB"
+	// EnvMaxPIDs is the maximum number of PIDs that a function is allowed to create
+	EnvMaxPIDs = "FN_MAX_PIDS"
 	// EnvPreForkPoolSize is the number of containers pooled to steal network from, this may reduce latency
 	EnvPreForkPoolSize = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
 	// EnvPreForkImage is the image to use for the pre-fork pool
@@ -152,6 +155,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
 	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
+	err = setEnvUint(err, EnvMaxPIDs, &cfg.MaxPIDs)
 	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
 	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
 	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)

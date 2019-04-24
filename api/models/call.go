@@ -110,7 +110,7 @@ type Call struct {
 	// SyslogURL is a syslog URL to send all logs to.
 	SyslogURL string `json:"syslog_url,omitempty" db:"-"`
 
-	// Time when call completed, whether it was successul or failed. Always in UTC.
+	// Time when call completed, whether it was successful or failed. Always in UTC.
 	CompletedAt common.DateTime `json:"completed_at,omitempty" db:"completed_at"`
 
 	// Time when call was submitted. Always in UTC.

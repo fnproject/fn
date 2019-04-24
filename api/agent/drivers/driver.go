@@ -145,6 +145,10 @@ type ContainerTask interface {
 	// Filesystem size limit for the container, in megabytes.
 	FsSize() uint64
 
+	// PIDs defines the max number of PIDs allowed for the container to use. 0
+	// is unlimited.
+	PIDs() uint64
+
 	// Tmpfs Filesystem size limit for the container, in megabytes.
 	TmpFsSize() uint64
 
