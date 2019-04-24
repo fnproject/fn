@@ -98,6 +98,10 @@ func (c *cookie) configureMem(log logrus.FieldLogger) {
 	c.opts.Config.Memory = mem
 	c.opts.Config.MemorySwap = mem // disables swap
 	c.opts.Config.KernelMemory = mem
+	c.opts.HostConfig.MemorySwap = mem
+	c.opts.HostConfig.KernelMemory = mem
+	var zero int64
+	c.opts.HostConfig.MemorySwappiness = &zero // disables host swap
 }
 
 func (c *cookie) configureFsSize(log logrus.FieldLogger) {
@@ -123,7 +127,7 @@ func (c *cookie) configurePIDs(log logrus.FieldLogger) {
 
 	pids64 := int64(pids)
 	log.WithFields(logrus.Fields{"pids": pids64, "call_id": c.task.Id()}).Debug("setting PIDs")
-	c.opts.HostConfig.PidsLimit = pids64
+	c.opts.HostConfig.PidsLimit = &pids64
 }
 
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {

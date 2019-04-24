@@ -3,13 +3,11 @@ module github.com/fnproject/fn
 replace cloud.google.com/go => github.com/google/go-cloud v0.4.1-0.20181025204856-f29236cc19de
 
 require (
-	github.com/containerd/continuity v0.0.0-20181003075958-be9bd761db19 // indirect
 	github.com/coreos/go-semver v0.2.1-0.20180108230905-e214231b295a
 	github.com/dchest/siphash v1.2.0
-	github.com/docker/docker v0.7.3-0.20180904180028-c3e32938430e // indirect
 	github.com/fnproject/fdk-go v0.0.0-20181025170718-26ed643bea68
 	github.com/fsnotify/fsnotify v1.4.7
-	github.com/fsouza/go-dockerclient v1.3.2-0.20181102000906-311c4469e611
+	github.com/fsouza/go-dockerclient v1.4.0
 	github.com/gin-contrib/cors v0.0.0-20170318125340-cf4846e6a636
 	github.com/gin-contrib/sse v0.0.0-20170109093832-22d885f9ecc7 // indirect
 	github.com/gin-gonic/gin v1.3.0
@@ -28,11 +26,11 @@ require (
 	github.com/openzipkin/zipkin-go v0.1.3
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v0.9.2
-	github.com/sirupsen/logrus v1.1.1
+	github.com/sirupsen/logrus v1.3.0
 	github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f // indirect
 	go.opencensus.io v0.19.0
 	golang.org/x/net v0.0.0-20181217023233-e147a9138326
-	golang.org/x/sys v0.0.0-20181218192612-074acd46bca6
+	golang.org/x/sys v0.0.0-20190310054646-10058d7d4faa
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
 	google.golang.org/grpc v1.17.0
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
