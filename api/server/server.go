@@ -244,9 +244,6 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	}
 	opts = append(opts, WithWebPort(getEnvInt(EnvPort, DefaultPort)))
 	opts = append(opts, WithGRPCPort(getEnvInt(EnvGRPCPort, DefaultGRPCPort)))
-	opts = append(opts, WithLogFormat(getEnv(EnvLogFormat, DefaultLogFormat)))
-	opts = append(opts, WithLogLevel(getEnv(EnvLogLevel, DefaultLogLevel)))
-	opts = append(opts, WithLogDest(getEnv(EnvLogDest, DefaultLogDest), getEnv(EnvLogPrefix, "")))
 	opts = append(opts, WithZipkin(getEnv(EnvZipkinURL, "")))
 	opts = append(opts, WithJaeger(getEnv(EnvJaegerURL, "")))
 	opts = append(opts, WithPrometheus()) // TODO option to turn this off?
@@ -303,6 +300,7 @@ func WithGRPCPort(port int) Option {
 }
 
 // WithLogFormat maps EnvLogFormat
+// TODO(deprecate): caller should just call SetLogFormat
 func WithLogFormat(format string) Option {
 	return func(ctx context.Context, s *Server) error {
 		common.SetLogFormat(format)
@@ -311,6 +309,7 @@ func WithLogFormat(format string) Option {
 }
 
 // WithLogLevel maps EnvLogLevel
+// TODO(deprecate): caller should just call WithLogLevel
 func WithLogLevel(ll string) Option {
 	return func(ctx context.Context, s *Server) error {
 		common.SetLogLevel(ll)
@@ -319,6 +318,7 @@ func WithLogLevel(ll string) Option {
 }
 
 // WithLogDest maps EnvLogDest
+// TODO(deprecate): caller should just call SetLogDest
 func WithLogDest(dst, prefix string) Option {
 	return func(ctx context.Context, s *Server) error {
 		common.SetLogDest(dst, prefix)
@@ -811,16 +811,15 @@ func (s *Server) Start(ctx context.Context) {
 
 func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
-	const runHeader = `
+	logrus.Info(`
         ______
        / ____/___
       / /_  / __ \
      / __/ / / / /
-    /_/   /_/ /_/`
-	fmt.Println(runHeader)
-	fmt.Printf("        v%s\n\n", version.Version)
+    /_/   /_/ /_/
+`)
 
-	logrus.WithField("type", s.nodeType).Infof("Fn serving on `%v`", s.svcConfigs[WebServer].Addr)
+	logrus.WithFields(logrus.Fields{"type": s.nodeType, "version": version.Version}).Infof("Fn serving on `%v`", s.svcConfigs[WebServer].Addr)
 
 	installChildReaper()
 

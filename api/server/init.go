@@ -21,12 +21,18 @@ import (
 )
 
 func init() {
+	// init logging stuff in init, in case any packages log stuff on startup
+	common.SetLogFormat(getEnv(EnvLogFormat, DefaultLogFormat))
+	common.SetLogLevel(getEnv(EnvLogLevel, DefaultLogLevel))
+	common.SetLogDest(getEnv(EnvLogDest, DefaultLogDest), getEnv(EnvLogPrefix, ""))
+
 	// gin is not nice by default, this can get set in logging initialization
 	gin.SetMode(gin.ReleaseMode)
 
 	// set machine id in init() before any packages are initialized that may use it
 	// (you may change this to seed the id another way but be wary of package initialization)
 	setMachineID()
+
 }
 
 func setMachineID() {
