@@ -434,22 +434,21 @@ DataLoop:
 }
 
 func logCallFinish(log logrus.FieldLogger, msg *pb.RunnerMsg_Finished, headers http.Header, httpStatus int32) {
+	errorCode := msg.Finished.GetErrorCode()
 	errorUser := msg.Finished.GetErrorUser()
 	runnerSuccess := msg.Finished.GetSuccess()
 	logger := log.WithFields(logrus.Fields{
 		"function_error":     msg.Finished.GetErrorStr(),
 		"runner_success":     runnerSuccess,
-		"runner_error_code":  msg.Finished.GetErrorCode(),
+		"runner_error_code":  errorCode,
 		"runner_error_user":  errorUser,
 		"runner_http_status": httpStatus,
 		"fn_http_status":     headers.Get("Fn-Http-Status"),
 	})
-	if runnerSuccess {
-		logger.Info("Call finished successfully")
-	} else if errorUser {
-		logger.Info("Call finished with user error")
+	if !runnerSuccess && !errorUser && errorCode != http.StatusServiceUnavailable {
+		logger.Warn("Call finished")
 	} else {
-		logger.Error("Call finished with platform error")
+		logger.Info("Call finished")
 	}
 }
 
