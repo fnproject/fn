@@ -1206,7 +1206,8 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		MaxIdleConns:           1,
 		MaxIdleConnsPerHost:    1,
 		MaxResponseHeaderBytes: int64(cfg.MaxHdrResponseSize),
-		IdleConnTimeout:        120 * time.Second, // TODO(reed): since we only allow one, and we close them, this is gratuitous?
+		IdleConnTimeout:        1 * time.Second, // TODO(jang): revert this to 120s at the point all FDKs are known to be fixed
+                                                         // TODO(reed): since we only allow one, and we close them, this is gratuitous?
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			var d net.Dialer
 			return d.DialContext(ctx, "unix", filepath.Join(iofs.AgentPath(), udsFilename))
