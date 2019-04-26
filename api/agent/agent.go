@@ -605,16 +605,6 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	return err
 }
 
-var removeHeaders = map[string]bool{
-	"connection":        true,
-	"keep-alive":        true,
-	"trailer":           true,
-	"transfer-encoding": true,
-	"te":                true,
-	"upgrade":           true,
-	"authorization":     true,
-}
-
 func createUDSRequest(ctx context.Context, call *call) *http.Request {
 	req, err := http.NewRequest("POST", "http://localhost/call", call.req.Body)
 	if err != nil {
@@ -625,12 +615,13 @@ func createUDSRequest(ctx context.Context, call *call) *http.Request {
 	// it properly and close connections at the end, e.g. when using UDS.
 	req = req.WithContext(ctx)
 
+	// remove transport headers before passing to function
+	common.StripHopHeaders(call.req.Header)
+
 	req.Header = make(http.Header)
 	for k, vs := range call.req.Header {
-		if !removeHeaders[strings.ToLower(k)] {
-			for _, v := range vs {
-				req.Header.Add(k, v)
-			}
+		for _, v := range vs {
+			req.Header.Add(k, v)
 		}
 	}
 
@@ -722,6 +713,9 @@ func (s *hotSlot) writeResp(ctx context.Context, max uint64, resp *http.Response
 	}
 
 	rw = newSizerRespWriter(max, rw)
+
+	// remove transport headers before copying to client response
+	common.StripHopHeaders(resp.Header)
 
 	// WARNING: is the following header copy safe?
 	// if we're writing directly to the response writer, we need to set headers

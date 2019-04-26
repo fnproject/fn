@@ -262,11 +262,13 @@ func TestTriggerRunnerExecution(t *testing.T) {
 	// these tests are such a pita it's easier to comment most of them out. instead of fixing it i'm doing this fuck me yea
 	_, _, _, _, _, _, _, _, _, _, _ = expHeaders, expCTHeaders, multiLogExpectHot, crasher, oomer, ok, respTypeLie, multiLog, bigoutput, smalloutput, statusChecker
 
-	fooHeader := map[string][]string{"Content-Type": {"application/hateson"}, "Test-Header": {"foo"}}
+	// Keep-Alive should get stripped, Content-Type should not get framed, Test-Header should get framed
+	fooHeader := map[string][]string{"Content-Type": {"application/hateson"}, "Test-Header": {"foo"}, "Keep-Alive": {"true"}}
 	expFooHeaders := map[string][]string{"Content-Type": {"application/hateson"}, "Return-Header": {"foo", "bar"}}
 	expFooHeadersBody := `{"echoContent": "_TRX_ID_",
 		"expectHeaders": {
 			"Content-Type":["application/hateson"],
+			"Keep-Alive":[""],
 			"Test-Header":["foo"]
 		},
 		"returnHeaders": {
