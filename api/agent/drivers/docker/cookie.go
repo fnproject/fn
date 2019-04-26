@@ -16,7 +16,17 @@ import (
 	"go.opencensus.io/trace"
 )
 
-var ErrImageWithVolume = models.NewAPIError(http.StatusBadRequest, errors.New("image has Volume definition"))
+const (
+	FnUserId  = 1000
+	FnGroupId = 1000
+)
+
+var (
+	ErrImageWithVolume = models.NewAPIError(http.StatusBadRequest, errors.New("image has Volume definition"))
+	// FnDockerUser is used as the runtime user/group when running docker containers.
+	// This is not configurable at the moment, because some fdks require that user/group to be present in the container.
+	FnDockerUser = fmt.Sprintf("%v:%v", FnUserId, FnGroupId)
+)
 
 // A cookie identifies a unique request to run a task.
 type cookie struct {
@@ -163,6 +173,7 @@ func (c *cookie) configureIOFS(log logrus.FieldLogger) {
 
 	bind := fmt.Sprintf("%s:%s", path, c.task.UDSDockerDest())
 	c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, bind)
+	log.WithFields(logrus.Fields{"bind": bind, "call_id": c.task.Id()}).Debug("setting bind")
 }
 
 func (c *cookie) configureVolumes(log logrus.FieldLogger) {
@@ -279,6 +290,17 @@ func (c *cookie) configureEnv(log logrus.FieldLogger) {
 	for name, val := range c.task.EnvVars() {
 		c.opts.Config.Env = append(c.opts.Config.Env, name+"="+val)
 	}
+}
+
+func (c *cookie) configureSecurity(log logrus.FieldLogger) {
+	if c.drv.conf.DisableUnprivilegedContainers {
+		return
+	}
+	c.opts.Config.User = FnDockerUser
+	c.opts.HostConfig.CapDrop = []string{"all"}
+	c.opts.HostConfig.SecurityOpt = []string{"no-new-privileges:true"}
+	log.WithFields(logrus.Fields{"user": c.opts.Config.User,
+		"CapDrop": c.opts.HostConfig.CapDrop, "SecurityOpt": c.opts.HostConfig.SecurityOpt, "call_id": c.task.Id()}).Debug("setting security")
 }
 
 // implements Cookie

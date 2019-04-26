@@ -412,6 +412,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 	cookie.configureNetwork(log)
 	cookie.configureHostname(log)
 	cookie.configureImage(log)
+	cookie.configureSecurity(log)
 
 	return cookie, nil
 }

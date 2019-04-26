@@ -11,39 +11,40 @@ import (
 
 // Config specifies various settings for an agent
 type Config struct {
-	MinDockerVersion        string        `json:"min_docker_version"`
-	ContainerLabelTag       string        `json:"container_label_tag"`
-	DockerNetworks          string        `json:"docker_networks"`
-	DockerLoadFile          string        `json:"docker_load_file"`
-	FreezeIdle              time.Duration `json:"freeze_idle_msecs"`
-	HotPoll                 time.Duration `json:"hot_poll_msecs"`
-	HotLauncherTimeout      time.Duration `json:"hot_launcher_timeout_msecs"`
-	HotPullTimeout          time.Duration `json:"hot_pull_timeout_msecs"`
-	HotStartTimeout         time.Duration `json:"hot_start_timeout_msecs"`
-	DetachedHeadRoom        time.Duration `json:"detached_head_room_msecs"`
-	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
-	MaxHdrResponseSize      uint64        `json:"max_hdr_response_size_bytes"`
-	MaxLogSize              uint64        `json:"max_log_size_bytes"`
-	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
-	MaxTotalMemory          uint64        `json:"max_total_memory_bytes"`
-	MaxFsSize               uint64        `json:"max_fs_size_mb"`
-	MaxPIDs                 uint64        `json:"max_pids"`
-	PreForkPoolSize         uint64        `json:"pre_fork_pool_size"`
-	PreForkImage            string        `json:"pre_fork_image"`
-	PreForkCmd              string        `json:"pre_fork_pool_cmd"`
-	PreForkUseOnce          uint64        `json:"pre_fork_use_once"`
-	PreForkNetworks         string        `json:"pre_fork_networks"`
-	EnableNBResourceTracker bool          `json:"enable_nb_resource_tracker"`
-	MaxTmpFsInodes          uint64        `json:"max_tmpfs_inodes"`
-	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
-	DisableDebugUserLogs    bool          `json:"disable_debug_user_logs"`
-	IOFSEnableTmpfs         bool          `json:"iofs_enable_tmpfs"`
-	IOFSAgentPath           string        `json:"iofs_path"`
-	IOFSMountRoot           string        `json:"iofs_mount_root"`
-	IOFSOpts                string        `json:"iofs_opts"`
-	ImageCleanMaxSize       uint64        `json:"image_clean_max_size"`
-	ImageCleanExemptTags    string        `json:"image_clean_exempt_tags"`
-	ImageEnableVolume       bool          `json:"image_enable_volume"`
+	MinDockerVersion              string        `json:"min_docker_version"`
+	ContainerLabelTag             string        `json:"container_label_tag"`
+	DockerNetworks                string        `json:"docker_networks"`
+	DockerLoadFile                string        `json:"docker_load_file"`
+	DisableUnprivilegedContainers bool          `json:"disable_unprivileged_containers"`
+	FreezeIdle                    time.Duration `json:"freeze_idle_msecs"`
+	HotPoll                       time.Duration `json:"hot_poll_msecs"`
+	HotLauncherTimeout            time.Duration `json:"hot_launcher_timeout_msecs"`
+	HotPullTimeout                time.Duration `json:"hot_pull_timeout_msecs"`
+	HotStartTimeout               time.Duration `json:"hot_start_timeout_msecs"`
+	DetachedHeadRoom              time.Duration `json:"detached_head_room_msecs"`
+	MaxResponseSize               uint64        `json:"max_response_size_bytes"`
+	MaxHdrResponseSize            uint64        `json:"max_hdr_response_size_bytes"`
+	MaxLogSize                    uint64        `json:"max_log_size_bytes"`
+	MaxTotalCPU                   uint64        `json:"max_total_cpu_mcpus"`
+	MaxTotalMemory                uint64        `json:"max_total_memory_bytes"`
+	MaxFsSize                     uint64        `json:"max_fs_size_mb"`
+	MaxPIDs                       uint64        `json:"max_pids"`
+	PreForkPoolSize               uint64        `json:"pre_fork_pool_size"`
+	PreForkImage                  string        `json:"pre_fork_image"`
+	PreForkCmd                    string        `json:"pre_fork_pool_cmd"`
+	PreForkUseOnce                uint64        `json:"pre_fork_use_once"`
+	PreForkNetworks               string        `json:"pre_fork_networks"`
+	EnableNBResourceTracker       bool          `json:"enable_nb_resource_tracker"`
+	MaxTmpFsInodes                uint64        `json:"max_tmpfs_inodes"`
+	DisableReadOnlyRootFs         bool          `json:"disable_readonly_rootfs"`
+	DisableDebugUserLogs          bool          `json:"disable_debug_user_logs"`
+	IOFSEnableTmpfs               bool          `json:"iofs_enable_tmpfs"`
+	IOFSAgentPath                 string        `json:"iofs_path"`
+	IOFSMountRoot                 string        `json:"iofs_mount_root"`
+	IOFSOpts                      string        `json:"iofs_opts"`
+	ImageCleanMaxSize             uint64        `json:"image_clean_max_size"`
+	ImageCleanExemptTags          string        `json:"image_clean_exempt_tags"`
+	ImageEnableVolume             bool          `json:"image_enable_volume"`
 }
 
 const (
@@ -59,6 +60,8 @@ const (
 	EnvDockerNetworks = "FN_DOCKER_NETWORKS"
 	// EnvDockerLoadFile is a file location for a file that contains a tarball of a docker image to load on startup
 	EnvDockerLoadFile = "FN_DOCKER_LOAD_FILE"
+	// EnvDisableUnprivilegedContainers disables docker security features like user name, cap drop etc.
+	EnvDisableUnprivilegedContainers = "FN_DISABLE_UNPRIVILEGED_CONTAINERS"
 	// EnvFreezeIdle is the delay between a container being last used and being frozen
 	EnvFreezeIdle = "FN_FREEZE_IDLE_MSECS"
 	// EnvHotPoll is the interval to ping for a slot manager thread to check if a container should be
@@ -164,6 +167,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvStr(err, EnvContainerLabelTag, &cfg.ContainerLabelTag)
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
 	err = setEnvStr(err, EnvDockerLoadFile, &cfg.DockerLoadFile)
+	err = setEnvBool(err, EnvDisableUnprivilegedContainers, &cfg.DisableUnprivilegedContainers)
 	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)
 	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSAgentPath)
 	err = setEnvStr(err, EnvIOFSDockerPath, &cfg.IOFSMountRoot)

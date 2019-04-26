@@ -10,6 +10,7 @@ RUN cd $D && go build -o fn-test-utils && cp fn-test-utils /tmp/
 
 # final stage
 FROM alpine
+RUN addgroup -g 1000 -S fn && adduser -S -u 1000 -G fn fn
 WORKDIR /function
 COPY --from=build-env /tmp/fn-test-utils /function
 ENTRYPOINT ["./fn-test-utils"]
