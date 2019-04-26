@@ -245,9 +245,8 @@ func GetAPIErrorCode(e error) int {
 // APIError but distinguishes fault to function specific errors
 type FuncError interface {
 	APIError
-
-	// hidden method needed for duck typing
-	userError()
+	// no-op method (needed to make the interface unique)
+	ImplementsFuncError()
 }
 
 type ferr struct {
@@ -258,8 +257,8 @@ type ferr struct {
 var _ FuncError = ferr{}
 var _ APIError = ferr{}
 
-func (e ferr) userError() {}
-func (e ferr) Code() int  { return e.code }
+func (e ferr) ImplementsFuncError() {}
+func (e ferr) Code() int            { return e.code }
 
 // NewFuncError returns a FuncError
 func NewFuncError(err APIError) error { return ferr{code: err.Code(), error: err} }
