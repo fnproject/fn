@@ -140,6 +140,20 @@ func (c *cookie) configurePIDs(log logrus.FieldLogger) {
 	c.opts.HostConfig.PidsLimit = &pids64
 }
 
+// configureOpenFiles will set the ULimit for `nofile` on the Docker container
+func (c *cookie) configureOpenFiles(log logrus.FieldLogger) {
+	openFiles := c.task.OpenFiles()
+	if openFiles == 0 {
+		return
+	}
+
+	openFiles64 := int64(openFiles)
+	log.WithFields(logrus.Fields{"openFiles": openFiles64, "call_id": c.task.Id()}).Debug("setting open files")
+	c.opts.HostConfig.Ulimits = []docker.ULimit{
+		{Name: "nofile", Soft: openFiles64, Hard: openFiles64},
+	}
+}
+
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	// if RO Root is NOT enabled and TmpFsSize does not have any limit, then we do not need
 	// any tmpfs in the container since function can freely write whereever it wants.

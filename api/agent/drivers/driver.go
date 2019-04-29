@@ -149,6 +149,10 @@ type ContainerTask interface {
 	// is unlimited.
 	PIDs() uint64
 
+	// OpenFiles defines the max number of files that the process in the
+	// function is allowed to open. Leave 0 for the default value from the host.
+	OpenFiles() uint64
+
 	// Tmpfs Filesystem size limit for the container, in megabytes.
 	TmpFsSize() uint64
 
