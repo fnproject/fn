@@ -153,6 +153,10 @@ type ContainerTask interface {
 	// function is allowed to open. Leave 0 for the default value from the host.
 	OpenFiles() uint64
 
+	// LockedMemory maximum number of bytes of memory that may be locked into
+	// RAM. Leave 0 for the default value from the host.
+	LockedMemory() uint64
+
 	// Tmpfs Filesystem size limit for the container, in megabytes.
 	TmpFsSize() uint64
 

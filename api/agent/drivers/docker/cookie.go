@@ -152,6 +152,18 @@ func (c *cookie) configureOpenFiles(log logrus.FieldLogger) {
 	c.addULimit(docker.ULimit{Name: "nofile", Soft: openFiles64, Hard: openFiles64})
 }
 
+// configureLockedMemory will set the ULimit for `memlock` on the Docker container
+func (c *cookie) configureLockedMemory(log logrus.FieldLogger) {
+	lockedMemory := c.task.LockedMemory()
+	if lockedMemory == 0 {
+		return
+	}
+
+	lockedMemory64 := int64(lockedMemory)
+	log.WithFields(logrus.Fields{"lockedMemory": lockedMemory64, "call_id": c.task.Id()}).Debug("setting locked memory")
+	c.addULimit(docker.ULimit{Name: "memlock", Soft: lockedMemory64, Hard: lockedMemory64})
+}
+
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	// if RO Root is NOT enabled and TmpFsSize does not have any limit, then we do not need
 	// any tmpfs in the container since function can freely write whereever it wants.
