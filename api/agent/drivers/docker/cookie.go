@@ -149,9 +149,7 @@ func (c *cookie) configureOpenFiles(log logrus.FieldLogger) {
 
 	openFiles64 := int64(openFiles)
 	log.WithFields(logrus.Fields{"openFiles": openFiles64, "call_id": c.task.Id()}).Debug("setting open files")
-	c.opts.HostConfig.Ulimits = []docker.ULimit{
-		{Name: "nofile", Soft: openFiles64, Hard: openFiles64},
-	}
+	c.addULimit(docker.ULimit{Name: "nofile", Soft: openFiles64, Hard: openFiles64})
 }
 
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
@@ -315,6 +313,17 @@ func (c *cookie) configureSecurity(log logrus.FieldLogger) {
 	c.opts.HostConfig.SecurityOpt = []string{"no-new-privileges:true"}
 	log.WithFields(logrus.Fields{"user": c.opts.Config.User,
 		"CapDrop": c.opts.HostConfig.CapDrop, "SecurityOpt": c.opts.HostConfig.SecurityOpt, "call_id": c.task.Id()}).Debug("setting security")
+}
+
+// addULimit adds lim to the docker host config ulimits slice, optionally
+// creating the slice if it isn't created yet.
+func (c *cookie) addULimit(lim docker.ULimit) {
+	limits := c.opts.HostConfig.Ulimits
+	if limits == nil {
+		limits = []docker.ULimit{}
+	}
+
+	c.opts.HostConfig.Ulimits = append(limits, lim)
 }
 
 // implements Cookie
