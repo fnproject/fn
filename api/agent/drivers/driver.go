@@ -157,6 +157,10 @@ type ContainerTask interface {
 	// RAM. Leave 0 for the default value from the host.
 	LockedMemory() uint64
 
+	// PendingSignals limit on the number of signals that may be queued. Leave
+	// 0 for the default value from the host.
+	PendingSignals() uint64
+
 	// Tmpfs Filesystem size limit for the container, in megabytes.
 	TmpFsSize() uint64
 

@@ -164,6 +164,19 @@ func (c *cookie) configureLockedMemory(log logrus.FieldLogger) {
 	c.addULimit(docker.ULimit{Name: "memlock", Soft: lockedMemory64, Hard: lockedMemory64})
 }
 
+// configurePendingSignals will set the ULimit for `sigpending` on the Docker
+// container
+func (c *cookie) configurePendingSignals(log logrus.FieldLogger) {
+	pendingSignals := c.task.PendingSignals()
+	if pendingSignals == 0 {
+		return
+	}
+
+	pendingSignals64 := int64(pendingSignals)
+	log.WithFields(logrus.Fields{"pendingSignals": pendingSignals64, "call_id": c.task.Id()}).Debug("setting pending signals")
+	c.addULimit(docker.ULimit{Name: "sigpending", Soft: pendingSignals64, Hard: pendingSignals64})
+}
+
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	// if RO Root is NOT enabled and TmpFsSize does not have any limit, then we do not need
 	// any tmpfs in the container since function can freely write whereever it wants.

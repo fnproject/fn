@@ -31,6 +31,7 @@ type Config struct {
 	MaxPIDs                       uint64        `json:"max_pids"`
 	MaxOpenFiles                  uint64        `json:"max_open_files"`
 	MaxLockedMemory               uint64        `json:"max_locked_memory"`
+	MaxPendingSignals             uint64        `json:"max_pending_signals"`
 	PreForkPoolSize               uint64        `json:"pre_fork_pool_size"`
 	PreForkImage                  string        `json:"pre_fork_image"`
 	PreForkCmd                    string        `json:"pre_fork_pool_cmd"`
@@ -95,6 +96,8 @@ const (
 	// EnvMaxLockedMemory the maximum number of bytes of memory that may be
 	// locked into RAM
 	EnvMaxLockedMemory = "FN_MAX_LOCKED_MEMORY"
+	// EnvMaxPendingSignals limit on the number of signals that may be queued
+	EnvMaxPendingSignals = "FN_MAX_PENDING_SIGNALS"
 	// EnvPreForkPoolSize is the number of containers pooled to steal network from, this may reduce latency
 	EnvPreForkPoolSize = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
 	// EnvPreForkImage is the image to use for the pre-fork pool
@@ -169,6 +172,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvUint(err, EnvMaxPIDs, &cfg.MaxPIDs)
 	err = setEnvUint(err, EnvMaxOpenFiles, &cfg.MaxOpenFiles)
 	err = setEnvUint(err, EnvMaxLockedMemory, &cfg.MaxLockedMemory)
+	err = setEnvUint(err, EnvMaxPendingSignals, &cfg.MaxPendingSignals)
 	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
 	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
 	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
