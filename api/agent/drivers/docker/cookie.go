@@ -177,6 +177,19 @@ func (c *cookie) configurePendingSignals(log logrus.FieldLogger) {
 	c.addULimit(docker.ULimit{Name: "sigpending", Soft: pendingSignals64, Hard: pendingSignals64})
 }
 
+// configureMessageQueue will set the ULimit for `msqueue` on the Docker
+// container
+func (c *cookie) configureMessageQueue(log logrus.FieldLogger) {
+	messageQueue := c.task.MessageQueue()
+	if messageQueue == 0 {
+		return
+	}
+
+	messageQueue64 := int64(messageQueue)
+	log.WithFields(logrus.Fields{"messageQueue": messageQueue64, "call_id": c.task.Id()}).Debug("setting message queue")
+	c.addULimit(docker.ULimit{Name: "msqueue", Soft: messageQueue64, Hard: messageQueue64})
+}
+
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 	// if RO Root is NOT enabled and TmpFsSize does not have any limit, then we do not need
 	// any tmpfs in the container since function can freely write whereever it wants.

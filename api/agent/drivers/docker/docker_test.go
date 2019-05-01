@@ -42,6 +42,7 @@ func (f *taskDockerTest) PIDs() uint64                                          
 func (f *taskDockerTest) OpenFiles() uint64                                          { return 0 }
 func (f *taskDockerTest) LockedMemory() uint64                                       { return 0 }
 func (f *taskDockerTest) PendingSignals() uint64                                     { return 0 }
+func (f *taskDockerTest) MessageQueue() uint64                                       { return 0 }
 func (f *taskDockerTest) TmpFsSize() uint64                                          { return 0 }
 func (f *taskDockerTest) WorkDir() string                                            { return "" }
 func (f *taskDockerTest) Close()                                                     {}

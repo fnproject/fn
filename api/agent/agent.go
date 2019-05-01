@@ -1142,6 +1142,7 @@ type container struct {
 	openFiles      uint64
 	lockedMemory   uint64
 	pendingSignals uint64
+	messageQueue   uint64
 	tmpFsSize      uint64
 	disableNet     bool
 	iofs           iofs
@@ -1235,6 +1236,7 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		openFiles:      cfg.MaxOpenFiles,
 		lockedMemory:   cfg.MaxLockedMemory,
 		pendingSignals: cfg.MaxPendingSignals,
+		messageQueue:   cfg.MaxMessageQueue,
 		tmpFsSize:      uint64(call.TmpFsSize),
 		disableNet:     call.disableNet,
 		iofs:           iofs,
@@ -1321,6 +1323,7 @@ func (c *container) PIDs() uint64                       { return c.pids }
 func (c *container) OpenFiles() uint64                  { return c.openFiles }
 func (c *container) LockedMemory() uint64               { return c.lockedMemory }
 func (c *container) PendingSignals() uint64             { return c.pendingSignals }
+func (c *container) MessageQueue() uint64               { return c.messageQueue }
 func (c *container) TmpFsSize() uint64                  { return c.tmpFsSize }
 func (c *container) Extensions() map[string]string      { return c.extensions }
 func (c *container) LoggerConfig() drivers.LoggerConfig { return c.logCfg }

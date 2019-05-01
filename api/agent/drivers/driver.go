@@ -161,6 +161,10 @@ type ContainerTask interface {
 	// 0 for the default value from the host.
 	PendingSignals() uint64
 
+	// MessageQueue a limit on the number of bytes that can be allocated for
+	// POSIX message queues. Leave 0 for the default value from the host.
+	MessageQueue() uint64
+
 	// Tmpfs Filesystem size limit for the container, in megabytes.
 	TmpFsSize() uint64
 
