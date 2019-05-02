@@ -3,11 +3,11 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"net/textproto"
 	"strconv"
 	"strings"
 
 	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"go.opencensus.io/tag"
@@ -135,15 +135,6 @@ func (trw *triggerResponseWriter) WriteHeader(serviceStatus int) {
 	trw.inner.WriteHeader(finalStatus)
 }
 
-var skipTriggerHeaders = map[string]bool{
-	"Connection":        true,
-	"Keep-Alive":        true,
-	"Trailer":           true,
-	"Transfer-Encoding": true,
-	"TE":                true,
-	"Upgrade":           true,
-}
-
 func reqURL(req *http.Request) string {
 	if req.URL.Scheme == "" {
 		if req.TLS == nil {
@@ -164,12 +155,11 @@ func (s *Server) ServeHTTPTrigger(c *gin.Context, app *models.App, fn *models.Fn
 	// transpose trigger headers into the request
 	req := c.Request
 	headers := make(http.Header, len(req.Header))
+
+	// remove transport headers before decorating headers
+	common.StripHopHeaders(req.Header)
+
 	for k, vs := range req.Header {
-		// should be generally unnecessary but to be doubly sure.
-		k = textproto.CanonicalMIMEHeaderKey(k)
-		if skipTriggerHeaders[k] {
-			continue
-		}
 		switch k {
 		case "Content-Type":
 		default:

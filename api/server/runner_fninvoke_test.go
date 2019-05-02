@@ -164,8 +164,11 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 
 	srv := testServer(ds, rnr, ServerTypeFull, LimitRequestBody(32256))
 
+	inStripHeaders := map[string][]string{"Keep-Alive": {"true"}}
+
 	expHeaders := map[string][]string{"Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"Content-Type": {"foo/bar"}}
+	expStripHeaders := map[string][]string{"Keep-Alive": {""}}
 
 	// Checking for EndOfLogs currently depends on scheduling of go-routines (in docker/containerd) that process stderr & stdout.
 	// Therefore, not testing for EndOfLogs for hot containers (which has complex I/O processing) anymore.
@@ -186,41 +189,46 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
 
 	bighdroutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "returnHeaders": {"zoo": ["` + strings.Repeat("a", 1024) + `"]}}` // big header to exceed
+	striphdr := `{"echoContent": "_TRX_ID_", "isDebug": true, "returnHeaders": {"Keep-Alive": ["true"]}}`                           // this should get stripped
+	striphdrin := `{"echoContent": "_TRX_ID_", "isDebug": true, "expectHeaders": {"Keep-Alive": [""]}}`                             // this should get stripped
 
 	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "responseContentType":"application/json; charset=utf-8", "trailerRepeat": 1}` // 1 trailer < 2K
 
 	testCases := []struct {
 		path               string
 		body               string
+		headers            map[string][]string
 		method             string
 		expectedCode       int
 		expectedHeaders    map[string][]string
 		expectedErrSubStr  string
 		expectedLogsSubStr []string
 	}{
-		{"/invoke/http_stream_fn_id", ok, http.MethodPost, http.StatusOK, expHeaders, "", nil},
-		// NOTE: we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
-		{"/invoke/http_stream_fn_id", respTypeLie, http.MethodPost, http.StatusOK, expCTHeaders, "", nil},
-		{"/invoke/http_stream_fn_id", crasher, http.MethodPost, http.StatusBadGateway, expHeaders, "error receiving function response", nil},
-		// XXX(reed): we could stop buffering function responses so that we can stream things?
-		{"/invoke/http_stream_fn_id", bighdroutput, http.MethodPost, http.StatusBadGateway, nil, "function response header too large", nil},
-		{"/invoke/http_stream_fn_id", bigoutput, http.MethodPost, http.StatusBadGateway, nil, "function response too large", nil},
-		{"/invoke/http_stream_fn_id", smalloutput, http.MethodPost, http.StatusOK, expHeaders, "", nil},
-		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
-		{"/invoke/http_stream_fn_id", oomer, http.MethodPost, http.StatusBadGateway, nil, "error receiving function response", nil},
-		{"/invoke/http_stream_fn_id", bigbuf, http.MethodPost, http.StatusRequestEntityTooLarge, nil, "", nil},
+		{"/invoke/http_stream_fn_id", ok, nil, http.MethodPost, http.StatusOK, expHeaders, "", nil},
+		// NOTE: nil, we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
+		{"/invoke/http_stream_fn_id", respTypeLie, nil, http.MethodPost, http.StatusOK, expCTHeaders, "", nil},
+		{"/invoke/http_stream_fn_id", crasher, nil, http.MethodPost, http.StatusBadGateway, expHeaders, "error receiving function response", nil},
+		// XXX(reed): nil, we could stop buffering function responses so that we can stream things?
+		{"/invoke/http_stream_fn_id", bighdroutput, nil, http.MethodPost, http.StatusBadGateway, nil, "function response header too large", nil},
+		{"/invoke/http_stream_fn_id", striphdr, nil, http.MethodPost, http.StatusOK, expStripHeaders, "", nil},
+		{"/invoke/http_stream_fn_id", striphdrin, inStripHeaders, http.MethodPost, http.StatusOK, nil, "", nil},
+		{"/invoke/http_stream_fn_id", bigoutput, nil, http.MethodPost, http.StatusBadGateway, nil, "function response too large", nil},
+		{"/invoke/http_stream_fn_id", smalloutput, nil, http.MethodPost, http.StatusOK, expHeaders, "", nil},
+		// XXX(reed): nil, meh we really should try to get oom out, but maybe it's better left to the logs?
+		{"/invoke/http_stream_fn_id", oomer, nil, http.MethodPost, http.StatusBadGateway, nil, "error receiving function response", nil},
+		{"/invoke/http_stream_fn_id", bigbuf, nil, http.MethodPost, http.StatusRequestEntityTooLarge, nil, "", nil},
 
-		{"/invoke/dne_fn_id", ``, http.MethodPost, http.StatusNotFound, nil, "pull access denied", nil},
-		{"/invoke/dnereg_fn_id", ``, http.MethodPost, http.StatusBadGateway, nil, "connection refused", nil},
+		{"/invoke/dne_fn_id", ``, nil, http.MethodPost, http.StatusNotFound, nil, "pull access denied", nil},
+		{"/invoke/dnereg_fn_id", ``, nil, http.MethodPost, http.StatusBadGateway, nil, "connection refused", nil},
 
-		// XXX(reed): what are these?
-		{"/invoke/http_stream_fn_id", multiLog, http.MethodPost, http.StatusOK, nil, "", multiLogExpectHot},
+		// XXX(reed): nil, nil, what are these?
+		{"/invoke/http_stream_fn_id", multiLog, nil, http.MethodPost, http.StatusOK, nil, "", multiLogExpectHot},
 
-		{"/invoke/fail_fn_quick", ok, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
-		{"/invoke/fail_fn_timeout", ok, http.MethodPost, http.StatusGatewayTimeout, nil, "Container initialization timed out", nil},
-		{"/invoke/fn_id", ok, http.MethodPut, http.StatusMethodNotAllowed, nil, "Method not allowed", nil},
+		{"/invoke/fail_fn_quick", ok, nil, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
+		{"/invoke/fail_fn_timeout", ok, nil, http.MethodPost, http.StatusGatewayTimeout, nil, "Container initialization timed out", nil},
+		{"/invoke/fn_id", ok, nil, http.MethodPut, http.StatusMethodNotAllowed, nil, "Method not allowed", nil},
 
-		{"/invoke/bigmem", ok, http.MethodPost, http.StatusBadRequest, nil, "cannot be allocated", nil},
+		{"/invoke/bigmem", ok, nil, http.MethodPost, http.StatusBadRequest, nil, "cannot be allocated", nil},
 	}
 
 	callIds := make([]string, len(testCases))
@@ -229,7 +237,11 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		t.Run(fmt.Sprintf("Test_%d_%s", i, strings.Replace(test.path, "/", "_", -1)), func(t *testing.T) {
 			trx := fmt.Sprintf("_trx_%d_", i)
 			body := strings.NewReader(strings.Replace(test.body, "_TRX_ID_", trx, 1))
-			_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+			req := createRequest(t, test.method, test.path, body)
+			if test.headers != nil {
+				req.Header = test.headers
+			}
+			_, rec := routerRequest2(t, srv.Router, req)
 			respBytes, _ := ioutil.ReadAll(rec.Body)
 			respBody := string(respBytes)
 			maxBody := len(respBody)
