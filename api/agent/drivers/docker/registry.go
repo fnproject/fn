@@ -2,10 +2,10 @@ package docker
 
 import (
 	"net/url"
-	"os"
 	"strings"
 
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/cli/cli/config"
+	"github.com/docker/docker/api/types"
 	"github.com/sirupsen/logrus"
 )
 
@@ -14,26 +14,22 @@ var (
 )
 
 func registryFromEnv() (map[string]driverAuthConfig, error) {
-	var auths *docker.AuthConfigurations
-	var err error
-	if reg := os.Getenv("FN_DOCKER_AUTH"); reg != "" {
-		auths, err = docker.NewAuthConfigurations(strings.NewReader(reg))
-	} else {
-		auths, err = docker.NewAuthConfigurationsFromDockerCfg()
-	}
-
+	// TODO(reed): it's kind of a lot to load the entire docker cli just so we
+	// can get this one func, but docker does not seem to provide a nice way to
+	// do this from smaller libs/client (go mod cleans up a little)
+	cfg, err := config.Load("") // docker initializes from home/env var
 	if err != nil {
 		logrus.WithError(err).Info("no docker auths from config files found (this is fine)")
 		return map[string]driverAuthConfig{}, nil
 	}
 
-	return preprocessAuths(auths)
+	return preprocessAuths(cfg.AuthConfigs)
 }
 
-func preprocessAuths(auths *docker.AuthConfigurations) (map[string]driverAuthConfig, error) {
+func preprocessAuths(auths map[string]types.AuthConfig) (map[string]driverAuthConfig, error) {
 	drvAuths := make(map[string]driverAuthConfig)
 
-	for key, v := range auths.Configs {
+	for key, v := range auths {
 
 		u, err := url.Parse(v.ServerAddress)
 		if err != nil {
@@ -72,8 +68,8 @@ func getSubdomains(hostname string) map[string]bool {
 	return subdomains
 }
 
-func findRegistryConfig(reg string, configs map[string]driverAuthConfig) *docker.AuthConfiguration {
-	var config docker.AuthConfiguration
+func findRegistryConfig(reg string, configs map[string]driverAuthConfig) *types.AuthConfig {
+	var config types.AuthConfig
 
 	if reg != "" {
 		res := lookupRegistryConfig(reg, configs)
@@ -92,7 +88,7 @@ func findRegistryConfig(reg string, configs map[string]driverAuthConfig) *docker
 	return &config
 }
 
-func lookupRegistryConfig(reg string, configs map[string]driverAuthConfig) *docker.AuthConfiguration {
+func lookupRegistryConfig(reg string, configs map[string]driverAuthConfig) *types.AuthConfig {
 
 	// if any configured host auths match task registry, try them (task docker auth can override)
 	for _, v := range configs {

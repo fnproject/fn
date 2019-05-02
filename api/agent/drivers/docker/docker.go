@@ -45,7 +45,7 @@ type Auther interface {
 	// certain restrictions on images or if credentials must be acquired right
 	// before runtime and there's an error doing so. If these credentials don't
 	// work, the docker pull will fail and the task will be set to error status.
-	DockerAuth(ctx context.Context, image string) (*docker.AuthConfiguration, error)
+	DockerAuth(ctx context.Context, image string) (*types.AuthConfig, error)
 }
 
 type runResult struct {
@@ -54,7 +54,7 @@ type runResult struct {
 }
 
 type driverAuthConfig struct {
-	auth       docker.AuthConfiguration
+	auth       types.AuthConfig
 	subdomains map[string]bool
 }
 
@@ -234,7 +234,7 @@ func syncImageCleaner(ctx context.Context, driver *DockerDriver) {
 
 	for limiter.Wait(ctx) == nil {
 		ctx, cancel := context.WithTimeout(ctx, imageListTimeout)
-		images, err := driver.docker.ListImages(docker.ListImagesOptions{Context: ctx})
+		images, err := driver.docker.ImageList(ctx, types.ImageListOptions{})
 		cancel()
 
 		if err == nil {
@@ -304,7 +304,7 @@ func runImageCleaner(ctx context.Context, driver *DockerDriver) {
 			log.WithField("image", img).Info("Removing image")
 
 			ctx, cancel := context.WithTimeout(ctx, removeImgTimeout)
-			err := driver.docker.RemoveImage(img.ID, docker.RemoveImageOptions{Context: ctx})
+			_, err := driver.docker.ImageRemove(ctx, img.ID, types.ImageRemoveOptions{})
 			cancel()
 			if err != nil && err != docker.ErrNoSuchImage {
 				log.WithError(err).WithField("image", img).Error("Removing image failed")

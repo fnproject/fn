@@ -5,8 +5,11 @@ replace cloud.google.com/go => github.com/google/go-cloud v0.4.1-0.2018102520485
 require (
 	github.com/coreos/go-semver v0.2.1-0.20180108230905-e214231b295a
 	github.com/dchest/siphash v1.2.0
+	github.com/docker/cli v0.0.0-20190402082642-c89750f836c5
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190417225312-65e432abe335
+	github.com/docker/docker-credential-helpers v0.6.2 // indirect
+	github.com/docker/go-metrics v0.0.0-20181218153428-b84716841b82 // indirect
 	github.com/fnproject/fdk-go v0.0.0-20181025170718-26ed643bea68
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/fsouza/go-dockerclient v1.4.0
@@ -26,6 +29,7 @@ require (
 	github.com/moby/moby v1.13.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
+	github.com/morikuni/aec v0.0.0-20170113033406-39771216ff4c // indirect
 	github.com/openzipkin/zipkin-go v0.1.3
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v0.9.2

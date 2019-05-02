@@ -21,7 +21,7 @@ type mockClientPuller struct {
 	err      error
 }
 
-func (c *mockClientPuller) PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error {
+func (c *mockClientPuller) PullImage(opts docker.PullImageOptions, auth types.AuthConfig) error {
 	time.Sleep(time.Second * 1)
 	atomic.AddUint64(&c.numCalls, uint64(1))
 	return c.err
@@ -39,7 +39,7 @@ func TestImagePullConcurrent1(t *testing.T) {
 
 	puller := NewImagePuller(cli)
 
-	cfg := docker.AuthConfiguration{}
+	var cfg types.AuthConfig
 	img := "foo"
 	repo := "zoo"
 	tag1 := "1.0.0"
@@ -86,7 +86,7 @@ func TestImagePullConcurrent2(t *testing.T) {
 
 	puller := NewImagePuller(cli)
 
-	cfg := docker.AuthConfiguration{}
+	var cfg types.AuthConfig
 	img := "foo"
 	repo := "zoo"
 	tag := "1.0.0"
@@ -122,7 +122,7 @@ func TestImagePullConcurrent3(t *testing.T) {
 
 	puller := NewImagePuller(cli)
 
-	cfg := docker.AuthConfiguration{}
+	var cfg types.AuthConfig
 	img := "foo"
 	repo := "zoo"
 	tag := "1.0.0"

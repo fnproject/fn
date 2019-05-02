@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
@@ -384,7 +385,7 @@ func (c *cookie) Unfreeze(ctx context.Context) error {
 	return err
 }
 
-func (c *cookie) authImage(ctx context.Context) (*docker.AuthConfiguration, error) {
+func (c *cookie) authImage(ctx context.Context) (*types.AuthConfig, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "AuthImage"})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker auth image")
 
@@ -418,7 +419,7 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 
 	// see if we already have it
 	// TODO this should use the image cache instead of making a docker call
-	img, err := c.drv.docker.InspectImage(ctx, c.task.Image())
+	img, _, err := c.drv.docker.ImageInspectWithRaw(ctx, c.task.Image())
 	if err == docker.ErrNoSuchImage {
 		return true, nil
 	}

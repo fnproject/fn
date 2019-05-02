@@ -34,18 +34,19 @@ type dockerClient interface {
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	PauseContainer(id string, ctx context.Context) error
 	UnpauseContainer(id string, ctx context.Context) error
-	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
-	InspectImage(ctx context.Context, name string) (*docker.Image, error)
-	ListImages(opts docker.ListImagesOptions) ([]docker.APIImages, error)
-	RemoveImage(id string, opts docker.RemoveImageOptions) error
 
 	// real docker ones
 	ContainerList(context.Context, types.ContainerListOptions) ([]types.Container, error)
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
+	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
 
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
 	Info(context.Context) (types.Info, error)
-	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
+
+	ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
+	ImageList(ctx context.Context, options types.ImageListOptions) ([]types.ImageSummary, error)
+	ImageInspectWithRaw(ctx context.Context, imageID string) (types.ImageInspect, []byte, error)
+	ImagePull(ctx context.Context, refStr string, options types.ImagePullOptions) (io.ReadCloser, error)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -313,10 +314,10 @@ func (d *dockerWrap) ImageLoad(ctx context.Context, input io.Reader, quiet bool)
 	return resp, err
 }
 
-func (d *dockerWrap) ListImages(opts docker.ListImagesOptions) (images []docker.APIImages, err error) {
-	_, closer := makeTracker(opts.Context, "docker_list_images")
+func (d *dockerWrap) ImageList(ctx context.Context, options types.ImageListOptions) (images []types.ImageSummary, err error) {
+	_, closer := makeTracker(ctx, "docker_list_images")
 	defer func() { closer(err) }()
-	images, err = d.docker.ListImages(opts)
+	images, err = d.realdocker.ImageList(ctx, options)
 	return images, err
 }
 
@@ -365,18 +366,18 @@ func (d *dockerWrap) KillContainer(opts docker.KillContainerOptions) (err error)
 	return err
 }
 
-func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) (err error) {
-	_, closer := makeTracker(opts.Context, "docker_pull_image")
+func (d *dockerWrap) ImagePull(ctx context.Context, refStr string, options types.ImagePullOptions) (resp io.ReadCloser, err error) {
+	_, closer := makeTracker(ctx, "docker_pull_image")
 	defer func() { closer(err) }()
-	err = d.docker.PullImage(opts, auth)
-	return err
+	resp, err = d.realdocker.ImagePull(ctx, refStr, options)
+	return resp, err
 }
 
-func (d *dockerWrap) RemoveImage(image string, opts docker.RemoveImageOptions) (err error) {
-	_, closer := makeTracker(opts.Context, "docker_remove_image")
+func (d *dockerWrap) ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) (resp []types.ImageDeleteResponseItem, err error) {
+	_, closer := makeTracker(ctx, "docker_remove_image")
 	defer func() { closer(err) }()
-	err = d.docker.RemoveImageExtended(image, opts)
-	return err
+	resp, err = d.realdocker.ImageRemove(ctx, image, options)
+	return resp, err
 }
 
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
@@ -400,11 +401,11 @@ func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error
 	return err
 }
 
-func (d *dockerWrap) InspectImage(ctx context.Context, name string) (img *docker.Image, err error) {
+func (d *dockerWrap) ImageInspectWithRaw(ctx context.Context, imageID string) (image types.ImageInspect, b []byte, err error) {
 	_, closer := makeTracker(ctx, "docker_inspect_image")
 	defer func() { closer(err) }()
-	img, err = d.docker.InspectImage(name)
-	return img, err
+	image, b, err = d.realdocker.ImageInspectWithRaw(ctx, imageID)
+	return image, b, err
 }
 
 func (d *dockerWrap) ContainerStats(ctx context.Context, containerID string, stream bool) (stats types.ContainerStats, err error) {

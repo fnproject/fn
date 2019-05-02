@@ -279,7 +279,7 @@ func (pool *dockerPool) prepareImage(ctx context.Context, driver *DockerDriver, 
 			log.WithError(err).Fatal("prefork pool rate limiter failed")
 		}
 
-		_, err = driver.docker.InspectImage(ctx, img)
+		_, _, err = driver.docker.ImageInspectWithRaw(ctx, img)
 		if err == nil {
 			return
 		}

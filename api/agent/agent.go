@@ -1426,8 +1426,8 @@ func (c *container) GetEvictChan() chan struct{} {
 // assert we implement this at compile time
 var _ dockerdriver.Auther = new(container)
 
-// DockerAuth implements the docker.AuthConfiguration interface.
-func (c *container) DockerAuth(ctx context.Context, image string) (*docker.AuthConfiguration, error) {
+// DockerAuth implements the docker.Auther interface.
+func (c *container) DockerAuth(ctx context.Context, image string) (*types.AuthConfig, error) {
 	if c.dockerAuth != nil {
 		return c.dockerAuth.DockerAuth(ctx, image)
 	}
@@ -1435,7 +1435,7 @@ func (c *container) DockerAuth(ctx context.Context, image string) (*docker.AuthC
 	// TODO(reed): kill this after using that
 	registryToken := c.extensions[RegistryToken]
 	if registryToken != "" {
-		return &docker.AuthConfiguration{
+		return &types.AuthConfig{
 			RegistryToken: registryToken,
 		}, nil
 	}

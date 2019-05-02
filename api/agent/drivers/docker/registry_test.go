@@ -1,10 +1,9 @@
 package docker
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/fsouza/go-dockerclient"
+	"honnef.co/go/tools/config"
 )
 
 func verify(expected []string, checks map[string]bool) bool {
@@ -71,12 +70,12 @@ func TestRegistryEnv(t *testing.T) {
 		"rawregistry.com":{"auth":"Y29jbzpjaGVlc2UK"}
 	}}`
 
-	auths, err := docker.NewAuthConfigurations(strings.NewReader(testCfg))
+	cfg, err := config.Load("") // docker initializes from home/env var
 	if err != nil {
 		t.Fatalf("parsing test cfg failed: %s", err)
 	}
 
-	drvAuths, err := preprocessAuths(auths)
+	drvAuths, err := preprocessAuths(cfg.AuthConfigs)
 	if err != nil {
 		t.Fatalf("preprocess test cfg failed: %s", err)
 	}
