@@ -150,20 +150,21 @@ type ContainerTask interface {
 	PIDs() uint64
 
 	// OpenFiles defines the max number of files that the process in the
-	// function is allowed to open. Leave 0 for the default value from the host.
-	OpenFiles() uint64
+	// function is allowed to open. Return nil for the default value from the
+	// host.
+	OpenFiles() *uint64
 
 	// LockedMemory maximum number of bytes of memory that may be locked into
-	// RAM. Leave 0 for the default value from the host.
-	LockedMemory() uint64
+	// RAM. Return nil for the default value from the host.
+	LockedMemory() *uint64
 
-	// PendingSignals limit on the number of signals that may be queued. Leave
-	// 0 for the default value from the host.
-	PendingSignals() uint64
+	// PendingSignals limit on the number of signals that may be queued. Return
+	// nil for the default value from the host.
+	PendingSignals() *uint64
 
 	// MessageQueue a limit on the number of bytes that can be allocated for
-	// POSIX message queues. Leave 0 for the default value from the host.
-	MessageQueue() uint64
+	// POSIX message queues. Return nil for the default value from the host.
+	MessageQueue() *uint64
 
 	// Tmpfs Filesystem size limit for the container, in megabytes.
 	TmpFsSize() uint64

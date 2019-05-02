@@ -143,11 +143,11 @@ func (c *cookie) configurePIDs(log logrus.FieldLogger) {
 // configureOpenFiles will set the ULimit for `nofile` on the Docker container
 func (c *cookie) configureOpenFiles(log logrus.FieldLogger) {
 	openFiles := c.task.OpenFiles()
-	if openFiles == 0 {
+	if openFiles == nil {
 		return
 	}
 
-	openFiles64 := int64(openFiles)
+	openFiles64 := int64(*openFiles)
 	log.WithFields(logrus.Fields{"openFiles": openFiles64, "call_id": c.task.Id()}).Debug("setting open files")
 	c.addULimit(docker.ULimit{Name: "nofile", Soft: openFiles64, Hard: openFiles64})
 }
@@ -155,11 +155,11 @@ func (c *cookie) configureOpenFiles(log logrus.FieldLogger) {
 // configureLockedMemory will set the ULimit for `memlock` on the Docker container
 func (c *cookie) configureLockedMemory(log logrus.FieldLogger) {
 	lockedMemory := c.task.LockedMemory()
-	if lockedMemory == 0 {
+	if lockedMemory == nil {
 		return
 	}
 
-	lockedMemory64 := int64(lockedMemory)
+	lockedMemory64 := int64(*lockedMemory)
 	log.WithFields(logrus.Fields{"lockedMemory": lockedMemory64, "call_id": c.task.Id()}).Debug("setting locked memory")
 	c.addULimit(docker.ULimit{Name: "memlock", Soft: lockedMemory64, Hard: lockedMemory64})
 }
@@ -168,11 +168,11 @@ func (c *cookie) configureLockedMemory(log logrus.FieldLogger) {
 // container
 func (c *cookie) configurePendingSignals(log logrus.FieldLogger) {
 	pendingSignals := c.task.PendingSignals()
-	if pendingSignals == 0 {
+	if pendingSignals == nil {
 		return
 	}
 
-	pendingSignals64 := int64(pendingSignals)
+	pendingSignals64 := int64(*pendingSignals)
 	log.WithFields(logrus.Fields{"pendingSignals": pendingSignals64, "call_id": c.task.Id()}).Debug("setting pending signals")
 	c.addULimit(docker.ULimit{Name: "sigpending", Soft: pendingSignals64, Hard: pendingSignals64})
 }
@@ -181,11 +181,11 @@ func (c *cookie) configurePendingSignals(log logrus.FieldLogger) {
 // container
 func (c *cookie) configureMessageQueue(log logrus.FieldLogger) {
 	messageQueue := c.task.MessageQueue()
-	if messageQueue == 0 {
+	if messageQueue == nil {
 		return
 	}
 
-	messageQueue64 := int64(messageQueue)
+	messageQueue64 := int64(*messageQueue)
 	log.WithFields(logrus.Fields{"messageQueue": messageQueue64, "call_id": c.task.Id()}).Debug("setting message queue")
 	c.addULimit(docker.ULimit{Name: "msqueue", Soft: messageQueue64, Hard: messageQueue64})
 }

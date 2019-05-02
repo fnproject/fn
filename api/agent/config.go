@@ -29,10 +29,10 @@ type Config struct {
 	MaxTotalMemory                uint64        `json:"max_total_memory_bytes"`
 	MaxFsSize                     uint64        `json:"max_fs_size_mb"`
 	MaxPIDs                       uint64        `json:"max_pids"`
-	MaxOpenFiles                  uint64        `json:"max_open_files"`
-	MaxLockedMemory               uint64        `json:"max_locked_memory"`
-	MaxPendingSignals             uint64        `json:"max_pending_signals"`
-	MaxMessageQueue               uint64        `json:"max_message_queue"`
+	MaxOpenFiles                  *uint64       `json:"max_open_files"`
+	MaxLockedMemory               *uint64       `json:"max_locked_memory"`
+	MaxPendingSignals             *uint64       `json:"max_pending_signals"`
+	MaxMessageQueue               *uint64       `json:"max_message_queue"`
 	PreForkPoolSize               uint64        `json:"pre_fork_pool_size"`
 	PreForkImage                  string        `json:"pre_fork_image"`
 	PreForkCmd                    string        `json:"pre_fork_pool_cmd"`
@@ -174,10 +174,10 @@ func NewConfig() (*Config, error) {
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
 	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
 	err = setEnvUint(err, EnvMaxPIDs, &cfg.MaxPIDs)
-	err = setEnvUint(err, EnvMaxOpenFiles, &cfg.MaxOpenFiles)
-	err = setEnvUint(err, EnvMaxLockedMemory, &cfg.MaxLockedMemory)
-	err = setEnvUint(err, EnvMaxPendingSignals, &cfg.MaxPendingSignals)
-	err = setEnvUint(err, EnvMaxMessageQueue, &cfg.MaxMessageQueue)
+	err = setEnvUintPointer(err, EnvMaxOpenFiles, &cfg.MaxOpenFiles)
+	err = setEnvUintPointer(err, EnvMaxLockedMemory, &cfg.MaxLockedMemory)
+	err = setEnvUintPointer(err, EnvMaxPendingSignals, &cfg.MaxPendingSignals)
+	err = setEnvUintPointer(err, EnvMaxMessageQueue, &cfg.MaxMessageQueue)
 	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
 	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
 	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
@@ -245,6 +245,20 @@ func setEnvUint(err error, name string, dst *uint64) error {
 			return fmt.Errorf("error invalid %s=%s", name, tmp)
 		}
 		*dst = val
+	}
+	return nil
+}
+
+func setEnvUintPointer(err error, name string, dst **uint64) error {
+	if err != nil {
+		return err
+	}
+	if tmp, ok := os.LookupEnv(name); ok {
+		val, err := strconv.ParseUint(tmp, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error invalid %s=%s", name, tmp)
+		}
+		**dst = val
 	}
 	return nil
 }
