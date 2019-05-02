@@ -122,12 +122,15 @@ func (tr *placerTracker) RetryAllBackoff(numOfRunners int) bool {
 		stats.Record(tr.requestCtx, emptyPoolCountMeasure.M(0))
 	}
 
+	t := time.NewTimer(tr.cfg.RetryAllDelay)
+	defer t.Stop()
+
 	select {
 	case <-tr.requestCtx.Done(): // client side timeout/cancel
 		return false
 	case <-tr.placerCtx.Done(): // placer wait timeout
 		return false
-	case <-time.After(tr.cfg.RetryAllDelay):
+	case <-t.C:
 	}
 
 	return true

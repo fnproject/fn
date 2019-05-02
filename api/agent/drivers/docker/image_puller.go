@@ -102,8 +102,10 @@ func (i *imagePuller) newTransfer(ctx context.Context, cfg *docker.AuthConfigura
 }
 
 func (i *imagePuller) pullWithRetry(trx *transfer) error {
-
 	backoff := common.NewBackOff(i.backOffCfg)
+	timer := time.NewTimer(time.Duration(i.backOffCfg.MinDelay) * time.Millisecond)
+	defer timer.Stop()
+
 	for {
 		err := i.docker.PullImage(docker.PullImageOptions{Repository: trx.repo, Tag: trx.tag, Context: trx.ctx}, *trx.cfg)
 		ok, reason := i.isRetriable(err)
@@ -116,8 +118,10 @@ func (i *imagePuller) pullWithRetry(trx *transfer) error {
 			return err
 		}
 
+		timer.Reset(delay)
+
 		select {
-		case <-time.After(delay):
+		case <-timer.C:
 			recordRetry(trx.ctx, "docker_pull_image", reason)
 		case <-trx.ctx.Done():
 			return trx.ctx.Err()
