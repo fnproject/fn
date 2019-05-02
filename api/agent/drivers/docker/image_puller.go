@@ -101,12 +101,31 @@ func (i *imagePuller) newTransfer(ctx context.Context, cfg *types.AuthConfig, im
 }
 
 func (i *imagePuller) pullWithRetry(trx *transfer) error {
+	auth, err := command.EncodeAuthToBase64(*trx.Config)
+	if err != nil {
+		return err
+	}
+
+	// TODO wtf
+	ref, err := reference.ParseNormalizedName(imgName)
+	if err != nil {
+		return err
+	}
+
+	ref := reference.FamiliarString(imgRefAndAuth.Reference())
+
 	backoff := common.NewBackOff(i.backOffCfg)
 	timer := common.NewTimer(time.Duration(i.backOffCfg.MinDelay) * time.Millisecond)
 	defer timer.Stop()
 
 	for {
-		err := i.docker.PullImage(docker.PullImageOptions{Repository: trx.repo, Tag: trx.tag, Context: trx.ctx}, *trx.cfg)
+		opts := types.ImagePullOptions{
+			All:          false,
+			RegistryAuth: auth,
+			// PrivilegeFunc: TODO(reed): maybe?
+			// Platform: TODO(reed): ?
+		}
+		err := i.docker.PullImage(trx.ctx, ref, opts)
 		ok, reason := i.isRetriable(err)
 		if !ok {
 			return err
@@ -165,7 +184,7 @@ func (i *imagePuller) startTransfer(trx *transfer) {
 	delete(i.transfers, trx.key)
 }
 
-func (i *imagePuller) PullImage(ctx context.Context, cfg *docker.AuthConfig, img, repo, tag string) chan error {
+func (i *imagePuller) PullImage(ctx context.Context, cfg *types.AuthConfig, img, repo, tag string) chan error {
 	return i.newTransfer(ctx, cfg, img, repo, tag)
 }
 
