@@ -140,54 +140,28 @@ func (c *cookie) configurePIDs(log logrus.FieldLogger) {
 	c.opts.HostConfig.PidsLimit = &pids64
 }
 
-// configureOpenFiles will set the ULimit for `nofile` on the Docker container
-func (c *cookie) configureOpenFiles(log logrus.FieldLogger) {
-	openFiles := c.task.OpenFiles()
-	if openFiles == nil {
-		return
-	}
-
-	openFiles64 := int64(*openFiles)
-	log.WithFields(logrus.Fields{"openFiles": openFiles64, "call_id": c.task.Id()}).Debug("setting open files")
-	c.addULimit(docker.ULimit{Name: "nofile", Soft: openFiles64, Hard: openFiles64})
+func (c *cookie) configureULimits(log logrus.FieldLogger) {
+	c.configureULimit("nofile", c.task.OpenFiles(), log)
+	c.configureULimit("memlock", c.task.LockedMemory(), log)
+	c.configureULimit("sigpending", c.task.PendingSignals(), log)
+	c.configureULimit("msqueue", c.task.MessageQueue(), log)
 }
 
-// configureLockedMemory will set the ULimit for `memlock` on the Docker container
-func (c *cookie) configureLockedMemory(log logrus.FieldLogger) {
-	lockedMemory := c.task.LockedMemory()
-	if lockedMemory == nil {
+func (c *cookie) configureULimit(name string, value *uint64, log logrus.FieldLogger) {
+	if value == nil {
 		return
 	}
 
-	lockedMemory64 := int64(*lockedMemory)
-	log.WithFields(logrus.Fields{"lockedMemory": lockedMemory64, "call_id": c.task.Id()}).Debug("setting locked memory")
-	c.addULimit(docker.ULimit{Name: "memlock", Soft: lockedMemory64, Hard: lockedMemory64})
-}
+	log = log.WithFields(logrus.Fields{"call_id": c.task.Id(), "ulimitName": name, "ulimitValue": value})
 
-// configurePendingSignals will set the ULimit for `sigpending` on the Docker
-// container
-func (c *cookie) configurePendingSignals(log logrus.FieldLogger) {
-	pendingSignals := c.task.PendingSignals()
-	if pendingSignals == nil {
+	value64 := int64(*value)
+	if value64 < 0 {
+		log.Warnf("ulimit value too big (ulimit ignored): %s", name)
 		return
 	}
 
-	pendingSignals64 := int64(*pendingSignals)
-	log.WithFields(logrus.Fields{"pendingSignals": pendingSignals64, "call_id": c.task.Id()}).Debug("setting pending signals")
-	c.addULimit(docker.ULimit{Name: "sigpending", Soft: pendingSignals64, Hard: pendingSignals64})
-}
-
-// configureMessageQueue will set the ULimit for `msqueue` on the Docker
-// container
-func (c *cookie) configureMessageQueue(log logrus.FieldLogger) {
-	messageQueue := c.task.MessageQueue()
-	if messageQueue == nil {
-		return
-	}
-
-	messageQueue64 := int64(*messageQueue)
-	log.WithFields(logrus.Fields{"messageQueue": messageQueue64, "call_id": c.task.Id()}).Debug("setting message queue")
-	c.addULimit(docker.ULimit{Name: "msqueue", Soft: messageQueue64, Hard: messageQueue64})
+	log.Debugf("setting ulimit %s", name)
+	c.opts.HostConfig.Ulimits = append(c.opts.HostConfig.Ulimits, docker.ULimit{Name: name, Soft: value64, Hard: value64})
 }
 
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
@@ -351,17 +325,6 @@ func (c *cookie) configureSecurity(log logrus.FieldLogger) {
 	c.opts.HostConfig.SecurityOpt = []string{"no-new-privileges:true"}
 	log.WithFields(logrus.Fields{"user": c.opts.Config.User,
 		"CapDrop": c.opts.HostConfig.CapDrop, "SecurityOpt": c.opts.HostConfig.SecurityOpt, "call_id": c.task.Id()}).Debug("setting security")
-}
-
-// addULimit adds lim to the docker host config ulimits slice, optionally
-// creating the slice if it isn't created yet.
-func (c *cookie) addULimit(lim docker.ULimit) {
-	limits := c.opts.HostConfig.Ulimits
-	if limits == nil {
-		limits = []docker.ULimit{}
-	}
-
-	c.opts.HostConfig.Ulimits = append(limits, lim)
 }
 
 // implements Cookie
