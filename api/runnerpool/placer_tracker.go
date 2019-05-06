@@ -43,7 +43,12 @@ func (tr *placerTracker) IsDone() bool {
 
 // HandleFindRunnersFailure is a convenience function to record error from runnerpool.Runners()
 func (tr *placerTracker) HandleFindRunnersFailure(err error) {
-	common.Logger(tr.requestCtx).WithError(err).Error("Failed to find runners for call")
+	logger := common.Logger(tr.requestCtx).WithError(err)
+	w, ok := err.(models.APIErrorWrapper)
+	if ok {
+		logger = logger.WithField("root_error", w.RootError())
+	}
+	logger.Error("Failed to find runners for call")
 	stats.Record(tr.requestCtx, errorPoolCountMeasure.M(0))
 }
 
