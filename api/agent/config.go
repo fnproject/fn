@@ -174,10 +174,10 @@ func NewConfig() (*Config, error) {
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
 	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
 	err = setEnvUint(err, EnvMaxPIDs, &cfg.MaxPIDs)
-	err = setEnvUintPointer(err, EnvMaxOpenFiles, &cfg.MaxOpenFiles)
-	err = setEnvUintPointer(err, EnvMaxLockedMemory, &cfg.MaxLockedMemory)
-	err = setEnvUintPointer(err, EnvMaxPendingSignals, &cfg.MaxPendingSignals)
-	err = setEnvUintPointer(err, EnvMaxMessageQueue, &cfg.MaxMessageQueue)
+	err = setEnvUintPointer(err, EnvMaxOpenFiles, &cfg.MaxOpenFiles, nil)
+	err = setEnvUintPointer(err, EnvMaxLockedMemory, &cfg.MaxLockedMemory, nil)
+	err = setEnvUintPointer(err, EnvMaxPendingSignals, &cfg.MaxPendingSignals, nil)
+	err = setEnvUintPointer(err, EnvMaxMessageQueue, &cfg.MaxMessageQueue, nil)
 	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
 	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
 	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
@@ -249,7 +249,7 @@ func setEnvUint(err error, name string, dst *uint64) error {
 	return nil
 }
 
-func setEnvUintPointer(err error, name string, dst **uint64) error {
+func setEnvUintPointer(err error, name string, dst **uint64, defaultVal *uint64) error {
 	if err != nil {
 		return err
 	}
@@ -258,8 +258,12 @@ func setEnvUintPointer(err error, name string, dst **uint64) error {
 		if err != nil {
 			return fmt.Errorf("error invalid %s=%s", name, tmp)
 		}
-		**dst = val
+		*dst = &val
+	} else if defaultVal != nil {
+		// No value found in the environment but a default value is supplied
+		*dst = defaultVal
 	}
+
 	return nil
 }
 

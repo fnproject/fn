@@ -144,7 +144,7 @@ func (c *cookie) configureULimits(log logrus.FieldLogger) {
 	c.configureULimit("nofile", c.task.OpenFiles(), log)
 	c.configureULimit("memlock", c.task.LockedMemory(), log)
 	c.configureULimit("sigpending", c.task.PendingSignals(), log)
-	c.configureULimit("msqueue", c.task.MessageQueue(), log)
+	c.configureULimit("msgqueue", c.task.MessageQueue(), log)
 }
 
 func (c *cookie) configureULimit(name string, value *uint64, log logrus.FieldLogger) {
@@ -152,7 +152,7 @@ func (c *cookie) configureULimit(name string, value *uint64, log logrus.FieldLog
 		return
 	}
 
-	log = log.WithFields(logrus.Fields{"call_id": c.task.Id(), "ulimitName": name, "ulimitValue": value})
+	log = log.WithFields(logrus.Fields{"call_id": c.task.Id(), "ulimitName": name, "ulimitValue": *value})
 
 	value64 := int64(*value)
 	if value64 < 0 {
