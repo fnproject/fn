@@ -103,7 +103,7 @@ func (i *imagePuller) newTransfer(ctx context.Context, cfg *docker.AuthConfigura
 
 func (i *imagePuller) pullWithRetry(trx *transfer) error {
 	backoff := common.NewBackOff(i.backOffCfg)
-	timer := time.NewTimer(time.Duration(i.backOffCfg.MinDelay) * time.Millisecond)
+	timer := common.NewTimer(time.Duration(i.backOffCfg.MinDelay) * time.Millisecond)
 	defer timer.Stop()
 
 	for {

@@ -2,7 +2,6 @@ package runnerpool
 
 import (
 	"context"
-	"time"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -122,7 +121,7 @@ func (tr *placerTracker) RetryAllBackoff(numOfRunners int) bool {
 		stats.Record(tr.requestCtx, emptyPoolCountMeasure.M(0))
 	}
 
-	t := time.NewTimer(tr.cfg.RetryAllDelay)
+	t := common.NewTimer(tr.cfg.RetryAllDelay)
 	defer t.Stop()
 
 	select {

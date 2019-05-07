@@ -433,7 +433,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 	var notifyChans []chan struct{}
 	var tok ResourceToken
 
-	timer := time.NewTimer(a.cfg.HotPoll)
+	timer := common.NewTimer(a.cfg.HotPoll)
 	defer timer.Stop()
 
 	// WARNING: Tricky flow below. We are here because: isNewContainerNeeded is true,
@@ -523,7 +523,7 @@ func (a *agent) waitHot(ctx context.Context, call *call, caller *slotCaller) (Sl
 	// 1) if we can get a slot immediately, grab it.
 	// 2) if we don't, send a signaller every x msecs until we do.
 
-	timer := time.NewTimer(1 * time.Microsecond) // pad, so time.After doesn't send immediately
+	timer := common.NewTimer(1 * time.Microsecond) // pad, so time.After doesn't send immediately
 	defer timer.Stop()
 
 	for {
@@ -898,7 +898,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		// because monitoring go-routine may pick these events earlier and cancel the ctx.
 		initStart := time.Now()
 
-		timer := time.NewTimer(a.cfg.HotStartTimeout)
+		timer := common.NewTimer(a.cfg.HotStartTimeout)
 		defer timer.Stop()
 
 		// INIT BARRIER HERE. Wait for the initialization go-routine signal
@@ -1049,8 +1049,8 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	var err error
 	isFrozen := false
 
-	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
-	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
+	freezeTimer := common.NewTimer(a.cfg.FreezeIdle)
+	idleTimer := common.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
 
 	defer func() {
 		freezeTimer.Stop()

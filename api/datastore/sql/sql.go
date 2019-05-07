@@ -216,7 +216,7 @@ func pingWithRetry(ctx context.Context, db *sqlx.DB) (err error) {
 		return ctx.Err()
 	}
 
-	timer := time.NewTimer(1 * time.Second)
+	timer := common.NewTimer(1 * time.Second)
 	defer timer.Stop()
 
 	for i := int64(0); i < attempts; i++ {

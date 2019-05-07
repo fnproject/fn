@@ -132,7 +132,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		MinDelay:   25,
 	})
 
-	timer := time.NewTimer(25 * time.Millisecond)
+	timer := common.NewTimer(25 * time.Millisecond)
 	defer timer.Stop()
 
 	for {
