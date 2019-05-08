@@ -159,12 +159,12 @@ func NewTimer(d time.Duration) Timer {
 // Reset behaves as both Stop and Reset, draining its channel before calling
 // reset.  It differs from the stdlib Timer.Reset by being safe to call on an
 // 'active' timer, that is, a timer that has not yet fired. see
-// https://golang.org/pkg/time/#Timer.Reset for more details.
+// https://golang.org/pkg/time/#Timer.Reset for more details. Reset must
+// not be called while while any other goroutine is receiving from t.C.
 func (t *Timer) Reset(d time.Duration) bool {
-	t.Stop()
-	select {
-	case <-t.C:
-	default:
-	}
-	return t.Timer.Reset(d)
+	// stop the old timer, we do not need to drain the channel as it will get GC'd
+	active := t.Stop()
+	// since reset sucks, just make
+	t.Timer = time.NewTimer(d)
+	return active
 }
