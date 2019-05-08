@@ -68,24 +68,24 @@ func getSubdomains(hostname string) map[string]bool {
 	return subdomains
 }
 
-func findRegistryConfig(reg string, configs map[string]driverAuthConfig) *types.AuthConfig {
+func findRegistryConfig(reg string, configs map[string]driverAuthConfig) types.AuthConfig {
 	var config types.AuthConfig
 
 	if reg != "" {
 		res := lookupRegistryConfig(reg, configs)
 		if res != nil {
-			return res
+			return *res
 		}
 	} else {
 		for _, reg := range defaultPrivateRegistries {
 			res := lookupRegistryConfig(reg, configs)
 			if res != nil {
-				return res
+				return *res
 			}
 		}
 	}
 
-	return &config
+	return config
 }
 
 func lookupRegistryConfig(reg string, configs map[string]driverAuthConfig) *types.AuthConfig {

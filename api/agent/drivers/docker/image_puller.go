@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/docker/cli/cli/command"
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
@@ -23,7 +26,7 @@ import (
 // 4 extra & unnecessary HTTP GETs are initiated. Below is a simple listener/follower serialization, where
 // any new requests are added as listeners to the ongoing docker-pull requests.
 type ImagePuller interface {
-	PullImage(ctx context.Context, cfg *types.AuthConfig, img, repo, tag string) chan error
+	PullImage(ctx context.Context, cfg types.AuthConfig, image string) chan error
 	SetRetryPolicy(policy common.BackOffConfig, checker drivers.RetryErrorChecker) error
 }
 
@@ -32,10 +35,8 @@ type transfer struct {
 
 	key string
 
-	cfg  *types.AuthConfig
-	img  string
-	repo string
-	tag  string
+	cfg   types.AuthConfig
+	image string
 
 	listeners []chan error
 }
@@ -68,9 +69,8 @@ func (i *imagePuller) SetRetryPolicy(policy common.BackOffConfig, checker driver
 }
 
 // newTransfer initiates a new docker-pull if there's no active docker-pull present for the same image.
-func (i *imagePuller) newTransfer(ctx context.Context, cfg *types.AuthConfig, img, repo, tag string) chan error {
-
-	key := fmt.Sprintf("%s %s %+v", repo, tag, cfg)
+func (i *imagePuller) newTransfer(ctx context.Context, cfg types.AuthConfig, image string) chan error {
+	key := fmt.Sprintf("%s%s%+v", image, '\x00', cfg)
 
 	i.lock.Lock()
 
@@ -80,9 +80,7 @@ func (i *imagePuller) newTransfer(ctx context.Context, cfg *types.AuthConfig, im
 			ctx:       ctx,
 			key:       key,
 			cfg:       cfg,
-			img:       img,
-			repo:      repo,
-			tag:       tag,
+			image:     image,
 			listeners: make([]chan error, 0, 1),
 		}
 		i.transfers[key] = trx
@@ -102,18 +100,17 @@ func (i *imagePuller) newTransfer(ctx context.Context, cfg *types.AuthConfig, im
 }
 
 func (i *imagePuller) pullWithRetry(trx *transfer) error {
-	auth, err := command.EncodeAuthToBase64(*trx.Config)
+	auth, err := command.EncodeAuthToBase64(trx.cfg)
 	if err != nil {
 		return err
 	}
 
-	// TODO wtf
-	ref, err := reference.ParseNormalizedName(imgName)
+	ref, err := reference.ParseAnyReference(trx.image)
 	if err != nil {
 		return err
 	}
 
-	ref := reference.FamiliarString(imgRefAndAuth.Reference())
+	image := reference.FamiliarString(ref)
 
 	backoff := common.NewBackOff(i.backOffCfg)
 	timer := common.NewTimer(time.Duration(i.backOffCfg.MinDelay) * time.Millisecond)
@@ -126,7 +123,12 @@ func (i *imagePuller) pullWithRetry(trx *transfer) error {
 			// PrivilegeFunc: TODO(reed): maybe?
 			// Platform: TODO(reed): ?
 		}
-		err := i.docker.PullImage(trx.ctx, ref, opts)
+		resp, err := i.docker.ImagePull(trx.ctx, image, opts)
+		if resp != nil {
+			// we are not interested, but have to drain this thing (this can take a while, but obeys ctx)
+			io.Copy(ioutil.Discard, resp)
+			resp.Close()
+		}
 		ok, reason := i.isRetriable(err)
 		if !ok {
 			return err
@@ -166,7 +168,7 @@ func (i *imagePuller) startTransfer(trx *transfer) {
 			}
 		}
 
-		err := models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", trx.img, msg))
+		err := models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", trx.image, msg))
 		ferr = models.NewFuncError(err)
 	}
 
@@ -185,8 +187,8 @@ func (i *imagePuller) startTransfer(trx *transfer) {
 	delete(i.transfers, trx.key)
 }
 
-func (i *imagePuller) PullImage(ctx context.Context, cfg *types.AuthConfig, img, repo, tag string) chan error {
-	return i.newTransfer(ctx, cfg, img, repo, tag)
+func (i *imagePuller) PullImage(ctx context.Context, cfg types.AuthConfig, image string) chan error {
+	return i.newTransfer(ctx, cfg, image)
 }
 
 // removes docker err formatting: 'API Error (code) {"message":"..."}'

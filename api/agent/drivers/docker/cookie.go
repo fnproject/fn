@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -45,9 +44,7 @@ type cookie struct {
 	// pointer to docker driver
 	drv *DockerDriver
 
-	imgReg  string
-	imgRepo string
-	imgTag  string
+	imgReg string
 
 	// contains inspected image if ValidateImage() is called
 	image *CachedImage
@@ -57,7 +54,7 @@ type cookie struct {
 }
 
 func (c *cookie) configureImage(log logrus.FieldLogger) {
-	c.imgReg, c.imgRepo, c.imgTag = drivers.ParseImage(c.task.Image())
+	c.imgReg, _, _ = drivers.ParseImage(c.task.Image())
 }
 
 func (c *cookie) configureLabels(log logrus.FieldLogger) {
@@ -385,7 +382,7 @@ func (c *cookie) Unfreeze(ctx context.Context) error {
 	return err
 }
 
-func (c *cookie) authImage(ctx context.Context) (*types.AuthConfig, error) {
+func (c *cookie) authImage(ctx context.Context) (types.AuthConfig, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "AuthImage"})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker auth image")
 
@@ -398,10 +395,10 @@ func (c *cookie) authImage(ctx context.Context) (*types.AuthConfig, error) {
 		authConfig, err := task.DockerAuth(ctx, c.task.Image())
 		span.End()
 		if err != nil {
-			return nil, err
+			return config, err
 		}
 		if authConfig != nil {
-			config = authConfig
+			config = *authConfig
 		}
 	}
 
@@ -461,13 +458,11 @@ func (c *cookie) PullImage(ctx context.Context) error {
 		return err
 	}
 
-	repo := path.Join(c.imgReg, c.imgRepo)
-
 	log = common.Logger(ctx).WithFields(logrus.Fields{"registry": cfg.ServerAddress, "username": cfg.Username})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "image": c.task.Image()}).Debug("docker pull")
 	ctx = common.WithLogger(ctx, log)
 
-	errC := c.drv.imgPuller.PullImage(ctx, cfg, c.task.Image(), repo, c.imgTag)
+	errC := c.drv.imgPuller.PullImage(ctx, cfg, c.task.Image())
 	return <-errC
 }
 
