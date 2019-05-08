@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/cli/cli/command"
 	"github.com/docker/docker/api/types"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
