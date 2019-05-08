@@ -142,3 +142,29 @@ func (t *DateTime) Scan(raw interface{}) error {
 func (t DateTime) Value() (driver.Value, error) {
 	return driver.Value(t.String()), nil
 }
+
+// Timer is exactly the same semantics as time.Timer, except for Reset, which
+// fixes a deficiency from the stdlib that would have resulted in our case as a
+// desirable behavior change to fix. See Reset for details. NewTimer must be
+// called in order to get a Timer or there will be panics.
+type Timer struct {
+	*time.Timer
+}
+
+// NewTimer starts a new Timer with the given duration.
+func NewTimer(d time.Duration) Timer {
+	return Timer{time.NewTimer(d)}
+}
+
+// Reset behaves as both Stop and Reset, draining its channel before calling
+// reset.  It differs from the stdlib Timer.Reset by being safe to call on an
+// 'active' timer, that is, a timer that has not yet fired. see
+// https://golang.org/pkg/time/#Timer.Reset for more details. Reset must
+// not be called while while any other goroutine is receiving from t.C.
+func (t *Timer) Reset(d time.Duration) bool {
+	// stop the old timer, we do not need to drain the channel as it will get GC'd
+	active := t.Stop()
+	// since reset sucks, just make
+	t.Timer = time.NewTimer(d)
+	return active
+}

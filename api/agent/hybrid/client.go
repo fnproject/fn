@@ -132,6 +132,9 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		MinDelay:   25,
 	})
 
+	timer := common.NewTimer(25 * time.Millisecond)
+	defer timer.Stop()
+
 	for {
 		// TODO this isn't re-using buffers very efficiently, but retries should be rare...
 		err := cl.once(ctx, request, result, method, query, url...)
@@ -153,10 +156,12 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 			return err
 		}
 
+		timer.Reset(delay)
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(delay):
+		case <-timer.C:
 		}
 	}
 }

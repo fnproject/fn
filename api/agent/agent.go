@@ -433,6 +433,9 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 	var notifyChans []chan struct{}
 	var tok ResourceToken
 
+	timer := common.NewTimer(a.cfg.HotPoll)
+	defer timer.Stop()
+
 	// WARNING: Tricky flow below. We are here because: isNewContainerNeeded is true,
 	// in other words, we need to launch a new container at this time due to high load.
 	//
@@ -452,7 +455,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 	// need to start a new container, then waiters will wait.
 	select {
 	case tok = <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
-	case <-time.After(a.cfg.HotPoll):
+	case <-timer.C:
 		// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
 		// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
 		// idle container. We do this by submitting a non-blocking request and evicting required
@@ -520,7 +523,9 @@ func (a *agent) waitHot(ctx context.Context, call *call, caller *slotCaller) (Sl
 	// 1) if we can get a slot immediately, grab it.
 	// 2) if we don't, send a signaller every x msecs until we do.
 
-	sleep := 1 * time.Microsecond // pad, so time.After doesn't send immediately
+	timer := common.NewTimer(1 * time.Microsecond) // pad, so time.After doesn't send immediately
+	defer timer.Stop()
+
 	for {
 		select {
 		case err := <-caller.notify:
@@ -538,12 +543,12 @@ func (a *agent) waitHot(ctx context.Context, call *call, caller *slotCaller) (Sl
 			return nil, ctx.Err()
 		case <-a.shutWg.Closer(): // server shutdown
 			return nil, models.ErrCallTimeoutServerBusy
-		case <-time.After(sleep):
+		case <-timer.C:
 			// ping dequeuer again
 		}
 
 		// set sleep to x msecs after first iteration
-		sleep = a.cfg.HotPoll
+		timer.Reset(a.cfg.HotPoll)
 		// send a notification to launchHot()
 		select {
 		case call.slots.signaller <- caller:
@@ -893,6 +898,9 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		// because monitoring go-routine may pick these events earlier and cancel the ctx.
 		initStart := time.Now()
 
+		timer := common.NewTimer(a.cfg.HotStartTimeout)
+		defer timer.Stop()
+
 		// INIT BARRIER HERE. Wait for the initialization go-routine signal
 		select {
 		case <-initialized:
@@ -903,11 +911,13 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		case <-ctx.Done():
 			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "canceled")
 			return
-		case <-time.After(a.cfg.HotStartTimeout):
+		case <-timer.C:
 			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "timedout")
 			tryQueueErr(models.ErrContainerInitTimeout, errQueue)
 			return
 		}
+
+		timer.Stop() // no longer needed
 
 		for ctx.Err() == nil {
 			slot := &hotSlot{
@@ -1039,8 +1049,8 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	var err error
 	isFrozen := false
 
-	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
-	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
+	freezeTimer := common.NewTimer(a.cfg.FreezeIdle)
+	idleTimer := common.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
 
 	defer func() {
 		freezeTimer.Stop()
