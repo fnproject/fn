@@ -210,43 +210,6 @@ definitions:
       PathInContainer: "/dev/deviceName"
       CgroupPermissions: "mrw"
 
-  DeviceRequest:
-    type: "object"
-    description: "A request for devices to be sent to device drivers"
-    properties:
-      Driver:
-        type: "string"
-        example: "nvidia"
-      Count:
-        type: "integer"
-        example: -1
-      DeviceIDs:
-        type: "array"
-        items:
-          type: "string"
-        example:
-          - "0"
-          - "1"
-          - "GPU-fef8089b-4820-abfc-e83e-94318197576e"
-      Capabilities:
-        description: |
-          A list of capabilities; an OR list of AND lists of capabilities.
-        type: "array"
-        items:
-          type: "array"
-          items:
-            type: "string"
-        example:
-          # gpu AND nvidia AND compute
-          - ["gpu", "nvidia", "compute"]
-      Options:
-        description: |
-          Driver-specific options, specified as a key/value pairs. These options
-          are passed directly to the driver.
-        type: "object"
-        additionalProperties:
-          type: "string"
-
   ThrottleDevice:
     type: "object"
     properties:
@@ -458,11 +421,6 @@ definitions:
         items:
           type: "string"
           example: "c 13:* rwm"
-      DeviceRequests:
-        description: "a list of requests for devices to be sent to device drivers"
-        type: "array"
-        items:
-          $ref: "#/definitions/DeviceRequest"
       DiskQuota:
         description: "Disk limit (in bytes)."
         type: "integer"
@@ -4611,9 +4569,9 @@ paths:
       parameters:
         - name: "name"
           in: "query"
-          description: "Assign the specified name to the container. Must match `/?[a-zA-Z0-9][a-zA-Z0-9_.-]+`."
+          description: "Assign the specified name to the container. Must match `/?[a-zA-Z0-9_-]+`."
           type: "string"
-          pattern: "^/?[a-zA-Z0-9][a-zA-Z0-9_.-]+$"
+          pattern: "/?[a-zA-Z0-9_-]+"
         - name: "body"
           in: "body"
           description: "Container to create"
@@ -5177,15 +5135,15 @@ paths:
         Note: This endpoint works only for containers with the `json-file` or `journald` logging driver.
       operationId: "ContainerLogs"
       responses:
-        200:
-          description: |
-                  logs returned as a stream in response body.
-                  For the stream format, [see the documentation for the attach endpoint](#operation/ContainerAttach).
-                  Note that unlike the attach endpoint, the logs endpoint does not upgrade the connection and does not
-                  set Content-Type.
+        101:
+          description: "logs returned as a stream"
           schema:
             type: "string"
             format: "binary"
+        200:
+          description: "logs returned as a string in response body"
+          schema:
+            type: "string"
         404:
           description: "no such container"
           schema:
@@ -5205,7 +5163,10 @@ paths:
           type: "string"
         - name: "follow"
           in: "query"
-          description: "Keep connection after returning logs."
+          description: |
+            Return the logs as a stream.
+
+            This will return a `101` HTTP response with a `Connection: upgrade` header, then hijack the HTTP connection to send raw output. For more information about hijacking and the stream format, [see the documentation for the attach endpoint](#operation/ContainerAttach).
           type: "boolean"
           default: false
         - name: "stdout"
@@ -6496,11 +6457,6 @@ paths:
         - name: "target"
           in: "query"
           description: "Target build stage"
-          type: "string"
-          default: ""
-        - name: "outputs"
-          in: "query"
-          description: "BuildKit output configuration"
           type: "string"
           default: ""
       responses:
@@ -9566,16 +9522,23 @@ paths:
     get:
       summary: "Get service logs"
       description: |
-        Get `stdout` and `stderr` logs from a service. See also [`/containers/{id}/logs`](#operation/ContainerLogs).
+        Get `stdout` and `stderr` logs from a service.
 
-        **Note**: This endpoint works only for services with the `local`, `json-file` or `journald` logging drivers.
+        **Note**: This endpoint works only for services with the `json-file` or `journald` logging drivers.
       operationId: "ServiceLogs"
+      produces:
+        - "application/vnd.docker.raw-stream"
+        - "application/json"
       responses:
-        200:
-          description: "logs returned as a stream in response body"
+        101:
+          description: "logs returned as a stream"
           schema:
             type: "string"
             format: "binary"
+        200:
+          description: "logs returned as a string in response body"
+          schema:
+            type: "string"
         404:
           description: "no such service"
           schema:
@@ -9604,7 +9567,10 @@ paths:
           default: false
         - name: "follow"
           in: "query"
-          description: "Keep connection after returning logs."
+          description: |
+            Return the logs as a stream.
+
+            This will return a `101` HTTP response with a `Connection: upgrade` header, then hijack the HTTP connection to send raw output. For more information about hijacking and the stream format, [see the documentation for the attach endpoint](#operation/ContainerAttach).
           type: "boolean"
           default: false
         - name: "stdout"
@@ -9813,16 +9779,23 @@ paths:
     get:
       summary: "Get task logs"
       description: |
-        Get `stdout` and `stderr` logs from a task. See also [`/containers/{id}/logs`](#operation/ContainerLogs).
+        Get `stdout` and `stderr` logs from a task.
 
-        **Note**: This endpoint works only for services with the `local`, `json-file` or `journald` logging drivers.
+        **Note**: This endpoint works only for services with the `json-file` or `journald` logging drivers.
       operationId: "TaskLogs"
+      produces:
+        - "application/vnd.docker.raw-stream"
+        - "application/json"
       responses:
-        200:
-          description: "logs returned as a stream in response body"
+        101:
+          description: "logs returned as a stream"
           schema:
             type: "string"
             format: "binary"
+        200:
+          description: "logs returned as a string in response body"
+          schema:
+            type: "string"
         404:
           description: "no such task"
           schema:
@@ -9851,7 +9824,10 @@ paths:
           default: false
         - name: "follow"
           in: "query"
-          description: "Keep connection after returning logs."
+          description: |
+            Return the logs as a stream.
+
+            This will return a `101` HTTP response with a `Connection: upgrade` header, then hijack the HTTP connection to send raw output. For more information about hijacking and the stream format, [see the documentation for the attach endpoint](#operation/ContainerAttach).
           type: "boolean"
           default: false
         - name: "stdout"

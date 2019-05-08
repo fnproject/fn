@@ -87,7 +87,7 @@ type Client struct {
 // If the request is non-GET return `ErrRedirect`. Otherwise use the last response.
 //
 // Go 1.8 changes behavior for HTTP redirects (specifically 301, 307, and 308) in the client .
-// The Docker client (and by extension docker API client) can be made to send a request
+// The Docker client (and by extension docker API client) can be made to to send a request
 // like POST /containers//start where what would normally be in the name section of the URL is empty.
 // This triggers an HTTP 301 from the daemon.
 // In go 1.8 this 301 will be converted to a GET request, and ends up getting a 404 from the daemon.
@@ -107,7 +107,7 @@ func CheckRedirect(req *http.Request, via []*http.Request) error {
 // It won't send any version information if the version number is empty. It is
 // highly recommended that you set a version or your client may break if the
 // server is upgraded.
-func NewClientWithOpts(ops ...Opt) (*Client, error) {
+func NewClientWithOpts(ops ...func(*Client) error) (*Client, error) {
 	client, err := defaultHTTPClient(DefaultDockerHost)
 	if err != nil {
 		return nil, err

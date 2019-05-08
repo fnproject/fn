@@ -10,7 +10,7 @@ import (
 	"net/rpc"
 )
 
-var errRpcJsonNeedsTermWhitespace = errors.New("rpc requires a JsonHandle with TermWhitespace set to true")
+var errRpcJsonNeedsTermWhitespace = errors.New("rpc requires JsonHandle with TermWhitespace=true")
 
 // Rpc provides a rpc Server or Client Codec for rpc communication.
 type Rpc interface {
@@ -57,7 +57,7 @@ func newRPCCodec2(r io.Reader, w io.Writer, c io.Closer, h Handle) rpcCodec {
 	// always ensure that we use a flusher, and always flush what was written to the connection.
 	// we lose nothing by using a buffered writer internally.
 	f, ok := w.(ioFlusher)
-	bh := h.getBasicHandle()
+	bh := basicHandle(h)
 	if !bh.RPCNoBuffer {
 		if bh.WriterBufferSize <= 0 {
 			if !ok {
