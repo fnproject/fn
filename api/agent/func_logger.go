@@ -111,18 +111,20 @@ func (li *lineWriter) Write(ogb []byte) (int, error) {
 
 	var n int
 	for {
-		// read the line and advance buffer past it
-		l, err := li.b.ReadBytes('\n')
-		if err != nil {
-			break // no more newlines in buffer (see ReadBytes contract)
+		b := li.b.Bytes()
+		i := bytes.IndexByte(b, '\n')
+		if i < 0 {
+			break // no more newlines in buffer
 		}
 
-		// write in the line
+		// write in this line and advance buffer past it
+		l := b[:i+1]
 		ns, err := li.w.Write(l)
 		n += ns
 		if err != nil {
 			return n, err
 		}
+		li.b.Next(len(l))
 	}
 
 	// technically we wrote all the bytes, so make things appear normal
