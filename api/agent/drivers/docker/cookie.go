@@ -9,6 +9,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	units "github.com/docker/go-units"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -159,7 +160,7 @@ func (c *cookie) configureULimit(name string, value *uint64, log logrus.FieldLog
 	}
 
 	log.Debugf("setting ulimit %s", name)
-	c.opts.HostConfig.Ulimits = append(c.opts.HostConfig.Ulimits, docker.ULimit{Name: name, Soft: value64, Hard: value64})
+	c.hostOpts.Ulimits = append(c.hostOpts.Ulimits, &units.Ulimit{Name: name, Soft: value64, Hard: value64})
 }
 
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
