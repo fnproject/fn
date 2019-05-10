@@ -29,7 +29,7 @@ make docker-build
 git add -u
 git commit -m "$image: v$version release [skip ci]"
 git tag -f -a "v$version" -m "version v$version"
-git push --tags origin v$version
+git push --tags
 
 # Finally, push docker images
 docker tag $user/$image:latest $user/$image:$version
