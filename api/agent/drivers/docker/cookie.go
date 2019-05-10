@@ -11,7 +11,7 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 )
@@ -138,6 +138,30 @@ func (c *cookie) configurePIDs(log logrus.FieldLogger) {
 	pids64 := int64(pids)
 	log.WithFields(logrus.Fields{"pids": pids64, "call_id": c.task.Id()}).Debug("setting PIDs")
 	c.opts.HostConfig.PidsLimit = &pids64
+}
+
+func (c *cookie) configureULimits(log logrus.FieldLogger) {
+	c.configureULimit("nofile", c.task.OpenFiles(), log)
+	c.configureULimit("memlock", c.task.LockedMemory(), log)
+	c.configureULimit("sigpending", c.task.PendingSignals(), log)
+	c.configureULimit("msgqueue", c.task.MessageQueue(), log)
+}
+
+func (c *cookie) configureULimit(name string, value *uint64, log logrus.FieldLogger) {
+	if value == nil {
+		return
+	}
+
+	log = log.WithFields(logrus.Fields{"call_id": c.task.Id(), "ulimitName": name, "ulimitValue": *value})
+
+	value64 := int64(*value)
+	if value64 < 0 {
+		log.Warnf("ulimit value too big (ulimit ignored): %s", name)
+		return
+	}
+
+	log.Debugf("setting ulimit %s", name)
+	c.opts.HostConfig.Ulimits = append(c.opts.HostConfig.Ulimits, docker.ULimit{Name: name, Soft: value64, Hard: value64})
 }
 
 func (c *cookie) configureTmpFs(log logrus.FieldLogger) {

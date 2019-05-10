@@ -29,6 +29,10 @@ type Config struct {
 	MaxTotalMemory                uint64        `json:"max_total_memory_bytes"`
 	MaxFsSize                     uint64        `json:"max_fs_size_mb"`
 	MaxPIDs                       uint64        `json:"max_pids"`
+	MaxOpenFiles                  *uint64       `json:"max_open_files"`
+	MaxLockedMemory               *uint64       `json:"max_locked_memory"`
+	MaxPendingSignals             *uint64       `json:"max_pending_signals"`
+	MaxMessageQueue               *uint64       `json:"max_message_queue"`
 	PreForkPoolSize               uint64        `json:"pre_fork_pool_size"`
 	PreForkImage                  string        `json:"pre_fork_image"`
 	PreForkCmd                    string        `json:"pre_fork_pool_cmd"`
@@ -87,6 +91,17 @@ const (
 	EnvMaxFsSize = "FN_MAX_FS_SIZE_MB"
 	// EnvMaxPIDs is the maximum number of PIDs that a function is allowed to create
 	EnvMaxPIDs = "FN_MAX_PIDS"
+	// EnvMaxOpenFiles is the maximum number open files handles the process in a
+	// function is allowed to have
+	EnvMaxOpenFiles = "FN_MAX_OPEN_FILES"
+	// EnvMaxLockedMemory the maximum number of bytes of memory that may be
+	// locked into RAM
+	EnvMaxLockedMemory = "FN_MAX_LOCKED_MEMORY"
+	// EnvMaxPendingSignals limit on the number of signals that may be queued
+	EnvMaxPendingSignals = "FN_MAX_PENDING_SIGNALS"
+	// EnvMaxMessageQueue limit on the number of bytes that can be allocated for
+	// POSIX message queues
+	EnvMaxMessageQueue = "FN_MAX_MESSAGE_QUEUE"
 	// EnvPreForkPoolSize is the number of containers pooled to steal network from, this may reduce latency
 	EnvPreForkPoolSize = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
 	// EnvPreForkImage is the image to use for the pre-fork pool
@@ -145,6 +160,12 @@ func NewConfig() (*Config, error) {
 		PreForkCmd:       "tail -f /dev/null",
 	}
 
+	defaultMaxPIDs := uint64(50)
+	defaultMaxOpenFiles := uint64(350)
+	defaultMaxLockedMemory := uint64(64 * 1024)
+	defaultMaxPendingSignals := uint64(5000)
+	defaultMaxMessageQueue := uint64(819200)
+
 	var err error
 	err = setEnvMsecs(err, EnvFreezeIdle, &cfg.FreezeIdle, 50*time.Millisecond)
 	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, DefaultHotPoll)
@@ -152,23 +173,27 @@ func NewConfig() (*Config, error) {
 	err = setEnvMsecs(err, EnvHotPullTimeout, &cfg.HotPullTimeout, time.Duration(10)*time.Minute)
 	err = setEnvMsecs(err, EnvHotStartTimeout, &cfg.HotStartTimeout, time.Duration(5)*time.Second)
 	err = setEnvMsecs(err, EnvDetachedHeadroom, &cfg.DetachedHeadRoom, time.Duration(360)*time.Second)
-	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
-	err = setEnvUint(err, EnvMaxHdrResponseSize, &cfg.MaxHdrResponseSize)
-	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
-	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
-	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
-	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
-	err = setEnvUint(err, EnvMaxPIDs, &cfg.MaxPIDs)
-	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
+	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize, nil)
+	err = setEnvUint(err, EnvMaxHdrResponseSize, &cfg.MaxHdrResponseSize, nil)
+	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize, nil)
+	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU, nil)
+	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory, nil)
+	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize, nil)
+	err = setEnvUint(err, EnvMaxPIDs, &cfg.MaxPIDs, &defaultMaxPIDs)
+	err = setEnvUintPointer(err, EnvMaxOpenFiles, &cfg.MaxOpenFiles, &defaultMaxOpenFiles)
+	err = setEnvUintPointer(err, EnvMaxLockedMemory, &cfg.MaxLockedMemory, &defaultMaxLockedMemory)
+	err = setEnvUintPointer(err, EnvMaxPendingSignals, &cfg.MaxPendingSignals, &defaultMaxPendingSignals)
+	err = setEnvUintPointer(err, EnvMaxMessageQueue, &cfg.MaxMessageQueue, &defaultMaxMessageQueue)
+	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize, nil)
 	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
 	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
-	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce)
+	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce, nil)
 	err = setEnvStr(err, EnvPreForkNetworks, &cfg.PreForkNetworks)
 	err = setEnvStr(err, EnvContainerLabelTag, &cfg.ContainerLabelTag)
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
 	err = setEnvStr(err, EnvDockerLoadFile, &cfg.DockerLoadFile)
 	err = setEnvBool(err, EnvDisableUnprivilegedContainers, &cfg.DisableUnprivilegedContainers)
-	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)
+	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes, nil)
 	err = setEnvStr(err, EnvIOFSPath, &cfg.IOFSAgentPath)
 	err = setEnvStr(err, EnvIOFSDockerPath, &cfg.IOFSMountRoot)
 	err = setEnvStr(err, EnvIOFSOpts, &cfg.IOFSOpts)
@@ -176,7 +201,7 @@ func NewConfig() (*Config, error) {
 	err = setEnvBool(err, EnvEnableNBResourceTracker, &cfg.EnableNBResourceTracker)
 	err = setEnvBool(err, EnvDisableReadOnlyRootFs, &cfg.DisableReadOnlyRootFs)
 	err = setEnvBool(err, EnvDisableDebugUserLogs, &cfg.DisableDebugUserLogs)
-	err = setEnvUint(err, EnvImageCleanMaxSize, &cfg.ImageCleanMaxSize)
+	err = setEnvUint(err, EnvImageCleanMaxSize, &cfg.ImageCleanMaxSize, nil)
 	err = setEnvStr(err, EnvImageCleanExemptTags, &cfg.ImageCleanExemptTags)
 	err = setEnvBool(err, EnvImageEnableVolume, &cfg.ImageEnableVolume)
 
@@ -216,17 +241,39 @@ func setEnvBool(err error, name string, dst *bool) error {
 	return nil
 }
 
-func setEnvUint(err error, name string, dst *uint64) error {
+func setEnvUint(err error, name string, dst *uint64, defaultValue *uint64) error {
 	if err != nil {
 		return err
 	}
+
 	if tmp := os.Getenv(name); tmp != "" {
 		val, err := strconv.ParseUint(tmp, 10, 64)
 		if err != nil {
 			return fmt.Errorf("error invalid %s=%s", name, tmp)
 		}
 		*dst = val
+	} else if defaultValue != nil {
+		*dst = *defaultValue
 	}
+
+	return nil
+}
+
+func setEnvUintPointer(err error, name string, dst **uint64, defaultVal *uint64) error {
+	if err != nil {
+		return err
+	}
+	if tmp, ok := os.LookupEnv(name); ok {
+		val, err := strconv.ParseUint(tmp, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error invalid %s=%s", name, tmp)
+		}
+		*dst = &val
+	} else if defaultVal != nil {
+		// No value found in the environment but a default value is supplied
+		*dst = defaultVal
+	}
+
 	return nil
 }
 
