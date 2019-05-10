@@ -87,7 +87,8 @@ func (l *logWriter) Close() error {
 // on the underlying writer once per new line. Close must
 // be called to ensure that the buffer is flushed, and a newline
 // will be appended in Close if none is present.
-// TODO(reed): is line writer is vulnerable to attack?
+// NOTE(reed): line writer is susceptible to attacks via logging large lines,
+// recommend to disable stderr logs in production anyway.
 type lineWriter struct {
 	b      *bytes.Buffer
 	w      io.WriteCloser
@@ -107,9 +108,9 @@ func (li *lineWriter) Write(ogb []byte) (int, error) {
 		// we don't want to return 0/error or the container will shut down
 		return len(ogb), nil
 	}
+
 	li.b.Write(ogb) // bytes.Buffer is guaranteed, read it!
 
-	var n int
 	for {
 		b := li.b.Bytes()
 		i := bytes.IndexByte(b, '\n')
@@ -117,14 +118,15 @@ func (li *lineWriter) Write(ogb []byte) (int, error) {
 			break // no more newlines in buffer
 		}
 
-		// write in this line and advance buffer past it
 		l := b[:i+1]
-		ns, err := li.w.Write(l)
-		n += ns
+		n, err := li.w.Write(l)
+		// advance, regardless - if it's a partial write underneath not on a newline, we can't help but the next
+		// call to write will try to write it again
+		li.b.Next(n)
 		if err != nil {
-			return n, err
+			// we consumed the whole buffer and it may get written eventually
+			return len(ogb), err
 		}
-		li.b.Next(len(l))
 	}
 
 	// technically we wrote all the bytes, so make things appear normal
