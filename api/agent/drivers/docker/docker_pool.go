@@ -214,13 +214,8 @@ func (pool *dockerPool) performReadyState(ctx context.Context, driver *DockerDri
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
 
-	killOpts := docker.KillContainerOptions{
-		ID:      task.Id(),
-		Context: ctx,
-	}
-
 	defer func() {
-		err := driver.docker.KillContainer(killOpts)
+		err := driver.docker.ContainerKill(ctx, task.Id(), "")
 		if err != nil {
 			log.WithError(err).Info("prefork pool container kill failed")
 			task.state = PoolTaskStateInit

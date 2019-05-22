@@ -30,7 +30,6 @@ type dockerClient interface {
 	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
-	KillContainer(opts docker.KillContainerOptions) error
 
 	// real docker ones
 	ContainerList(context.Context, types.ContainerListOptions) ([]types.Container, error)
@@ -39,6 +38,8 @@ type dockerClient interface {
 	ContainerPause(ctx context.Context, container string) error
 	ContainerUnpause(ctx context.Context, container string) error
 	ContainerRemove(ctx context.Context, container string, options types.ContainerRemoveOptions) error
+	ContainerKill(ctx context.Context, container, signal string) error
+	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
 
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
 	Info(context.Context) (types.Info, error)
@@ -359,10 +360,17 @@ func (d *dockerWrap) ContainerCreate(ctx context.Context, config *container.Conf
 	return c, err
 }
 
-func (d *dockerWrap) KillContainer(opts docker.KillContainerOptions) (err error) {
-	_, closer := makeTracker(opts.Context, "docker_kill_container")
+func (d *dockerWrap) ContainerInspect(ctx context.Context, containerID string) (container types.ContainerJSON, err error) {
+	ctx, closer := makeTracker(ctx, "docker_create_container")
 	defer func() { closer(err) }()
-	err = d.docker.KillContainer(opts)
+	container, err = d.realdocker.ContainerInspect(ctx, containerID)
+	return container, err
+}
+
+func (d *dockerWrap) ContainerKill(ctx context.Context, container, signal string) (err error) {
+	_, closer := makeTracker(ctx, "docker_kill_container")
+	defer func() { closer(err) }()
+	err = d.realdocker.ContainerKill(ctx, container, signal)
 	return err
 }
 

@@ -8,13 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fnproject/fn/api/models"
-
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/errdefs"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/drivers/stats"
-	docker "github.com/fsouza/go-dockerclient"
-
-	"github.com/sirupsen/logrus"
+	"github.com/fnproject/fn/api/models"
 )
 
 type taskDockerTest struct {
@@ -292,46 +291,33 @@ func TestRunnerDockerStdout(t *testing.T) {
 	}
 }
 
-func newTestClient(ctx context.Context) *docker.Client {
-	client, err := docker.NewClientFromEnv()
-	if err != nil {
-		logrus.WithError(err).Fatal("couldn't create docker client")
-	}
-
-	if err := client.Ping(); err != nil {
-		logrus.WithError(err).Fatal("couldn't connect to docker daemon")
-	}
-
-	return client
+func newTestClient(ctx context.Context) dockerClient {
+	return newClient(ctx)
 }
 
-func createContainer(ctx context.Context, client *docker.Client, id, labelTag, labelId string) error {
-	opts := docker.CreateContainerOptions{
-		Name: id,
-		Config: &docker.Config{
-			Cmd:          strings.Fields("tail -f /dev/null"),
-			Hostname:     id,
-			Image:        "busybox",
-			Volumes:      map[string]struct{}{},
-			OpenStdin:    false,
-			AttachStdout: false,
-			AttachStderr: false,
-			AttachStdin:  false,
-			StdinOnce:    false,
-			Labels: map[string]string{
-				FnAgentClassifierLabel: labelTag,
-				FnAgentInstanceLabel:   labelId,
-			},
+func createContainer(ctx context.Context, client dockerClient, id, labelTag, labelId string) error {
+	opts := &container.Config{
+		Cmd:          strings.Fields("tail -f /dev/null"),
+		Hostname:     id,
+		Image:        "busybox",
+		Volumes:      map[string]struct{}{},
+		OpenStdin:    false,
+		AttachStdout: false,
+		AttachStderr: false,
+		AttachStdin:  false,
+		StdinOnce:    false,
+		Labels: map[string]string{
+			FnAgentClassifierLabel: labelTag,
+			FnAgentInstanceLabel:   labelId,
 		},
-		HostConfig: &docker.HostConfig{
-			LogConfig: docker.LogConfig{
-				Type: "none",
-			},
+	}
+	hostOpts := &container.HostConfig{
+		LogConfig: container.LogConfig{
+			Type: "none",
 		},
-		Context: ctx,
 	}
 
-	_, err := client.CreateContainer(opts)
+	_, err := client.ContainerCreate(ctx, opts, hostOpts, nil, id)
 	if err != nil {
 		return err
 	}
@@ -339,14 +325,12 @@ func createContainer(ctx context.Context, client *docker.Client, id, labelTag, l
 	return client.StartContainerWithContext(id, nil, ctx)
 }
 
-func destroyContainer(client *docker.Client, id string) error {
+func destroyContainer(client dockerClient, id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 	defer cancel()
-	err := client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:            id,
+	err := client.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
 		Force:         true,
 		RemoveVolumes: true,
-		Context:       ctx,
 	})
 	return err
 }
@@ -450,10 +434,7 @@ func TestRunnerDockerCleanCase4(t *testing.T) {
 	}
 
 	// stop container
-	err = client.KillContainer(docker.KillContainerOptions{
-		ID:      id,
-		Context: ctx,
-	})
+	err = client.ContainerKill(ctx, id, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -475,13 +456,11 @@ func TestRunnerDockerCleanCase4(t *testing.T) {
 	}
 
 	// This should fail with NoSuchContainer
-	err = client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:            id,
+	err = client.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
 		Force:         true,
 		RemoveVolumes: true,
-		Context:       ctx,
 	})
-	_, containerNotFound := err.(*docker.NoSuchContainer)
+	containerNotFound := errdefs.IsNotFound(err)
 	if !containerNotFound {
 		t.Fatalf("Expected container not found, but got %v", err)
 	}
@@ -518,11 +497,11 @@ func TestRunnerDockerNoNetwork(t *testing.T) {
 
 	client := newTestClient(ctx)
 
-	c, err := client.InspectContainerWithContext(task.Id(), ctx)
+	c, err := client.ContainerInspect(ctx, task.Id())
 	if err != nil {
 		t.Fatalf("Couldn't inspect container test %v", err)
 	}
-	if c == nil || c.HostConfig == nil || c.HostConfig.NetworkMode != "none" {
+	if c.HostConfig == nil || c.HostConfig.NetworkMode != "none" {
 		t.Fatalf("Couldn't create none network container: %+v", c)
 	}
 
