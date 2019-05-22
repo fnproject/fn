@@ -259,25 +259,6 @@ func RegisterViews(tagKeys []string, latencyDist []float64) {
 	}
 }
 
-func (d *dockerWrap) AddEventListener(ctx context.Context) (listen chan *docker.APIEvents, err error) {
-	ctx, closer := makeTracker(ctx, "docker_add_event_listener")
-	defer func() { closer(err) }()
-
-	listen = make(chan *docker.APIEvents)
-	err = d.docker.AddEventListener(listen)
-	if err != nil {
-		return nil, err
-	}
-	return listen, nil
-}
-
-func (d *dockerWrap) RemoveEventListener(ctx context.Context, listener chan *docker.APIEvents) (err error) {
-	_, closer := makeTracker(ctx, "docker_remove_event_listener")
-	defer func() { closer(err) }()
-	err = d.docker.RemoveEventListener(listener)
-	return err
-}
-
 func (d *dockerWrap) ContainerList(ctx context.Context, options types.ContainerListOptions) (containers []types.Container, err error) {
 	_, closer := makeTracker(ctx, "docker_list_containers")
 	defer func() { closer(err) }()
