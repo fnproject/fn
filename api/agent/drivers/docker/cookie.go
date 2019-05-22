@@ -359,7 +359,7 @@ func (c *cookie) Freeze(ctx context.Context) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Freeze"})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker pause")
 
-	err := c.drv.docker.PauseContainer(c.task.Id(), ctx)
+	err := c.drv.docker.ContainerPause(ctx, c.task.Id())
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("error pausing container")
 	}
@@ -371,7 +371,7 @@ func (c *cookie) Unfreeze(ctx context.Context) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Unfreeze"})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker unpause")
 
-	err := c.drv.docker.UnpauseContainer(c.task.Id(), ctx)
+	err := c.drv.docker.ContainerUnpause(ctx, c.task.Id())
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("error unpausing container")
 	}

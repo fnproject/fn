@@ -32,13 +32,13 @@ type dockerClient interface {
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	KillContainer(opts docker.KillContainerOptions) error
 	RemoveContainer(opts docker.RemoveContainerOptions) error
-	PauseContainer(id string, ctx context.Context) error
-	UnpauseContainer(id string, ctx context.Context) error
 
 	// real docker ones
 	ContainerList(context.Context, types.ContainerListOptions) ([]types.Container, error)
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
-	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
+	ContainerStats(ctx context.Context, container string, stream bool) (types.ContainerStats, error)
+	ContainerPause(ctx context.Context, container string) error
+	ContainerUnpause(ctx context.Context, container string) error
 
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
 	Info(context.Context) (types.Info, error)
@@ -387,17 +387,17 @@ func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err er
 	return err
 }
 
-func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) {
+func (d *dockerWrap) ContainerPause(ctx context.Context, container string) (err error) {
 	_, closer := makeTracker(ctx, "docker_pause_container")
 	defer func() { closer(err) }()
-	err = d.docker.PauseContainer(id)
+	err = d.realdocker.ContainerUnpause(ctx, container)
 	return err
 }
 
-func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error) {
+func (d *dockerWrap) ContainerUnpause(ctx context.Context, container string) (err error) {
 	_, closer := makeTracker(ctx, "docker_unpause_container")
 	defer func() { closer(err) }()
-	err = d.docker.UnpauseContainer(id)
+	err = d.realdocker.ContainerUnpause(ctx, container)
 	return err
 }
 
