@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path"
+	"io/ioutil"
 	"runtime"
 	"strings"
 	"sync"
 
+	"github.com/docker/cli/cli/command"
+	"github.com/docker/distribution/reference"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/drivers/stats"
@@ -268,9 +271,27 @@ func (pool *dockerPool) prepareImage(ctx context.Context, driver *DockerDriver, 
 
 	log := common.Logger(ctx)
 
-	imgReg, imgRepo, imgTag := drivers.ParseImage(img)
-	opts := docker.PullImageOptions{Repository: path.Join(imgReg, imgRepo), Tag: imgTag, Context: ctx}
-	config := findRegistryConfig(imgReg, driver.auths)
+	ref, err := reference.ParseNormalizedNamed(img)
+	if err != nil {
+		log.WithError(err).Fatal("prefork pool image invalid image")
+		return
+	}
+
+	image := reference.FamiliarString(ref)
+
+	config := findRegistryConfig(reference.Domain(ref), driver.auths)
+	auth, err := command.EncodeAuthToBase64(config)
+	if err != nil {
+		log.WithError(err).Fatal("prefork pool auth encoding failed")
+		return
+	}
+
+	opts := types.ImagePullOptions{
+		All:          false,
+		RegistryAuth: auth,
+		// PrivilegeFunc: TODO(reed): maybe?
+		// Platform: TODO(reed): ?
+	}
 
 	for ctx.Err() != nil {
 		err := pool.limiter.Wait(ctx)
@@ -287,9 +308,11 @@ func (pool *dockerPool) prepareImage(ctx context.Context, driver *DockerDriver, 
 			log.WithError(err).Fatal("prefork pool image inspect failed")
 		}
 
-		err = driver.docker.PullImage(opts, *config)
-		if err == nil {
-			return
+		resp, err := driver.docker.ImagePull(ctx, image, opts)
+		if resp != nil {
+			// we are not interested, but have to drain this thing (this can take a while, but obeys ctx)
+			io.Copy(ioutil.Discard, resp)
+			resp.Close()
 		}
 
 		log.WithError(err).Error("Failed to pull image")

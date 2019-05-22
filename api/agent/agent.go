@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/fnproject/fn/api/agent/drivers"
 	dockerdriver "github.com/fnproject/fn/api/agent/drivers/docker"
 	driver_stats "github.com/fnproject/fn/api/agent/drivers/stats"
@@ -22,7 +23,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/fsnotify/fsnotify"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"

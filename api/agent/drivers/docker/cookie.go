@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	units "github.com/docker/go-units"
@@ -45,17 +46,11 @@ type cookie struct {
 	// pointer to docker driver
 	drv *DockerDriver
 
-	imgReg string
-
 	// contains inspected image if ValidateImage() is called
 	image *CachedImage
 
 	// contains created container if CreateContainer() is called
 	containerCreated bool
-}
-
-func (c *cookie) configureImage(log logrus.FieldLogger) {
-	c.imgReg, _, _ = drivers.ParseImage(c.task.Image())
 }
 
 func (c *cookie) configureLabels(log logrus.FieldLogger) {
@@ -387,9 +382,14 @@ func (c *cookie) authImage(ctx context.Context) (types.AuthConfig, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "AuthImage"})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker auth image")
 
+	named, err := reference.ParseNormalizedNamed(c.task.Image())
+	if err != nil {
+		return types.AuthConfig{}, err
+	}
+
 	// ask for docker creds before looking for image, as the tasker may need to
 	// validate creds even if the image is downloaded.
-	config := findRegistryConfig(c.imgReg, c.drv.auths)
+	config := findRegistryConfig(reference.Domain(named), c.drv.auths)
 
 	if task, ok := c.task.(Auther); ok {
 		_, span := trace.StartSpan(ctx, "docker_auth")

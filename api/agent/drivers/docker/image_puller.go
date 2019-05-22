@@ -116,13 +116,14 @@ func (i *imagePuller) pullWithRetry(trx *transfer) error {
 	timer := common.NewTimer(time.Duration(i.backOffCfg.MinDelay) * time.Millisecond)
 	defer timer.Stop()
 
+	opts := types.ImagePullOptions{
+		All:          false,
+		RegistryAuth: auth,
+		// PrivilegeFunc: TODO(reed): maybe?
+		// Platform: TODO(reed): ?
+	}
+
 	for {
-		opts := types.ImagePullOptions{
-			All:          false,
-			RegistryAuth: auth,
-			// PrivilegeFunc: TODO(reed): maybe?
-			// Platform: TODO(reed): ?
-		}
 		resp, err := i.docker.ImagePull(trx.ctx, image, opts)
 		if resp != nil {
 			// we are not interested, but have to drain this thing (this can take a while, but obeys ctx)
