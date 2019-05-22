@@ -14,6 +14,7 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
@@ -236,10 +237,22 @@ func (pool *dockerPool) performReadyState(ctx context.Context, driver *DockerDri
 	ctx, cancel := context.WithCancel(ctx)
 
 	pool.register(task.Id(), cancel)
-	exitCode, err := driver.docker.WaitContainerWithContext(task.Id(), ctx)
+
+	ch, waitErr := driver.docker.ContainerWait(ctx, task.Id(), containertypes.WaitConditionNotRunning)
+
+	var exitCode int64
+	select {
+	case wait := <-ch:
+		exitCode = wait.StatusCode
+		if wait.Error != nil && wait.Error.Message != "" {
+			err = errors.New(wait.Error.Message)
+		}
+	case err = <-waitErr:
+	}
+
 	pool.unregister(task.Id())
 
-	if ctx.Err() == nil {
+	if ctx.Err() == nil || err != nil {
 		log.WithError(err).Infof("prefork pool container exited exit_code=%d", exitCode)
 		task.state = PoolTaskStateInit
 	}

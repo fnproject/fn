@@ -17,13 +17,16 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/fnproject/fn/api/agent/drivers"
-	"github.com/fnproject/fn/api/agent/drivers/stats"
+	driverstats "github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 	"golang.org/x/time/rate"
 )
@@ -580,7 +583,7 @@ func (drv *DockerDriver) collectStats(ctx context.Context, task drivers.Containe
 	}
 }
 
-func cherryPick(ds types.StatsJSON) stats.Stat {
+func cherryPick(ds types.StatsJSON) driverstats.Stat {
 	// TODO cpu % is as a % of the whole system... cpu is weird since we're sharing it
 	// across a bunch of containers and it scales based on how many we're sharing with,
 	// do we want users to see as a % of system?
@@ -610,7 +613,7 @@ func cherryPick(ds types.StatsJSON) stats.Stat {
 		}
 	}
 
-	return stats.Stat{
+	return driverstats.Stat{
 		Timestamp: common.DateTime(ds.Read),
 		Metrics: map[string]uint64{
 			// source: https://godoc.org/github.com/fsouza/go-dockerclient#Stats
@@ -634,14 +637,48 @@ func cherryPick(ds types.StatsJSON) stats.Stat {
 	}
 }
 
-func (w *waitResult) wait(ctx context.Context) (status string, err error) {
-	exitCode, waitErr := w.drv.docker.WaitContainerWithContext(w.container, ctx)
-	if waitErr != nil {
-		log := common.Logger(ctx)
-		log.WithError(waitErr).WithFields(logrus.Fields{"container": w.container}).Error("error waiting container with context")
+func recordWaitContainerResult(ctx context.Context, exitCode int64) {
+
+	// Tag the metric with error-code or context-cancel/deadline info
+	exitStr := fmt.Sprintf("exit_%d", exitCode)
+	if exitCode == 0 && ctx.Err() != nil {
+		switch ctx.Err() {
+		case context.DeadlineExceeded:
+			exitStr = "ctx_deadline"
+		case context.Canceled:
+			exitStr = "ctx_canceled"
+		}
 	}
 
-	defer RecordWaitContainerResult(ctx, exitCode)
+	ctx, err := tag.New(ctx,
+		tag.Upsert(apiNameKey, "docker_wait_container"),
+		tag.Upsert(exitStatusKey, exitStr),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatalf("cannot add tag %v=%v or tag %v=docker_wait_container", exitStatusKey, exitStr, apiNameKey)
+	}
+	stats.Record(ctx, dockerExitMeasure.M(0))
+}
+
+func (w *waitResult) wait(ctx context.Context) (status string, err error) {
+	ch, waitErr := w.drv.docker.ContainerWait(ctx, w.container, containertypes.WaitConditionNotRunning)
+
+	var exitCode int64
+	select {
+	case wait := <-ch:
+		exitCode = wait.StatusCode
+		if wait.Error != nil && wait.Error.Message != "" {
+			err = errors.New(wait.Error.Message)
+		}
+	case err = <-waitErr:
+	}
+
+	if err != nil {
+		log := common.Logger(ctx)
+		log.WithError(err).WithFields(logrus.Fields{"container": w.container}).Error("error waiting container")
+	}
+
+	defer recordWaitContainerResult(ctx, exitCode)
 
 	w.waiter.Close()
 	err = w.waiter.Wait()

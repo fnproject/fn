@@ -4,7 +4,6 @@ package docker
 
 import (
 	"context"
-	"fmt"
 	"hash/fnv"
 	"io"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	realdocker "github.com/docker/docker/client"
 	"github.com/fnproject/fn/api/common"
@@ -28,7 +28,6 @@ type dockerClient interface {
 	// Each of these are github.com/fsouza/go-dockerclient methods
 
 	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
-	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 
 	// real docker ones
 	ContainerList(context.Context, types.ContainerListOptions) ([]types.Container, error)
@@ -40,6 +39,7 @@ type dockerClient interface {
 	ContainerKill(ctx context.Context, container, signal string) error
 	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
 	ContainerStart(ctx context.Context, container string, options types.ContainerStartOptions) error
+	ContainerWait(ctx context.Context, container string, condition containertypes.WaitCondition) (<-chan containertypes.ContainerWaitOKBody, <-chan error)
 
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
 	Info(context.Context) (types.Info, error)
@@ -222,29 +222,6 @@ func makeTracker(ctx context.Context, name string) (context.Context, func(error)
 	}
 }
 
-func RecordWaitContainerResult(ctx context.Context, exitCode int) {
-
-	// Tag the metric with error-code or context-cancel/deadline info
-	exitStr := fmt.Sprintf("exit_%d", exitCode)
-	if exitCode == 0 && ctx.Err() != nil {
-		switch ctx.Err() {
-		case context.DeadlineExceeded:
-			exitStr = "ctx_deadline"
-		case context.Canceled:
-			exitStr = "ctx_canceled"
-		}
-	}
-
-	newCtx, err := tag.New(ctx,
-		tag.Upsert(apiNameKey, "docker_wait_container"),
-		tag.Upsert(exitStatusKey, exitStr),
-	)
-	if err != nil {
-		logrus.WithError(err).Fatalf("cannot add tag %v=%v or tag %v=docker_wait_container", exitStatusKey, exitStr, apiNameKey)
-	}
-	stats.Record(newCtx, dockerExitMeasure.M(0))
-}
-
 // RegisterViews creates and registers views with provided tag keys
 func RegisterViews(tagKeys []string, latencyDist []float64) {
 
@@ -336,14 +313,11 @@ func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts dock
 	return w, err
 }
 
-func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (code int, err error) {
+func (d *dockerWrap) ContainerWait(ctx context.Context, container string, condition containertypes.WaitCondition) (ch <-chan containertypes.ContainerWaitOKBody, err <-chan error) {
 	ctx, closer := makeTracker(ctx, "docker_wait_container")
-	defer func() { closer(err) }()
-	code, err = d.docker.WaitContainerWithContext(id, ctx)
-	if err == context.Canceled {
-		err = nil // ignore ctx.cancel since every normal wait lifecycle ends with cancel
-	}
-	return code, err
+	defer func() { closer(nil) }()
+	ch, err = d.realdocker.ContainerWait(ctx, container, condition)
+	return ch, err
 }
 
 func (d *dockerWrap) ContainerStart(ctx context.Context, container string, options types.ContainerStartOptions) (err error) {
