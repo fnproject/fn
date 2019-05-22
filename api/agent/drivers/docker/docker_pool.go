@@ -195,15 +195,11 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 		}
 	}
 
-	removeOpts := docker.RemoveContainerOptions{
-		ID:            task.Id(),
+	// ignore failure here
+	driver.docker.ContainerRemove(ctx, task.Id(), types.ContainerRemoveOptions{
 		Force:         true,
 		RemoveVolumes: true,
-		Context:       ctx,
-	}
-
-	// ignore failure here
-	driver.docker.RemoveContainer(removeOpts)
+	})
 
 	_, err := driver.docker.ContainerCreate(ctx, config, hostConfig, nil, task.Id())
 	if err != nil {
@@ -255,14 +251,10 @@ func (pool *dockerPool) performReadyState(ctx context.Context, driver *DockerDri
 }
 
 func (pool *dockerPool) performTeardown(ctx context.Context, driver *DockerDriver, task *poolTask) {
-	removeOpts := docker.RemoveContainerOptions{
-		ID:            task.Id(),
+	driver.docker.ContainerRemove(ctx, task.Id(), types.ContainerRemoveOptions{
 		Force:         true,
 		RemoveVolumes: true,
-		Context:       context.Background(),
-	}
-
-	driver.docker.RemoveContainer(removeOpts)
+	})
 }
 
 func (pool *dockerPool) prepareImage(ctx context.Context, driver *DockerDriver, img string, pullGate chan struct{}) {

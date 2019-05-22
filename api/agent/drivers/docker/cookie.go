@@ -324,8 +324,11 @@ func (c *cookie) configureSecurity(log logrus.FieldLogger) {
 func (c *cookie) Close(ctx context.Context) error {
 	var err error
 	if c.containerCreated {
-		err = c.drv.docker.RemoveContainer(docker.RemoveContainerOptions{
-			ID: c.task.Id(), Force: true, RemoveVolumes: true, Context: ctx})
+		// If this fails, we log and continue.
+		err := c.drv.docker.ContainerRemove(ctx, c.task.Id(), types.ContainerRemoveOptions{
+			Force:         true,
+			RemoveVolumes: true,
+		})
 		if err != nil {
 			common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"call_id": c.task.Id()}).Error("error removing container")
 		}

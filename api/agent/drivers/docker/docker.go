@@ -204,15 +204,13 @@ func killLeakedContainers(ctx context.Context, driver *DockerDriver) {
 		logger := logrus.WithFields(logrus.Fields{"container_id": item.ID, "image": item.Image, "state": item.State})
 		logger.Info("Terminating dangling docker container")
 
-		opts := docker.RemoveContainerOptions{
-			ID:            item.ID,
+		opts := types.ContainerRemoveOptions{
 			Force:         true,
 			RemoveVolumes: true,
-			Context:       ctx,
 		}
 
 		// If this fails, we log and continue.
-		err := driver.docker.RemoveContainer(opts)
+		err := driver.docker.ContainerRemove(ctx, item.ID, opts)
 		if err != nil {
 			logger.WithError(err).Error("cannot remove container")
 		}

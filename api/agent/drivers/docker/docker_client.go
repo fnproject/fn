@@ -31,7 +31,6 @@ type dockerClient interface {
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	KillContainer(opts docker.KillContainerOptions) error
-	RemoveContainer(opts docker.RemoveContainerOptions) error
 
 	// real docker ones
 	ContainerList(context.Context, types.ContainerListOptions) ([]types.Container, error)
@@ -39,6 +38,7 @@ type dockerClient interface {
 	ContainerStats(ctx context.Context, container string, stream bool) (types.ContainerStats, error)
 	ContainerPause(ctx context.Context, container string) error
 	ContainerUnpause(ctx context.Context, container string) error
+	ContainerRemove(ctx context.Context, container string, options types.ContainerRemoveOptions) error
 
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
 	Info(context.Context) (types.Info, error)
@@ -380,10 +380,10 @@ func (d *dockerWrap) ImageRemove(ctx context.Context, image string, options type
 	return resp, err
 }
 
-func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
-	_, closer := makeTracker(opts.Context, "docker_remove_container")
+func (d *dockerWrap) ContainerRemove(ctx context.Context, container string, options types.ContainerRemoveOptions) (err error) {
+	_, closer := makeTracker(ctx, "docker_remove_container")
 	defer func() { closer(err) }()
-	err = d.docker.RemoveContainer(opts)
+	err = d.realdocker.ContainerRemove(ctx, container, options)
 	return err
 }
 
