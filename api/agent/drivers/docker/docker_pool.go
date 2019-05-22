@@ -222,7 +222,7 @@ func (pool *dockerPool) performReadyState(ctx context.Context, driver *DockerDri
 		}
 	}()
 
-	err := driver.docker.StartContainerWithContext(task.Id(), nil, ctx)
+	err := driver.docker.ContainerStart(ctx, task.Id(), types.ContainerStartOptions{})
 	if err != nil {
 		log.WithError(err).Info("prefork pool container start failed")
 		task.state = PoolTaskStateInit

@@ -29,7 +29,6 @@ type dockerClient interface {
 
 	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
-	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 
 	// real docker ones
 	ContainerList(context.Context, types.ContainerListOptions) ([]types.Container, error)
@@ -40,6 +39,7 @@ type dockerClient interface {
 	ContainerRemove(ctx context.Context, container string, options types.ContainerRemoveOptions) error
 	ContainerKill(ctx context.Context, container, signal string) error
 	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
+	ContainerStart(ctx context.Context, container string, options types.ContainerStartOptions) error
 
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
 	Info(context.Context) (types.Info, error)
@@ -346,10 +346,10 @@ func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (c
 	return code, err
 }
 
-func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) (err error) {
+func (d *dockerWrap) ContainerStart(ctx context.Context, container string, options types.ContainerStartOptions) (err error) {
 	ctx, closer := makeTracker(ctx, "docker_start_container")
 	defer func() { closer(err) }()
-	err = d.docker.StartContainerWithContext(id, hostConfig, ctx)
+	err = d.realdocker.ContainerStart(ctx, container, options)
 	return err
 }
 

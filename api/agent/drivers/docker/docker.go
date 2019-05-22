@@ -494,7 +494,7 @@ func (drv *DockerDriver) run(ctx context.Context, task drivers.ContainerTask) (d
 	ctx, cancel := context.WithCancel(ctx)
 	go drv.collectStats(ctx, task)
 
-	err = drv.docker.StartContainerWithContext(container, nil, ctx)
+	err = drv.docker.ContainerStart(ctx, container, types.ContainerStartOptions{})
 	if err != nil && ctx.Err() == nil {
 		cancel() // make sure we shut down stats
 
