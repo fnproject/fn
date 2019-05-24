@@ -54,36 +54,42 @@ func (d *directoryIOFS) Close() error {
 }
 
 func newDirectoryIOFS(ctx context.Context, cfg *Config) (*directoryIOFS, error) {
-	dir := cfg.IOFSAgentPath
+
+	handleErr := func(dir string) {
+		if dir != "" {
+			if err := os.RemoveAll(dir); err != nil {
+				common.Logger(ctx).WithError(err).Error("failed to clean up iofs dir")
+			}
+		}
+	}
 
 	// create a tmpdir
-	iofsAgentDir, err := ioutil.TempDir(dir, "iofs")
+	iofsAgentDir, err := ioutil.TempDir(cfg.IOFSAgentPath, "iofs")
 	if err != nil {
-		if err := os.RemoveAll(iofsAgentDir); err != nil {
-			common.Logger(ctx).WithError(err).Error("failed to clean up iofs dir")
-		}
+		handleErr(iofsAgentDir)
 		return nil, fmt.Errorf("cannot create tmpdir for iofs: %v", err)
 	}
+
 	if !cfg.DisableUnprivilegedContainers && !cfg.IOFSEnableTmpfs {
-		err = os.Chmod(iofsAgentDir, 0777) // #nosec G302
+		err := os.Chmod(iofsAgentDir, 0777) // #nosec G302
 		if err != nil {
-			common.Logger(ctx).WithError(err).Error("failed to change mode")
+			handleErr(iofsAgentDir)
 			return nil, fmt.Errorf("cannot change iofs mod: %v", err)
 		}
 	}
 
+	ret := &directoryIOFS{iofsAgentDir, iofsAgentDir}
+
 	if cfg.IOFSMountRoot != "" {
-		iofsRelPath, err := filepath.Rel(dir, iofsAgentDir)
+		iofsRelPath, err := filepath.Rel(cfg.IOFSAgentPath, iofsAgentDir)
 		if err != nil {
-			if err := os.RemoveAll(iofsAgentDir); err != nil {
-				common.Logger(ctx).WithError(err).Error("failed to clean up iofs dir")
-			}
+			handleErr(iofsAgentDir)
 			return nil, fmt.Errorf("cannot relativise iofs path: %v", err)
 		}
-		iofsDockerDir := filepath.Join(cfg.IOFSMountRoot, iofsRelPath)
-		return &directoryIOFS{iofsAgentDir, iofsDockerDir}, nil
+		ret.dockerPath = filepath.Join(cfg.IOFSMountRoot, iofsRelPath)
 	}
-	return &directoryIOFS{iofsAgentDir, iofsAgentDir}, nil
+
+	return ret, nil
 }
 
 var _ iofs = &directoryIOFS{}
