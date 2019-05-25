@@ -25,11 +25,8 @@ import (
 )
 
 type dockerClient interface {
-	// Each of these are github.com/fsouza/go-dockerclient methods
-
-	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
-
-	// real docker ones
+	// Each of these match github.com/docker/docker/client methods directly
+	ContainerAttach(ctx context.Context, container string, options types.ContainerAttachOptions) (types.HijackedResponse, error)
 	ContainerList(context.Context, types.ContainerListOptions) ([]types.Container, error)
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
 	ContainerStats(ctx context.Context, container string, stream bool) (types.ContainerStats, error)
@@ -50,7 +47,6 @@ type dockerClient interface {
 	ImagePull(ctx context.Context, refStr string, options types.ImagePullOptions) (io.ReadCloser, error)
 }
 
-// TODO: switch to github.com/docker/engine-api
 func newClient(ctx context.Context) dockerClient {
 	realclient, err := realdocker.NewClientWithOpts(realdocker.FromEnv)
 	if err != nil {
@@ -287,11 +283,11 @@ func (d *dockerWrap) Info(ctx context.Context) (info types.Info, err error) {
 	return info, err
 }
 
-func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (w docker.CloseWaiter, err error) {
+func (d *dockerWrap) ContainerAttach(ctx context.Context, container string, options types.ContainerAttachOptions) (resp types.HijackedResponse, err error) {
 	_, closer := makeTracker(ctx, "docker_attach_container")
 	defer func() { closer(err) }()
-	w, err = d.docker.AttachToContainerNonBlocking(opts)
-	return w, err
+	resp, err = d.realdocker.ContainerAttach(ctx, container, options)
+	return resp, err
 }
 
 func (d *dockerWrap) ContainerWait(ctx context.Context, container string, condition containertypes.WaitCondition) (ch <-chan containertypes.ContainerWaitOKBody, err <-chan error) {

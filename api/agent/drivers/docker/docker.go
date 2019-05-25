@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -445,61 +446,66 @@ func (drv *DockerDriver) run(ctx context.Context, task drivers.ContainerTask) (d
 	container := task.Id()
 
 	log := common.Logger(ctx)
+	stdin := task.Input()
 	stdout, stderr := task.Logger()
 	successChan := make(chan struct{})
 
-	_, stdinOff := task.Input().(common.NoopReadWriteCloser)
+	_, stdinOff := stdin.(common.NoopReadWriteCloser)
 	_, stdoutOff := stdout.(common.NoopReadWriteCloser)
 	_, stderrOff := stderr.(common.NoopReadWriteCloser)
 
-	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
-		Container:    container,
-		InputStream:  task.Input(),
-		OutputStream: stdout,
-		ErrorStream:  stderr,
-		Success:      successChan,
-		Stream:       true,
-		Stdout:       !stdoutOff,
-		Stderr:       !stderrOff,
-		Stdin:        !stdinOff,
+	resp, errAttach := drv.docker.ContainerAttach(ctx, container, types.ContainerAttachOptions{
+		Stream: true,
+		Stdin:  !stdinOff,
+		Stdout: !stdoutOff,
+		Stderr: !stderrOff,
 	})
-
-	if err == nil {
-		mon := make(chan struct{})
-
-		// We block here, since we would like to have stdin/stdout/stderr
-		// streams already attached before starting task and I/O.
-		// if AttachToContainerNonBlocking() returns no error, then we'll
-		// sync up with NB Attacher above before starting the task. However,
-		// we might leak our go-routine if AttachToContainerNonBlocking()
-		// Dial/HTTP does not honor the Success channel contract.
-		// Here we assume that if our context times out, then underlying
-		// go-routines in AttachToContainerNonBlocking() will unlock
-		// (or eventually timeout) once we tear down the container.
-		go func() {
-			<-successChan
-			successChan <- struct{}{}
-			close(mon)
-		}()
-
-		select {
-		case <-ctx.Done():
-		case <-mon:
-		}
+	if errAttach != nil && errAttach != httputil.ErrPersistEOF {
+		// ContainerAttach return an ErrPersistEOF (connection closed)
+		// means server met an error and already put it in Hijacked connection,
+		// we would keep the error and read the detailed error message from hijacked connection
+		log.WithError(errAttach).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error attaching to container")
+		return nil, errAttach
 	}
 
-	if err != nil && ctx.Err() == nil {
-		// ignore if ctx has errored, rewrite status lay below
-		log.WithError(err).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error attaching to container")
-		return nil, err
-	}
+	// TODO write stdin / read stdout/stderr?
+	// where to put dis... hmmm.
 
 	ctx, cancel := context.WithCancel(ctx)
 	go drv.collectStats(ctx, task)
 
+	cancel = func() {
+		resp.Close()
+		cancel()
+	}
+
+	cErr := make(chan error, 1)
+
+	go func() {
+		cErr <- func() error {
+			streamer := hijackedIOStreamer{
+				streams:      dockerCli,
+				inputStream:  in,
+				outputStream: dockerCli.Out(),
+				errorStream:  dockerCli.Err(),
+				resp:         resp,
+				tty:          c.Config.Tty,
+				detachKeys:   options.DetachKeys,
+			}
+
+			errHijack := streamer.stream(ctx)
+			if errHijack == nil {
+				// XXX(reed): idk why docker cli carries this error to here, think about it
+				return errAttach
+			}
+			return errHijack
+		}()
+	}()
+
 	err = drv.docker.ContainerStart(ctx, container, types.ContainerStartOptions{})
-	if err != nil && ctx.Err() == nil {
-		cancel() // make sure we shut down stats
+	if err != nil {
+		cancel() // make sure we shut down stats / attach & close body
+		<-cErr
 
 		if isSyslogError(err) {
 			// syslog error is a func error
@@ -513,10 +519,200 @@ func (drv *DockerDriver) run(ctx context.Context, task drivers.ContainerTask) (d
 
 	return &waitResult{
 		container: container,
-		waiter:    waiter,
+		errCh:     cErr,
 		drv:       drv,
 		done:      cancel,
 	}, nil
+}
+
+// XXX(reed): we do not need most of hijackedIOStreamer, gut most of this
+
+// A hijackedIOStreamer handles copying input to and output from streams to the
+// connection.
+type hijackedIOStreamer struct {
+	streams      command.Streams
+	inputStream  io.ReadCloser
+	outputStream io.Writer
+	errorStream  io.Writer
+
+	resp types.HijackedResponse
+
+	tty        bool
+	detachKeys string
+}
+
+// stream handles setting up the IO and then begins streaming stdin/stdout
+// to/from the hijacked connection, blocking until it is either done reading
+// output, the user inputs the detach key sequence when in TTY mode, or when
+// the given context is cancelled.
+func (h *hijackedIOStreamer) stream(ctx context.Context) error {
+	restoreInput, err := h.setupInput()
+	if err != nil {
+		return fmt.Errorf("unable to setup input stream: %s", err)
+	}
+
+	defer restoreInput()
+
+	outputDone := h.beginOutputStream(restoreInput)
+	inputDone, detached := h.beginInputStream(restoreInput)
+
+	select {
+	case err := <-outputDone:
+		return err
+	case <-inputDone:
+		// Input stream has closed.
+		if h.outputStream != nil || h.errorStream != nil {
+			// Wait for output to complete streaming.
+			select {
+			case err := <-outputDone:
+				return err
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		return nil
+	case err := <-detached:
+		// Got a detach key sequence.
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (h *hijackedIOStreamer) setupInput() (restore func(), err error) {
+	if h.inputStream == nil || !h.tty {
+		// No need to setup input TTY.
+		// The restore func is a nop.
+		return func() {}, nil
+	}
+
+	if err := setRawTerminal(h.streams); err != nil {
+		return nil, fmt.Errorf("unable to set IO streams as raw terminal: %s", err)
+	}
+
+	// Use sync.Once so we may call restore multiple times but ensure we
+	// only restore the terminal once.
+	var restoreOnce sync.Once
+	restore = func() {
+		restoreOnce.Do(func() {
+			restoreTerminal(h.streams, h.inputStream)
+		})
+	}
+
+	// Wrap the input to detect detach escape sequence.
+	// Use default escape keys if an invalid sequence is given.
+	escapeKeys := defaultEscapeKeys
+	if h.detachKeys != "" {
+		customEscapeKeys, err := term.ToBytes(h.detachKeys)
+		if err != nil {
+			logrus.Warnf("invalid detach escape keys, using default: %s", err)
+		} else {
+			escapeKeys = customEscapeKeys
+		}
+	}
+
+	h.inputStream = ioutils.NewReadCloserWrapper(term.NewEscapeProxy(h.inputStream, escapeKeys), h.inputStream.Close)
+
+	return restore, nil
+}
+
+func (h *hijackedIOStreamer) beginOutputStream(restoreInput func()) <-chan error {
+	if h.outputStream == nil && h.errorStream == nil {
+		// There is no need to copy output.
+		return nil
+	}
+
+	outputDone := make(chan error)
+	go func() {
+		var err error
+
+		// When TTY is ON, use regular copy
+		if h.outputStream != nil && h.tty {
+			_, err = io.Copy(h.outputStream, h.resp.Reader)
+			// We should restore the terminal as soon as possible
+			// once the connection ends so any following print
+			// messages will be in normal type.
+			restoreInput()
+		} else {
+			_, err = stdcopy.StdCopy(h.outputStream, h.errorStream, h.resp.Reader)
+		}
+
+		logrus.Debug("[hijack] End of stdout")
+
+		if err != nil {
+			logrus.Debugf("Error receiveStdout: %s", err)
+		}
+
+		outputDone <- err
+	}()
+
+	return outputDone
+}
+
+func (h *hijackedIOStreamer) beginInputStream(restoreInput func()) (doneC <-chan struct{}, detachedC <-chan error) {
+	inputDone := make(chan struct{})
+	detached := make(chan error)
+
+	go func() {
+		if h.inputStream != nil {
+			_, err := io.Copy(h.resp.Conn, h.inputStream)
+			// We should restore the terminal as soon as possible
+			// once the connection ends so any following print
+			// messages will be in normal type.
+			restoreInput()
+
+			logrus.Debug("[hijack] End of stdin")
+
+			if _, ok := err.(term.EscapeError); ok {
+				detached <- err
+				return
+			}
+
+			if err != nil {
+				// This error will also occur on the receive
+				// side (from stdout) where it will be
+				// propagated back to the caller.
+				logrus.Debugf("Error sendStdin: %s", err)
+			}
+		}
+
+		if err := h.resp.CloseWrite(); err != nil {
+			logrus.Debugf("Couldn't send EOF: %s", err)
+		}
+
+		close(inputDone)
+	}()
+
+	return inputDone, detached
+}
+
+func setRawTerminal(streams command.Streams) error {
+	if err := streams.In().SetRawTerminal(); err != nil {
+		return err
+	}
+	return streams.Out().SetRawTerminal()
+}
+
+// nolint: unparam
+func restoreTerminal(streams command.Streams, in io.Closer) error {
+	streams.In().RestoreTerminal()
+	streams.Out().RestoreTerminal()
+	// WARNING: DO NOT REMOVE THE OS CHECKS !!!
+	// For some reason this Close call blocks on darwin..
+	// As the client exits right after, simply discard the close
+	// until we find a better solution.
+	//
+	// This can also cause the client on Windows to get stuck in Win32 CloseHandle()
+	// in some cases. See https://github.com/docker/docker/issues/28267#issuecomment-288237442
+	// Tracked internally at Microsoft by VSO #11352156. In the
+	// Windows case, you hit this if you are using the native/v2 console,
+	// not the "legacy" console, and you start the client in a new window. eg
+	// `start docker run --rm -it microsoft/nanoserver cmd /s /c echo foobar`
+	// will hang. Remove start, and it won't repro.
+	if in != nil && runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+		return in.Close()
+	}
+	return nil
 }
 
 // isSyslogError checks if the error message is what docker syslog plugin returns
@@ -529,14 +725,13 @@ func isSyslogError(err error) bool {
 // waitResult implements drivers.WaitResult
 type waitResult struct {
 	container string
-	waiter    docker.CloseWaiter
+	errCh     <-chan error
 	drv       *DockerDriver
 	done      func() // cancel for stats
 }
 
 // waitResult implements drivers.WaitResult
 func (w *waitResult) Wait(ctx context.Context) drivers.RunResult {
-	defer w.done()
 	// wait until container is stopped (or ctx is cancelled if sooner)
 	status, err := w.wait(ctx)
 	return &runResult{
@@ -661,6 +856,7 @@ func recordWaitContainerResult(ctx context.Context, exitCode int64) {
 }
 
 func (w *waitResult) wait(ctx context.Context) (status string, err error) {
+	// TODO(reed): should this be WaitConditionNextExit? (see CLI) contract is weird, we don't expect restarts?
 	ch, waitErr := w.drv.docker.ContainerWait(ctx, w.container, containertypes.WaitConditionNotRunning)
 
 	var exitCode int64
@@ -668,9 +864,11 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 	case wait := <-ch:
 		exitCode = wait.StatusCode
 		if wait.Error != nil && wait.Error.Message != "" {
+			// TODO(reed): docker cli rewrites to 125 here
 			err = errors.New(wait.Error.Message)
 		}
 	case err = <-waitErr:
+		// TODO(reed): docker cli rewrites to 125 here
 	}
 
 	if err != nil {
@@ -680,8 +878,12 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 
 	defer recordWaitContainerResult(ctx, exitCode)
 
-	w.waiter.Close()
-	err = w.waiter.Wait()
+	// this closes attach and stats
+	// NOTE: this MUST get called if waitResult.Wait() is called
+	w.done()
+
+	// this gets the error out of attach
+	err = <-w.errCh
 	if err != nil {
 		// plumb up i/o errors (NOTE: which MAY be typed)
 		return drivers.StatusError, err
