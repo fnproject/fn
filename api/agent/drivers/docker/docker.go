@@ -388,6 +388,7 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 			ReadonlyRootfs: drv.conf.EnableReadOnlyRootFs,
 			Init:           true,
 		},
+		NetworkingConfig: &docker.NetworkingConfig{},
 	}
 
 	cookie := &cookie{
