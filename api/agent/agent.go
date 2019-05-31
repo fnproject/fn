@@ -207,7 +207,6 @@ func NewDockerDriver(cfg *Config) (drivers.Driver, error) {
 		PreForkCmd:                    cfg.PreForkCmd,
 		PreForkUseOnce:                cfg.PreForkUseOnce,
 		PreForkNetworks:               cfg.PreForkNetworks,
-		MaxTmpFsInodes:                cfg.MaxTmpFsInodes,
 		EnableReadOnlyRootFs:          !cfg.DisableReadOnlyRootFs,
 		ContainerLabelTag:             cfg.ContainerLabelTag,
 		ImageCleanMaxSize:             cfg.ImageCleanMaxSize,
@@ -1169,6 +1168,7 @@ type container struct {
 	pendingSignals *uint64
 	messageQueue   *uint64
 	tmpFsSize      uint64
+	tmpFsInodes    uint64
 	disableNet     bool
 	iofs           iofs
 	logCfg         drivers.LoggerConfig
@@ -1264,6 +1264,7 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		pendingSignals: cfg.MaxPendingSignals,
 		messageQueue:   cfg.MaxMessageQueue,
 		tmpFsSize:      uint64(call.TmpFsSize),
+		tmpFsInodes:    uint64(cfg.MaxTmpFsInodes),
 		disableNet:     call.disableNet,
 		iofs:           iofs,
 		dockerAuth:     call.dockerAuth,
@@ -1345,6 +1346,8 @@ func (c *container) Image() string                      { return c.image }
 func (c *container) EnvVars() map[string]string         { return c.env }
 func (c *container) Memory() uint64                     { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                       { return c.cpus }
+func (c *container) CPUShares() int64                   { return 0 }
+func (c *container) CPUSetCPUs() string                 { return "" }
 func (c *container) FsSize() uint64                     { return c.fsSize }
 func (c *container) PIDs() uint64                       { return c.pids }
 func (c *container) OpenFiles() *uint64                 { return c.openFiles }
@@ -1352,6 +1355,8 @@ func (c *container) LockedMemory() *uint64              { return c.lockedMemory 
 func (c *container) PendingSignals() *uint64            { return c.pendingSignals }
 func (c *container) MessageQueue() *uint64              { return c.messageQueue }
 func (c *container) TmpFsSize() uint64                  { return c.tmpFsSize }
+func (c *container) TmpFsInodes() uint64                { return c.tmpFsInodes }
+func (c *container) DNS() (servers, search []string)    { return nil, nil }
 func (c *container) Extensions() map[string]string      { return c.extensions }
 func (c *container) LoggerConfig() drivers.LoggerConfig { return c.logCfg }
 func (c *container) UDSAgentPath() string               { return c.iofs.AgentPath() }

@@ -177,8 +177,8 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 
 	var tmpFsOption string
 	if c.task.TmpFsSize() != 0 {
-		if c.drv.conf.MaxTmpFsInodes != 0 {
-			tmpFsOption = fmt.Sprintf("size=%dm,nr_inodes=%d", c.task.TmpFsSize(), c.drv.conf.MaxTmpFsInodes)
+		if c.task.TmpFsInodes() != 0 {
+			tmpFsOption = fmt.Sprintf("size=%dm,nr_inodes=%d", c.task.TmpFsSize(), c.task.TmpFsInodes())
 		} else {
 			tmpFsOption = fmt.Sprintf("size=%dm", c.task.TmpFsSize())
 		}
@@ -230,10 +230,22 @@ func (c *cookie) configureCPU(log logrus.FieldLogger) {
 
 	quota := int64(c.task.CPUs() * 100)
 	period := int64(100000)
+	shares := c.task.CPUShares()
+	setcpu := c.task.CPUSetCPUs()
 
-	log.WithFields(logrus.Fields{"quota": quota, "period": period, "call_id": c.task.Id()}).Debug("setting CPU")
+	log.WithFields(logrus.Fields{"quota": quota, "period": period, "shares": shares, "setcpu": setcpu, "call_id": c.task.Id()}).Debug("setting CPU")
 	c.opts.HostConfig.CPUQuota = quota
 	c.opts.HostConfig.CPUPeriod = period
+	c.opts.HostConfig.CPUShares = shares
+	c.opts.HostConfig.CPUSetCPUs = setcpu
+}
+
+func (c *cookie) configureDNS(log logrus.FieldLogger) {
+	servers, searchDomains := c.task.DNS()
+
+	log.WithFields(logrus.Fields{"servers": servers, "search_domains": searchDomains, "call_id": c.task.Id()}).Debug("setting DNS")
+	c.opts.HostConfig.DNS = servers
+	c.opts.HostConfig.DNSSearch = searchDomains
 }
 
 func (c *cookie) configureWorkDir(log logrus.FieldLogger) {
@@ -354,11 +366,6 @@ func (c *cookie) Close(ctx context.Context) error {
 // implements Cookie
 func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 	return c.drv.run(ctx, c.task.Id(), c.task)
-}
-
-// implements Cookie
-func (c *cookie) ContainerOptions() interface{} {
-	return c.opts
 }
 
 // implements Cookie

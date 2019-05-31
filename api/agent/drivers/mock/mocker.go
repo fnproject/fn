@@ -64,10 +64,6 @@ func (c *cookie) Close(context.Context) error {
 	return nil
 }
 
-func (c *cookie) ContainerOptions() interface{} {
-	return nil
-}
-
 func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 	c.m.count++
 	if c.m.count%100 == 0 {

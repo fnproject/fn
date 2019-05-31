@@ -48,12 +48,6 @@ type Cookie interface {
 
 	// Create container which can be Run() later
 	CreateContainer(ctx context.Context) error
-
-	// Fetch driver specific container configuration. Use this to
-	// access the container create options. If Driver.Prepare() is not
-	// yet called with the cookie, then this can be used to modify container
-	// create options.
-	ContainerOptions() interface{}
 }
 
 type WaitResult interface {
@@ -146,6 +140,12 @@ type ContainerTask interface {
 	// CPUs in milli CPU units
 	CPUs() uint64
 
+	// CPUShares for relative share of CPU available.
+	CPUShares() int64
+
+	// Set CPUs explicitly. Empty string does not set.
+	CPUSetCPUs() string
+
 	// Filesystem size limit for the container, in megabytes.
 	FsSize() uint64
 
@@ -170,8 +170,14 @@ type ContainerTask interface {
 	// POSIX message queues. Return nil for the default value from the host.
 	MessageQueue() *uint64
 
-	// Tmpfs Filesystem size limit for the container, in megabytes.
+	// TmpFsSize sets tmpfs filesystem size limit for the container, in megabytes.
 	TmpFsSize() uint64
+
+	// TmpFsInodes sets max inodes on tmpfs. 0 is unlimited.
+	TmpFsInodes() uint64
+
+	// DNS overrides the list of servers and search domains. Empty string uses defaults.
+	DNS() (servers, search []string)
 
 	// WorkDir returns the working directory to use for the task. Empty string
 	// leaves it unset.
@@ -258,7 +264,6 @@ type Config struct {
 	PreForkCmd                    string `json:"pre_fork_cmd"`
 	PreForkUseOnce                uint64 `json:"pre_fork_use_once"`
 	PreForkNetworks               string `json:"pre_fork_networks"`
-	MaxTmpFsInodes                uint64 `json:"max_tmpfs_inodes"`
 	EnableReadOnlyRootFs          bool   `json:"enable_readonly_rootfs"`
 	ContainerLabelTag             string `json:"container_label_tag"`
 	InstanceId                    string `json:"instance_id"`

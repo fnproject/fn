@@ -18,10 +18,6 @@ import (
 	"github.com/fnproject/fn/api/server"
 	_ "github.com/fnproject/fn/api/server/defaultexts"
 	"github.com/gin-gonic/gin"
-
-	// We need docker client here, since we have a custom driver that wraps generic
-	// docker driver.
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -509,24 +505,17 @@ func (d *customDriver) CreateCookie(ctx context.Context, task drivers.ContainerT
 		return cookie, err
 	}
 
-	// docker driver specific data
-	obj := cookie.ContainerOptions()
-	opts, ok := obj.(docker.CreateContainerOptions)
-	if !ok {
-		logrus.Fatal("Unexpected driver, should be docker")
-	}
-
 	// if call extensions include 'foo', then let's add FN_CHEESE env vars, which should
 	// end up in Env/Config.
 	ext := task.Extensions()
 	cheese, ok := ext["FN_CHEESE"]
 	if ok {
-		opts.Config.Env = append(opts.Config.Env, "FN_CHEESE="+cheese)
+		task.EnvVars()["FN_CHEESE"] = cheese
 	}
 
 	wine, ok := ext["FN_WINE"]
 	if ok {
-		opts.Config.Env = append(opts.Config.Env, "FN_WINE="+wine)
+		task.EnvVars()["FN_WINE"] = wine
 	}
 
 	return cookie, nil
