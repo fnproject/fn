@@ -955,11 +955,9 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		v2.GET("/fns/:fn_id/calls/:call_id", s.goneResponse)
 		v2.GET("/fns/:fn_id/calls/:call_id/log", s.goneResponse)
 
-		runner := cleanv2.Group("/runner")
-
-		runnerAppAPI := runner.Group("/apps/:app_id")
-		runnerAppAPI.Use(setAppIDInCtx)
 		// TODO figure out how to deprecate
+		runner := cleanv2.Group("/runner")
+		runnerAppAPI := runner.Group("/apps/:app_id")
 		runnerAppAPI.GET("/triggerBySource/:trigger_type/*trigger_source", s.handleRunnerGetTriggerBySource)
 	}
 

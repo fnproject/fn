@@ -22,13 +22,6 @@ func main() {
 		fmt.Fprintf(w, "Hello func, %q", html.EscapeString(r.URL.Path))
 	})
 
-	// the following will be at /v1/apps/:app_name/custom2
-	funcServer.AddAppEndpoint("GET", "/custom3", &custom3Handler{})
-	funcServer.AddAppEndpointFunc("GET", "/custom4", func(w http.ResponseWriter, r *http.Request, app *models.App) {
-		// fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
-		fmt.Println("custom4Handler called")
-		fmt.Fprintf(w, "Hello app %v func, %q", app.Name, html.EscapeString(r.URL.Path))
-	})
 	funcServer.Start(ctx)
 }
 

@@ -5,14 +5,12 @@ package server
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/models"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -125,7 +123,7 @@ func RegisterAPIViews(tagKeys []string, dist []float64) {
 }
 
 func DefaultAPIViewsGetPath(routes gin.RoutesInfo, c *gin.Context) string {
-	// get the handler url, example: /v1/apps/:app
+	// get the handler url, example: /v2/apps/:app
 	url := "invalid"
 	for _, r := range routes {
 		if r.Handler == c.HandlerName() {
@@ -194,11 +192,6 @@ func panicWrap(c *gin.Context) {
 func loggerWrap(c *gin.Context) {
 	ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-	if appName := c.Param(api.AppName); appName != "" {
-		c.Set(api.AppName, appName)
-		ctx = ContextWithApp(ctx, appName)
-	}
-
 	if appID := c.Param(api.AppID); appID != "" {
 		c.Set(api.AppID, appID)
 		ctx = ContextWithAppID(ctx, appID)
@@ -235,60 +228,4 @@ func ContextWithAppID(ctx context.Context, appID string) context.Context {
 func AppIDFromContext(ctx context.Context) string {
 	r, _ := ctx.Value(ctxAppIDKey(api.AppID)).(string)
 	return r
-}
-
-type ctxAppKey string
-
-// ContextWithApp sets the app name value on a context, it may be retrieved
-// using AppFromContext.
-// TODO this is also used as a gin.Key -- stop one of these two things.
-func ContextWithApp(ctx context.Context, app string) context.Context {
-	return context.WithValue(ctx, ctxAppKey(api.AppName), app)
-}
-
-// AppFromContext returns the app from a context, if set.
-func AppFromContext(ctx context.Context) string {
-	r, _ := ctx.Value(ctxAppKey(api.AppName)).(string)
-	return r
-}
-
-func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
-
-		appName := c.MustGet(api.AppName).(string)
-		if appName != "" {
-			appID, err := s.datastore.GetAppID(ctx, appName)
-			if err != nil {
-				handleErrorResponse(c, err)
-				c.Abort()
-				return
-			}
-			c.Set(api.AppID, appID)
-		}
-
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-	}
-}
-
-func setAppIDInCtx(c *gin.Context) {
-	// add appName to context
-	appID := c.Param(api.AppID)
-
-	if appID != "" {
-		c.Set(api.AppID, appID)
-		c.Request = c.Request.WithContext(c)
-	}
-	c.Next()
-}
-
-func appIDCheck(c *gin.Context) {
-	appID := c.GetString(api.AppID)
-	if appID == "" {
-		handleErrorResponse(c, models.ErrAppsMissingID)
-		c.Abort()
-		return
-	}
-	c.Next()
 }
