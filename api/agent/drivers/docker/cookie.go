@@ -322,7 +322,7 @@ func (c *cookie) configureSecurity(log logrus.FieldLogger) {
 	}
 	c.opts.Config.User = FnDockerUser
 	c.opts.HostConfig.CapDrop = []string{"all"}
-	c.opts.HostConfig.SecurityOpt = []string{"no-new-privileges:true"}
+	c.opts.HostConfig.SecurityOpt = []string{"no-new-privileges"}
 	log.WithFields(logrus.Fields{"user": c.opts.Config.User,
 		"CapDrop": c.opts.HostConfig.CapDrop, "SecurityOpt": c.opts.HostConfig.SecurityOpt, "call_id": c.task.Id()}).Debug("setting security")
 }
