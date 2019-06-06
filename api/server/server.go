@@ -204,6 +204,7 @@ type Server struct {
 	lbReadAccess           agent.ReadDataAccess
 	noHTTTPTriggerEndpoint bool
 	noFnInvokeEndpoint     bool
+	noProfilerEndpoint     bool
 	appListeners           *appListeners
 	fnListeners            *fnListeners
 	triggerListeners       *triggerListeners
@@ -652,6 +653,14 @@ func WithoutFnInvokeEndpoints() Option {
 	}
 }
 
+// WithoutProfilerEndpoints disables the /debug endpoints
+func WithoutProfilerEndpoints() Option {
+	return func(ctx context.Context, s *Server) error {
+		s.noProfilerEndpoint = true
+		return nil
+	}
+}
+
 // WithJaeger maps EnvJaegerURL
 func WithJaeger(jaegerURL string) Option {
 	return func(ctx context.Context, s *Server) error {
@@ -920,7 +929,9 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		admin.GET("/metrics", gin.WrapH(s.promExporter))
 	}
 
-	profilerSetup(admin, "/debug")
+	if !s.noProfilerEndpoint {
+		profilerSetup(admin, "/debug")
+	}
 
 	// Pure runners don't have any route, they have grpc
 	switch s.nodeType {
