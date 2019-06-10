@@ -980,8 +980,8 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 		}, nil
 	}
 	status, err := pr.handleStatusCall(ctx)
-	if err != nil {
-		common.Logger(ctx).WithError(err).Errorf("Status call failed result=%+v", status)
+	if err != nil && err != context.Canceled {
+		common.Logger(ctx).WithError(err).Warnf("Status call failed result=%+v", status)
 	}
 
 	cached := "error"
