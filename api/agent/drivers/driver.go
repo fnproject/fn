@@ -265,17 +265,24 @@ type Config struct {
 }
 
 // https://github.com/fsouza/go-dockerclient/blob/master/misc.go#L166
-func parseRepositoryTag(repoTag string) (repository string, tag string) {
+func parseRepositoryTag(repoTag string) (repository, tag string) {
 	parts := strings.SplitN(repoTag, "@", 2)
+	var digest string
+	if len(parts) == 2 {
+		digest = parts[1]
+	}
 	repoTag = parts[0]
 	n := strings.LastIndex(repoTag, ":")
 	if n < 0 {
-		return repoTag, ""
+		return repoTag, digest
+	}
+	if digest != "" {
+		return repoTag[:n], digest
 	}
 	if tag := repoTag[n+1:]; !strings.Contains(tag, "/") {
 		return repoTag[:n], tag
 	}
-	return repoTag, ""
+	return repoTag, digest
 }
 
 func ParseImage(image string) (registry, repo, tag string) {
