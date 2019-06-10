@@ -1,10 +1,10 @@
 # Just builds
 .PHONY: mod
-dep:
+mod:
 	GO111MODULE=on GOFLAGS=-mod=vendor go mod vendor -v
 
 .PHONY: mod-up
-dep-up:
+mod-up:
 	go get -u
 
 .PHONY: build
