@@ -12,3 +12,4 @@ FROM fnproject/dind:latest
 WORKDIR /app
 COPY --from=build-env /tmp/fn-alpine /app/fnserver
 CMD ["./fnserver"]
+EXPOSE 8080
