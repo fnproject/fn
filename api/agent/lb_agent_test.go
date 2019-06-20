@@ -125,10 +125,6 @@ func (c *mockRunnerCall) ResponseWriter() http.ResponseWriter {
 	return c.rw
 }
 
-func (c *mockRunnerCall) StdErr() io.ReadWriteCloser {
-	return c.stdErr
-}
-
 func (c *mockRunnerCall) Model() *models.Call {
 	return c.model
 }
@@ -273,7 +269,7 @@ func TestEnforceLbTimeout(t *testing.T) {
 
 // SetCallType create a models.Call setting up the provided Call Type
 func SetCallType(callType string) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.Call = &models.Call{Type: callType}
 		c.req, _ = http.NewRequest("GET", "http://www.example.com", nil)
 		return nil
@@ -281,7 +277,7 @@ func SetCallType(callType string) CallOpt {
 }
 
 func ModifyCallRequest(callType string) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.Call.Type = callType
 		return nil
 	}

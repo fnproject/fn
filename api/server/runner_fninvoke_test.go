@@ -218,7 +218,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/http_stream_fn_id", oomer, nil, http.MethodPost, http.StatusBadGateway, nil, "error receiving function response", nil},
 		{"/invoke/http_stream_fn_id", bigbuf, nil, http.MethodPost, http.StatusRequestEntityTooLarge, nil, "", nil},
 
-		{"/invoke/dne_fn_id", ``, nil, http.MethodPost, http.StatusNotFound, nil, "pull access denied", nil},
+		{"/invoke/dne_fn_id", ``, nil, http.MethodPost, http.StatusNotFound, nil, "Failed to pull image", nil},
 		{"/invoke/dnereg_fn_id", ``, nil, http.MethodPost, http.StatusBadGateway, nil, "connection refused", nil},
 
 		// XXX(reed): nil, nil, what are these?

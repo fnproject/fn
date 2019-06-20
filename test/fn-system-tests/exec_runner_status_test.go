@@ -103,7 +103,6 @@ func (c *myCall) SlotHashId() string                   { return "" }
 func (c *myCall) Extensions() map[string]string        { return nil }
 func (c *myCall) RequestBody() io.ReadCloser           { return nil }
 func (c *myCall) ResponseWriter() http.ResponseWriter  { return nil }
-func (c *myCall) StdErr() io.ReadWriteCloser           { return nil }
 func (c *myCall) Model() *models.Call                  { return nil }
 func (c *myCall) GetUserExecutionTime() *time.Duration { return nil }
 func (c *myCall) AddUserExecutionTime(time.Duration)   {}

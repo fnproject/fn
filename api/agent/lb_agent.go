@@ -149,7 +149,7 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	opts = append(opts, a.callOpts...)
 
 	for _, o := range opts {
-		err := o(&c)
+		err := o(a.cfg, &c)
 		if err != nil {
 			return nil, err
 		}

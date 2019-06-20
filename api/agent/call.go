@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -44,11 +45,11 @@ type CallOverrider func(*http.Request, *models.Call, map[string]string) (map[str
 // CallOpt allows configuring a call before execution
 // TODO(reed): consider the interface here, all options must be defined in agent and flexible
 // enough for usage by extenders of fn, this straddling is painful. consider models.Call?
-type CallOpt func(c *call) error
+type CallOpt func(Config, *call) error
 
 // FromHTTPFnRequest Sets up a call from an http trigger request
 func FromHTTPFnRequest(app *models.App, fn *models.Fn, req *http.Request) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		id := id.New().String()
 
 		var syslogURL string
@@ -120,7 +121,7 @@ func reqURL(req *http.Request) string {
 
 // FromModel creates a call object from an existing stored call model object, reading the body from the stored call payload
 func FromModel(mCall *models.Call) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.Call = mCall
 
 		req, err := http.NewRequest(c.Method, c.URL, strings.NewReader(c.Payload))
@@ -137,7 +138,7 @@ func FromModel(mCall *models.Call) CallOpt {
 
 // FromModelAndInput creates a call object from an existing stored call model object , reading the body from a provided stream
 func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.Call = mCall
 
 		req, err := http.NewRequest(c.Method, c.URL, in)
@@ -155,7 +156,7 @@ func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 // WithTrigger adds trigger specific bits to a call.
 // TODO consider removal, this is from a shuffle
 func WithTrigger(t *models.Trigger) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		// right now just set the trigger id
 		c.TriggerID = t.ID
 		return nil
@@ -165,7 +166,7 @@ func WithTrigger(t *models.Trigger) CallOpt {
 // WithWriter sets the writer that the call uses to send its output message to
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.respWriter = w
 		return nil
 	}
@@ -173,7 +174,7 @@ func WithWriter(w io.Writer) CallOpt {
 
 // WithLogger sets stderr to the provided one
 func WithLogger(w io.ReadWriteCloser) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.stderr = w
 		return nil
 	}
@@ -181,7 +182,7 @@ func WithLogger(w io.ReadWriteCloser) CallOpt {
 
 // InvokeDetached mark a call to be a detached call
 func InvokeDetached() CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.Model().Type = models.TypeDetached
 		return nil
 	}
@@ -189,7 +190,7 @@ func InvokeDetached() CallOpt {
 
 // WithContext overrides the context on the call
 func WithContext(ctx context.Context) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.req = c.req.WithContext(ctx)
 		return nil
 	}
@@ -198,7 +199,7 @@ func WithContext(ctx context.Context) CallOpt {
 // WithExtensions adds internal attributes to the call that can be interpreted by extensions in the agent
 // Pure runner can use this to pass an extension to the call
 func WithExtensions(extensions map[string]string) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.extensions = extensions
 		return nil
 	}
@@ -206,8 +207,22 @@ func WithExtensions(extensions map[string]string) CallOpt {
 
 // WithDockerAuth configures a call to retrieve credentials for an image pull
 func WithDockerAuth(auth docker.Auther) CallOpt {
-	return func(c *call) error {
+	return func(cfg Config, c *call) error {
 		c.dockerAuth = auth
+		return nil
+	}
+}
+
+// WithStderrLogger configures a call to have its container logs logged by fn.
+// Configure UserLogLevel or DisableDebugUserLogs on agent to change behavior.
+func WithStderrLogger() CallOpt {
+	// TODO(reed): we could take a context here which would allow request level logging vars on ctx to be used here too
+	return func(cfg Config, c *call) error {
+		if cfg.DisableDebugUserLogs {
+			return nil
+		}
+
+		c.stderr = setupLogger(c.Call, cfg.UserLogLevel)
 		return nil
 	}
 }
@@ -222,7 +237,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	opts = append(opts, a.callOpts...)
 
 	for _, o := range opts {
-		err := o(&c)
+		err := o(a.cfg, &c)
 		if err != nil {
 			return nil, err
 		}
@@ -253,20 +268,17 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	}
 	c.Call.Config["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
 	c.Call.Config["FN_FORMAT"] = "http-stream" // TODO: remove this after fdk's forget what it means
-	// TODO we could set type here too, for now, or anything else not based in fn/app/trigger config
 
 	setupCtx(&c)
 
 	c.ct = a
 	if c.stderr == nil {
-		// TODO(reed): is line writer is vulnerable to attack?
-		// XXX(reed): forcing this as default is not great / configuring it isn't great either. reconsider.
-		c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, !a.cfg.DisableDebugUserLogs, c.Call)
+		// this disables logs in driver (at container level)
+		c.stderr = common.NoopReadWriteCloser{}
 	}
 	if c.respWriter == nil {
-		// send function output to logs if no writer given (TODO no longer need w/o async?)
-		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
-		c.respWriter = c.stderr
+		// TODO: we could make this an error, up to us
+		c.respWriter = ioutil.Discard
 	}
 
 	return &c, nil
@@ -283,7 +295,7 @@ type call struct {
 
 	respWriter   io.Writer
 	req          *http.Request
-	stderr       io.ReadWriteCloser
+	stderr       io.WriteCloser
 	ct           callTrigger
 	slots        *slotQueue
 	requestState RequestState
@@ -320,10 +332,6 @@ func (c *call) RequestBody() io.ReadCloser {
 
 func (c *call) ResponseWriter() http.ResponseWriter {
 	return c.respWriter.(http.ResponseWriter)
-}
-
-func (c *call) StdErr() io.ReadWriteCloser {
-	return c.stderr
 }
 
 func (c *call) AddUserExecutionTime(dur time.Duration) {
@@ -372,9 +380,6 @@ func (c *call) End(ctx context.Context, errIn error) error {
 
 	// ensure stats histogram is reasonably bounded
 	c.Call.Stats = stats.Decimate(240, c.Call.Stats)
-
-	// NOTE call this after InsertLog or the buffer will get reset
-	c.stderr.Close()
 
 	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
 		return err

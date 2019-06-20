@@ -301,7 +301,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
 		{"/t/myapp/httpstream", nil, oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},
 
-		{"/t/myapp/mydne", nil, ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
+		{"/t/myapp/mydne", nil, ``, "GET", http.StatusNotFound, nil, "Failed to pull image", nil},
 		{"/t/myapp/mydneregistry", nil, ``, "GET", http.StatusBadGateway, nil, "connection refused", nil},
 
 		// XXX(reed): what are these?
