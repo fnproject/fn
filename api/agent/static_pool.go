@@ -7,8 +7,8 @@ import (
 	pool "github.com/fnproject/fn/api/runnerpool"
 
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"go.opencensus.io/plugin/ocgrpc"
+	"google.golang.org/grpc"
 )
 
 // manages a single set of runners ignoring lb groups
