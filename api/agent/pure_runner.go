@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+  "go.opencensus.io/plugin/ocgrpc"
 )
 
 /*
@@ -1171,6 +1172,7 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 
 	pr.gRPCOptions = append(pr.gRPCOptions, grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor))
 	pr.gRPCOptions = append(pr.gRPCOptions, grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor))
+  pr.gRPCOptions = append(pr.gRPCOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 
 	if pr.creds != nil {
 		pr.gRPCOptions = append(pr.gRPCOptions, grpc.Creds(pr.creds))
