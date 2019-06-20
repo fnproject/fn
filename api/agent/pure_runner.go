@@ -28,6 +28,7 @@ import (
 	"github.com/fnproject/fn/grpcutil"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/plugin/ocgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -1171,6 +1172,7 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 
 	pr.gRPCOptions = append(pr.gRPCOptions, grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor))
 	pr.gRPCOptions = append(pr.gRPCOptions, grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor))
+	pr.gRPCOptions = append(pr.gRPCOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 
 	if pr.creds != nil {
 		pr.gRPCOptions = append(pr.gRPCOptions, grpc.Creds(pr.creds))

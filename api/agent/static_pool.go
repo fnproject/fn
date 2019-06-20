@@ -7,6 +7,7 @@ import (
 	pool "github.com/fnproject/fn/api/runnerpool"
 
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/plugin/ocgrpc"
 	"google.golang.org/grpc"
 )
 
@@ -22,6 +23,7 @@ func DefaultStaticRunnerPool(runnerAddresses []string) pool.RunnerPool {
 func NewStaticRunnerPool(runnerAddresses []string, tlsConf *tls.Config, dialOpts ...grpc.DialOption) pool.RunnerPool {
 	logrus.WithField("runners", runnerAddresses).Info("Starting static runner pool")
 	var runners []pool.Runner
+	dialOpts = append(dialOpts, grpc.WithStatsHandler(new(ocgrpc.ClientHandler)))
 	for _, addr := range runnerAddresses {
 		r, err := NewgRPCRunner(addr, tlsConf, dialOpts...)
 		if err != nil {
