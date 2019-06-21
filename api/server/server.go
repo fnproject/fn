@@ -205,6 +205,8 @@ type Server struct {
 	noHTTTPTriggerEndpoint bool
 	noFnInvokeEndpoint     bool
 	noProfilerEndpoint     bool
+	noWebServer            bool
+	noAdminServer          bool
 	appListeners           *appListeners
 	fnListeners            *fnListeners
 	triggerListeners       *triggerListeners
@@ -661,6 +663,24 @@ func WithoutProfilerEndpoints() Option {
 	}
 }
 
+// WithWebEnabled enables or disables the web server. By default the server is
+// enabled.
+func WithWebEnabled(enabled bool) Option {
+	return func(ctx context.Context, s *Server) error {
+		s.noWebServer = !enabled
+		return nil
+	}
+}
+
+// WithAdminEnabled enables or disables the Admin server. By default the server
+// is enabled.
+func WithAdminEnabled(enabled bool) Option {
+	return func(ctx context.Context, s *Server) error {
+		s.noAdminServer = !enabled
+		return nil
+	}
+}
+
 // WithJaeger maps EnvJaegerURL
 func WithJaeger(jaegerURL string) Option {
 	return func(ctx context.Context, s *Server) error {
@@ -837,22 +857,24 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		server.Handler = &ochttp.Handler{Handler: s.Router}
 	}
 
-	go func() {
-		var err error
-		if server.TLSConfig != nil {
-			err = server.ListenAndServeTLS("", "")
-		} else {
-			err = server.ListenAndServe()
-		}
-		if err != nil && err != http.ErrServerClosed {
-			logrus.WithError(err).Error("server error")
-			cancel()
-		} else {
-			logrus.Info("server stopped")
-		}
-	}()
+	if !s.noWebServer {
+		go func() {
+			var err error
+			if server.TLSConfig != nil {
+				err = server.ListenAndServeTLS("", "")
+			} else {
+				err = server.ListenAndServe()
+			}
+			if err != nil && err != http.ErrServerClosed {
+				logrus.WithError(err).Error("server error")
+				cancel()
+			} else {
+				logrus.Info("server stopped")
+			}
+		}()
+	}
 
-	if s.svcConfigs[WebServer].Addr != s.svcConfigs[AdminServer].Addr {
+	if !s.noAdminServer && s.svcConfigs[WebServer].Addr != s.svcConfigs[AdminServer].Addr {
 		logrus.WithField("type", s.nodeType).Infof("Fn Admin serving on `%v`", s.svcConfigs[AdminServer].Addr)
 		adminServer := s.svcConfigs[AdminServer]
 		if adminServer.Handler == nil {
@@ -899,9 +921,11 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		}).Debug("Stopping because of closed channel from done context.")
 	}
 
-	// TODO: do not wait forever during graceful shutdown (add graceful shutdown timeout)
-	if err := server.Shutdown(context.Background()); err != nil {
-		logrus.WithError(err).Error("server shutdown error")
+	if !s.noWebServer {
+		// TODO: do not wait forever during graceful shutdown (add graceful shutdown timeout)
+		if err := server.Shutdown(context.Background()); err != nil {
+			logrus.WithError(err).Error("server shutdown error")
+		}
 	}
 
 	if s.agent != nil {
