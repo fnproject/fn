@@ -3,8 +3,9 @@ module github.com/fnproject/fn
 replace cloud.google.com/go => github.com/google/go-cloud v0.4.1-0.20181025204856-f29236cc19de
 
 require (
-	cloud.google.com/go v0.34.0 // indirect
-	git.apache.org/thrift.git v0.0.0-20181218151757-9b75e4fe745a // indirect
+	contrib.go.opencensus.io/exporter/jaeger v0.1.0
+	contrib.go.opencensus.io/exporter/prometheus v0.1.0
+	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	github.com/coreos/go-semver v0.2.1-0.20180108230905-e214231b295a
 	github.com/dchest/siphash v1.2.0
 	github.com/fnproject/fdk-go v0.0.0-20181025170718-26ed643bea68
@@ -15,10 +16,8 @@ require (
 	github.com/gin-gonic/gin v1.3.0
 	github.com/go-sql-driver/mysql v1.4.0
 	github.com/golang/groupcache v0.0.0-20180924190550-6f2cf27854a4
-	github.com/golang/mock v1.2.0 // indirect
 	github.com/golang/protobuf v1.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
-	github.com/grpc-ecosystem/grpc-gateway v1.6.2 // indirect
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/json-iterator/go v1.1.5 // indirect
 	github.com/leanovate/gopter v0.2.2
@@ -27,18 +26,15 @@ require (
 	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
-	github.com/openzipkin/zipkin-go v0.1.3
+	github.com/openzipkin/zipkin-go v0.1.6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/prometheus/client_golang v0.9.2
-	github.com/prometheus/common v0.0.0-20181218105931-67670fe90761 // indirect
+	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/sirupsen/logrus v1.3.0
 	github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f // indirect
 	go.opencensus.io v0.22.1-0.20190619184131-df42942ad08f
 	golang.org/x/net v0.0.0-20190501004415-9ce7a6920f09
-	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890 // indirect
 	golang.org/x/sys v0.0.0-20190502145724-3ef323f4f1fd
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
-	google.golang.org/api v0.0.0-20181220000619-583d854617af // indirect
 	google.golang.org/grpc v1.20.1
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect

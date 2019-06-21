@@ -17,6 +17,17 @@ import (
 	"syscall"
 	"unicode"
 
+	"contrib.go.opencensus.io/exporter/jaeger"
+	"contrib.go.opencensus.io/exporter/prometheus"
+	"contrib.go.opencensus.io/exporter/zipkin"
+	"github.com/gin-gonic/gin"
+	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
+	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/trace"
+
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/common"
@@ -25,16 +36,6 @@ import (
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/version"
 	"github.com/fnproject/fn/fnext"
-	"github.com/gin-gonic/gin"
-	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
-	promclient "github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
-	"go.opencensus.io/exporter/jaeger"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/exporter/zipkin"
-	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/trace"
 )
 
 const (
