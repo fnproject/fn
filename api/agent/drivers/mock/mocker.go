@@ -26,6 +26,10 @@ func (m *Mocker) SetPullImageRetryPolicy(policy common.BackOffConfig, checker dr
 	return nil
 }
 
+func (m *Mocker) GetSlotKeyExtensions(extn map[string]string) string {
+	return ""
+}
+
 func (m *Mocker) Close() error {
 	return nil
 }

@@ -342,7 +342,8 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	var isNew bool
 
 	if call.slotHashId == "" {
-		call.slotHashId = getSlotQueueKey(call)
+		slotExtns := a.driver.GetSlotKeyExtensions(call.Extensions())
+		call.slotHashId = getSlotQueueKey(call, slotExtns)
 	}
 
 	call.slots, isNew = a.slotMgr.getSlotQueue(call.slotHashId)

@@ -304,6 +304,6 @@ func BenchmarkSlotKey(b *testing.B) {
 	call := &call{Call: cm}
 
 	for i := 0; i < b.N; i++ {
-		_ = getSlotQueueKey(call)
+		_ = getSlotQueueKey(call, "")
 	}
 }

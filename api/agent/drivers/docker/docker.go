@@ -419,6 +419,10 @@ func (drv *DockerDriver) CreateCookie(ctx context.Context, task drivers.Containe
 	return cookie, nil
 }
 
+func (drv *DockerDriver) GetSlotKeyExtensions(extn map[string]string) string {
+	return ""
+}
+
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {

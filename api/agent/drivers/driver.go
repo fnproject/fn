@@ -75,6 +75,10 @@ type Driver interface {
 	// Set image pull retry policy and retriable error checker
 	SetPullImageRetryPolicy(policy common.BackOffConfig, checker RetryErrorChecker) error
 
+	// Get serialized string of fields in call extn that determines if we can use
+	// an existing hot container slot or pull a new image and start a container
+	GetSlotKeyExtensions(extn map[string]string) string
+
 	// close & shutdown the driver
 	Close() error
 }
