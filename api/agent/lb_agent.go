@@ -18,6 +18,8 @@ import (
 	"github.com/fnproject/fn/fnext"
 )
 
+const RequestIDContextKey = "fn_request_id"
+
 type lbAgent struct {
 	cfg           Config
 	callListeners []fnext.CallListener
@@ -197,9 +199,16 @@ func (a *lbAgent) Close() error {
 // implements Agent
 func (a *lbAgent) Submit(callI Call) error {
 	call := callI.(*call)
-	ctx, span := trace.StartSpan(call.req.Context(), "agent_submit")
+	ctx, span := trace.StartSpan(call.req.Context(), "lb_agent_submit")
 	defer span.End()
-
+	span.AddAttributes(
+		trace.StringAttribute("fn.id", call.ID),
+		trace.StringAttribute("fn.app_id", call.AppID),
+		trace.StringAttribute("fn.fn_id", call.FnID),
+		trace.StringAttribute("fn.app_name", call.AppName),
+		trace.StringAttribute("fn.fn_id", call.FnID),
+		trace.StringAttribute("fn.rid", common.RequestIDFromContext(ctx)),
+	)
 	statsCalls(ctx)
 
 	if !a.shutWg.AddSession(1) {
