@@ -251,13 +251,16 @@ func (a *agent) Submit(callI Call) error {
 	defer span.End()
 
 	span.AddAttributes(
-		trace.StringAttribute("fn.id", call.ID),
+		trace.StringAttribute("fn.call_id", call.ID),
 		trace.StringAttribute("fn.app_id", call.AppID),
 		trace.StringAttribute("fn.fn_id", call.FnID),
-		trace.StringAttribute("fn.app_name", call.AppName),
-		trace.StringAttribute("fn.fn_id", call.FnID),
-		trace.StringAttribute("fn.rid", common.RequestIDFromContext(ctx)),
 	)
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		span.AddAttributes(
+			trace.StringAttribute("fn.rid", common.RequestIDFromContext(ctx)),
+		)
+	}
 
 	return a.submit(ctx, call)
 }
