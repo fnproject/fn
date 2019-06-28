@@ -207,7 +207,7 @@ func (a *lbAgent) Submit(callI Call) error {
 	rid := common.RequestIDFromContext(ctx)
 	if rid != "" {
 		span.AddAttributes(
-			trace.StringAttribute("fn.rid", common.RequestIDFromContext(ctx)),
+			trace.StringAttribute("fn.rid", rid),
 		)
 	}
 	statsCalls(ctx)

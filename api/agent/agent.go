@@ -258,7 +258,7 @@ func (a *agent) Submit(callI Call) error {
 	rid := common.RequestIDFromContext(ctx)
 	if rid != "" {
 		span.AddAttributes(
-			trace.StringAttribute("fn.rid", common.RequestIDFromContext(ctx)),
+			trace.StringAttribute("fn.rid", rid),
 		)
 	}
 
