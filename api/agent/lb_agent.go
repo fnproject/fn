@@ -197,9 +197,19 @@ func (a *lbAgent) Close() error {
 // implements Agent
 func (a *lbAgent) Submit(callI Call) error {
 	call := callI.(*call)
-	ctx, span := trace.StartSpan(call.req.Context(), "agent_submit")
+	ctx, span := trace.StartSpan(call.req.Context(), "lb_agent_submit")
 	defer span.End()
-
+	span.AddAttributes(
+		trace.StringAttribute("fn.call_id", call.ID),
+		trace.StringAttribute("fn.app_id", call.AppID),
+		trace.StringAttribute("fn.fn_id", call.FnID),
+	)
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		span.AddAttributes(
+			trace.StringAttribute("fn.rid", rid),
+		)
+	}
 	statsCalls(ctx)
 
 	if !a.shutWg.AddSession(1) {

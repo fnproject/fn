@@ -250,7 +250,17 @@ func (a *agent) Submit(callI Call) error {
 	ctx, span := trace.StartSpan(ctx, "agent_submit")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute("agent.call_id", call.ID))
+	span.AddAttributes(
+		trace.StringAttribute("fn.call_id", call.ID),
+		trace.StringAttribute("fn.app_id", call.AppID),
+		trace.StringAttribute("fn.fn_id", call.FnID),
+	)
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		span.AddAttributes(
+			trace.StringAttribute("fn.rid", rid),
+		)
+	}
 
 	return a.submit(ctx, call)
 }
