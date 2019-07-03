@@ -96,7 +96,7 @@ func (s *Server) fnInvoke(resp http.ResponseWriter, req *http.Request, app *mode
 
 	isDetached := req.Header.Get("Fn-Invoke-Type") == models.TypeDetached
 	if isDetached {
-		writer = agent.NewDetachedResponseWriter(202)
+		writer = agent.NewDetachedResponseWriter(resp.Header(), 202)
 	} else {
 		writer = &syncResponseWriter{
 			headers: resp.Header(),

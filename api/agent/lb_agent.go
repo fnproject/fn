@@ -28,18 +28,14 @@ type lbAgent struct {
 	callOpts      []CallOpt
 }
 
-// DetachedResponseWriter implements http.ResponseWriter without allowing
-// writes to the body or writing the headers from a call to Write or
-// WriteHeader, it is only intended to allow writing the status code in and
-// being able to fetch it later from Status()
 type DetachedResponseWriter struct {
-	headers http.Header
+	Headers http.Header
 	status  int
 	acked   chan struct{}
 }
 
 func (w *DetachedResponseWriter) Header() http.Header {
-	return w.headers
+	return w.Headers
 }
 
 func (w *DetachedResponseWriter) Write(data []byte) (int, error) {
@@ -55,9 +51,9 @@ func (w *DetachedResponseWriter) Status() int {
 	return w.status
 }
 
-func NewDetachedResponseWriter(statusCode int) *DetachedResponseWriter {
+func NewDetachedResponseWriter(h http.Header, statusCode int) *DetachedResponseWriter {
 	return &DetachedResponseWriter{
-		headers: make(http.Header),
+		Headers: h,
 		status:  statusCode,
 		acked:   make(chan struct{}, 1),
 	}
