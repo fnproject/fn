@@ -2,6 +2,7 @@ package models
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
@@ -118,6 +119,9 @@ type Call struct {
 
 	// Time when call started execution. Always in UTC.
 	StartedAt common.DateTime `json:"started_at,omitempty" db:"started_at"`
+
+	// Duration that user code was running for, in nanoseconds.
+	ExecutionDuration time.Duration `json:"execution_duration,omitempty" db:"execution_duration"`
 
 	// Stats is a list of metrics from this call's execution, possibly empty.
 	Stats stats.Stats `json:"stats,omitempty" db:"stats"`
