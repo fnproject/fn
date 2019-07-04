@@ -6,7 +6,6 @@ source ./helpers.sh
 remove_containers ${CONTEXT}
 
 DB_NAME=$1
-shift # later usage
 export FN_DB_URL=$(spawn_${DB_NAME} ${CONTEXT})
 
 # avoid port conflicts with api_test.sh which are run in parallel
@@ -24,15 +23,8 @@ export FN_LOG_LEVEL=debug
 #
 export SYSTEM_TEST_PROMETHEUS_FILE=./prometheus.${DB_NAME}.txt
 
-run="$@"
-
-if [ ! -z "$run" ]
-then
-  run="-run $run"
-fi
-
 cd test/fn-system-tests
-go test $run -v ./...
+go test -v ./...
 cd ../../
 
 remove_containers ${CONTEXT}
