@@ -346,12 +346,24 @@ func recordFinishStats(ctx context.Context, msg *pb.CallFinished, c pool.RunnerC
 	}
 }
 
+func cloneHeaders(src http.Header) http.Header {
+	dst := make(http.Header, len(src))
+	for k, vs := range src {
+		for _, v := range vs {
+			dst.Add(k, v)
+		}
+	}
+	return dst
+}
+
 func receiveFromRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, runnerAddress string, c pool.RunnerCall, done chan error) {
 	w := c.ResponseWriter()
 	defer close(done)
 
 	log := common.Logger(ctx).WithField("runner_addr", runnerAddress)
 	statusCode := int32(0)
+	// Make a copy of header to avoid concurrent read/write error when logCallFinish runs.
+	clonedHeaders := cloneHeaders(w.Header())
 	isPartialWrite := false
 
 DataLoop:
@@ -372,6 +384,7 @@ DataLoop:
 			case *pb.CallResultStart_Http:
 				log.Debugf("Received meta http result from runner Status=%v", meta.Http.StatusCode)
 				for _, header := range meta.Http.Headers {
+					clonedHeaders.Set(header.Key, header.Value)
 					w.Header().Set(header.Key, header.Value)
 				}
 				if meta.Http.StatusCode > 0 {
@@ -400,7 +413,7 @@ DataLoop:
 
 		// Finish messages required for finish/finalize the processing.
 		case *pb.RunnerMsg_Finished:
-			logCallFinish(log, body, w.Header(), statusCode)
+			logCallFinish(log, body, clonedHeaders, statusCode)
 			recordFinishStats(ctx, body.Finished, c)
 			if !body.Finished.Success {
 				err := parseError(body.Finished)
