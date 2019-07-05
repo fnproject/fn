@@ -331,6 +331,9 @@ func (c *call) AddUserExecutionTime(dur time.Duration) {
 		c.userExecTime = new(time.Duration)
 	}
 	*c.userExecTime += dur
+	// We expose this on the upstream models.Call also.
+	// CallListeners have access to the latter, but not the internals of the agent, so any
+	// reporting or bean-counting that's going on from there will need access to this.
 	c.Model().ExecutionDuration = *c.userExecTime
 }
 
