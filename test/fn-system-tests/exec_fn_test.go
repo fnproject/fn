@@ -156,13 +156,20 @@ func TestCanExecuteDetachedFunction(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "invoke", fn.ID)
 
-	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
+	body := `{"echoContent": "HelloWorld", "sleepTime": 60000, "isDebug": true}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
+	start := time.Now()
 	resp, err := callFN(ctx, u.String(), content, output, models.TypeDetached)
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
+	}
+	end := time.Now()
+
+	// Verify that the detached call returns in less than 30 seconds irrespective of execution time.
+	if end.Sub(start) > time.Second*30 {
+		t.Fatal("Detached call took more than 30 seconds to return")
 	}
 
 	if resp.StatusCode != http.StatusAccepted {
