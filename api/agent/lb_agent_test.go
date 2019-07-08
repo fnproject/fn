@@ -138,6 +138,7 @@ func (c *mockRunnerCall) AddUserExecutionTime(dur time.Duration) {
 		c.userExecTime = new(time.Duration)
 	}
 	*c.userExecTime += dur
+	c.Model().ExecutionDuration = *c.userExecTime
 }
 
 func (c *mockRunnerCall) GetUserExecutionTime() *time.Duration {
