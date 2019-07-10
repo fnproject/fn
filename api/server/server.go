@@ -858,6 +858,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		server.Handler = &ochttp.Handler{
 			Handler: s.Router,
 			GetStartOptions: func(r *http.Request) trace.StartOptions {
+				startOptions := trace.StartOptions{}
 				for _, exclude := range []string{"Prometheus", "kube-probe"} {
 					if strings.Contains(r.UserAgent(), exclude) {
 						startOptions.Sampler = trace.NeverSample()
@@ -892,6 +893,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 			adminServer.Handler = &ochttp.Handler{
 				Handler: s.AdminRouter,
 				GetStartOptions: func(r *http.Request) trace.StartOptions {
+					startOptions := trace.StartOptions{}
 					for _, exclude := range []string{"Prometheus", "kube-probe"} {
 						if strings.Contains(r.UserAgent(), exclude) {
 							startOptions.Sampler = trace.NeverSample()
