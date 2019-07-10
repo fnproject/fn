@@ -12,7 +12,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
