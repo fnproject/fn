@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -858,9 +859,10 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		server.Handler = &ochttp.Handler{
 			Handler: s.Router,
 			GetStartOptions: func(r *http.Request) trace.StartOptions {
-				startOptions := trace.StartOptions{}
-				if r.UserAgent() == "Prometheus/2.7.1" || r.UserAgent() == "kube-probe/1.11" {
-					startOptions.Sampler = trace.NeverSample()
+				for _, exclude := range []string{"Prometheus", "kube-probe"} {
+					if strings.Contains(r.UserAgent(), exclude) {
+						startOptions.Sampler = trace.NeverSample()
+					}
 				}
 				return startOptions
 			},
@@ -891,9 +893,10 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 			adminServer.Handler = &ochttp.Handler{
 				Handler: s.AdminRouter,
 				GetStartOptions: func(r *http.Request) trace.StartOptions {
-					startOptions := trace.StartOptions{}
-					if r.UserAgent() == "Prometheus/2.7.1" || r.UserAgent() == "kube-probe/1.11" {
-						startOptions.Sampler = trace.NeverSample()
+					for _, exclude := range []string{"Prometheus", "kube-probe"} {
+						if strings.Contains(r.UserAgent(), exclude) {
+							startOptions.Sampler = trace.NeverSample()
+						}
 					}
 					return startOptions
 				},
