@@ -538,6 +538,11 @@ func (d *customDriver) SetPullImageRetryPolicy(policy common.BackOffConfig, chec
 }
 
 // implements Driver
+func (d *customDriver) GetSlotKeyExtensions(extn map[string]string) string {
+	return ""
+}
+
+// implements Driver
 func (d *customDriver) Close() error {
 	return d.drv.Close()
 }
