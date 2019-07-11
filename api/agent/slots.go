@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/fnproject/fn/api/agent/drivers"
 )
 
 //
@@ -295,7 +297,7 @@ func getSlotQueueKey(call *call) string {
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.FnID))
 	hash.Write(unsafeBytes("\x00"))
-	hash.Write(unsafeBytes(call.Image))
+	hash.Write(unsafeBytes(drivers.NormalizeImage(call.Image)))
 	hash.Write(unsafeBytes("\x00"))
 
 	// these are all static in size we only need to delimit the whole block of them

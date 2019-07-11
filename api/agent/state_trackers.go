@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fnproject/fn/api/agent/drivers"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 )
@@ -140,7 +141,7 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 	ctx, _ = tag.New(ctx,
 		tag.Upsert(AppIDMetricKey, call.AppID),
 		tag.Upsert(FnIDMetricKey, call.FnID),
-		tag.Upsert(ImageNameMetricKey, call.Image),
+		tag.Upsert(ImageNameMetricKey, drivers.NormalizeImage(call.Image)),
 	)
 
 	c.lock.Lock()

@@ -264,23 +264,34 @@ type Config struct {
 	DisableUnprivilegedContainers bool   `json:"disable_unprivileged_containers"`
 }
 
-// https://github.com/fsouza/go-dockerclient/blob/master/misc.go#L166
-func parseRepositoryTag(repoTag string) (repository string, tag string) {
+// https://github.com/fsouza/go-dockerclient/blob/master/misc.go#L186
+// Modified to extract the digest if present
+func parseRepositoryTag(repoTag string) (repository string, tag string, digest string) {
 	parts := strings.SplitN(repoTag, "@", 2)
+	if len(parts) == 2 {
+		digest = parts[1]
+	}
 	repoTag = parts[0]
 	n := strings.LastIndex(repoTag, ":")
 	if n < 0 {
-		return repoTag, ""
+		return repoTag, "", digest
 	}
 	if tag := repoTag[n+1:]; !strings.Contains(tag, "/") {
-		return repoTag[:n], tag
+		return repoTag[:n], tag, digest
 	}
-	return repoTag, ""
+	return repoTag, "", digest
 }
 
 func ParseImage(image string) (registry, repo, tag string) {
 	// registry = defaultDomain // TODO uneasy about this, but it seems wise
-	repo, tag = parseRepositoryTag(image)
+	digest := ""
+	repo, tag, digest = parseRepositoryTag(image)
+	// if tag and digest are boh given, use the digest as the tag
+	// https://github.com/moby/moby/blob/aa8249ae1b8b613a9ddb3b00b3974d94e7010506/vendor/github.com/docker/distribution/reference/normalize.go#L65
+	// docker engine api takes tag or digest in the tag field. https://docs.docker.com/engine/api/v1.23/
+	if digest != "" {
+		tag = digest
+	}
 	// Officially sanctioned at https://github.com/moby/moby/blob/4f0d95fa6ee7f865597c03b9e63702cdcb0f7067/registry/service.go#L155 to deal with "Official Repositories".
 	// Without this, token auth fails.
 	// Registries must exist at root (https://github.com/moby/moby/issues/7067#issuecomment-54302847)
@@ -302,4 +313,17 @@ func ParseImage(image string) (registry, repo, tag string) {
 	}
 
 	return registry, repo, tag
+}
+
+// NormalizeImage converts image name to repo:tag or repo@digest format
+// if both tag and digest are present, return repo@digest format
+func NormalizeImage(imageName string) string {
+	repo, tag, digest := parseRepositoryTag(imageName)
+	if digest != "" {
+		return repo + "@" + digest
+	}
+	if tag == "" {
+		tag = "latest"
+	}
+	return repo + ":" + tag
 }

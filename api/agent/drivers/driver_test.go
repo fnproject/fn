@@ -25,3 +25,22 @@ func TestParseImage(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeImage(t *testing.T) {
+	cases := map[string]string{
+		"quay.io/fnproject/fn-test-utils":                                      "quay.io/fnproject/fn-test-utils:latest",
+		"quay.io/fnproject/fn-test-utils:v1":                                   "quay.io/fnproject/fn-test-utils:v1",
+		"quay.io/my.registry/fn-test-utils@sha256:44e85cf666cd3ab":             "quay.io/my.registry/fn-test-utils@sha256:44e85cf666cd3ab",
+		"quay.io/my.registry/fn-test-utils:0.0.1@sha256:44e85cf666cd3ab":       "quay.io/my.registry/fn-test-utils@sha256:44e85cf666cd3ab",
+		"localhost.localdomain:5000/samalba/hipache:latest":                    "localhost.localdomain:5000/samalba/hipache:latest",
+		"localhost.localdomain:5000/samalba/hipache:v1@sha256:44e85cf666cd3ab": "localhost.localdomain:5000/samalba/hipache@sha256:44e85cf666cd3ab",
+		"localhost.localdomain:5000/samalba/hipache@sha256:44e85cf666cd3ab":    "localhost.localdomain:5000/samalba/hipache@sha256:44e85cf666cd3ab",
+	}
+
+	for in, out := range cases {
+		image := NormalizeImage(in)
+		if image != out {
+			t.Errorf("Test input %q wasn't normalized as expected. Expected %q, got %q", in, out, image)
+		}
+	}
+}

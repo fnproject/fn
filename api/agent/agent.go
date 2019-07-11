@@ -1236,7 +1236,7 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 
 	return &container{
 		id:             id, // XXX we could just let docker generate ids...
-		image:          call.Image,
+		image:          drivers.NormalizeImage(call.Image),
 		env:            cloneStrMap(call.Config),     // avoid data race
 		extensions:     cloneStrMap(call.extensions), // avoid date race
 		memory:         call.Memory,
