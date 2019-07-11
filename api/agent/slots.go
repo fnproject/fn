@@ -281,7 +281,7 @@ var shapool = &sync.Pool{New: func() interface{} { return sha256.New() }}
 
 // TODO do better; once we have app+fn versions this function
 // can be simply app+fn ids & version
-func getSlotQueueKey(call *call) string {
+func getSlotQueueKey(call *call, slotExtns string) string {
 	// return a sha256 hash of a (hopefully) unique string of all the config
 	// values, to make map lookups quicker [than the giant unique string]
 
@@ -349,6 +349,11 @@ func getSlotQueueKey(call *call) string {
 		hash.Write(unsafeBytes("\x00"))
 		v, _ := call.Annotations.Get(k)
 		hash.Write(v)
+		hash.Write(unsafeBytes("\x00"))
+	}
+
+	if slotExtns != "" {
+		hash.Write(unsafeBytes(slotExtns))
 		hash.Write(unsafeBytes("\x00"))
 	}
 

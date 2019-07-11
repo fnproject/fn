@@ -169,7 +169,6 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.ct = a
 	c.stderr = common.NoopReadWriteCloser{}
-	c.slotHashId = getSlotQueueKey(&c)
 	return &c, nil
 }
 
