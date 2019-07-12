@@ -17,9 +17,9 @@ import (
 // in use.
 
 type CachedImage struct {
-	ID       string
+	ID       string // Image Cache key
 	ParentID string
-	RepoTags []string
+	RepoTags []string // RepoTags are used to match special/status images that are exempt from image cache
 	Size     uint64
 }
 
