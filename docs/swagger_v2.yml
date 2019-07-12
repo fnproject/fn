@@ -188,6 +188,10 @@ paths:
           description: "Function details."
           schema:
             $ref: '#/definitions/Fn'
+        404:
+          description: "Related app does not exist."
+          schema:
+            $ref: '#/definitions/Error'
         409:
           description: "Function with name already exists."
           schema:
@@ -318,6 +322,10 @@ paths:
           description: "Trigger details."
           schema:
             $ref: '#/definitions/Trigger'
+        404:
+          description: "Related object does not exist."
+          schema:
+            $ref: '#/definitions/Error'
         409:
           description: "Trigger with name already exists."
           schema:
