@@ -166,11 +166,11 @@ var (
 
 	ErrDockerPullTimeout = ferr{
 		code:  http.StatusGatewayTimeout,
-		error: errors.New("Docker pull timed out"),
+		error: errors.New("Image pull timed out"),
 	}
 	ErrFunctionResponseTooBig = ferr{
 		code:  http.StatusBadGateway,
-		error: fmt.Errorf("function response too large"),
+		error: fmt.Errorf("function response body too large"),
 	}
 	ErrFunctionResponseHdrTooBig = ferr{
 		code:  http.StatusBadGateway,
@@ -198,11 +198,11 @@ var (
 	}
 	ErrContainerInitFail = ferr{
 		code:  http.StatusBadGateway,
-		error: errors.New("container failed to initialize, please ensure you are using the latest fdk / format and check the logs"),
+		error: errors.New("Container failed to initialize, please ensure you are using the latest fdk and check the logs"),
 	}
 	ErrContainerInitTimeout = ferr{
 		code:  http.StatusGatewayTimeout,
-		error: errors.New("Container initialization timed out, please ensure you are using the latest fdk / format and check the logs"),
+		error: errors.New("Container initialization timed out, please ensure you are using the latest fdk and check the logs"),
 	}
 )
 
