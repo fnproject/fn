@@ -67,6 +67,13 @@ type clampWriter struct {
 	overflowErr error
 }
 
+// NewClamWriter creates a clamp writer that will limit the number of bytes written to to an underlying stream
+// This allows up to max bytes to be written to the underlying stream , writes that exceed this will return overflowErr
+//
+// Setting a  max of 0 sets no limit
+//
+// If a write spans the last remaining bytes available the number of bytes up-to the limit will be written and the
+// overflow error will be returned
 func NewClampWriter(buf io.Writer, max uint64, overflowErr error) io.Writer {
 	if max != 0 {
 		return &clampWriter{w: buf, remaining: int64(max), overflowErr: overflowErr}
@@ -78,13 +85,16 @@ func (g *clampWriter) Write(p []byte) (int, error) {
 	if g.remaining <= 0 {
 		return 0, g.overflowErr
 	}
+	overflowing := false
 	if int64(len(p)) > g.remaining {
 		p = p[0:g.remaining]
+		overflowing = true
 	}
 
 	n, err := g.w.Write(p)
+
 	g.remaining -= int64(n)
-	if g.remaining <= 0 {
+	if n == len(p) && overflowing {
 		err = g.overflowErr
 	}
 	return n, err
