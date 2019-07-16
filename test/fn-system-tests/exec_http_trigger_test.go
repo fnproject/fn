@@ -213,6 +213,7 @@ func TestCanExecuteTriggerTooBigOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
+
 	exp := fmt.Sprintf("{\"message\":\"%s\"}\n", models.ErrFunctionResponseTooBig.Error())
 	actual := output.String()
 
