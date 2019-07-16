@@ -73,7 +73,7 @@ type clampWriter struct {
 // Setting a  max of 0 sets no limit
 //
 // If a write spans the last remaining bytes available the number of bytes up-to the limit will be written and the
-// // overflow error will be returned
+// overflow error will be returned
 func NewClampWriter(buf io.Writer, max uint64, overflowErr error) io.Writer {
 	if max != 0 {
 		return &clampWriter{w: buf, remaining: int64(max), overflowErr: overflowErr}
