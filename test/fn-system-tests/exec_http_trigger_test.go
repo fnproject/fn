@@ -214,7 +214,7 @@ func TestCanExecuteTriggerTooBigOutput(t *testing.T) {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
 
-	exp := "{\"message\":\"function response too large\"}\n"
+	exp := models.ErrFunctionResponseTooBig.Error()
 	actual := output.String()
 
 	if !strings.Contains(exp, actual) || len(exp) != len(actual) {

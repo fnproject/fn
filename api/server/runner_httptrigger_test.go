@@ -293,13 +293,13 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		{"/t/myapp/httpstream", fooHeader, expFooHeadersBody, "POST", http.StatusOK, expFooHeaders, "", nil},
 		// NOTE: we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
 		{"/t/myapp/httpstream", nil, respTypeLie, "POST", http.StatusOK, expCTHeaders, "", nil},
-		{"/t/myapp/httpstream", nil, crasher, "POST", http.StatusBadGateway, expHeaders, "error receiving function response", nil},
+		{"/t/myapp/httpstream", nil, crasher, "POST", http.StatusBadGateway, expHeaders, models.ErrFunctionResponse.Error(), nil},
 		// XXX(reed): we could stop buffering function responses so that we can stream things?
-		{"/t/myapp/httpstream", nil, bigoutput, "POST", http.StatusBadGateway, nil, "function response too large", nil},
-		{"/t/myapp/httpstream", nil, bighdroutput, "POST", http.StatusBadGateway, nil, "function response header too large", nil},
+		{"/t/myapp/httpstream", nil, bigoutput, "POST", http.StatusBadGateway, nil, models.ErrFunctionResponseTooBig.Error(), nil},
+		{"/t/myapp/httpstream", nil, bighdroutput, "POST", http.StatusBadGateway, nil, models.ErrFunctionResponseHdrTooBig.Error(), nil},
 		{"/t/myapp/httpstream", nil, smalloutput, "POST", http.StatusOK, expHeaders, "", nil},
 		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
-		{"/t/myapp/httpstream", nil, oomer, "POST", http.StatusBadGateway, nil, "error receiving function response", nil},
+		{"/t/myapp/httpstream", nil, oomer, "POST", http.StatusBadGateway, nil, models.ErrFunctionResponse.Error(), nil},
 
 		{"/t/myapp/mydne", nil, ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/t/myapp/mydneregistry", nil, ``, "GET", http.StatusBadGateway, nil, "connection refused", nil},

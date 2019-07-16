@@ -207,15 +207,15 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/http_stream_fn_id", ok, nil, http.MethodPost, http.StatusOK, expHeaders, "", nil},
 		// NOTE: nil, we can't test bad response framing anymore easily (eg invalid http response), should we even worry about it?
 		{"/invoke/http_stream_fn_id", respTypeLie, nil, http.MethodPost, http.StatusOK, expCTHeaders, "", nil},
-		{"/invoke/http_stream_fn_id", crasher, nil, http.MethodPost, http.StatusBadGateway, expHeaders, "error receiving function response", nil},
+		{"/invoke/http_stream_fn_id", crasher, nil, http.MethodPost, http.StatusBadGateway, expHeaders, models.ErrFunctionResponse.Error(), nil},
 		// XXX(reed): nil, we could stop buffering function responses so that we can stream things?
-		{"/invoke/http_stream_fn_id", bighdroutput, nil, http.MethodPost, http.StatusBadGateway, nil, "function response header too large", nil},
+		{"/invoke/http_stream_fn_id", bighdroutput, nil, http.MethodPost, http.StatusBadGateway, nil, models.ErrFunctionResponseHdrTooBig.Error(), nil},
 		{"/invoke/http_stream_fn_id", striphdr, nil, http.MethodPost, http.StatusOK, expStripHeaders, "", nil},
 		{"/invoke/http_stream_fn_id", striphdrin, inStripHeaders, http.MethodPost, http.StatusOK, nil, "", nil},
-		{"/invoke/http_stream_fn_id", bigoutput, nil, http.MethodPost, http.StatusBadGateway, nil, "function response too large", nil},
+		{"/invoke/http_stream_fn_id", bigoutput, nil, http.MethodPost, http.StatusBadGateway, nil, models.ErrFunctionResponseTooBig.Error(), nil},
 		{"/invoke/http_stream_fn_id", smalloutput, nil, http.MethodPost, http.StatusOK, expHeaders, "", nil},
 		// XXX(reed): nil, meh we really should try to get oom out, but maybe it's better left to the logs?
-		{"/invoke/http_stream_fn_id", oomer, nil, http.MethodPost, http.StatusBadGateway, nil, "error receiving function response", nil},
+		{"/invoke/http_stream_fn_id", oomer, nil, http.MethodPost, http.StatusBadGateway, nil, models.ErrFunctionResponse.Error(), nil},
 		{"/invoke/http_stream_fn_id", bigbuf, nil, http.MethodPost, http.StatusRequestEntityTooLarge, nil, "", nil},
 
 		{"/invoke/dne_fn_id", ``, nil, http.MethodPost, http.StatusNotFound, nil, "pull access denied", nil},
@@ -224,9 +224,9 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		// XXX(reed): nil, nil, what are these?
 		{"/invoke/http_stream_fn_id", multiLog, nil, http.MethodPost, http.StatusOK, nil, "", multiLogExpectHot},
 
-		{"/invoke/fail_fn_quick", ok, nil, http.MethodPost, http.StatusBadGateway, nil, "container failed to initialize", nil},
-		{"/invoke/fail_fn_timeout", ok, nil, http.MethodPost, http.StatusGatewayTimeout, nil, "Container initialization timed out", nil},
-		{"/invoke/fn_id", ok, nil, http.MethodPut, http.StatusMethodNotAllowed, nil, "Method not allowed", nil},
+		{"/invoke/fail_fn_quick", ok, nil, http.MethodPost, http.StatusBadGateway, nil, models.ErrContainerInitFail.Error(), nil},
+		{"/invoke/fail_fn_timeout", ok, nil, http.MethodPost, http.StatusGatewayTimeout, nil, models.ErrContainerInitTimeout.Error(), nil},
+		{"/invoke/fn_id", ok, nil, http.MethodPut, http.StatusMethodNotAllowed, nil, models.ErrMethodNotAllowed.Error(), nil},
 
 		{"/invoke/bigmem", ok, nil, http.MethodPost, http.StatusBadRequest, nil, "cannot be allocated", nil},
 	}
