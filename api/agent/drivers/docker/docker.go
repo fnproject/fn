@@ -486,8 +486,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 	if err != nil && ctx.Err() == nil {
 		if isSyslogError(err) {
 			// syslog error is a func error
-			e := models.NewAPIError(http.StatusInternalServerError, errors.New("Syslog Unavailable"))
-			return nil, models.NewFuncError(e)
+			return nil, models.ErrSyslogUnavailable
 		}
 		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
 		log.WithError(err).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error starting container")
