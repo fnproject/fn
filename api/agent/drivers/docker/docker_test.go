@@ -574,7 +574,7 @@ func TestRunnerDockerInvalidSyslog(t *testing.T) {
 	if err == nil {
 		t.Fatal("Error expected when running with invalid syslog configuration")
 	}
-	if err.Error() != models.ErrSyslogUnavailable.Error() {
+	if err != models.ErrSyslogUnavailable {
 		t.Fatalf("Error message expected: `Syslog Unavailable`, got `%s`", err)
 	}
 
