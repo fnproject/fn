@@ -204,6 +204,11 @@ var (
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Container initialization timed out, please ensure you are using the latest fdk and check the logs"),
 	}
+
+	ErrSyslogUnavailable = ferr{
+		code:  http.StatusInternalServerError,
+		error: errors.New("Syslog Unavailable"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response
