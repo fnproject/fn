@@ -51,13 +51,14 @@ type slotCaller struct {
 // LIFO queue that exposes input/output channels along
 // with runner/waiter tracking for agent
 type slotQueue struct {
-	key       string
-	cond      *sync.Cond
-	slots     []*slotToken
-	nextId    uint64
-	signaller chan *slotCaller
-	statsLock sync.Mutex // protects stats below
-	stats     slotQueueStats
+	key        string
+	cond       *sync.Cond
+	slots      []*slotToken
+	nextId     uint64
+	signaller  chan *slotCaller
+	statsLock  sync.Mutex // protects stats below
+	stats      slotQueueStats
+	recentCall atomic.Value // pointer to the most recent Call object
 }
 
 func NewSlotQueueMgr() *slotQueueMgr {

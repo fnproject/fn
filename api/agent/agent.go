@@ -371,6 +371,9 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 		caller.notify = make(chan error)
 	}
 
+	// Unconditionally update the most recent call (with any pull tokens or other ephemeral matter)
+	call.slots.recentCall.Store(call)
+
 	if isNew {
 		go a.hotLauncher(ctx, call, caller)
 	}
@@ -381,12 +384,12 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 // hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
 // containers if needed. Upon shutdown or activity timeout, hotLauncher exits and during exit,
 // it destroys the slot queue.
-func (a *agent) hotLauncher(ctx context.Context, call *call, caller *slotCaller) {
+func (a *agent) hotLauncher(ctx context.Context, originalCall *call, caller *slotCaller) {
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
 	// we destroy the hot queue.
 	timeout := a.cfg.HotLauncherTimeout
-	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
+	idleTimeout := time.Duration(originalCall.IdleTimeout) * time.Second * 2
 	if timeout < idleTimeout {
 		timeout = idleTimeout
 	}
@@ -402,7 +405,8 @@ func (a *agent) hotLauncher(ctx context.Context, call *call, caller *slotCaller)
 
 	for {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
-		a.checkLaunch(ctx, call, *caller)
+		currentCall := originalCall.slots.recentCall.Load().(*call)
+		a.checkLaunch(ctx, currentCall, *caller)
 
 		select {
 		case <-a.shutWg.Closer(): // server shutdown
@@ -410,11 +414,11 @@ func (a *agent) hotLauncher(ctx context.Context, call *call, caller *slotCaller)
 			return
 		case <-ctx.Done(): // timed out
 			cancel()
-			if a.slotMgr.deleteSlotQueue(call.slots) {
+			if a.slotMgr.deleteSlotQueue(originalCall.slots) {
 				logger.Debug("Hot function launcher timed out")
 				return
 			}
-		case caller = <-call.slots.signaller:
+		case caller = <-originalCall.slots.signaller:
 			cancel()
 		}
 	}
