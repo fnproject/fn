@@ -371,7 +371,13 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 		caller.notify = make(chan error)
 	}
 
-	call.slots.setAuther(call.dockerAuth)
+	// update registry token of the slot queue
+	if call.extensions != nil {
+		registryToken := call.extensions[RegistryToken]
+		if registryToken != "" {
+			call.slots.setAuthToken(registryToken)
+		}
+	}
 
 	if isNew {
 		go a.hotLauncher(ctx, call, caller)
@@ -859,7 +865,13 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		}
 	}()
 
-	container = newHotContainer(ctx, a.evictor, call, &a.cfg, id, udsWait)
+	// fetch the latest token here. nil check for test pass
+	var authToken string
+	if call.slots != nil {
+		authToken = call.slots.getAuthToken()
+	}
+
+	container = newHotContainer(ctx, a.evictor, call, &a.cfg, id, authToken, udsWait)
 	if container == nil {
 		return
 	}
@@ -1164,6 +1176,7 @@ type container struct {
 	beforeCall     drivers.BeforeCall
 	afterCall      drivers.AfterCall
 	dockerAuth     dockerdriver.Auther
+	authToken      string
 
 	stderr io.Writer
 
@@ -1180,7 +1193,7 @@ type container struct {
 var _ drivers.ContainerTask = &container{}
 
 // newHotContainer creates a container that can be used for multiple sequential events
-func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Config, id string, udsWait chan error) *container {
+func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Config, id, authToken string, udsWait chan error) *container {
 
 	var iofs iofs
 	var err error
@@ -1237,11 +1250,6 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		},
 	}
 
-	auther := call.dockerAuth
-	if call.slots != nil {
-		auther = call.slots.getAuther()
-	}
-
 	return &container{
 		id:             id, // XXX we could just let docker generate ids...
 		image:          call.Image,
@@ -1258,7 +1266,8 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		tmpFsSize:      uint64(call.TmpFsSize),
 		disableNet:     call.disableNet,
 		iofs:           iofs,
-		dockerAuth:     auther,
+		dockerAuth:     call.dockerAuth,
+		authToken:      authToken,
 		logCfg: drivers.LoggerConfig{
 			URL: strings.TrimSpace(call.SyslogURL),
 			Tags: []drivers.LoggerTag{
@@ -1450,8 +1459,7 @@ func (c *container) DockerAuth(ctx context.Context, image string) (*docker.AuthC
 		return c.dockerAuth.DockerAuth(ctx, image)
 	}
 
-	// TODO(reed): kill this after using that
-	registryToken := c.extensions[RegistryToken]
+	registryToken := c.authToken
 	if registryToken != "" {
 		return &docker.AuthConfiguration{
 			RegistryToken: registryToken,
