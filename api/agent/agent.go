@@ -371,6 +371,8 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 		caller.notify = make(chan error)
 	}
 
+	call.slots.setAuther(call.dockerAuth)
+
 	if isNew {
 		go a.hotLauncher(ctx, call, caller)
 	}
@@ -1235,6 +1237,11 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		},
 	}
 
+	auther := call.dockerAuth
+	if call.slots != nil {
+		auther = call.slots.getAuther()
+	}
+
 	return &container{
 		id:             id, // XXX we could just let docker generate ids...
 		image:          call.Image,
@@ -1251,7 +1258,7 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		tmpFsSize:      uint64(call.TmpFsSize),
 		disableNet:     call.disableNet,
 		iofs:           iofs,
-		dockerAuth:     call.dockerAuth,
+		dockerAuth:     auther,
 		logCfg: drivers.LoggerConfig{
 			URL: strings.TrimSpace(call.SyslogURL),
 			Tags: []drivers.LoggerTag{

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	dockerdriver "github.com/fnproject/fn/api/agent/drivers/docker"
 )
 
 //
@@ -58,6 +60,9 @@ type slotQueue struct {
 	signaller chan *slotCaller
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
+
+	autherLock sync.Mutex
+	auther     dockerdriver.Auther
 }
 
 func NewSlotQueueMgr() *slotQueueMgr {
@@ -245,6 +250,20 @@ func (a *slotQueue) exitContainerState(conType ContainerStateType) {
 		a.stats.containerStates[conType] -= 1
 		a.statsLock.Unlock()
 	}
+}
+
+func (a *slotQueue) setAuther(val dockerdriver.Auther) {
+	a.autherLock.Lock()
+	a.auther = val
+	a.autherLock.Unlock()
+}
+
+func (a *slotQueue) getAuther() dockerdriver.Auther {
+	var val dockerdriver.Auther
+	a.autherLock.Lock()
+	val = a.auther
+	a.autherLock.Unlock()
+	return val
 }
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
