@@ -10,8 +10,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
-
-	dockerdriver "github.com/fnproject/fn/api/agent/drivers/docker"
 )
 
 //
@@ -61,8 +59,8 @@ type slotQueue struct {
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 
-	autherLock sync.Mutex
-	auther     dockerdriver.Auther
+	authLock  sync.Mutex
+	authToken string
 }
 
 func NewSlotQueueMgr() *slotQueueMgr {
@@ -252,17 +250,17 @@ func (a *slotQueue) exitContainerState(conType ContainerStateType) {
 	}
 }
 
-func (a *slotQueue) setAuther(val dockerdriver.Auther) {
-	a.autherLock.Lock()
-	a.auther = val
-	a.autherLock.Unlock()
+func (a *slotQueue) setAuthToken(val string) {
+	a.authLock.Lock()
+	a.authToken = val
+	a.authLock.Unlock()
 }
 
-func (a *slotQueue) getAuther() dockerdriver.Auther {
-	var val dockerdriver.Auther
-	a.autherLock.Lock()
-	val = a.auther
-	a.autherLock.Unlock()
+func (a *slotQueue) getAuthToken() string {
+	var val string
+	a.authLock.Lock()
+	val = a.authToken
+	a.authLock.Unlock()
 	return val
 }
 
