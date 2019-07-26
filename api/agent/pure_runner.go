@@ -230,7 +230,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		errStr = err.Error()
 		errUser = models.IsFuncError(err)
 	}
-
+	pullDuration := ch.c.GetImagePullTimeNanoSeconds()
 	schedulerDuration, executionDuration := GetCallLatencies(ch.c)
 
 	if ch.c != nil {
@@ -268,6 +268,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 			CompletedAt:       completedAt,
 			SchedulerDuration: int64(schedulerDuration),
 			ExecutionDuration: int64(executionDuration),
+			PullDuration:      int64(pullDuration),
 			ErrorUser:         errUser,
 		}}})
 

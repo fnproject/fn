@@ -47,7 +47,9 @@ message CallFinished {
     string completedAt = 7;
     int64 schedulerDuration = 8;
     int64 executionDuration = 9;
-    bool errorUser = 10;
+    int64 pullDuration = 10;
+    int64 imageSize = 11;
+    bool errorUser = 12;
 }
 
 message ClientMsg {

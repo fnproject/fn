@@ -883,6 +883,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 
 	needsPull, err := cookie.ValidateImage(ctx)
 	if needsPull {
+		startPullTime := time.Now()
 		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
 		err = cookie.PullImage(pullCtx)
 		pullCancel()
@@ -896,6 +897,11 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 				err = models.ErrCallTimeoutServerBusy
 			}
 		}
+		call.imgPullTime = time.Since(startPullTime)
+		id, size := cookie.DescribeImage(ctx)
+		logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID,
+			"fn_id": call.FnID, "image": call.Image, "image_id": id, "image_size": size})
+		call.imgSize = size
 	}
 	if tryQueueErr(err, errQueue) != nil {
 		return

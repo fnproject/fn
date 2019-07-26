@@ -54,6 +54,9 @@ type Cookie interface {
 	// yet called with the cookie, then this can be used to modify container
 	// create options.
 	ContainerOptions() interface{}
+
+	// Fetch image ID and size for debugging
+	DescribeImage(ctx context.Context) (string, int64)
 }
 
 type WaitResult interface {

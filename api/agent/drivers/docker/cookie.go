@@ -508,4 +508,16 @@ func (c *cookie) CreateContainer(ctx context.Context) error {
 	return nil
 }
 
+// implements Cookie
+func (c *cookie) DescribeImage(ctx context.Context) (string, int64) {
+	img, err := c.drv.docker.InspectImage(ctx, c.task.Image())
+	if err == docker.ErrNoSuchImage {
+		return "No image found", 0
+	}
+	if err != nil {
+		return "Unknown", 0
+	}
+	return img.ID, int64(img.Size)
+}
+
 var _ drivers.Cookie = &cookie{}

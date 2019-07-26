@@ -68,6 +68,10 @@ func (c *cookie) ContainerOptions() interface{} {
 	return nil
 }
 
+func (c *cookie) DescribeImage(ctx context.Context) (string, int64) {
+	return "", 0
+}
+
 func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 	c.m.count++
 	if c.m.count%100 == 0 {

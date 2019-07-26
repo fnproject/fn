@@ -294,6 +294,11 @@ type call struct {
 	// amount of time attributed to user-code execution
 	userExecTime *time.Duration
 
+	// call image details
+	// amount of time taken to pull image, zero if does not need pull/error
+	imgPullTime time.Duration
+	imgSize     int64
+
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
 }
@@ -339,6 +344,10 @@ func (c *call) AddUserExecutionTime(dur time.Duration) {
 
 func (c *call) GetUserExecutionTime() *time.Duration {
 	return c.userExecTime
+}
+
+func (c *call) GetImagePullTimeNanoSeconds() int64 {
+	return c.imgPullTime.Nanoseconds()
 }
 
 func (c *call) Model() *models.Call { return c.Call }
