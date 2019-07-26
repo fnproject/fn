@@ -346,10 +346,6 @@ func (c *call) GetUserExecutionTime() *time.Duration {
 	return c.userExecTime
 }
 
-func (c *call) GetImagePullTimeNanoSeconds() int64 {
-	return c.imgPullTime.Nanoseconds()
-}
-
 func (c *call) Model() *models.Call { return c.Call }
 
 func (c *call) Start(ctx context.Context) error {

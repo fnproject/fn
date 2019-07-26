@@ -898,11 +898,13 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			}
 		}
 		call.imgPullTime = time.Since(startPullTime)
-		id, size := cookie.DescribeImage(ctx)
-		logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID,
-			"fn_id": call.FnID, "image": call.Image, "image_id": id, "image_size": size})
-		call.imgSize = size
+	} else {
+		call.imgPullTime = 0 * time.Second
 	}
+	id, size := cookie.DescribeImage(ctx)
+	logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID,
+		"fn_id": call.FnID, "image": call.Image, "image_id": id, "image_size": size})
+	call.imgSize = size
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
