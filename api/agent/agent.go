@@ -899,7 +899,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		}
 		call.imgPullTime = time.Since(startPullTime).Nanoseconds()
 	} else {
-		call.imgPullTime = 0
+		call.imgPullTime = 0 // Pull was not required
 	}
 	id, size := cookie.DescribeImage(ctx)
 	logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID,
