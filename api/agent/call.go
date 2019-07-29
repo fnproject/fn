@@ -296,7 +296,7 @@ type call struct {
 
 	// call image details
 	// amount of time taken to pull image, zero if does not need pull/error
-	imgPullTime time.Duration
+	imgPullTime *time.Duration
 	imgSize     int64
 
 	// LB & Pure Runner Extra Config
@@ -344,6 +344,20 @@ func (c *call) AddUserExecutionTime(dur time.Duration) {
 
 func (c *call) GetUserExecutionTime() *time.Duration {
 	return c.userExecTime
+}
+
+func (c *call) AddImagePullTime(dur time.Duration) {
+	if c.imgPullTime == nil {
+		c.imgPullTime = new(time.Duration)
+	}
+	*c.imgPullTime += dur
+	// We expose this on the upstream models.Call also.
+	// CallListeners have access to the latter, but not the internals of the agent, so any
+	// reporting or bean-counting that's going on from there will need access to this.
+}
+
+func (c *call) GetImagePullTime() *time.Duration {
+	return c.imgPullTime
 }
 
 func (c *call) Model() *models.Call { return c.Call }

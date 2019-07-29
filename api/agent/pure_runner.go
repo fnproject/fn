@@ -230,7 +230,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		errStr = err.Error()
 		errUser = models.IsFuncError(err)
 	}
-	pullDuration := ch.c.imgPullTime.Nanoseconds()
+	pullDuration := ch.c.GetImagePullTime().Nanoseconds()
 	schedulerDuration, executionDuration := GetCallLatencies(ch.c)
 
 	if ch.c != nil {
