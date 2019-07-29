@@ -897,7 +897,9 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 				err = models.ErrCallTimeoutServerBusy
 			}
 		}
-		call.AddImagePullTime(time.Since(startPullTime))
+		call.imgPullTime = time.Since(startPullTime).Nanoseconds()
+	} else {
+		call.imgPullTime = 0
 	}
 	id, size := cookie.DescribeImage(ctx)
 	logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID,
