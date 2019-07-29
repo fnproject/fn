@@ -123,6 +123,9 @@ type Call struct {
 	// Duration that user code was running for, in nanoseconds.
 	ExecutionDuration time.Duration `json:"execution_duration,omitempty" db:"execution_duration"`
 
+	// Duration that image pull has waited, in nanoseconds.
+	DockerWaitDuration time.Duration `json:"docker_wait_duration,omitempty" db:"docker_wait_duration"`
+
 	// Stats is a list of metrics from this call's execution, possibly empty.
 	Stats stats.Stats `json:"stats,omitempty" db:"stats"`
 

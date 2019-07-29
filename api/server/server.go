@@ -855,7 +855,18 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	server := s.svcConfigs[WebServer]
 	if server.Handler == nil {
-		server.Handler = &ochttp.Handler{Handler: s.Router}
+		server.Handler = &ochttp.Handler{
+			Handler: s.Router,
+			GetStartOptions: func(r *http.Request) trace.StartOptions {
+				startOptions := trace.StartOptions{}
+				for _, exclude := range []string{"Prometheus", "kube-probe"} {
+					if strings.HasPrefix(r.UserAgent(), exclude) {
+						startOptions.Sampler = trace.NeverSample()
+					}
+				}
+				return startOptions
+			},
+		}
 	}
 
 	if !s.noWebServer {
@@ -879,7 +890,18 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		logrus.WithField("type", s.nodeType).Infof("Fn Admin serving on `%v`", s.svcConfigs[AdminServer].Addr)
 		adminServer := s.svcConfigs[AdminServer]
 		if adminServer.Handler == nil {
-			adminServer.Handler = &ochttp.Handler{Handler: s.AdminRouter}
+			adminServer.Handler = &ochttp.Handler{
+				Handler: s.AdminRouter,
+				GetStartOptions: func(r *http.Request) trace.StartOptions {
+					startOptions := trace.StartOptions{}
+					for _, exclude := range []string{"Prometheus", "kube-probe"} {
+						if strings.HasPrefix(r.UserAgent(), exclude) {
+							startOptions.Sampler = trace.NeverSample()
+						}
+					}
+					return startOptions
+				},
+			}
 		}
 
 		go func() {
