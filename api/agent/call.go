@@ -294,6 +294,9 @@ type call struct {
 	// amount of time attributed to user-code execution
 	userExecTime *time.Duration
 
+	// amount of time attributed to docker-pull wait
+	dockerWaitTime *time.Duration
+
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
 }
@@ -349,6 +352,8 @@ func (c *call) Start(ctx context.Context) error {
 
 	// Check context timeouts, errors
 	if ctx.Err() != nil {
+		span.SetStatus(trace.Status{Code: int32(trace.StatusCodeUnknown),
+			Message: ctx.Err().Error()})
 		return ctx.Err()
 	}
 
@@ -368,8 +373,12 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	case nil:
 		c.Status = "success"
 	case context.DeadlineExceeded:
+		span.SetStatus(trace.Status{Code: int32(trace.StatusCodeDeadlineExceeded),
+			Message: "context deadline exceeded"})
 		c.Status = "timeout"
 	default:
+		span.SetStatus(trace.Status{Code: int32(trace.StatusCodeUnknown),
+			Message: errIn.Error()})
 		c.Status = "error"
 		c.Error = errIn.Error()
 	}
@@ -381,6 +390,8 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	c.stderr.Close()
 
 	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
+		span.SetStatus(trace.Status{Code: int32(trace.StatusCodeUnknown),
+			Message: err.Error()})
 		return err
 	}
 	return errIn // original error, important for use in sync call returns
@@ -405,4 +416,15 @@ func GetCallLatencies(c *call) (time.Duration, time.Duration) {
 		}
 	}
 	return schedDuration, execDuration
+}
+
+func (c *call) AddDockerWaitTime(dur time.Duration) {
+	if c.dockerWaitTime == nil {
+		c.dockerWaitTime = new(time.Duration)
+	}
+	*c.dockerWaitTime += dur
+	// We expose this on the upstream models.Call also.
+	// CallListeners have access to the latter, but not the internals of the agent, so any
+	// reporting or bean-counting that's going on from there will need access to this.
+	c.Model().DockerWaitDuration = *c.dockerWaitTime
 }

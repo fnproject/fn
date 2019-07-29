@@ -880,9 +880,9 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
-
 	needsPull, err := cookie.ValidateImage(ctx)
 	if needsPull {
+		waitStart := time.Now()
 		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
 		err = cookie.PullImage(pullCtx)
 		pullCancel()
@@ -896,6 +896,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 				err = models.ErrCallTimeoutServerBusy
 			}
 		}
+		call.AddDockerWaitTime(time.Since(waitStart))
 	}
 	if tryQueueErr(err, errQueue) != nil {
 		return

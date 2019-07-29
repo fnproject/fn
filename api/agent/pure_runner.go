@@ -218,19 +218,19 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var createdAt string
 	var startedAt string
 	var completedAt string
+	var image string
 	var details string
 	var errCode int
+	var dockerWaitDuration time.Duration
 	var errStr string
 	var errUser bool
 
 	log := common.Logger(ch.ctx)
-
 	if err != nil {
 		errCode = models.GetAPIErrorCode(err)
 		errStr = err.Error()
 		errUser = models.IsFuncError(err)
 	}
-
 	schedulerDuration, executionDuration := GetCallLatencies(ch.c)
 
 	if ch.c != nil {
@@ -252,23 +252,26 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 				}
 			}
 		}
-
+		image = mcall.Image
 		details = mcall.ID
+		dockerWaitDuration = mcall.DockerWaitDuration
 	}
 	log.Debugf("Sending Call Finish details=%v", details)
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success:           err == nil,
-			Details:           details,
-			ErrorCode:         int32(errCode),
-			ErrorStr:          errStr,
-			CreatedAt:         createdAt,
-			StartedAt:         startedAt,
-			CompletedAt:       completedAt,
-			SchedulerDuration: int64(schedulerDuration),
-			ExecutionDuration: int64(executionDuration),
-			ErrorUser:         errUser,
+			Success:            err == nil,
+			Details:            details,
+			ErrorCode:          int32(errCode),
+			ErrorStr:           errStr,
+			CreatedAt:          createdAt,
+			StartedAt:          startedAt,
+			CompletedAt:        completedAt,
+			Image:              image,
+			SchedulerDuration:  int64(schedulerDuration),
+			ExecutionDuration:  int64(executionDuration),
+			DockerWaitDuration: int64(dockerWaitDuration),
+			ErrorUser:          errUser,
 		}}})
 
 	if errTmp != nil {

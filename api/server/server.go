@@ -702,6 +702,7 @@ func WithJaeger(jaegerURL string) Option {
 		logrus.WithFields(logrus.Fields{"url": jaegerURL}).Info("exporting spans to jaeger")
 
 		// TODO don't do this. testing parity.
+		// TODO switch to per span sampling, set to NeverSample by default
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		return nil
 	}
@@ -855,7 +856,18 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	server := s.svcConfigs[WebServer]
 	if server.Handler == nil {
-		server.Handler = &ochttp.Handler{Handler: s.Router}
+		server.Handler = &ochttp.Handler{
+			Handler: s.Router,
+			GetStartOptions: func(r *http.Request) trace.StartOptions {
+				startOptions := trace.StartOptions{}
+				// TODO: Add list of url paths to exclude
+				if r.URL.Path != "/version" {
+					startOptions.Sampler = trace.AlwaysSample()
+				}
+				// Defaults to global sampler
+				return startOptions
+			},
+		}
 	}
 
 	if !s.noWebServer {
@@ -879,7 +891,18 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		logrus.WithField("type", s.nodeType).Infof("Fn Admin serving on `%v`", s.svcConfigs[AdminServer].Addr)
 		adminServer := s.svcConfigs[AdminServer]
 		if adminServer.Handler == nil {
-			adminServer.Handler = &ochttp.Handler{Handler: s.AdminRouter}
+			adminServer.Handler = &ochttp.Handler{
+				Handler: s.AdminRouter,
+				GetStartOptions: func(r *http.Request) trace.StartOptions {
+					startOptions := trace.StartOptions{}
+					// TODO: Add list of url paths to exclude
+					if r.URL.Path != "/version" {
+						startOptions.Sampler = trace.AlwaysSample()
+					}
+					// Defaults to global sampler
+					return startOptions
+				},
+			}
 		}
 
 		go func() {
