@@ -236,7 +236,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	if ch.c != nil {
 		mcall := ch.c.Model()
 		image = mcall.Image
-		dockerPullWaitDuration = int64(ch.c.GetDockerWaitTime())
+		dockerPullWaitDuration = int64(mcall.DockerWaitDuration)
 
 		// These timestamps are related. To avoid confusion
 		// and for robustness, nested if stmts below.
