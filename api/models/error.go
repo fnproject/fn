@@ -188,6 +188,14 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("invalid function response"),
 	}
+	ErrFunctionPrematureWrite = ferr{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("function invoked write before receiving entire request"),
+	}
+	ErrFunctionWriteRequest = ferr{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("function closed pipe while receiving request"),
+	}
 	ErrRequestContentTooBig = ferr{
 		code:  http.StatusRequestEntityTooLarge,
 		error: fmt.Errorf("Request content too large"),
