@@ -232,8 +232,12 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var details string
 	var errCode int
 	var errStr string
+	var imageName string
 	var errUser bool
 	var nErr error
+	var dockerPullRetries int32
+	var dockerPullDuration time.Duration
+	var dockerWaitDuration time.Duration
 
 	log := common.Logger(ch.ctx)
 
@@ -255,7 +259,10 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 
 	if ch.c != nil {
 		mcall := ch.c.Model()
-
+		dockerPullRetries = mcall.DockerPullRetries
+		dockerPullDuration = mcall.DockerPullDuration
+		dockerWaitDuration = mcall.DockerWaitDuration
+		imageName = mcall.Image
 		// These timestamps are related. To avoid confusion
 		// and for robustness, nested if stmts below.
 		if !time.Time(mcall.CreatedAt).IsZero() {
@@ -279,16 +286,20 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success:           nErr == nil,
-			Details:           details,
-			ErrorCode:         int32(errCode),
-			ErrorStr:          errStr,
-			CreatedAt:         createdAt,
-			StartedAt:         startedAt,
-			CompletedAt:       completedAt,
-			SchedulerDuration: int64(schedulerDuration),
-			ExecutionDuration: int64(executionDuration),
-			ErrorUser:         errUser,
+			Success:            nErr == nil,
+			Details:            details,
+			ErrorCode:          int32(errCode),
+			ErrorStr:           errStr,
+			CreatedAt:          createdAt,
+			StartedAt:          startedAt,
+			CompletedAt:        completedAt,
+			SchedulerDuration:  int64(schedulerDuration),
+			ExecutionDuration:  int64(executionDuration),
+			DockerPullDuration: int64(dockerPullDuration),
+			DockerWaitDuration: int64(dockerWaitDuration),
+			DockerPullRetries:  dockerPullRetries,
+			Image:              imageName,
+			ErrorUser:          errUser,
 		}}})
 
 	if errTmp != nil {

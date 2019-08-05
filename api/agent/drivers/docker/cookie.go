@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
@@ -450,15 +451,15 @@ func (c *cookie) ValidateImage(ctx context.Context) (bool, error) {
 }
 
 // implements Cookie
-func (c *cookie) PullImage(ctx context.Context) error {
+func (c *cookie) PullImage(ctx context.Context) drivers.PullResult {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "PullImage"})
 	if c.image != nil {
-		return nil
+		return drivers.PullResult{Err: nil, Retries: 0, Duration: 0 * time.Second}
 	}
 
 	cfg, err := c.authImage(ctx)
 	if err != nil {
-		return err
+		return drivers.PullResult{Err: err, Retries: 0, Duration: 0 * time.Second}
 	}
 
 	repo := path.Join(c.imgReg, c.imgRepo)
@@ -467,8 +468,8 @@ func (c *cookie) PullImage(ctx context.Context) error {
 	log.WithFields(logrus.Fields{"call_id": c.task.Id(), "image": c.task.Image()}).Debug("docker pull")
 	ctx = common.WithLogger(ctx, log)
 
-	errC := c.drv.imgPuller.PullImage(ctx, cfg, c.task.Image(), repo, c.imgTag)
-	return <-errC
+	pullRes := c.drv.imgPuller.PullImage(ctx, cfg, c.task.Image(), repo, c.imgTag)
+	return <-pullRes
 }
 
 // implements Cookie

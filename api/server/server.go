@@ -859,11 +859,11 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 			Handler: s.Router,
 			GetStartOptions: func(r *http.Request) trace.StartOptions {
 				startOptions := trace.StartOptions{}
-				for _, exclude := range []string{"Prometheus", "kube-probe"} {
-					if strings.HasPrefix(r.UserAgent(), exclude) {
-						startOptions.Sampler = trace.NeverSample()
-					}
+				// TODO: Add list of url paths to exclude
+				if r.URL.Path != "/version" {
+					startOptions.Sampler = trace.AlwaysSample()
 				}
+				// Defaults to global sampler
 				return startOptions
 			},
 		}
@@ -894,11 +894,11 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 				Handler: s.AdminRouter,
 				GetStartOptions: func(r *http.Request) trace.StartOptions {
 					startOptions := trace.StartOptions{}
-					for _, exclude := range []string{"Prometheus", "kube-probe"} {
-						if strings.HasPrefix(r.UserAgent(), exclude) {
-							startOptions.Sampler = trace.NeverSample()
-						}
+					// TODO: Add list of url paths to exclude
+					if r.URL.Path != "/version" {
+						startOptions.Sampler = trace.AlwaysSample()
 					}
+					// Defaults to global sampler
 					return startOptions
 				},
 			}

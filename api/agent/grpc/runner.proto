@@ -45,11 +45,13 @@ message CallFinished {
     string createdAt = 5;
     string startedAt = 6;
     string completedAt = 7;
-    string image = 8;
-    int64 schedulerDuration = 9;
-    int64 executionDuration = 10;
-    int64 dockerPullWait = 11;
-    bool errorUser = 12;
+    int64 schedulerDuration = 8;
+    int64 executionDuration = 9;
+    bool errorUser = 10;
+    string image = 11;
+    int32 dockerPullRetries = 12;
+    int64 dockerWaitDuration = 13;
+    int64 dockerPullDuration = 14;
 }
 
 message ClientMsg {

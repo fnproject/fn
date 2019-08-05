@@ -79,7 +79,8 @@ func commonCookiePull(ctx context.Context, cookie drivers.Cookie) error {
 		return err
 	}
 	if shouldPull {
-		err = cookie.PullImage(ctx)
+		pullRes := cookie.PullImage(ctx)
+		err = pullRes.Err
 		if err != nil {
 			return err
 		}

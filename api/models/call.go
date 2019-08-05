@@ -123,9 +123,6 @@ type Call struct {
 	// Duration that user code was running for, in nanoseconds.
 	ExecutionDuration time.Duration `json:"execution_duration,omitempty" db:"execution_duration"`
 
-	// Duration that image pull has waited, in nanoseconds.
-	DockerWaitDuration time.Duration `json:"docker_wait_duration,omitempty" db:"docker_wait_duration"`
-
 	// Stats is a list of metrics from this call's execution, possibly empty.
 	Stats stats.Stats `json:"stats,omitempty" db:"stats"`
 
@@ -144,6 +141,15 @@ type Call struct {
 
 	// Fn this call belongs to.
 	FnID string `json:"fn_id" db:"fn_id"`
+
+	// Duration that image pull lasted, in nanoseconds.
+	DockerWaitDuration time.Duration `json:"docker_wait_duration,omitempty" db:"docker_wait_duration"`
+
+	// Duration that the image was actually pulled
+	DockerPullDuration time.Duration `json:"docker_pull_duration,omitempty" db:"docker_pull_duration"`
+
+	// Number of retries when pulling image
+	DockerPullRetries int32 `json:"docker_pull_retries,omitempty" db:"docker_pull_retries"`
 }
 
 type CallFilter struct {

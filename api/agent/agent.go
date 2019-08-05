@@ -884,7 +884,8 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	if needsPull {
 		waitStart := time.Now()
 		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
-		err = cookie.PullImage(pullCtx)
+		pullRes := cookie.PullImage(pullCtx)
+		err = pullRes.Err
 		pullCancel()
 		if err != nil && pullCtx.Err() == context.DeadlineExceeded {
 			err = models.ErrDockerPullTimeout
@@ -897,6 +898,8 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			}
 		}
 		call.AddDockerWaitTime(time.Since(waitStart))
+		call.AddDockerPullTime(pullRes.Duration)
+		call.SetDockerPullRetries(pullRes.Retries)
 	}
 	if tryQueueErr(err, errQueue) != nil {
 		return

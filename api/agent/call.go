@@ -295,7 +295,13 @@ type call struct {
 	userExecTime *time.Duration
 
 	// amount of time attributed to docker-pull wait
-	dockerWaitTime time.Duration
+	dockerPullTime *time.Duration
+
+	// amount of time attributed to docker-pull wait
+	dockerWaitTime *time.Duration
+
+	// amount of time attributed to docker-pull wait
+	dockerPullRetries int32
 
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
@@ -419,13 +425,22 @@ func GetCallLatencies(c *call) (time.Duration, time.Duration) {
 }
 
 func (c *call) AddDockerWaitTime(dur time.Duration) {
-	c.dockerWaitTime += dur
-	// We expose this on the upstream models.Call also.
-	// CallListeners have access to the latter, but not the internals of the agent, so any
-	// reporting or bean-counting that's going on from there will need access to this.
-	c.Model().DockerWaitDuration = c.dockerWaitTime
+	if c.dockerWaitTime == nil {
+		c.dockerWaitTime = new(time.Duration)
+	}
+	*c.dockerWaitTime += dur
+	c.Model().DockerWaitDuration = *c.dockerWaitTime
 }
 
-func (c *call) GetDockerWaitTime() time.Duration {
-	return c.dockerWaitTime
+func (c *call) AddDockerPullTime(dur time.Duration) {
+	if c.dockerPullTime == nil {
+		c.dockerPullTime = new(time.Duration)
+	}
+	*c.dockerPullTime += dur
+	c.Model().DockerPullDuration = *c.dockerPullTime
+}
+
+func (c *call) SetDockerPullRetries(retries int32) {
+	c.dockerPullRetries = retries
+	c.Model().DockerPullRetries = c.dockerPullRetries
 }

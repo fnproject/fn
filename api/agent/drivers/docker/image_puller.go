@@ -23,7 +23,7 @@ import (
 // any new requests are added as listeners to the ongoing docker-pull requests.
 
 type ImagePuller interface {
-	PullImage(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan error
+	PullImage(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan drivers.PullResult
 	SetRetryPolicy(policy common.BackOffConfig, checker drivers.RetryErrorChecker) error
 }
 
@@ -37,7 +37,7 @@ type transfer struct {
 	repo string
 	tag  string
 
-	listeners []chan error
+	listeners []chan drivers.PullResult
 }
 
 type imagePuller struct {
@@ -68,7 +68,7 @@ func (i *imagePuller) SetRetryPolicy(policy common.BackOffConfig, checker driver
 }
 
 // newTransfer initiates a new docker-pull if there's no active docker-pull present for the same image.
-func (i *imagePuller) newTransfer(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan error {
+func (i *imagePuller) newTransfer(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan drivers.PullResult {
 
 	key := fmt.Sprintf("%s %s %+v", repo, tag, cfg)
 
@@ -83,13 +83,13 @@ func (i *imagePuller) newTransfer(ctx context.Context, cfg *docker.AuthConfigura
 			img:       img,
 			repo:      repo,
 			tag:       tag,
-			listeners: make([]chan error, 0, 1),
+			listeners: make([]chan drivers.PullResult, 0, 1),
 		}
 		i.transfers[key] = trx
 	}
 
-	errC := make(chan error, 1)
-	trx.listeners = append(trx.listeners, errC)
+	pullRes := make(chan drivers.PullResult, 1)
+	trx.listeners = append(trx.listeners, pullRes)
 
 	i.lock.Unlock()
 
@@ -98,41 +98,42 @@ func (i *imagePuller) newTransfer(ctx context.Context, cfg *docker.AuthConfigura
 		go i.startTransfer(trx)
 	}
 
-	return errC
+	return pullRes
 }
 
-func (i *imagePuller) pullWithRetry(trx *transfer) error {
+func (i *imagePuller) pullWithRetry(trx *transfer) (error, int32, time.Duration) {
 	backoff := common.NewBackOff(i.backOffCfg)
 	timer := common.NewTimer(time.Duration(i.backOffCfg.MinDelay) * time.Millisecond)
 	defer timer.Stop()
-
+	var retries int32
+	startTime := time.Now()
 	for {
 		err := i.docker.PullImage(docker.PullImageOptions{Repository: trx.repo, Tag: trx.tag, Context: trx.ctx}, *trx.cfg)
 		ok, reason := i.isRetriable(err)
 		if !ok {
-			return err
+			return err, retries, time.Since(startTime)
 		}
 
 		delay, ok := backoff.NextBackOff()
 		if !ok {
-			return err
+			return err, retries, time.Since(startTime)
 		}
 
 		timer.Reset(delay)
 
 		select {
 		case <-timer.C:
+			retries += 1
 			recordRetry(trx.ctx, "docker_pull_image", reason)
 		case <-trx.ctx.Done():
-			return trx.ctx.Err()
+			return trx.ctx.Err(), retries, time.Since(startTime)
 		}
 	}
 }
 
 func (i *imagePuller) startTransfer(trx *transfer) {
 	var ferr error
-
-	err := i.pullWithRetry(trx)
+	err, retries, duration := i.pullWithRetry(trx)
 	if err != nil {
 		common.Logger(trx.ctx).WithError(err).Info("Failed to pull image")
 
@@ -157,7 +158,7 @@ func (i *imagePuller) startTransfer(trx *transfer) {
 	// notify any listeners
 	for _, ch := range trx.listeners {
 		if ferr != nil {
-			ch <- ferr
+			ch <- drivers.PullResult{Err: ferr, Retries: retries, Duration: duration}
 		}
 		close(ch)
 	}
@@ -166,7 +167,7 @@ func (i *imagePuller) startTransfer(trx *transfer) {
 	delete(i.transfers, trx.key)
 }
 
-func (i *imagePuller) PullImage(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan error {
+func (i *imagePuller) PullImage(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan drivers.PullResult {
 	return i.newTransfer(ctx, cfg, img, repo, tag)
 }
 
