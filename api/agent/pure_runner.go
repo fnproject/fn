@@ -79,7 +79,9 @@ var (
 type callHandle struct {
 	engagement runner.RunnerProtocol_EngageServer
 	ctx        context.Context
-	c          *call // the agent's version of call
+	sctx       context.Context    // child context for submit
+	scancel    context.CancelFunc // child cancel for submit
+	c          *call              // the agent's version of call
 
 	// For implementing http.ResponseWriter:
 	headers http.Header
@@ -89,14 +91,17 @@ type callHandle struct {
 	shutOnce          sync.Once
 	pipeToFnCloseOnce sync.Once
 
-	outQueue  chan *runner.RunnerMsg
-	doneQueue chan struct{}
-	errQueue  chan error
-	inQueue   chan *runner.ClientMsg
+	outQueue     chan *runner.RunnerMsg
+	doneQueue    chan struct{}
+	errQueue     chan error
+	callErrQueue chan error
+	inQueue      chan *runner.ClientMsg
 
 	// Pipe to push data to the agent Function container
 	pipeToFnW *io.PipeWriter
 	pipeToFnR *io.PipeReader
+
+	eofSeen uint64 // Has pipe sender seen eof?
 }
 
 func NewCallHandle(engagement runner.RunnerProtocol_EngageServer) *callHandle {
@@ -105,17 +110,23 @@ func NewCallHandle(engagement runner.RunnerProtocol_EngageServer) *callHandle {
 	pipeR, pipeW := io.Pipe()
 
 	state := &callHandle{
-		engagement: engagement,
-		ctx:        engagement.Context(),
-		headers:    make(http.Header),
-		status:     200,
-		outQueue:   make(chan *runner.RunnerMsg),
-		doneQueue:  make(chan struct{}),
-		errQueue:   make(chan error, 1), // always allow one error (buffered)
-		inQueue:    make(chan *runner.ClientMsg),
-		pipeToFnW:  pipeW,
-		pipeToFnR:  pipeR,
+		engagement:   engagement,
+		ctx:          engagement.Context(),
+		headers:      make(http.Header),
+		status:       200,
+		outQueue:     make(chan *runner.RunnerMsg),
+		doneQueue:    make(chan struct{}),
+		errQueue:     make(chan error, 1), // always allow one error (buffered)
+		callErrQueue: make(chan error, 1), // only buffer one error
+		inQueue:      make(chan *runner.ClientMsg),
+		pipeToFnW:    pipeW,
+		pipeToFnR:    pipeR,
+		eofSeen:      0,
 	}
+
+	// Wrap parent ctx with a cancel function so we can abort the call if
+	// necessary.
+	state.sctx, state.scancel = context.WithCancel(engagement.Context())
 
 	// spawn one receiver and one sender go-routine.
 	// See: https://grpc.io/docs/reference/go/generated-code.html, which reads:
@@ -224,13 +235,24 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var dockerWaitDuration time.Duration
 	var errStr string
 	var errUser bool
+	var nErr error
 
 	log := common.Logger(ch.ctx)
-	if err != nil {
-		errCode = models.GetAPIErrorCode(err)
-		errStr = err.Error()
-		errUser = models.IsFuncError(err)
+
+	// If an error was queued to callErrQueue let it take precedence over
+	// the inbound error.
+	select {
+	case nErr = <-ch.callErrQueue:
+	default:
+		nErr = err
 	}
+
+	if nErr != nil {
+		errCode = models.GetAPIErrorCode(nErr)
+		errStr = nErr.Error()
+		errUser = models.IsFuncError(nErr)
+	}
+
 	schedulerDuration, executionDuration := GetCallLatencies(ch.c)
 
 	if ch.c != nil {
@@ -260,7 +282,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success:            err == nil,
+			Success:            nErr == nil,
 			Details:            details,
 			ErrorCode:          int32(errCode),
 			ErrorStr:           errStr,
@@ -285,6 +307,27 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	}
 }
 
+// Used to short circuit the error path when its necessary to return a well
+// formed error to the LB and we don't want to complete the call.  Errors
+// qeueued here will supercede any errors returned by the function invocation,
+// so use it carefully.
+func (ch *callHandle) enqueueCallErrorResponse(err error) {
+
+	if err == nil {
+		return
+	}
+
+	// Queue buffers a single error. If it's full, let whatever error arrived
+	// first take precedence.
+	select {
+	case ch.callErrQueue <- err:
+	default:
+	}
+
+	// Cancel the pending call to cause response to get generated faster.
+	ch.scancel()
+}
+
 // spawnPipeToFn pumps data to Function via callHandle io.PipeWriter (pipeToFnW)
 // which is fed using input channel.
 func (ch *callHandle) spawnPipeToFn() chan *runner.DataFrame {
@@ -306,11 +349,16 @@ func (ch *callHandle) spawnPipeToFn() chan *runner.DataFrame {
 				if len(data.Data) > 0 {
 					_, err := io.CopyN(ch.pipeToFnW, bytes.NewReader(data.Data), int64(len(data.Data)))
 					if err != nil {
-						ch.shutdown(err)
+						if err == io.ErrClosedPipe || err == io.ErrShortWrite {
+							ch.enqueueCallErrorResponse(models.ErrFunctionWriteRequest)
+						} else {
+							ch.shutdown(err)
+						}
 						return
 					}
 				}
 				if data.Eof {
+					atomic.StoreUint64(&ch.eofSeen, 1)
 					return
 				}
 			}
@@ -384,6 +432,20 @@ func (ch *callHandle) Header() http.Header {
 func (ch *callHandle) WriteHeader(status int) {
 	ch.status = status
 	var err error
+
+	// Ensure that writes occur after all of the incoming data has been
+	// consumed.  If the user's container attempts to write before a Eof
+	// frame has been seen, then return an error.  Only perform this check
+	// for HTTP 200s so that it does not trip on errors or detach mode accept
+	// invocations.
+	if status == http.StatusOK {
+		eofSeen := atomic.LoadUint64(&ch.eofSeen)
+		if eofSeen == 0 {
+			ch.enqueueCallErrorResponse(models.ErrFunctionPrematureWrite)
+			return
+		}
+	}
+
 	ch.headerOnce.Do(func() {
 		// WARNING: we do fetch Status and Headers without
 		// a lock below. This is a problem in agent in general, and needs
@@ -442,6 +504,8 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 	// as there is no point to proceed with the Write
 	select {
 
+	case <-ch.sctx.Done():
+		return 0, io.EOF
 	case <-ch.ctx.Done():
 		return 0, io.EOF
 	case <-ch.doneQueue:
@@ -672,7 +736,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	agentCall, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
 		WithLogger(common.NoopReadWriteCloser{}),
 		WithWriter(state),
-		WithContext(state.ctx),
+		WithContext(state.sctx),
 		WithExtensions(tc.GetExtensions()),
 	)
 	if err != nil {
@@ -723,6 +787,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		log.Debug("MD is ", md)
 	}
 	state := NewCallHandle(engagement)
+	defer state.scancel()
 
 	tryMsg := state.getTryMsg()
 	if tryMsg != nil {
