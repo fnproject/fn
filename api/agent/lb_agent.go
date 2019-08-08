@@ -208,8 +208,6 @@ func (a *lbAgent) Submit(callI Call) error {
 	statsCalls(ctx)
 
 	if !a.shutWg.AddSession(1) {
-		span.SetStatus(trace.Status{Code: int32(http.StatusServiceUnavailable),
-			Message: "Timed out - server too busy"})
 		statsTooBusy(ctx)
 		return models.ErrCallTimeoutServerBusy
 	}

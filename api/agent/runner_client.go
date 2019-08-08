@@ -121,28 +121,36 @@ func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStat
 	// These are nanosecond monotonic deltas, they cannot be zero if they were transmitted.
 	runnerSchedLatency := time.Duration(status.GetSchedulerDuration())
 	runnerExecLatency := time.Duration(status.GetExecutionDuration())
+	ctrPrepDuration := time.Duration(status.GetCtrPrepDuration())
+	ctrCreateDuration := time.Duration(status.GetCtrCreateDuration())
+	imagePullWaitDuration := time.Duration(status.GetImagePullWaitDuration())
+	initStartTime := time.Duration(status.GetInitStartTime())
 
 	creat, _ := common.ParseDateTime(status.CreatedAt)
 	start, _ := common.ParseDateTime(status.StartedAt)
 	compl, _ := common.ParseDateTime(status.CompletedAt)
 
 	return &pool.RunnerStatus{
-		ActiveRequestCount: status.Active,
-		RequestsReceived:   status.RequestsReceived,
-		RequestsHandled:    status.RequestsHandled,
-		StatusFailed:       status.Failed,
-		KdumpsOnDisk:       status.KdumpsOnDisk,
-		Cached:             status.Cached,
-		StatusId:           status.Id,
-		Details:            status.Details,
-		ErrorCode:          status.ErrorCode,
-		ErrorStr:           status.ErrorStr,
-		CreatedAt:          creat,
-		StartedAt:          start,
-		CompletedAt:        compl,
-		SchedulerDuration:  runnerSchedLatency,
-		ExecutionDuration:  runnerExecLatency,
-		IsNetworkDisabled:  status.IsNetworkDisabled,
+		ActiveRequestCount:    status.Active,
+		RequestsReceived:      status.RequestsReceived,
+		RequestsHandled:       status.RequestsHandled,
+		StatusFailed:          status.Failed,
+		KdumpsOnDisk:          status.KdumpsOnDisk,
+		Cached:                status.Cached,
+		StatusId:              status.Id,
+		Details:               status.Details,
+		ErrorCode:             status.ErrorCode,
+		ErrorStr:              status.ErrorStr,
+		CreatedAt:             creat,
+		StartedAt:             start,
+		CompletedAt:           compl,
+		SchedulerDuration:     runnerSchedLatency,
+		ExecutionDuration:     runnerExecLatency,
+		ImagePullWaitDuration: imagePullWaitDuration,
+		CtrPrepDuration:       ctrPrepDuration,
+		CtrCreateDuration:     ctrCreateDuration,
+		InitStartTime:         initStartTime,
+		IsNetworkDisabled:     status.IsNetworkDisabled,
 	}
 }
 
@@ -252,7 +260,7 @@ func sendToRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageCl
 		// WARNING: blocking read.
 		n, err := bodyReader.Read(writeBuffer)
 		if err != nil && err != io.EOF {
-			errorMsg = fmt.Sprintf("Failed to receive data from http client body")
+			errorMsg = "Failed to receive data from http client body"
 			span.SetStatus(trace.Status{Code: int32(trace.StatusCodeDataLoss), Message: errorMsg})
 			log.WithError(err).Error(errorMsg)
 		}
@@ -441,7 +449,10 @@ DataLoop:
 				trace.BoolAttribute("success", body.Finished.GetSuccess()),
 				trace.Int64Attribute("execution_duration", body.Finished.GetExecutionDuration()),
 				trace.Int64Attribute("scheduler_duration", body.Finished.GetSchedulerDuration()),
-				trace.Int64Attribute("docker_wait_duration", body.Finished.GetDockerWaitDuration()),
+				trace.Int64Attribute("image_pull_wait", body.Finished.GetImagePullWaitDuration()),
+				trace.Int64Attribute("container_create_duration", body.Finished.GetCtrCreateDuration()),
+				trace.Int64Attribute("container_preparation_duration", body.Finished.GetCtrPrepDuration()),
+				trace.Int64Attribute("init_start", body.Finished.GetInitStartTime()),
 				trace.StringAttribute("completed_at", body.Finished.GetCompletedAt()),
 				trace.StringAttribute("created_at", body.Finished.GetCreatedAt()),
 				trace.StringAttribute("started_at", body.Finished.GetStartedAt()),

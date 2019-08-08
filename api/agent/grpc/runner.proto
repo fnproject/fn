@@ -49,7 +49,10 @@ message CallFinished {
     int64 executionDuration = 9;
     bool errorUser = 10;
     string image = 11;
-    int64 dockerWaitDuration = 12;
+    int64 imagePullWaitDuration = 12;
+    int64 ctrPrepDuration = 13;
+    int64 ctrCreateDuration = 14;
+    int64 initStartTime = 15;
 }
 
 message ClientMsg {
@@ -85,6 +88,10 @@ message RunnerStatus {
     int64 executionDuration = 16; // the amount of time for function execution
     bool isNetworkDisabled = 17; // returns true if runner network is not ready
     map<string,string> customStatus = 18; // returns any user defined healthcheck status
+    int64 imagePullWaitDuration = 19;
+    int64 ctrPrepDuration = 20;
+    int64 ctrCreateDuration = 21;
+    int64 initStartTime = 22;
 }
 
 message ConfigMsg {

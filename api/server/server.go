@@ -861,12 +861,12 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 			GetStartOptions: func(r *http.Request) trace.StartOptions {
 				startOptions := trace.StartOptions{}
 				// TODO: Add list of url paths to exclude
-				if r.URL.Path != "/version" {
-					startOptions.Sampler = trace.AlwaysSample()
+				if r.URL.Path == "/" {
+					startOptions.Sampler = trace.NeverSample()
 				}
-				// Defaults to global sampler
 				return startOptions
 			},
+			// TODO: add FormatSpanName to clean up trace exporter operations dash
 		}
 	}
 
@@ -891,18 +891,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		logrus.WithField("type", s.nodeType).Infof("Fn Admin serving on `%v`", s.svcConfigs[AdminServer].Addr)
 		adminServer := s.svcConfigs[AdminServer]
 		if adminServer.Handler == nil {
-			adminServer.Handler = &ochttp.Handler{
-				Handler: s.AdminRouter,
-				GetStartOptions: func(r *http.Request) trace.StartOptions {
-					startOptions := trace.StartOptions{}
-					// TODO: Add list of url paths to exclude
-					if r.URL.Path != "/version" {
-						startOptions.Sampler = trace.AlwaysSample()
-					}
-					// Defaults to global sampler
-					return startOptions
-				},
-			}
+			adminServer.Handler = s.AdminRouter
 		}
 
 		go func() {

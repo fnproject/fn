@@ -26,22 +26,26 @@ type RunnerPool interface {
 
 // RunnerStatus is general information on Runner health as returned by Runner::Status() call
 type RunnerStatus struct {
-	ActiveRequestCount int32           // Number of active running requests on Runner
-	RequestsReceived   uint64          // Number of requests received by Runner
-	RequestsHandled    uint64          // Number of requests handled without NACK by Runner
-	KdumpsOnDisk       uint64          // Number of kdumps on disk
-	StatusFailed       bool            // True if Status execution failed
-	Cached             bool            // True if Status was provided from cache
-	StatusId           string          // Call ID for Status
-	Details            string          // General/Debug Log information
-	ErrorCode          int32           // If StatusFailed, then error code is set
-	ErrorStr           string          // Error details if StatusFailed and ErrorCode is set
-	CreatedAt          common.DateTime // Status creation date at Runner
-	StartedAt          common.DateTime // Status execution date at Runner
-	CompletedAt        common.DateTime // Status completion date at Runner
-	SchedulerDuration  time.Duration   // Amount of time runner scheduler spent on the request
-	ExecutionDuration  time.Duration   // Amount of time runner spent on function execution
-	IsNetworkDisabled  bool            // True if network on runner is offline
+	ActiveRequestCount    int32           // Number of active running requests on Runner
+	RequestsReceived      uint64          // Number of requests received by Runner
+	RequestsHandled       uint64          // Number of requests handled without NACK by Runner
+	KdumpsOnDisk          uint64          // Number of kdumps on disk
+	StatusFailed          bool            // True if Status execution failed
+	Cached                bool            // True if Status was provided from cache
+	StatusId              string          // Call ID for Status
+	Details               string          // General/Debug Log information
+	ErrorCode             int32           // If StatusFailed, then error code is set
+	ErrorStr              string          // Error details if StatusFailed and ErrorCode is set
+	CreatedAt             common.DateTime // Status creation date at Runner
+	StartedAt             common.DateTime // Status execution date at Runner
+	CompletedAt           common.DateTime // Status completion date at Runner
+	SchedulerDuration     time.Duration   // Amount of time runner scheduler spent on the request
+	ExecutionDuration     time.Duration   // Amount of time runner spent on function execution
+	ImagePullWaitDuration time.Duration   // Amount of time spent waiting for the image pull
+	CtrPrepDuration       time.Duration   // Amount of time spent preparing for the container creation
+	CtrCreateDuration     time.Duration   //Amount of time spent creating the container
+	InitStartTime         time.Duration   // Container Init UDS Latency time
+	IsNetworkDisabled     bool            // True if network on runner is offline
 }
 
 // Runner is the interface to invoke the execution of a function call on a specific runner
