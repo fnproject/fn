@@ -392,7 +392,7 @@ func (c *cookie) Unfreeze(ctx context.Context) error {
 	return err
 }
 
-func (c *cookie) authImage(ctx context.Context) (*docker.AuthConfiguration, error) {
+func (c *cookie) authImage(ctx context.Context) (*AuthConfiguration, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "AuthImage"})
 	log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("docker auth image")
 

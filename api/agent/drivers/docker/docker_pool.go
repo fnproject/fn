@@ -292,7 +292,15 @@ func (pool *dockerPool) prepareImage(ctx context.Context, driver *DockerDriver, 
 			log.WithError(err).Fatal("prefork pool image inspect failed")
 		}
 
-		err = driver.docker.PullImage(opts, *config)
+		cfg := docker.AuthConfiguration{
+			Username:      config.Username,
+			Password:      config.Password,
+			Email:         config.Email,
+			ServerAddress: config.ServerAddress,
+			IdentityToken: config.IdentityToken,
+			RegistryToken: config.RegistryToken,
+		}
+		err = driver.docker.PullImage(opts, cfg)
 		if err == nil {
 			return
 		}

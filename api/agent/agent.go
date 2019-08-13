@@ -22,7 +22,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/fsnotify/fsnotify"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
@@ -1459,14 +1458,14 @@ func (c *container) GetEvictChan() chan struct{} {
 var _ dockerdriver.Auther = new(container)
 
 // DockerAuth implements the docker.AuthConfiguration interface.
-func (c *container) DockerAuth(ctx context.Context, image string) (*docker.AuthConfiguration, error) {
+func (c *container) DockerAuth(ctx context.Context, image string) (*dockerdriver.AuthConfiguration, error) {
 	if c.dockerAuth != nil {
 		return c.dockerAuth.DockerAuth(ctx, image)
 	}
 
 	registryToken := c.authToken
 	if registryToken != "" {
-		return &docker.AuthConfiguration{
+		return &dockerdriver.AuthConfiguration{
 			RegistryToken: registryToken,
 		}, nil
 	}

@@ -48,7 +48,14 @@ func preprocessAuths(auths *docker.AuthConfigurations) (map[string]driverAuthCon
 		}
 
 		drvAuths[key] = driverAuthConfig{
-			auth:       v,
+			auth: AuthConfiguration{
+				Username:      v.Username,
+				Password:      v.Password,
+				Email:         v.Email,
+				ServerAddress: v.ServerAddress,
+				IdentityToken: v.IdentityToken,
+				RegistryToken: v.RegistryToken,
+			},
 			subdomains: getSubdomains(u.Host),
 		}
 	}
@@ -72,8 +79,8 @@ func getSubdomains(hostname string) map[string]bool {
 	return subdomains
 }
 
-func findRegistryConfig(reg string, configs map[string]driverAuthConfig) *docker.AuthConfiguration {
-	var config docker.AuthConfiguration
+func findRegistryConfig(reg string, configs map[string]driverAuthConfig) *AuthConfiguration {
+	var config AuthConfiguration
 
 	if reg != "" {
 		res := lookupRegistryConfig(reg, configs)
@@ -92,7 +99,7 @@ func findRegistryConfig(reg string, configs map[string]driverAuthConfig) *docker
 	return &config
 }
 
-func lookupRegistryConfig(reg string, configs map[string]driverAuthConfig) *docker.AuthConfiguration {
+func lookupRegistryConfig(reg string, configs map[string]driverAuthConfig) *AuthConfiguration {
 
 	// if any configured host auths match task registry, try them (task docker auth can override)
 	for _, v := range configs {

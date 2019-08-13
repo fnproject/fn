@@ -23,7 +23,7 @@ import (
 // any new requests are added as listeners to the ongoing docker-pull requests.
 
 type ImagePuller interface {
-	PullImage(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan error
+	PullImage(ctx context.Context, cfg *AuthConfiguration, img, repo, tag string) chan error
 	SetRetryPolicy(policy common.BackOffConfig, checker drivers.RetryErrorChecker) error
 }
 
@@ -32,7 +32,7 @@ type transfer struct {
 
 	key string
 
-	cfg  *docker.AuthConfiguration
+	cfg  *AuthConfiguration
 	img  string
 	repo string
 	tag  string
@@ -68,7 +68,7 @@ func (i *imagePuller) SetRetryPolicy(policy common.BackOffConfig, checker driver
 }
 
 // newTransfer initiates a new docker-pull if there's no active docker-pull present for the same image.
-func (i *imagePuller) newTransfer(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan error {
+func (i *imagePuller) newTransfer(ctx context.Context, cfg *AuthConfiguration, img, repo, tag string) chan error {
 
 	key := fmt.Sprintf("%s %s %+v", repo, tag, cfg)
 
@@ -106,8 +106,18 @@ func (i *imagePuller) pullWithRetry(trx *transfer) error {
 	timer := common.NewTimer(time.Duration(i.backOffCfg.MinDelay) * time.Millisecond)
 	defer timer.Stop()
 
+	pmo := docker.PullImageOptions{Repository: trx.repo, Tag: trx.tag, Context: trx.ctx}
+	cfg := docker.AuthConfiguration{
+		Username:      trx.cfg.Username,
+		Password:      trx.cfg.Password,
+		Email:         trx.cfg.Email,
+		ServerAddress: trx.cfg.ServerAddress,
+		IdentityToken: trx.cfg.IdentityToken,
+		RegistryToken: trx.cfg.RegistryToken,
+	}
+
 	for {
-		err := i.docker.PullImage(docker.PullImageOptions{Repository: trx.repo, Tag: trx.tag, Context: trx.ctx}, *trx.cfg)
+		err := i.docker.PullImage(pmo, cfg)
 		ok, reason := i.isRetriable(err)
 		if !ok {
 			return err
@@ -166,7 +176,7 @@ func (i *imagePuller) startTransfer(trx *transfer) {
 	delete(i.transfers, trx.key)
 }
 
-func (i *imagePuller) PullImage(ctx context.Context, cfg *docker.AuthConfiguration, img, repo, tag string) chan error {
+func (i *imagePuller) PullImage(ctx context.Context, cfg *AuthConfiguration, img, repo, tag string) chan error {
 	return i.newTransfer(ctx, cfg, img, repo, tag)
 }
 

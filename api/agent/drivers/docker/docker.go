@@ -39,7 +39,24 @@ type Auther interface {
 	// certain restrictions on images or if credentials must be acquired right
 	// before runtime and there's an error doing so. If these credentials don't
 	// work, the docker pull will fail and the task will be set to error status.
-	DockerAuth(ctx context.Context, image string) (*docker.AuthConfiguration, error)
+	DockerAuth(ctx context.Context, image string) (*AuthConfiguration, error)
+}
+
+// AuthConfiguration matches underlying docker auth configuration, to decouple from
+// underlying types
+type AuthConfiguration struct {
+	Username      string `json:"username,omitempty"`
+	Password      string `json:"password,omitempty"`
+	Email         string `json:"email,omitempty"`
+	ServerAddress string `json:"serveraddress,omitempty"`
+
+	// IdentityToken can be supplied with the identitytoken response of the AuthCheck call
+	// see https://godoc.org/github.com/docker/docker/api/types#AuthConfig
+	// It can be used in place of password not in conjunction with it
+	IdentityToken string `json:"identitytoken,omitempty"`
+
+	// RegistryToken can be supplied with the registrytoken
+	RegistryToken string `json:"registrytoken,omitempty"`
 }
 
 type runResult struct {
@@ -48,7 +65,7 @@ type runResult struct {
 }
 
 type driverAuthConfig struct {
-	auth       docker.AuthConfiguration
+	auth       AuthConfiguration
 	subdomains map[string]bool
 }
 
