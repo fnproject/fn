@@ -27,6 +27,7 @@ type RunnerPool interface {
 // RunnerStatus is general information on Runner health as returned by Runner::Status() call
 type RunnerStatus struct {
 	ActiveRequestCount    int32           // Number of active running requests on Runner
+	ImagePullRetries      int32           // Number of retries during image pull
 	RequestsReceived      uint64          // Number of requests received by Runner
 	RequestsHandled       uint64          // Number of requests handled without NACK by Runner
 	KdumpsOnDisk          uint64          // Number of kdumps on disk
@@ -39,12 +40,13 @@ type RunnerStatus struct {
 	CreatedAt             common.DateTime // Status creation date at Runner
 	StartedAt             common.DateTime // Status execution date at Runner
 	CompletedAt           common.DateTime // Status completion date at Runner
-	SchedulerDuration     time.Duration   // Amount of time runner scheduler spent on the request
-	ExecutionDuration     time.Duration   // Amount of time runner spent on function execution
-	ImagePullWaitDuration time.Duration   // Amount of time spent waiting for the image pull
-	CtrPrepDuration       time.Duration   // Amount of time spent preparing for the container creation
 	CtrCreateDuration     time.Duration   //Amount of time spent creating the container
+	CtrPrepDuration       time.Duration   // Amount of time spent preparing for the container creation
+	ExecutionDuration     time.Duration   // Amount of time runner spent on function execution
+	ImagePullDuration     time.Duration   // Amount of time spent pulling the image
+	ImagePullWaitDuration time.Duration   // Amount of time spent waiting for the image pull
 	InitStartTime         time.Duration   // Container Init UDS Latency time
+	SchedulerDuration     time.Duration   // Amount of time runner scheduler spent on the request
 	IsNetworkDisabled     bool            // True if network on runner is offline
 }
 

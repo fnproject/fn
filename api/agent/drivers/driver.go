@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers/stats"
 	"github.com/fnproject/fn/api/common"
@@ -44,7 +45,7 @@ type Cookie interface {
 
 	// Pull the image. An image pull requires validation/inspection
 	// again.
-	PullImage(ctx context.Context) error
+	PullImage(ctx context.Context) PullResult
 
 	// Create container which can be Run() later
 	CreateContainer(ctx context.Context) error
@@ -98,6 +99,13 @@ type RunResult interface {
 type LoggerTag struct {
 	Name  string
 	Value string
+}
+
+// Configuration for Image Pull details
+type PullResult struct {
+	Err      error
+	Retries  int32
+	Duration time.Duration
 }
 
 // Logger Configuration for container

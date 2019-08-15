@@ -888,9 +888,9 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	if needsPull {
 		waitStart := time.Now()
 		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
-		err = cookie.PullImage(pullCtx)
+		pullResult := cookie.PullImage(pullCtx)
 		pullCancel()
-		if err != nil && pullCtx.Err() == context.DeadlineExceeded {
+		if err = pullResult.Err; err != nil && pullCtx.Err() == context.DeadlineExceeded {
 			err = models.ErrDockerPullTimeout
 		}
 		if tryQueueErr(err, errQueue) == nil {
@@ -901,6 +901,8 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			}
 		}
 		atomic.StoreInt64(&call.imagePullWaitTime, int64(time.Since(waitStart)/time.Millisecond))
+		atomic.StoreInt64(&call.imagePullTime, int64(pullResult.Duration/time.Millisecond))
+		atomic.StoreInt32(&call.imagePullRetries, pullResult.Retries)
 	}
 	if tryQueueErr(err, errQueue) != nil {
 		return

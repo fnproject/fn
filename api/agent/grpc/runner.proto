@@ -53,6 +53,8 @@ message CallFinished {
     int64 ctrPrepDuration = 13;
     int64 ctrCreateDuration = 14;
     int64 initStartTime = 15;
+    int64 imagePullDuration = 16;
+    int32 imagePullRetries = 17;
 }
 
 message ClientMsg {
@@ -92,6 +94,8 @@ message RunnerStatus {
     int64 ctrPrepDuration = 20;
     int64 ctrCreateDuration = 21;
     int64 initStartTime = 22;
+    int64 imagePullDuration = 23;
+    int32 imagePullRetries = 24;
 }
 
 message ConfigMsg {

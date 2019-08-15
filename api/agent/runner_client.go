@@ -124,6 +124,8 @@ func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStat
 	ctrPrepDuration := time.Duration(status.GetCtrPrepDuration())
 	ctrCreateDuration := time.Duration(status.GetCtrCreateDuration())
 	imagePullWaitDuration := time.Duration(status.GetImagePullWaitDuration())
+	imagePullDuration := time.Duration(status.GetImagePullDuration())
+	imagePullRetries := status.GetImagePullRetries()
 	initStartTime := time.Duration(status.GetInitStartTime())
 
 	creat, _ := common.ParseDateTime(status.CreatedAt)
@@ -147,6 +149,8 @@ func TranslateGRPCStatusToRunnerStatus(status *pb.RunnerStatus) *pool.RunnerStat
 		SchedulerDuration:     runnerSchedLatency,
 		ExecutionDuration:     runnerExecLatency,
 		ImagePullWaitDuration: imagePullWaitDuration,
+		ImagePullDuration:     imagePullDuration,
+		ImagePullRetries:      imagePullRetries,
 		CtrPrepDuration:       ctrPrepDuration,
 		CtrCreateDuration:     ctrCreateDuration,
 		InitStartTime:         initStartTime,
@@ -447,12 +451,14 @@ DataLoop:
 			span.Annotate([]trace.Attribute{
 				trace.BoolAttribute("error_user", body.Finished.GetErrorUser()),
 				trace.BoolAttribute("success", body.Finished.GetSuccess()),
-				trace.Int64Attribute("execution_duration", body.Finished.GetExecutionDuration()),
-				trace.Int64Attribute("scheduler_duration", body.Finished.GetSchedulerDuration()),
-				trace.Int64Attribute("image_pull_wait", body.Finished.GetImagePullWaitDuration()),
 				trace.Int64Attribute("container_create_duration", body.Finished.GetCtrCreateDuration()),
 				trace.Int64Attribute("container_preparation_duration", body.Finished.GetCtrPrepDuration()),
+				trace.Int64Attribute("execution_duration", body.Finished.GetExecutionDuration()),
+				trace.Int64Attribute("image_pull_duration", body.Finished.GetImagePullDuration()),
+				trace.Int64Attribute("image_pull_retries", int64(body.Finished.GetImagePullRetries())),
+				trace.Int64Attribute("image_pull_wait", body.Finished.GetImagePullWaitDuration()),
 				trace.Int64Attribute("init_start", body.Finished.GetInitStartTime()),
+				trace.Int64Attribute("scheduler_duration", body.Finished.GetSchedulerDuration()),
 				trace.StringAttribute("completed_at", body.Finished.GetCompletedAt()),
 				trace.StringAttribute("created_at", body.Finished.GetCreatedAt()),
 				trace.StringAttribute("started_at", body.Finished.GetStartedAt()),

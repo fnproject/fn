@@ -52,8 +52,8 @@ func (c *cookie) ValidateImage(context.Context) (bool, error) {
 	return false, nil
 }
 
-func (c *cookie) PullImage(context.Context) error {
-	return nil
+func (c *cookie) PullImage(context.Context) drivers.PullResult {
+	return drivers.PullResult{Err: nil, Retries: 0, Duration: 0 * time.Second}
 }
 
 func (c *cookie) CreateContainer(context.Context) error {

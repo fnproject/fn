@@ -236,6 +236,8 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var errUser bool
 	var nErr error
 	var imagePullWaitDuration int64
+	var imagePullDuration int64
+	var imagePullRetries int32
 	var ctrCreateDuration int64
 	var ctrPrepDuration int64
 	var initStartTime int64
@@ -280,6 +282,8 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		image = mcall.Image
 		details = mcall.ID
 		imagePullWaitDuration = ch.c.imagePullWaitTime
+		imagePullDuration = ch.c.imagePullTime
+		imagePullRetries = ch.c.imagePullRetries
 		ctrCreateDuration = ch.c.ctrCreateTime
 		ctrCreateDuration = ch.c.ctrCreateTime
 		initStartTime = ch.c.initStartTime
@@ -298,6 +302,8 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 			ErrorUser:             errUser,
 			ExecutionDuration:     int64(executionDuration),
 			Image:                 image,
+			ImagePullDuration:     imagePullDuration,
+			ImagePullRetries:      imagePullRetries,
 			ImagePullWaitDuration: imagePullWaitDuration,
 			InitStartTime:         initStartTime,
 			SchedulerDuration:     int64(schedulerDuration),
@@ -942,6 +948,9 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 
 	// Loading with runHot metrics if not nil
 	if mcall != nil {
+		result.ImagePullWaitDuration = atomic.LoadInt64(&mcall.imagePullWaitTime)
+		result.ImagePullDuration = atomic.LoadInt64(&mcall.imagePullTime)
+		result.ImagePullRetries = atomic.LoadInt32(&mcall.imagePullRetries)
 		result.ImagePullWaitDuration = atomic.LoadInt64(&mcall.imagePullWaitTime)
 		result.CtrCreateDuration = atomic.LoadInt64(&mcall.ctrCreateTime)
 		result.CtrPrepDuration = atomic.LoadInt64(&mcall.ctrPrepTime)

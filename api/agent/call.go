@@ -306,6 +306,12 @@ type call struct {
 	// Init wait start timestamp for goroutine in runHot
 	initStartTime int64
 
+	// amount of time attributed to image pull
+	imagePullTime int64
+
+	// amount of time attributed to image pull
+	imagePullRetries int32
+
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
 }
