@@ -229,11 +229,16 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var createdAt string
 	var startedAt string
 	var completedAt string
+	var image string
 	var details string
 	var errCode int
 	var errStr string
 	var errUser bool
 	var nErr error
+	var imagePullWaitDuration int64
+	var ctrCreateDuration int64
+	var ctrPrepDuration int64
+	var initStartTime int64
 
 	log := common.Logger(ch.ctx)
 
@@ -272,23 +277,32 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 				}
 			}
 		}
-
+		image = mcall.Image
 		details = mcall.ID
+		imagePullWaitDuration = ch.c.imagePullWaitTime
+		ctrCreateDuration = ch.c.ctrCreateTime
+		ctrCreateDuration = ch.c.ctrCreateTime
+		initStartTime = ch.c.initStartTime
 	}
 	log.Debugf("Sending Call Finish details=%v", details)
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success:           nErr == nil,
-			Details:           details,
-			ErrorCode:         int32(errCode),
-			ErrorStr:          errStr,
-			CreatedAt:         createdAt,
-			StartedAt:         startedAt,
-			CompletedAt:       completedAt,
-			SchedulerDuration: int64(schedulerDuration),
-			ExecutionDuration: int64(executionDuration),
-			ErrorUser:         errUser,
+			CompletedAt:           completedAt,
+			CreatedAt:             createdAt,
+			CtrCreateDuration:     ctrCreateDuration,
+			CtrPrepDuration:       ctrPrepDuration,
+			Details:               details,
+			ErrorCode:             int32(errCode),
+			ErrorStr:              errStr,
+			ErrorUser:             errUser,
+			ExecutionDuration:     int64(executionDuration),
+			Image:                 image,
+			ImagePullWaitDuration: imagePullWaitDuration,
+			InitStartTime:         initStartTime,
+			SchedulerDuration:     int64(schedulerDuration),
+			StartedAt:             startedAt,
+			Success:               nErr == nil,
 		}}})
 
 	if errTmp != nil {
@@ -924,6 +938,14 @@ func (pr *pureRunner) runStatusCall(ctx context.Context) *runner.RunnerStatus {
 				result.CompletedAt = common.DateTime(time.Now()).String()
 			}
 		}
+	}
+
+	// Loading with runHot metrics if not nil
+	if mcall != nil {
+		result.ImagePullWaitDuration = atomic.LoadInt64(&mcall.imagePullWaitTime)
+		result.CtrCreateDuration = atomic.LoadInt64(&mcall.ctrCreateTime)
+		result.CtrPrepDuration = atomic.LoadInt64(&mcall.ctrPrepTime)
+		result.InitStartTime = atomic.LoadInt64(&mcall.initStartTime)
 	}
 
 	// Status images should not output excessive data since we echo the

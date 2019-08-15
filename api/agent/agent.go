@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
@@ -797,6 +798,8 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	var cookie drivers.Cookie
 	var err error
 
+	ctrCreatePrepStart := time.Now()
+
 	id := id.New().String()
 	logger := logrus.WithFields(logrus.Fields{"container_id": id, "app_id": call.AppID, "fn_id": call.FnID, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "idle_timeout": call.IdleTimeout})
 	ctx, cancel := context.WithCancel(common.WithLogger(ctx, logger))
@@ -880,9 +883,10 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
-
 	needsPull, err := cookie.ValidateImage(ctx)
+	atomic.StoreInt64(&call.ctrPrepTime, int64(time.Since(ctrCreatePrepStart)/time.Millisecond))
 	if needsPull {
+		waitStart := time.Now()
 		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
 		err = cookie.PullImage(pullCtx)
 		pullCancel()
@@ -896,11 +900,13 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 				err = models.ErrCallTimeoutServerBusy
 			}
 		}
+		atomic.StoreInt64(&call.imagePullWaitTime, int64(time.Since(waitStart)/time.Millisecond))
 	}
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
 
+	ctrCreateStart := time.Now()
 	err = cookie.CreateContainer(ctx)
 	if tryQueueErr(err, errQueue) != nil {
 		return
@@ -910,6 +916,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
+	atomic.StoreInt64(&call.ctrCreateTime, int64(time.Since(ctrCreateStart)/time.Millisecond))
 
 	childDone = make(chan struct{})
 
@@ -929,15 +936,23 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		// INIT BARRIER HERE. Wait for the initialization go-routine signal
 		select {
 		case <-initialized:
-			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "initialized")
+			initTime := time.Now() // Declaring this prior to keep the stats in sync
+			statsContainerUDSInitLatency(ctx, initStart, initTime, "initialized")
+			atomic.StoreInt64(&call.initStartTime, int64(initTime.Sub(initStart)/time.Millisecond))
 		case <-a.shutWg.Closer(): // agent shutdown
-			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "canceled")
+			closerTime := time.Now()
+			statsContainerUDSInitLatency(ctx, initStart, closerTime, "canceled")
+			atomic.StoreInt64(&call.initStartTime, int64(closerTime.Sub(initStart)/time.Millisecond))
 			return
 		case <-ctx.Done():
-			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "canceled")
+			ctxCancelTime := time.Now()
+			statsContainerUDSInitLatency(ctx, initStart, ctxCancelTime, "canceled")
+			atomic.StoreInt64(&call.initStartTime, int64(ctxCancelTime.Sub(initStart)/time.Millisecond))
 			return
 		case <-timer.C:
-			statsContainerUDSInitLatency(ctx, initStart, time.Now(), "timedout")
+			timeoutTime := time.Now()
+			statsContainerUDSInitLatency(ctx, initStart, timeoutTime, "timedout")
+			atomic.StoreInt64(&call.initStartTime, int64(timeoutTime.Sub(initStart)/time.Millisecond))
 			tryQueueErr(models.ErrContainerInitTimeout, errQueue)
 			return
 		}

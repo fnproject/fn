@@ -294,6 +294,18 @@ type call struct {
 	// amount of time attributed to user-code execution
 	userExecTime *time.Duration
 
+	// amount of time attributed to docker-pull wait
+	imagePullWaitTime int64
+
+	// amount of time attributed to container preparation
+	ctrPrepTime int64
+
+	// amount of time attributed to container creation
+	ctrCreateTime int64
+
+	// Init wait start timestamp for goroutine in runHot
+	initStartTime int64
+
 	// LB & Pure Runner Extra Config
 	extensions map[string]string
 }
