@@ -7,11 +7,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/fnproject/fn/api/common"
-	"github.com/sirupsen/logrus"
 )
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.
@@ -131,39 +129,4 @@ func Decimate(maxSamples int, stats []Stat) []Stat {
 		current = current.Add(window)
 	}
 	return stats[:nextEntry] // Return slice of []Stats that was modified with averages
-}
-
-// GenerateLogScaleHistogramBucketsWithRange generates histogram buckets on the log scale between the specified min and max range,
-// such that the min value is in the first bucket and the max in the last.
-func GenerateLogScaleHistogramBucketsWithRange(min, max float64) []float64 {
-	if min <= 0 {
-		logrus.Fatal("cannot generate log scale with non positive domain values")
-	}
-	count := int(math.Ceil(math.Log2(max / min)))
-	var res []float64
-	for i := 0; i <= count; i++ {
-		res = append(res, min*(math.Pow(2, float64(i))))
-	}
-	return res
-}
-
-// GenerateLinearHistogramBuckets generates number of buckets specified by count in the range specified by min and max
-func GenerateLinearHistogramBuckets(min, max float64, count int) []float64 {
-	width := (max - min) / float64(count)
-	var res []float64
-	for i := 0; i <= count; i++ {
-		res = append(res, min+(float64(i)*width))
-	}
-	return res
-}
-
-// GenerateLogScaleHistogramBuckets generates number of buckets specified by count on the log scale
-// such that the value specified by max is in the last bucjet
-func GenerateLogScaleHistogramBuckets(max float64, count int) []float64 {
-	res := make([]float64, count+1)
-
-	for i := count; i > 0; i-- {
-		res[i] = max / (math.Pow(2, float64(count-i)))
-	}
-	return res
 }
