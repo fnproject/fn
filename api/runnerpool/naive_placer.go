@@ -47,7 +47,7 @@ func (sp *naivePlacer) PlaceCall(ctx context.Context, rp RunnerPool, call Runner
 			}
 		}
 
-		if !state.RetryAllBackoff(len(runners)) {
+		if !state.RetryAllBackoff(len(runners), runnerPoolErr) {
 			break
 		}
 	}

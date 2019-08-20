@@ -113,7 +113,24 @@ func (tr *placerTracker) HandleDone() {
 
 // RetryAllBackoff blocks until it is time to try the runner list again. Returns
 // false if the placer should stop trying.
-func (tr *placerTracker) RetryAllBackoff(numOfRunners int) bool {
+func (tr *placerTracker) RetryAllBackoff(numOfRunners int, err error) bool {
+
+	// If the last call to obtain runners failed due to a user error or
+	// misconfiguration then do not re-attempt to obtain a runner.
+	if err != nil {
+		tr.HandleFindRunnersFailure(err)
+		// IsFuncError currently synonymous with tag: 'blame == user'
+		// See: runner_fninvoke.handleFnInvokeCall2
+		if models.IsFuncError(err) {
+			// We also santiy check for a 502 before returning.
+			w, ok := err.(models.APIErrorWrapper)
+			if ok {
+				if 502 == w.Code() {
+					return false
+				}
+			}
+		}
+	}
 
 	// This means Placer is operating on an empty list. No runners
 	// available. Record it.
