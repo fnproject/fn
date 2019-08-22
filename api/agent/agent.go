@@ -884,7 +884,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		return
 	}
 	needsPull, err := cookie.ValidateImage(ctx)
-	atomic.StoreInt64(&call.ctrPrepTime, int64(time.Since(ctrCreatePrepStart)/time.Millisecond))
+	atomic.StoreInt64(&call.ctrPrepTime, int64(time.Since(ctrCreatePrepStart)))
 	if needsPull {
 		waitStart := time.Now()
 		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
@@ -900,7 +900,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 				err = models.ErrCallTimeoutServerBusy
 			}
 		}
-		atomic.StoreInt64(&call.imagePullWaitTime, int64(time.Since(waitStart)/time.Millisecond))
+		atomic.StoreInt64(&call.imagePullWaitTime, int64(time.Since(waitStart)))
 	}
 	if tryQueueErr(err, errQueue) != nil {
 		return
@@ -916,7 +916,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	if tryQueueErr(err, errQueue) != nil {
 		return
 	}
-	atomic.StoreInt64(&call.ctrCreateTime, int64(time.Since(ctrCreateStart)/time.Millisecond))
+	atomic.StoreInt64(&call.ctrCreateTime, int64(time.Since(ctrCreateStart)))
 
 	childDone = make(chan struct{})
 
@@ -938,21 +938,21 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		case <-initialized:
 			initTime := time.Now() // Declaring this prior to keep the stats in sync
 			statsContainerUDSInitLatency(ctx, initStart, initTime, "initialized")
-			atomic.StoreInt64(&call.initStartTime, int64(initTime.Sub(initStart)/time.Millisecond))
+			atomic.StoreInt64(&call.initStartTime, int64(initTime.Sub(initStart)))
 		case <-a.shutWg.Closer(): // agent shutdown
 			closerTime := time.Now()
 			statsContainerUDSInitLatency(ctx, initStart, closerTime, "canceled")
-			atomic.StoreInt64(&call.initStartTime, int64(closerTime.Sub(initStart)/time.Millisecond))
+			atomic.StoreInt64(&call.initStartTime, int64(closerTime.Sub(initStart)))
 			return
 		case <-ctx.Done():
 			ctxCancelTime := time.Now()
 			statsContainerUDSInitLatency(ctx, initStart, ctxCancelTime, "canceled")
-			atomic.StoreInt64(&call.initStartTime, int64(ctxCancelTime.Sub(initStart)/time.Millisecond))
+			atomic.StoreInt64(&call.initStartTime, int64(ctxCancelTime.Sub(initStart)))
 			return
 		case <-timer.C:
 			timeoutTime := time.Now()
 			statsContainerUDSInitLatency(ctx, initStart, timeoutTime, "timedout")
-			atomic.StoreInt64(&call.initStartTime, int64(timeoutTime.Sub(initStart)/time.Millisecond))
+			atomic.StoreInt64(&call.initStartTime, int64(timeoutTime.Sub(initStart)))
 			tryQueueErr(models.ErrContainerInitTimeout, errQueue)
 			return
 		}
