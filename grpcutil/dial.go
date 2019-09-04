@@ -28,7 +28,7 @@ func dial(ctx context.Context, address string, creds credentials.TransportCreden
 		defer cancel()
 		conn, err := (&net.Dialer{Cancel: ctx.Done(), Timeout: timeoutDialer}).Dial("tcp", address)
 		if err != nil {
-			log.WithError(err).Debug("Failed to dial grpc connection")
+			log.WithError(err).Warn("Failed to dial grpc connection")
 			return nil, err
 		}
 		if creds == nil {
@@ -38,7 +38,7 @@ func dial(ctx context.Context, address string, creds credentials.TransportCreden
 
 		conn, _, err = creds.ClientHandshake(ctx, address, conn)
 		if err != nil {
-			log.Debug("Failed grpc TLS handshake")
+			log.WithError(err).Warn("Failed grpc TLS handshake")
 			return nil, err
 		}
 		return conn, nil
