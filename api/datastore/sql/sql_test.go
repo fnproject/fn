@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/fnproject/fn/api/datastore/datastoretest"
@@ -127,12 +128,13 @@ func TestDatastore(t *testing.T) {
 	}
 
 	if mysql := os.Getenv("MYSQL_URL"); mysql != "" {
-		u, err := url.Parse(mysql)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		both(u)
+		// mysql URL are not valid URLs, see: https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-jdbc-url-format.html
+		// with https://github.com/golang/go/issues?q=milestone%3AGo1.12.8 release (Go lang 1.12.8 URL parsing is more strict), mysql
+		// URLs will fail to parse, since they can be in the form of "mysql://root:root@tcp(localhost:3306)/funcs"
+		var u url.URL
+		u.Scheme = "mysql"
+		u.Opaque = strings.TrimPrefix(mysql, "mysql:")
+		both(&u)
 	}
 
 }
