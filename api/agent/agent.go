@@ -538,10 +538,6 @@ func (a *agent) waitHot(ctx context.Context, call *call, caller *slotCaller) (Sl
 			return nil, err
 		case s := <-ch:
 			if call.slots.acquireSlot(s) {
-				if s.slot.Error() != nil {
-					s.slot.Close()
-					return nil, s.slot.Error()
-				}
 				return s.slot, nil
 			}
 			// we failed to take ownership of the token (eg. container idle timeout) => try again
@@ -565,26 +561,21 @@ func (a *agent) waitHot(ctx context.Context, call *call, caller *slotCaller) (Sl
 
 // implements Slot
 type hotSlot struct {
-	done          chan struct{} // signal we are done with slot
-	container     *container    // TODO mask this
+	done          chan error // signal we are done with slot
+	container     *container // TODO mask this
 	cfg           *Config
-	fatalErr      error
 	containerSpan trace.SpanContext
 }
 
-func (s *hotSlot) Close() error {
-	close(s.done)
-	return nil
-}
-
-func (s *hotSlot) Error() error {
-	return s.fatalErr
-}
-
-func (s *hotSlot) trySetError(err error) {
-	if s.fatalErr == nil {
-		s.fatalErr = err
+func (s *hotSlot) SetError(err error) {
+	select {
+	case s.done <- err:
+	default:
 	}
+}
+
+func (s *hotSlot) Close() {
+	close(s.done)
 }
 
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
@@ -668,7 +659,7 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 
 	if err != nil {
 		// IMPORTANT: Container contract: If http-uds errors/timeout, container cannot continue
-		s.trySetError(err)
+		s.SetError(err)
 		// first filter out timeouts
 		if ctx.Err() == context.DeadlineExceeded {
 			return context.DeadlineExceeded
@@ -693,7 +684,7 @@ func (s *hotSlot) dispatch(ctx context.Context, call *call) error {
 	case <-ctx.Done():
 		if ctx.Err() == context.DeadlineExceeded {
 			// IMPORTANT: Container contract: If http-uds timeout, container cannot continue
-			s.trySetError(ctx.Err())
+			s.SetError(ctx.Err())
 		}
 		return ctx.Err()
 	}
@@ -719,7 +710,7 @@ func (s *hotSlot) writeResp(ctx context.Context, max uint64, resp *http.Response
 		return context.DeadlineExceeded
 	default:
 		// Any other code. Possible FDK failure. We shutdown the container
-		s.trySetError(fmt.Errorf("FDK Error, invalid status code %d", resp.StatusCode))
+		s.SetError(fmt.Errorf("FDK Error, invalid status code %d", resp.StatusCode))
 		return models.ErrFunctionInvalidResponse
 	}
 
@@ -761,15 +752,14 @@ func newSizerRespWriter(max uint64, rw http.ResponseWriter) http.ResponseWriter 
 
 func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
-// Try to queue an error to the error channel if possible.
-func tryQueueErr(err error, ch chan error) error {
-	if err != nil {
-		select {
-		case ch <- err:
-		default:
-		}
+// If a client is waiting/listening for this container to initialize, then transmit the error to client
+func notifyCaller(ctx context.Context, err error, caller slotCaller) {
+	select {
+	case caller.notify <- err:
+		common.Logger(ctx).WithError(err).Info("hot function failure, error sent to client")
+	default:
+		common.Logger(ctx).WithError(err).Info("hot function failure, error suppressed")
 	}
-	return err
 }
 
 func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok ResourceToken, state ContainerState) {
@@ -792,7 +782,6 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 
 	initialized := make(chan struct{}) // when closed, container is ready to handle requests
 	udsWait := make(chan error, 1)     // track UDS state and errors
-	errQueue := make(chan error, 1)    // errors to be reflected back to the slot queue
 
 	statsUtilization(ctx, a.resources.GetUtilization())
 	state.UpdateState(ctx, ContainerStateStart, call)
@@ -802,12 +791,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		select {
 		case <-initialized:
 		default:
-			tryQueueErr(models.ErrContainerInitFail, errQueue)
-		}
-		select {
-		case err := <-errQueue:
-			call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
-		default:
+			notifyCaller(ctx, models.ErrContainerInitFail, caller)
 		}
 
 		// shutdown the container and related I/O operations and go routines
@@ -839,7 +823,8 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		for {
 			select {
 			case err := <-udsWait:
-				if tryQueueErr(err, errQueue) != nil {
+				if err != nil {
+					notifyCaller(ctx, err, caller)
 					cancel()
 				} else {
 					close(initialized)
@@ -866,9 +851,11 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	}
 
 	cookie, err = a.driver.CreateCookie(ctx, container)
-	if tryQueueErr(err, errQueue) != nil {
+	if err != nil {
+		notifyCaller(ctx, err, caller)
 		return
 	}
+
 	needsPull, err := cookie.ValidateImage(ctx)
 	atomic.StoreInt64(&call.ctrPrepTime, int64(time.Since(ctrCreatePrepStart)))
 	if needsPull {
@@ -876,10 +863,11 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		pullCtx, pullCancel := context.WithTimeout(ctx, a.cfg.HotPullTimeout)
 		err = cookie.PullImage(pullCtx)
 		pullCancel()
-		if err != nil && pullCtx.Err() == context.DeadlineExceeded {
-			err = models.ErrDockerPullTimeout
-		}
-		if tryQueueErr(err, errQueue) == nil {
+		if err != nil {
+			if pullCtx.Err() == context.DeadlineExceeded {
+				err = models.ErrDockerPullTimeout
+			}
+		} else {
 			needsPull, err = cookie.ValidateImage(ctx) // uses original ctx timeout
 			if needsPull {
 				// Image must have removed by image cleaner, manual intervention, etc.
@@ -888,18 +876,21 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		}
 		atomic.StoreInt64(&call.imagePullWaitTime, int64(time.Since(waitStart)))
 	}
-	if tryQueueErr(err, errQueue) != nil {
+	if err != nil {
+		notifyCaller(ctx, err, caller)
 		return
 	}
 
 	ctrCreateStart := time.Now()
 	err = cookie.CreateContainer(ctx)
-	if tryQueueErr(err, errQueue) != nil {
+	if err != nil {
+		notifyCaller(ctx, err, caller)
 		return
 	}
 
 	waiter, err := cookie.Run(ctx)
-	if tryQueueErr(err, errQueue) != nil {
+	if err != nil {
+		notifyCaller(ctx, err, caller)
 		return
 	}
 	atomic.StoreInt64(&call.ctrCreateTime, int64(time.Since(ctrCreateStart)))
@@ -939,7 +930,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			timeoutTime := time.Now()
 			statsContainerUDSInitLatency(ctx, initStart, timeoutTime, "timedout")
 			atomic.StoreInt64(&call.initStartTime, int64(timeoutTime.Sub(initStart)))
-			tryQueueErr(models.ErrContainerInitTimeout, errQueue)
+			notifyCaller(ctx, models.ErrContainerInitTimeout, caller)
 			return
 		}
 
@@ -947,7 +938,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 
 		for ctx.Err() == nil {
 			slot := &hotSlot{
-				done:          make(chan struct{}),
+				done:          make(chan error, 1),
 				container:     container,
 				cfg:           &a.cfg,
 				containerSpan: trace.FromContext(ctx).SpanContext(),
@@ -959,10 +950,8 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
-			<-slot.done
-
-			if slot.fatalErr != nil {
-				logger.WithError(slot.fatalErr).Info("hot function terminating")
+			if err := <-slot.done; err != nil {
+				logger.WithError(err).Info("hot function terminating")
 				return
 			}
 		}
@@ -1122,10 +1111,8 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	// abort/shutdown/timeout/evict, attempt to acquire and terminate,
 	// otherwise continue processing the request
 	if call.slots.acquireSlot(s) {
-		slot.Close()
 		select {
 		case <-evicted:
-			logger.Debugf("Hot function evicted")
 			statsContainerEvicted(ctx, state.GetState())
 		default:
 		}
