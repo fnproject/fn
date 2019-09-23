@@ -368,6 +368,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
+		caller.id = call.ID
 		caller.done = ctx.Done()
 		caller.notify = make(chan error)
 	}
@@ -860,7 +861,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		authToken = call.slots.getAuthToken()
 	}
 
-	container = newHotContainer(ctx, a.evictor, call, &a.cfg, id, authToken, udsWait)
+	container = newHotContainer(ctx, a.evictor, &caller, call, &a.cfg, id, authToken, udsWait)
 	if container == nil {
 		return
 	}
@@ -1194,7 +1195,7 @@ type container struct {
 var _ drivers.ContainerTask = &container{}
 
 // newHotContainer creates a container that can be used for multiple sequential events
-func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Config, id, authToken string, udsWait chan error) *container {
+func newHotContainer(ctx context.Context, evictor Evictor, caller *slotCaller, call *call, cfg *Config, id, authToken string, udsWait chan error) *container {
 
 	var iofs iofs
 	var err error
@@ -1251,10 +1252,20 @@ func newHotContainer(ctx context.Context, evictor Evictor, call *call, cfg *Conf
 		},
 	}
 
+	env := cloneStrMap(call.Config) // clone to avoid data race
+
+	// Debug info exposed to FDK/Container
+	if cfg.EnableFDKDebugInfo {
+		if caller != nil {
+			env["FN_SPAWN_CALL_ID"] = caller.id
+		}
+		env["FN_CONTAINER_ID"] = id
+	}
+
 	return &container{
 		id:             id, // XXX we could just let docker generate ids...
 		image:          call.Image,
-		env:            cloneStrMap(call.Config),     // avoid data race
+		env:            env,
 		extensions:     cloneStrMap(call.extensions), // avoid date race
 		memory:         call.Memory,
 		cpus:           uint64(call.CPUs),

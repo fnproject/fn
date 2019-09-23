@@ -43,6 +43,7 @@ type Config struct {
 	DisableReadOnlyRootFs         bool          `json:"disable_readonly_rootfs"`
 	DisableDebugUserLogs          bool          `json:"disable_debug_user_logs"`
 	IOFSEnableTmpfs               bool          `json:"iofs_enable_tmpfs"`
+	EnableFDKDebugInfo            bool          `json:"enable_fdk_debug_info"`
 	IOFSAgentPath                 string        `json:"iofs_path"`
 	IOFSMountRoot                 string        `json:"iofs_mount_root"`
 	IOFSOpts                      string        `json:"iofs_opts"`

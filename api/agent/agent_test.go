@@ -1284,7 +1284,7 @@ func TestDockerAuthExtn(t *testing.T) {
 
 	errC := make(chan error, 10)
 
-	c := newHotContainer(ctx, nil, call, cfg, id.New().String(), "", errC)
+	c := newHotContainer(ctx, nil, nil, call, cfg, id.New().String(), "", errC)
 	if c == nil {
 		err := <-errC
 		t.Fatal("got unexpected err: ", err)
@@ -1297,7 +1297,7 @@ func TestDockerAuthExtn(t *testing.T) {
 		t.Fatal("got unexpected err: ", err)
 	}
 
-	c = newHotContainer(ctx, nil, call, cfg, id.New().String(), "TestRegistryToken", errC)
+	c = newHotContainer(ctx, nil, nil, call, cfg, id.New().String(), "TestRegistryToken", errC)
 	if c == nil {
 		err := <-errC
 		t.Fatal("got unexpected err: ", err)
@@ -1405,7 +1405,7 @@ func TestContainerDisableIO(t *testing.T) {
 
 	errC := make(chan error, 10)
 
-	c := newHotContainer(ctx, nil, call, cfg, id.New().String(), "", errC)
+	c := newHotContainer(ctx, nil, nil, call, cfg, id.New().String(), "", errC)
 	if c == nil {
 		err := <-errC
 		t.Fatal("got unexpected err: ", err)
@@ -1432,4 +1432,133 @@ func TestContainerDisableIO(t *testing.T) {
 	if !stderrOff {
 		t.Error("stderr is enabled, stderr should be disabled")
 	}
+}
+
+func TestSlotErrorRetention(t *testing.T) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(10*time.Second))
+	defer cancel()
+
+	app := &models.App{ID: "app_id"}
+	fn := &models.Fn{
+		ID:     "fn_id",
+		Image:  "fnproject/fn-test-utils",
+		Config: models.Config{"ENABLE_INIT_DELAY_MSEC": "100"},
+		ResourceConfig: models.ResourceConfig{
+			Timeout:     5,
+			IdleTimeout: 10,
+			Memory:      128,
+		},
+	}
+
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
+
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatalf("error %v in agent config cfg=%+v", err, cfg)
+	}
+	cfg.EnableFDKDebugInfo = true
+
+	a := New(WithConfig(cfg))
+
+	defer checkClose(t, a)
+
+	const echoContent = "parsley"
+	const concurrency = 2
+
+	var uniqId string
+
+	checkBody := func(res *http.Response) {
+		var resp struct {
+			R struct {
+				Body string `json:"echoContent"`
+			} `json:"request"`
+		}
+
+		json.NewDecoder(res.Body).Decode(&resp)
+		if resp.R.Body != echoContent {
+			t.Fatalf(`didn't get a %s in the body: %s`, echoContent, resp.R.Body)
+		}
+
+		if res != nil && res.Body != nil {
+			res.Body.Close()
+		}
+	}
+
+	// just spawn a container
+	{
+		body := fmt.Sprintf(`{"sleepTime": 0, "echoContent":"%s"}`, echoContent)
+
+		req, err := http.NewRequest("GET", url, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("unexpected error building request %v", err)
+		}
+		req = req.WithContext(ctx)
+
+		var out bytes.Buffer
+		callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&out))
+		if err != nil {
+			t.Fatalf("unexpected error building call %v", err)
+		}
+
+		uniqId = callI.Model().ID
+		callI.Model().Config["ENABLE_FAIL_IF_FN_SPAWN_CALL_ID_NONMATCH"] = uniqId
+		callI.Model().Config["ENABLE_FAIL_IF_FN_SPAWN_CALL_ID_NONMATCH_MSEC"] = "100"
+
+		err = a.Submit(callI)
+		if err != nil {
+			t.Fatalf("submit should not error %v", err)
+		}
+
+		res, err := http.ReadResponse(bufio.NewReader(&out), nil)
+		if err != nil {
+			t.Fatalf("read resp should not error %v", err)
+		}
+
+		checkBody(res)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(concurrency)
+
+	for idx := 0; idx < concurrency; idx++ {
+		go func(id int) {
+			defer wg.Done()
+			dctx, cancel := context.WithTimeout(ctx, time.Duration(1000*time.Millisecond))
+			defer cancel()
+
+			for dctx.Err() == nil {
+
+				body := fmt.Sprintf(`{"sleepTime": 5, "echoContent":"%s"}`, echoContent)
+				req, err := http.NewRequest("GET", url, strings.NewReader(body))
+				if err != nil {
+					t.Fatalf("unexpected error building request %v", err)
+				}
+				req = req.WithContext(ctx)
+
+				var out bytes.Buffer
+				callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&out))
+				if err != nil {
+					t.Fatalf("unexpected error building call %v", err)
+				}
+
+				callI.Model().Config["ENABLE_FAIL_IF_FN_SPAWN_CALL_ID_NONMATCH"] = uniqId
+				callI.Model().Config["ENABLE_FAIL_IF_FN_SPAWN_CALL_ID_NONMATCH_MSEC"] = "100"
+
+				err = a.Submit(callI)
+				if err != nil {
+					t.Fatalf("submit should not error %v", err)
+				}
+
+				res, err := http.ReadResponse(bufio.NewReader(&out), nil)
+				if err != nil {
+					t.Fatalf("read resp should not error %v", err)
+				}
+
+				checkBody(res)
+			}
+		}(idx)
+	}
+
+	wg.Wait()
 }
