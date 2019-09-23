@@ -335,6 +335,29 @@ func main() {
 		os.Exit(int(exitCode))
 	}
 
+	if spawn_match := os.Getenv("ENABLE_FAIL_IF_FN_SPAWN_CALL_ID_NONMATCH"); spawn_match != "" {
+		if spawn_id := os.Getenv("FN_SPAWN_CALL_ID"); spawn_id != "" {
+
+			// Non-match case, we need to crash/exit
+			if spawn_match != spawn_id {
+
+				sleeper := os.Getenv("ENABLE_FAIL_IF_FN_SPAWN_CALL_ID_NONMATCH_MSEC")
+
+				log.Printf("Container start spawn id non-match our_id(%v) != spawner_id(%v) sleep %v", spawn_id, spawn_match, sleeper)
+
+				// Do we need some sleep?
+				if sleeper != "" {
+					delay, err := strconv.ParseInt(sleeper, 10, 64)
+					if err != nil {
+						log.Fatalf("cannot parse ENABLE_FAIL_IF_FN_SPAWN_CALL_ID_NONMATCH_MSEC %v", err)
+					}
+					time.Sleep(time.Millisecond * time.Duration(delay))
+				}
+				os.Exit(int(-1))
+			}
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	GlobCancel = cancel
 	fdk.HandleContext(ctx, fdk.HandlerFunc(AppHandler)) // XXX(reed): can extract & instrument

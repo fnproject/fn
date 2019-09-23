@@ -44,6 +44,7 @@ type slotToken struct {
 }
 
 type slotCaller struct {
+	id     string
 	notify chan error      // notification to caller
 	done   <-chan struct{} // caller done
 }
