@@ -40,7 +40,7 @@ The command line tool isn't required, but it makes things a lot easier. There ar
 If you're on a Mac and use [Homebrew](https://brew.sh/):
 
 ```sh
-brew install fn
+brew update && brew install fn
 ```
 
 #### Option 2. Shell script - Linux and macOS
