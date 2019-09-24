@@ -370,7 +370,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 
 		caller.id = call.ID
 		caller.done = ctx.Done()
-		caller.notify = make(chan error)
+		caller.notify = make(chan error, 1)
 	}
 
 	// update registry token of the slot queue
@@ -536,6 +536,10 @@ func (a *agent) waitHot(ctx context.Context, call *call, caller *slotCaller) (Sl
 	for {
 		select {
 		case err := <-caller.notify:
+			// log everything except for 503
+			if err != nil && err != models.ErrCallTimeoutServerBusy {
+				common.Logger(ctx).WithError(err).Info("container wait error, sending error to client")
+			}
 			return nil, err
 		case s := <-ch:
 			if call.slots.acquireSlot(s) {
@@ -753,14 +757,10 @@ func newSizerRespWriter(max uint64, rw http.ResponseWriter) http.ResponseWriter 
 
 func (s *sizerRespWriter) Write(b []byte) (int, error) { return s.w.Write(b) }
 
-// If a client is waiting/listening for this container to initialize, then transmit the error to client
-func notifyCaller(ctx context.Context, err error, caller slotCaller) {
-	select {
-	case caller.notify <- err:
-		common.Logger(ctx).WithError(err).Info("hot function failure, error sent to client")
-	default:
-		common.Logger(ctx).WithError(err).Info("hot function failure, error suppressed")
-	}
+// Attempt to queue/transmit the error to client
+func runHotFailure(ctx context.Context, err error, caller slotCaller) {
+	common.Logger(ctx).WithError(err).Info("hot function failure")
+	tryNotify(caller.notify, err)
 }
 
 func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok ResourceToken, state ContainerState) {
@@ -792,7 +792,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		select {
 		case <-initialized:
 		default:
-			notifyCaller(ctx, models.ErrContainerInitFail, caller)
+			runHotFailure(ctx, models.ErrContainerInitFail, caller)
 		}
 
 		// shutdown the container and related I/O operations and go routines
@@ -825,7 +825,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			select {
 			case err := <-udsWait:
 				if err != nil {
-					notifyCaller(ctx, err, caller)
+					runHotFailure(ctx, err, caller)
 					cancel()
 				} else {
 					close(initialized)
@@ -853,7 +853,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 
 	cookie, err = a.driver.CreateCookie(ctx, container)
 	if err != nil {
-		notifyCaller(ctx, err, caller)
+		runHotFailure(ctx, err, caller)
 		return
 	}
 
@@ -878,20 +878,20 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 		atomic.StoreInt64(&call.imagePullWaitTime, int64(time.Since(waitStart)))
 	}
 	if err != nil {
-		notifyCaller(ctx, err, caller)
+		runHotFailure(ctx, err, caller)
 		return
 	}
 
 	ctrCreateStart := time.Now()
 	err = cookie.CreateContainer(ctx)
 	if err != nil {
-		notifyCaller(ctx, err, caller)
+		runHotFailure(ctx, err, caller)
 		return
 	}
 
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
-		notifyCaller(ctx, err, caller)
+		runHotFailure(ctx, err, caller)
 		return
 	}
 	atomic.StoreInt64(&call.ctrCreateTime, int64(time.Since(ctrCreateStart)))
@@ -931,7 +931,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 			timeoutTime := time.Now()
 			statsContainerUDSInitLatency(ctx, initStart, timeoutTime, "timedout")
 			atomic.StoreInt64(&call.initStartTime, int64(timeoutTime.Sub(initStart)))
-			notifyCaller(ctx, models.ErrContainerInitTimeout, caller)
+			runHotFailure(ctx, models.ErrContainerInitTimeout, caller)
 			return
 		}
 
