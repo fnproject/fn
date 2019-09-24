@@ -576,7 +576,7 @@ func (s *hotSlot) SetError(err error) {
 }
 
 func (s *hotSlot) Close() {
-	close(s.done)
+	s.SetError(nil)
 }
 
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
