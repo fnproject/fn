@@ -43,16 +43,17 @@ type ResourceUtilization struct {
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: disk, network IO for future
 type ResourceTracker interface {
-	// GetResourceToken returns a channel to wait for a resource token on. If the provided context is canceled,
-	// the channel will never receive anything. If it is not possible to fulfill this resource, the channel
-	// will never receive anything (use IsResourcePossible). If a resource token is available for the provided
-	// resource parameters, it will otherwise be sent once on the returned channel. The channel is never closed.
-	// if isNB is set, resource check is done and error token is returned without blocking.
+	// GetResourceToken returns a resource token.
 	// Memory is expected to be provided in MB units.
-	GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isNB bool) <-chan ResourceToken
+	GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) ResourceToken
 
-	// IsResourcePossible returns whether it's possible to fulfill the requested resources on this
-	// machine. It must be called before GetResourceToken or GetResourceToken may hang.
+	// GetResourceTokenNB is the non-blocking equivalent of GetResourceToken. The return value is the
+	// resource token itself. If the request cannot be satisfied, a token with CapacityFull error set is
+	// returned.
+	// Memory is expected to be provided in MB units.
+	GetResourceTokenNB(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) ResourceToken
+
+	// IsResourcePossible returns whether it's possible to fulfill the requested resources on this machine.
 	// Memory is expected to be provided in MB units.
 	IsResourcePossible(memory uint64, cpuQuota models.MilliCPUs) bool
 
@@ -165,7 +166,11 @@ func (a *resourceTracker) allocResourcesLocked(memory uint64, cpuQuota models.Mi
 	}}
 }
 
-func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.MilliCPUs) ResourceToken {
+func (a *resourceTracker) GetResourceTokenNB(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) ResourceToken {
+
+	ctx, span := trace.StartSpan(ctx, "agent_get_resource_token_nb")
+	defer span.End()
+
 	if !a.IsResourcePossible(memory, cpuQuota) {
 		return &resourceToken{err: CapacityFull, needCpu: cpuQuota, needMem: memory}
 	}
@@ -189,6 +194,7 @@ func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.Mill
 		if availCPU < uint64(cpuQuota) {
 			needCpu = models.MilliCPUs(uint64(cpuQuota) - availCPU)
 		}
+
 		t = &resourceToken{err: CapacityFull, needCpu: needCpu, needMem: needMem}
 	}
 
@@ -196,37 +202,15 @@ func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota models.Mill
 	return t
 }
 
-func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) <-chan ResourceToken {
-	ctx, span := trace.StartSpan(ctx, "agent_get_resource_token_nbio_chan")
+func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs) ResourceToken {
 
-	ch := make(chan ResourceToken)
-	go func() {
-		defer span.End()
-		t := a.getResourceTokenNB(memory, cpuQuota)
+	ctx, span := trace.StartSpan(ctx, "agent_get_resource_token")
+	defer span.End()
 
-		select {
-		case ch <- t:
-		case <-ctx.Done():
-			// if we can't send b/c nobody is waiting anymore, need to decrement here
-			t.Close()
-		}
-	}()
+	var t ResourceToken
 
-	return ch
-}
-
-// the received token should be passed directly to launch (unconditionally), launch
-// will close this token (i.e. the receiver should not call Close)
-func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota models.MilliCPUs, isNB bool) <-chan ResourceToken {
-	if isNB {
-		return a.getResourceTokenNBChan(ctx, memory, cpuQuota)
-	}
-
-	ch := make(chan ResourceToken)
-
-	if !a.IsResourcePossible(memory, cpuQuota) {
-		// return the channel, but never send anything.
-		return ch
+	if !a.IsResourcePossible(memory, cpuQuota) || ctx.Err() != nil {
+		return t
 	}
 
 	c := a.cond
@@ -237,6 +221,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	// if we find a resource token, shut down the thread waiting on ctx finish.
 	// alternatively, if the ctx is done, wake up the cond loop.
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	go func() {
 		<-ctx.Done()
@@ -247,35 +232,20 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		c.L.Unlock()
 	}()
 
-	ctx, span := trace.StartSpan(ctx, "agent_get_resource_token")
-	go func() {
-		defer span.End()
-		defer cancel()
-		c.L.Lock()
+	c.L.Lock()
 
-		isWaiting = true
-		for !a.isResourceAvailableLocked(memory, cpuQuota) && ctx.Err() == nil {
-			c.Wait()
-		}
-		isWaiting = false
+	isWaiting = true
+	for !a.isResourceAvailableLocked(memory, cpuQuota) && ctx.Err() == nil {
+		c.Wait()
+	}
+	isWaiting = false
 
-		if ctx.Err() != nil {
-			c.L.Unlock()
-			return
-		}
+	if ctx.Err() == nil {
+		t = a.allocResourcesLocked(memory, cpuQuota)
+	}
 
-		t := a.allocResourcesLocked(memory, cpuQuota)
-		c.L.Unlock()
-
-		select {
-		case ch <- t:
-		case <-ctx.Done():
-			// if we can't send b/c nobody is waiting anymore, need to decrement here
-			t.Close()
-		}
-	}()
-
-	return ch
+	c.L.Unlock()
+	return t
 }
 
 func minUint64(a, b uint64) uint64 {
