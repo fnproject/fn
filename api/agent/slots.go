@@ -20,8 +20,8 @@ import (
 
 type Slot interface {
 	exec(ctx context.Context, call *call) error
-	Close() error
-	Error() error
+	SetError(err error)
+	Close()
 }
 
 // slotQueueMgr manages hot container slotQueues
@@ -44,6 +44,7 @@ type slotToken struct {
 }
 
 type slotCaller struct {
+	id     string
 	notify chan error      // notification to caller
 	done   <-chan struct{} // caller done
 }

@@ -22,17 +22,18 @@ func (a *testSlot) exec(ctx context.Context, call *call) error {
 	return nil
 }
 
-func (a *testSlot) Close() error {
+func (a *testSlot) SetError(err error) {
+	a.err = err
+}
+
+func (a *testSlot) Close() {
 	if a.isClosed {
 		panic(fmt.Errorf("id=%d already closed %v", a.id, a))
 	}
 	a.isClosed = true
-	return nil
 }
 
-func (a *testSlot) Error() error {
-	return a.err
-}
+var _ Slot = &testSlot{}
 
 func NewTestSlot(id uint64) Slot {
 	mySlot := &testSlot{
