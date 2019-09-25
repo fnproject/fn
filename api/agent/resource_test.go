@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 )
@@ -55,26 +54,6 @@ func (vals *trackerVals) setDefaults() {
 	vals.cam = 6000
 }
 
-func fetchToken(ch <-chan ResourceToken) (ResourceToken, error) {
-	select {
-	case tok := <-ch:
-		return tok, nil
-	case <-time.After(time.Duration(500) * time.Millisecond):
-		return nil, errors.New("expected token")
-	}
-}
-
-func isClosed(ch <-chan ResourceToken) bool {
-	select {
-	case _, ok := <-ch:
-		if !ok {
-			return true
-		}
-	default:
-	}
-	return false
-}
-
 func TestResourceGetSimple(t *testing.T) {
 
 	var vals trackerVals
@@ -90,12 +69,11 @@ func TestResourceGetSimple(t *testing.T) {
 	setTrackerTestVals(tr, &vals)
 
 	// ask for 4GB and 10 CPU
-	ctx, cancel := context.WithCancel(context.Background())
-	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(500)*time.Millisecond)
+	tok := trI.GetResourceToken(ctx, 4*1024, 1000)
 	defer cancel()
 
-	_, err := fetchToken(ch)
-	if err == nil {
+	if tok != nil {
 		t.Fatalf("full system should not hand out token")
 	}
 
@@ -103,27 +81,30 @@ func TestResourceGetSimple(t *testing.T) {
 	vals.setDefaults()
 	setTrackerTestVals(tr, &vals)
 
-	tok, err := fetchToken(ch)
-	if err != nil {
-		t.Fatalf("empty system should hand out token")
+	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(500)*time.Millisecond)
+	tok = trI.GetResourceToken(ctx, 4*1024, 1000)
+	defer cancel()
+	if tok == nil {
+		t.Fatalf("full system should hand out token")
 	}
 
 	// ask for another 4GB and 10 CPU
-	ctx, cancel = context.WithCancel(context.Background())
-	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(500)*time.Millisecond)
+	tok1 := trI.GetResourceToken(ctx, 4*1024, 1000)
 	defer cancel()
 
-	_, err = fetchToken(ch)
-	if err == nil {
+	if tok1 != nil {
 		t.Fatalf("full system should not hand out token")
 	}
 
 	// close means, giant token resources released
 	tok.Close()
 
-	tok, err = fetchToken(ch)
-	if err != nil {
-		t.Fatalf("empty system should hand out token")
+	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(500)*time.Millisecond)
+	tok = trI.GetResourceToken(ctx, 4*1024, 1000)
+	defer cancel()
+	if tok == nil {
+		t.Fatalf("full system should hand out token")
 	}
 
 	tok.Close()
@@ -154,10 +135,9 @@ func TestResourceGetSimpleNB(t *testing.T) {
 
 	// ask for 4GB and 10 CPU
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := trI.GetResourceToken(ctx, 4*1024, 1000, true)
+	tok := trI.GetResourceTokenNB(ctx, 4*1024, 1000)
 	defer cancel()
 
-	tok := <-ch
 	if tok.Error() == nil {
 		t.Fatalf("full system should not hand out token")
 	}
@@ -166,17 +146,16 @@ func TestResourceGetSimpleNB(t *testing.T) {
 	vals.setDefaults()
 	setTrackerTestVals(tr, &vals)
 
-	tok1 := <-trI.GetResourceToken(ctx, 4*1024, 1000, true)
+	tok1 := trI.GetResourceTokenNB(ctx, 4*1024, 1000)
 	if tok1.Error() != nil {
 		t.Fatalf("empty system should hand out token")
 	}
 
 	// ask for another 4GB and 10 CPU
 	ctx, cancel = context.WithCancel(context.Background())
-	ch = trI.GetResourceToken(ctx, 4*1024, 1000, true)
+	tok = trI.GetResourceTokenNB(ctx, 4*1024, 1000)
 	defer cancel()
 
-	tok = <-ch
 	if tok.Error() == nil {
 		t.Fatalf("full system should not hand out token")
 	}
@@ -184,7 +163,7 @@ func TestResourceGetSimpleNB(t *testing.T) {
 	// close means, giant token resources released
 	tok1.Close()
 
-	tok = <-trI.GetResourceToken(ctx, 4*1024, 1000, true)
+	tok = trI.GetResourceTokenNB(ctx, 4*1024, 1000)
 	if tok.Error() != nil {
 		t.Fatalf("empty system should hand out token")
 	}

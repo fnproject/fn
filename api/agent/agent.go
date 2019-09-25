@@ -405,18 +405,27 @@ func (a *agent) hotLauncher(ctx context.Context, call *call, caller *slotCaller)
 
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = common.BackgroundContext(ctx)
+	var cancel func()
+	ctx, cancel = context.WithCancel(common.BackgroundContext(ctx))
+	defer cancel()
+
 	ctx, span := trace.StartSpan(ctx, "agent_hot_launcher")
 	defer span.End()
+
+	// trigger ctx cancel if server shutdown
+	go func() {
+		defer cancel()
+		select {
+		case <-a.shutWg.Closer(): // server shutdown
+		case <-ctx.Done():
+		}
+	}()
 
 	for {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		a.checkLaunch(ctx, call, *caller)
 
 		select {
-		case <-a.shutWg.Closer(): // server shutdown
-			cancel()
-			return
 		case <-ctx.Done(): // timed out
 			cancel()
 			if a.slotMgr.deleteSlotQueue(call.slots) {
@@ -440,10 +449,13 @@ func tryNotify(notifyChan chan error, err error) {
 
 func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) {
 	curStats := call.slots.getStats()
-	isNB := a.cfg.EnableNBResourceTracker
+	isBlocking := !a.cfg.EnableNBResourceTracker
 	if !isNewContainerNeeded(&curStats) {
 		return
 	}
+
+	// IMPORTANT: we are here because: isNewContainerNeeded is true,
+	// in other words, we need to launch a new container at this time due to high load.
 
 	state := NewContainerState()
 	state.UpdateState(ctx, ContainerStateWait, call)
@@ -453,40 +465,16 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 	var notifyChans []chan struct{}
 	var tok ResourceToken
 
-	timer := common.NewTimer(a.cfg.HotPoll)
-	defer timer.Stop()
-
-	// WARNING: Tricky flow below. We are here because: isNewContainerNeeded is true,
-	// in other words, we need to launch a new container at this time due to high load.
-	//
-	// For non-blocking mode, this means, if we cannot acquire resources (cpu+mem), then we need
-	// to notify the caller through notifyChan. This is not perfect as the callers and
-	// checkLaunch do not match 1-1. But this is OK, we can notify *any* waiter that
-	// has signalled us, this is because non-blocking mode is a system wide setting.
-	// The notifications are lossy, but callers will signal/poll again if this is the case
-	// or this may not matter if they've already acquired an empty slot.
-	//
-	// For Non-blocking mode, a.cfg.HotPoll should not be set to too high since a missed
-	// notify event from here will add a.cfg.HotPoll msec latency. Setting a.cfg.HotPoll may
-	// be an acceptable workaround for the short term since non-blocking mode likely to reduce
-	// the number of waiters which perhaps could compensate for more frequent polling.
-	//
-	// Non-blocking mode only applies to cpu+mem, and if isNewContainerNeeded decided that we do not
-	// need to start a new container, then waiters will wait.
-	select {
-	case tok = <-a.resources.GetResourceToken(ctx, mem, call.CPUs, isNB):
-	case <-timer.C:
-		// Request routines are polling us with this a.cfg.HotPoll frequency. We can use this
-		// same timer to assume that we waited for cpu/mem long enough. Let's try to evict an
-		// idle container. We do this by submitting a non-blocking request and evicting required
-		// amount of resources.
-		select {
-		case tok = <-a.resources.GetResourceToken(ctx, mem, call.CPUs, true):
-		case <-ctx.Done(): // timeout
-		case <-a.shutWg.Closer(): // server shutdown
-		}
-	case <-ctx.Done(): // timeout
-	case <-a.shutWg.Closer(): // server shutdown
+	// For blocking-mode, we wait on a channel for CPU/MEM for cfg.HotPoll duration.
+	// If the request is not satisfied during this wait, we perform a non-blocking
+	// GetResourceToken()) in an attempt to determine how much mem/cpu we need to evict.
+	if isBlocking {
+		ctx, cancel := context.WithTimeout(ctx, a.cfg.HotPoll)
+		tok = a.resources.GetResourceToken(ctx, mem, call.CPUs)
+		cancel()
+	}
+	if tok == nil {
+		tok = a.resources.GetResourceTokenNB(ctx, mem, call.CPUs)
 	}
 
 	if tok != nil {
@@ -497,7 +485,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 				needMem, needCpu := tok.NeededCapacity()
 				notifyChans = a.evictor.PerformEviction(call.slotHashId, needMem, uint64(needCpu))
 				// For Non-blocking mode, if there's nothing to evict, we emit 503.
-				if len(notifyChans) == 0 && isNB {
+				if len(notifyChans) == 0 && !isBlocking {
 					tryNotify(caller.notify, models.ErrCallTimeoutServerBusy)
 				}
 			}
@@ -523,8 +511,6 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, caller slotCaller) 
 		select {
 		case <-wait:
 		case <-ctx.Done(): // timeout
-			return
-		case <-a.shutWg.Closer(): // server shutdown
 			return
 		}
 	}
