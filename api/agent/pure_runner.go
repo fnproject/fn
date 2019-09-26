@@ -972,6 +972,7 @@ func PureRunnerWithDetached() PureRunnerOption {
 func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunnerOption) (Agent, error) {
 
 	pr := &pureRunner{}
+	pr.status = NewStatusTracker()
 
 	for _, option := range options {
 		err := option(pr)
@@ -983,7 +984,7 @@ func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunner
 	if pr.a == nil {
 		logrus.Fatal("agent not provided in pure runner options")
 	}
-	pr.status = NewStatusTracker(pr.a)
+	pr.status.setAgent(pr.a)
 
 	pr.gRPCOptions = append(pr.gRPCOptions, grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor))
 	pr.gRPCOptions = append(pr.gRPCOptions, grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor))

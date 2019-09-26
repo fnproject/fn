@@ -35,7 +35,7 @@ func TestRunnerStatus_InvokesCustomFunction(t *testing.T) {
 		"fake-status-k": "fake-status-v",
 	}
 	agent := new(MockAgent)
-	ut := NewStatusTracker(agent)
+	ut := NewStatusTrackerWithAgent(agent)
 	ut.customHealthCheckerFunc = func(_ context.Context) (map[string]string, error) {
 		return customReturnStatus, nil
 	}
@@ -50,7 +50,7 @@ func TestRunnerStatus_InvokesCustomFunction(t *testing.T) {
 func TestRunnerStatus_ReturnsDefaultStatus(t *testing.T) {
 
 	agent := new(MockAgent)
-	ut := NewStatusTracker(agent)
+	ut := NewStatusTrackerWithAgent(agent)
 
 	// Set up some fake stats
 	atomic.AddUint64(&ut.requestsReceived, 100)
@@ -74,7 +74,7 @@ func TestRunnerStatus_CallsStatusImage(t *testing.T) {
 
 	const statusImageName = "fake-image-name"
 	agent := new(MockAgent)
-	ut := NewStatusTracker(agent)
+	ut := NewStatusTrackerWithAgent(agent)
 
 	// Setup expectations
 	submitMatcher := func(c Call) bool {
@@ -96,7 +96,7 @@ func TestRunnerStatus_InvokesCustomFuncAndCallsStatusImage(t *testing.T) {
 
 	const statusImageName = "fake-image-name"
 	agent := new(MockAgent)
-	ut := NewStatusTracker(agent)
+	ut := NewStatusTrackerWithAgent(agent)
 
 	// Setup expectations
 	submitMatcher := func(c Call) bool {
@@ -123,7 +123,7 @@ func TestRunnerStatus_NoStatusImageCallWhenCheckerFails(t *testing.T) {
 
 	const statusImageName = "fake-image-name"
 	agent := new(MockAgent)
-	ut := NewStatusTracker(agent)
+	ut := NewStatusTrackerWithAgent(agent)
 
 	called := false
 	// Setup tracker and request status

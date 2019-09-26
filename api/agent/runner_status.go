@@ -42,10 +42,18 @@ type statusTracker struct {
 	wait   chan struct{}
 }
 
-func NewStatusTracker(a Agent) *statusTracker {
+func NewStatusTracker() *statusTracker {
+	return &statusTracker{}
+}
+
+func NewStatusTrackerWithAgent(a Agent) *statusTracker {
 	st := &statusTracker{}
 	st.agent = a
 	return st
+}
+
+func (st *statusTracker) setAgent(a Agent) {
+	st.agent = a
 }
 
 func (st *statusTracker) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
@@ -132,6 +140,9 @@ func (st *statusTracker) runStatusCall(ctx context.Context) *runner.RunnerStatus
 		result.CustomStatus, err = st.customHealthCheckerFunc(ctx)
 	}
 
+	// TODO: Raise en error if don't have an agent
+	//       Possible if constructed without agent and
+	//       callers forgot to set one
 	var agentCall Call
 	var mcall *call
 	if err == nil {
