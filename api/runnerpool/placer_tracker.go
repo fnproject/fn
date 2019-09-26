@@ -121,7 +121,7 @@ func (tr *placerTracker) RetryAllBackoff(numOfRunners int, err error) bool {
 		// See: runner_fninvoke.handleFnInvokeCall2
 		if models.IsFuncError(err) {
 			// We also sanity check for a 502 before returning.
-			w, ok := err.(models.APIErrorWrapper)
+			w, ok := err.(models.APIError)
 			if ok {
 				if 502 == w.Code() {
 					return false
