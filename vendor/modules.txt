@@ -138,7 +138,10 @@ github.com/prometheus/procfs/internal/util
 # github.com/sirupsen/logrus v1.3.0
 github.com/sirupsen/logrus
 github.com/sirupsen/logrus/hooks/syslog
+# github.com/stretchr/objx v0.1.1
+github.com/stretchr/objx
 # github.com/stretchr/testify v1.3.0
+github.com/stretchr/testify/mock
 github.com/stretchr/testify/assert
 # github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f
 github.com/ugorji/go/codec
