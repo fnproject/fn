@@ -194,7 +194,7 @@ func (st *statusTracker) runStatusCall(ctx context.Context) *runner.RunnerStatus
 	// Status images should not output excessive data since we echo the
 	// data back to caller.
 	body, _ := ioutil.ReadAll(resp.Body)
-	_ := resp.Body.Close()
+	resp.Body.Close()
 
 	result.Details = string(body)
 	result.Id = c.ID
