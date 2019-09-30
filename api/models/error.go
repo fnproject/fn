@@ -217,6 +217,10 @@ var (
 		code:  http.StatusInternalServerError,
 		error: errors.New("Syslog Unavailable"),
 	}
+	ErrRequestLimitExceeded = ferr{
+		code:  http.StatusTooManyRequests,
+		error: errors.New("Request capacity for user exceeded"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response
