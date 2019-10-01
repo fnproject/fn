@@ -21,6 +21,7 @@ import (
 	"github.com/fnproject/fn/fnext"
 	"github.com/fnproject/fn/grpcutil"
 	"github.com/golang/protobuf/ptypes/empty"
+	pbst "github.com/golang/protobuf/ptypes/struct"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/plugin/ocgrpc"
 	"google.golang.org/grpc"
@@ -812,6 +813,12 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 // implements RunnerProtocolServer
 func (pr *pureRunner) Status(ctx context.Context, e *empty.Empty) (*runner.RunnerStatus, error) {
 	return pr.status.Status(ctx, e)
+}
+
+// implements RunnerProtocolServer
+func (pr *pureRunner) Status2(ctx context.Context, r *pbst.Struct) (*runner.RunnerStatus, error) {
+	//return pr.status.Status(ctx, e)
+	return pr.status.Status2(ctx, r)
 }
 
 // implements RunnerProtocolServer

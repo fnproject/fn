@@ -1,12 +1,16 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	runner "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/empty"
+	pbst "github.com/golang/protobuf/ptypes/struct"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+const v1StatusRequest = "{}"
 
 // statusTracker maintains cache data/state/locks for Status Call invocations.
 type statusTracker struct {
@@ -57,6 +63,22 @@ func (st *statusTracker) setAgent(a Agent) {
 }
 
 func (st *statusTracker) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
+	return st.statusV2(ctx, json.RawMessage(v1StatusRequest))
+}
+
+func (st *statusTracker) Status2(ctx context.Context, r *pbst.Struct) (*runner.RunnerStatus, error) {
+
+	b := bytes.Buffer{}
+	m := &jsonpb.Marshaler{}
+	err := m.Marshal(&b, r)
+	if err != nil {
+		common.Logger(ctx).WithError(err).Warnf("status call: failed to marshal request %v", err)
+		return nil, err
+	}
+	return st.statusV2(ctx, b.Bytes())
+}
+
+func (st *statusTracker) statusV2(ctx context.Context, req json.RawMessage) (*runner.RunnerStatus, error) {
 	// Status using image name is disabled. We return inflight request count only
 	if st.imageName == "" {
 		return &runner.RunnerStatus{
@@ -65,7 +87,7 @@ func (st *statusTracker) Status(ctx context.Context, _ *empty.Empty) (*runner.Ru
 			RequestsHandled:  atomic.LoadUint64(&st.requestsHandled),
 		}, nil
 	}
-	status, err := st.handleStatusCall(ctx)
+	status, err := st.handleStatusCall(ctx, req)
 	if err != nil && err != context.Canceled {
 		common.Logger(ctx).WithError(err).Warnf("Status call failed result=%+v", status)
 	}
@@ -85,7 +107,7 @@ func (st *statusTracker) Status(ctx context.Context, _ *empty.Empty) (*runner.Ru
 }
 
 // Handles a status call concurrency and caching.
-func (st *statusTracker) handleStatusCall(ctx context.Context) (*runner.RunnerStatus, error) {
+func (st *statusTracker) handleStatusCall(ctx context.Context, req json.RawMessage) (*runner.RunnerStatus, error) {
 
 	waitChan, isSpawner := st.checkStatusCall(ctx)
 
@@ -95,7 +117,7 @@ func (st *statusTracker) handleStatusCall(ctx context.Context) (*runner.RunnerSt
 	}
 
 	if isSpawner {
-		st.spawnStatusCall(ctx)
+		st.spawnStatusCall(ctx, req)
 	}
 
 	select {
@@ -107,7 +129,7 @@ func (st *statusTracker) handleStatusCall(ctx context.Context) (*runner.RunnerSt
 }
 
 // Runs a status call using status image with baked in parameters.
-func (st *statusTracker) runStatusCall(ctx context.Context) *runner.RunnerStatus {
+func (st *statusTracker) runStatusCall(ctx context.Context, req json.RawMessage) *runner.RunnerStatus {
 	// IMPORTANT: apply an upper bound timeout
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, StatusCtxTimeout)
@@ -118,7 +140,7 @@ func (st *statusTracker) runStatusCall(ctx context.Context) *runner.RunnerStatus
 
 	// construct call
 
-	c := st.newStatusCall()
+	c := st.newStatusCall(req)
 	// TODO: reliably shutdown this container after executing one request.
 
 	log.Debugf("Running status call with id=%v image=%v", c.ID, c.Image)
@@ -214,12 +236,12 @@ func (st *statusTracker) runStatusCall(ctx context.Context) *runner.RunnerStatus
 	return result
 }
 
-func (st *statusTracker) spawnStatusCall(ctx context.Context) {
+func (st *statusTracker) spawnStatusCall(ctx context.Context, payload json.RawMessage) {
 	go func() {
 		var waitChan chan struct{}
 		// IMPORTANT: We have to strip client timeouts to make sure this completes
 		// in the background even if client cancels/times out.
-		cachePtr := st.runStatusCall(common.BackgroundContext(ctx))
+		cachePtr := st.runStatusCall(common.BackgroundContext(ctx), payload)
 		now := time.Now()
 
 		// Pointer store of 'cachePtr' is sufficient here as isWaiter/isCached above perform a shallow
@@ -287,7 +309,7 @@ func (st *statusTracker) checkStatusCall(ctx context.Context) (chan struct{}, bo
 	return st.wait, true
 }
 
-func (st *statusTracker) newStatusCall() models.Call {
+func (st *statusTracker) newStatusCall(payload json.RawMessage) models.Call {
 
 	var c models.Call
 
@@ -304,7 +326,7 @@ func (st *statusTracker) newStatusCall() models.Call {
 	c.Method = "GET"
 	c.CreatedAt = common.DateTime(time.Now())
 	c.Config = make(models.Config)
-	c.Payload = "{}"
+	c.Payload = string(payload)
 	c.Timeout = StatusCallTimeout
 	c.IdleTimeout = StatusCallIdleTimeout
 

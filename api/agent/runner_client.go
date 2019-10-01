@@ -24,7 +24,7 @@ import (
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/grpcutil"
 
-	pb_empty "github.com/golang/protobuf/ptypes/empty"
+	pbst "github.com/golang/protobuf/ptypes/struct"
 	"github.com/sirupsen/logrus"
 )
 
@@ -164,7 +164,8 @@ func (r *gRPCRunner) Status(ctx context.Context) (*pool.RunnerStatus, error) {
 		ctx = metadata.NewOutgoingContext(ctx, mp)
 	}
 
-	status, err := r.client.Status(ctx, &pb_empty.Empty{})
+	//status, err := r.client.Status(ctx, &pb_empty.Empty{})
+	status, err := r.client.Status2(ctx, &pbst.Struct{})
 	log.WithError(err).Debugf("Status Call %+v", status)
 	return TranslateGRPCStatusToRunnerStatus(status), err
 }
