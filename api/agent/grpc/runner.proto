@@ -77,7 +77,7 @@ message RunnerStatus {
     int32 active = 2;  // Number of currently inflight responses
     bool failed = 3; // if status was successful or not
     string id = 4; // call id if status image was used
-    string details = 5; // details for logging/debug
+    string details = 5; // response from status image
     int32 errorCode = 6; // error code if not successful
     string errorStr = 7; // error description if not successful
     string createdAt = 8; // call latency details: initialization time
@@ -95,7 +95,6 @@ message RunnerStatus {
     int64 ctrPrepDuration = 20;
     int64 ctrCreateDuration = 21;
     int64 initStartTime = 22;
-    google.protobuf.Struct statusImageResponse = 23; // Response received from status container
 }
 
 message ConfigMsg {
