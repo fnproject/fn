@@ -817,7 +817,6 @@ func (pr *pureRunner) Status(ctx context.Context, e *empty.Empty) (*runner.Runne
 
 // implements RunnerProtocolServer
 func (pr *pureRunner) Status2(ctx context.Context, r *pbst.Struct) (*runner.RunnerStatus, error) {
-	//return pr.status.Status(ctx, e)
 	return pr.status.Status2(ctx, r)
 }
 
