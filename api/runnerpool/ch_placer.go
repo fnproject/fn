@@ -55,7 +55,7 @@ func (p *chPlacer) PlaceCall(ctx context.Context, rp RunnerPool, call RunnerCall
 			i = (i + 1) % len(runners)
 		}
 
-		if !state.RetryAllBackoff(len(runners)) {
+		if !state.RetryAllBackoff(len(runners), runnerPoolErr) {
 			break
 		}
 	}
