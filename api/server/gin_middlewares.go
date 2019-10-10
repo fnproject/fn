@@ -21,10 +21,11 @@ import (
 )
 
 var (
-	pathKey     = common.MakeKey("path")
-	methodKey   = common.MakeKey("method")
-	statusKey   = common.MakeKey("status")
-	whodunitKey = common.MakeKey("blame")
+	pathKey         = common.MakeKey("path")
+	methodKey       = common.MakeKey("method")
+	statusKey       = common.MakeKey("status")
+	whodunitKey     = common.MakeKey("blame")
+	fnFdkVersionKey = common.MakeKey("fn_fdk_version")
 
 	apiRequestCountMeasure  = common.MakeMeasure("api/request_count", "Count of API requests started", stats.UnitDimensionless)
 	apiResponseCountMeasure = common.MakeMeasure("api/response_count", "API response count", stats.UnitDimensionless)
@@ -100,11 +101,11 @@ func RegisterAPIViews(tagKeys []string, dist []float64) {
 
 	// default tags for request and response
 	reqTags := []tag.Key{pathKey, methodKey}
-	respTags := []tag.Key{pathKey, methodKey, statusKey, whodunitKey}
+	respTags := []tag.Key{pathKey, methodKey, statusKey, whodunitKey, fnFdkVersionKey}
 
 	// add extra tags if not already in default tags for req/resp
 	for _, key := range tagKeys {
-		if key != pathKey.Name() && key != methodKey.Name() && key != statusKey.Name() && key != whodunitKey.Name() {
+		if key != pathKey.Name() && key != methodKey.Name() && key != statusKey.Name() && key != whodunitKey.Name() && key != fnFdkVersionKey.Name() {
 			respTags = append(respTags, common.MakeKey(key))
 		}
 		if key != pathKey.Name() && key != methodKey.Name() {
@@ -158,6 +159,7 @@ func apiMetricsWrap(s *Server) {
 				tag.Upsert(methodKey, c.Request.Method),
 				tag.Upsert(statusKey, status),
 				tag.Insert(whodunitKey, "service"), // only insert this if it doesn't exist
+				tag.Upsert(fnFdkVersionKey, c.Writer.Header().Get("Fn-Fdk-Version")),
 			)
 			if err != nil {
 				logrus.Fatal(err)
