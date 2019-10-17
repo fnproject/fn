@@ -602,12 +602,18 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	call.req = call.req.WithContext(ctx) // TODO this is funny biz reed is bad
 	err := s.container.BeforeCall(ctx, call.Model(), call.Extensions())
 	if err != nil {
+		// container cannot continue if before call fails
+		s.SetError(err)
 		return err
 	}
 	err = s.dispatch(ctx, call)
 	err2 := s.container.AfterCall(ctx, call.Model(), call.Extensions())
 	if err == nil {
 		err = err2
+	}
+	if err2 != nil {
+		// regardless of dispatch errors, container cannot continue if after call fails
+		s.SetError(err2)
 	}
 	return err
 }

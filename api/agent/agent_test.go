@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,12 +21,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/agent/drivers"
 	_ "github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func init() {
@@ -1561,4 +1564,250 @@ func TestSlotErrorRetention(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+// Custom driver
+type customDriver struct {
+	drv drivers.Driver
+
+	isClosed bool
+	isBefore bool
+	isAfter  bool
+
+	beforeFn drivers.BeforeCall
+	afterFn  drivers.AfterCall
+	closeFn  func()
+}
+
+// implements Driver
+func (d *customDriver) CreateCookie(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
+	cookie, err := d.drv.CreateCookie(ctx, task)
+	if err != nil {
+		return cookie, err
+	}
+
+	task.WrapClose(func(closer func()) func() {
+		return func() {
+			closer()
+			d.isClosed = true
+			if d.closeFn != nil {
+				d.closeFn()
+			}
+		}
+	})
+
+	task.WrapBeforeCall(func(before drivers.BeforeCall) drivers.BeforeCall {
+		return func(ctx context.Context, call *models.Call, extn drivers.CallExtensions) error {
+			err := before(ctx, call, extn)
+			if err != nil {
+				logrus.WithError(err).Fatal("expected no error but got")
+				return err
+			}
+			d.isBefore = true
+			if d.beforeFn != nil {
+				return d.beforeFn(ctx, call, extn)
+			}
+			return nil
+		}
+	})
+
+	task.WrapAfterCall(func(after drivers.AfterCall) drivers.AfterCall {
+		return func(ctx context.Context, call *models.Call, extn drivers.CallExtensions) error {
+			err := after(ctx, call, extn)
+			if err != nil {
+				logrus.WithError(err).Fatal("expected no error but got")
+				return err
+			}
+			d.isAfter = true
+			if d.afterFn != nil {
+				return d.afterFn(ctx, call, extn)
+			}
+			return nil
+		}
+	})
+
+	return cookie, nil
+}
+
+// implements Driver
+func (d *customDriver) SetPullImageRetryPolicy(policy common.BackOffConfig, checker drivers.RetryErrorChecker) error {
+	return d.drv.SetPullImageRetryPolicy(policy, checker)
+}
+
+// implements Driver
+func (d *customDriver) Close() error {
+	return d.drv.Close()
+}
+
+// implements Driver
+func (d *customDriver) GetSlotKeyExtensions(extn map[string]string) string {
+	return d.drv.GetSlotKeyExtensions(extn)
+}
+
+var _ drivers.Driver = &customDriver{}
+
+func createModelCall(appId string) *models.Call {
+	app := &models.App{ID: appId, Name: "myapp"}
+	fn := &models.Fn{ID: "fn_id", AppID: app.ID}
+
+	image := "fnproject/fn-test-utils"
+	const timeout = 10
+	const idleTimeout = 20
+	const memory = 256
+	method := "GET"
+	url := "http://127.0.0.1:8080/invoke/" + fn.ID
+	payload := `{isDebug": true}`
+	typ := "sync"
+	config := map[string]string{
+		"FN_LISTENER": "unix:" + filepath.Join(iofsDockerMountDest, udsFilename),
+		"FN_APP_ID":   app.ID,
+		"FN_FN_ID":    fn.ID,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_TYPE":     typ,
+	}
+
+	cm := &models.Call{
+		AppID:       app.ID,
+		FnID:        fn.ID,
+		Config:      config,
+		Image:       image,
+		Type:        typ,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
+	return cm
+}
+
+func TestContainerBeforeAfterWrapOK(t *testing.T) {
+	cm := createModelCall("TestContainerBeforeAfterWrapOK")
+
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	drv, err := NewDockerDriver(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cust := &customDriver{
+		drv: drv,
+	}
+
+	opts := []Option{}
+	opts = append(opts, WithConfig(cfg))
+	opts = append(opts, WithDockerDriver(cust))
+
+	a := New(opts...)
+	defer checkClose(t, a)
+
+	callI, err := a.GetCall(FromModel(cm))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err != nil {
+		t.Fatalf("not expected error but got %v", err)
+	}
+
+	<-time.After(time.Duration(1 * time.Second))
+	assert.Equal(t, cust.isClosed, false)
+	assert.Equal(t, cust.isBefore, true)
+	assert.Equal(t, cust.isAfter, true)
+}
+
+func TestContainerBeforeWrapNotOK(t *testing.T) {
+	cm := createModelCall("TestContainerBeforeWrapNotOK")
+
+	specialErr := errors.New("foo")
+
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	drv, err := NewDockerDriver(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cust := &customDriver{
+		drv: drv,
+		beforeFn: func(ctx context.Context, call *models.Call, extn drivers.CallExtensions) error {
+			return specialErr
+		},
+	}
+
+	opts := []Option{}
+	opts = append(opts, WithConfig(cfg))
+	opts = append(opts, WithDockerDriver(cust))
+
+	a := New(opts...)
+	defer checkClose(t, a)
+
+	callI, err := a.GetCall(FromModel(cm))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err != specialErr {
+		t.Fatalf("expected special error but got %v", err)
+	}
+
+	<-time.After(time.Duration(1 * time.Second))
+	assert.Equal(t, cust.isClosed, true)
+	assert.Equal(t, cust.isBefore, true)
+	assert.Equal(t, cust.isAfter, false)
+}
+
+func TestContainerAfterWrapNotOK(t *testing.T) {
+	cm := createModelCall("TestContainerAfterWrapNotOK")
+
+	specialErr := errors.New("foo")
+
+	cfg, err := NewConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	drv, err := NewDockerDriver(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cust := &customDriver{
+		drv: drv,
+		afterFn: func(ctx context.Context, call *models.Call, extn drivers.CallExtensions) error {
+			return specialErr
+		},
+	}
+
+	opts := []Option{}
+	opts = append(opts, WithConfig(cfg))
+	opts = append(opts, WithDockerDriver(cust))
+
+	a := New(opts...)
+	defer checkClose(t, a)
+
+	callI, err := a.GetCall(FromModel(cm))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err != specialErr {
+		t.Fatalf("expected special error but got %v", err)
+	}
+
+	<-time.After(time.Duration(1 * time.Second))
+	assert.Equal(t, cust.isClosed, true)
+	assert.Equal(t, cust.isBefore, true)
+	assert.Equal(t, cust.isAfter, true)
 }
