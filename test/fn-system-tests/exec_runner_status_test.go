@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/url"
@@ -19,6 +20,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runnerpool"
 	pb_empty "github.com/golang/protobuf/ptypes/empty"
+	pb_struct "github.com/golang/protobuf/ptypes/struct"
 )
 
 func callFN(ctx context.Context, u string, content io.Reader, output io.Writer, invokeType string) (*http.Response, error) {
@@ -302,7 +304,12 @@ func TestCustomHealthChecker(t *testing.T) {
 		t.Fatal("Timeout")
 	}
 	shouldCustomHealthCheckerFail = true
-	defer func() { shouldCustomHealthCheckerFail = false }()
+	defer func() {
+		// Reset test state
+		// Ensure status cache expires
+		shouldCustomHealthCheckerFail = false
+		time.Sleep(2 * time.Second)
+	}()
 	status, err = client.Status(ctx, &pb_empty.Empty{})
 	if err != nil {
 		t.Fatalf("Status check failed due to err=%+v", err)
@@ -404,4 +411,43 @@ func TestExampleLogStreamer(t *testing.T) {
 		t.Fatalf("Bad log data %+v", data)
 	}
 
+}
+
+// TestStatus_verifyIO verifies RunnerProtocol.Status2(..) behavior
+// Note: this test depends on the default status checker image
+// which echoes its input
+func TestStatus_verifyIO(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Connect to the first node
+	r := runnerGrpcServerAddr(0)
+	conn, err := grpc.Dial(r, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to dial into runner %s due to err=%+v", r, err)
+	}
+	client := runner.NewRunnerProtocolClient(conn)
+	p := &pb_struct.Struct{
+		Fields: map[string]*pb_struct.Value{
+			"fake-member-1": {Kind: &pb_struct.Value_StringValue{StringValue: "fake-value-1"}},
+			"fake-member-2": {Kind: &pb_struct.Value_StringValue{StringValue: "fake-value-2"}},
+		},
+	}
+
+	status, err := client.Status2(ctx, p)
+	if err != nil {
+		t.Fatalf("unexpected Status2 failure %v", err)
+	}
+	a := assert.New(t)
+	expected := `{
+            "fake-member-1": "fake-value-1", 
+            "fake-member-2": "fake-value-2" 
+          }`
+	a.JSONEqf(expected, status.GetDetails(), "Status2: mismatch in output from status image %s ", StatusImage)
 }
