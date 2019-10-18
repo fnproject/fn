@@ -485,6 +485,7 @@ func logCallFinish(log logrus.FieldLogger, msg *pb.RunnerMsg_Finished, headers h
 		"runner_error_user":  errorUser,
 		"runner_http_status": httpStatus,
 		"fn_http_status":     headers.Get("Fn-Http-Status"),
+		"fn_fdk_version":     headers.Get("Fn-Fdk-Version"),
 	})
 	if !runnerSuccess && !errorUser && errorCode != http.StatusServiceUnavailable {
 		logger.Warn("Call finished")
