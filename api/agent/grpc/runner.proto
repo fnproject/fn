@@ -1,6 +1,9 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+
 
 // Request to allocate a slot for a call
 message TryCall {
@@ -74,7 +77,7 @@ message RunnerStatus {
     int32 active = 2;  // Number of currently inflight responses
     bool failed = 3; // if status was successful or not
     string id = 4; // call id if status image was used
-    string details = 5; // details for logging/debug
+    string details = 5; // response from status image
     int32 errorCode = 6; // error code if not successful
     string errorStr = 7; // error description if not successful
     string createdAt = 8; // call latency details: initialization time
@@ -156,11 +159,19 @@ service RunnerProtocol {
     rpc Engage (stream ClientMsg) returns (stream RunnerMsg);
 
     // Rather than rely on Prometheus for this, expose status that's specific to the runner lifecycle through this.
-    rpc Status(google.protobuf.Empty) returns (RunnerStatus);
+    rpc Status(google.protobuf.Empty) returns (RunnerStatus) {
+        option deprecated = true;
+    };
 
     // Configure the remote runner by passing config data.
     rpc ConfigureRunner(ConfigMsg) returns (ConfigStatus);
 
     // Logging Interface
     rpc StreamLogs(stream LogRequestMsg) returns (stream LogResponseMsg);
+
+    // If a status image container is configured (for handling custom statuses)
+    /// the supplied opaque JSON is passed as an input to that image.
+    // Output from the container is sent back via RunnerStatus.Details
+    // as before.
+    rpc Status2(google.protobuf.Struct) returns (RunnerStatus);
 }

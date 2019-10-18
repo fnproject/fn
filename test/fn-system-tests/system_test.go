@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/drivers"
@@ -579,4 +580,12 @@ func customHealthChecker(ctx context.Context) (map[string]string, error) {
 	}
 
 	return nil, models.NewAPIError(450, errors.New("Custom healthcheck failed"))
+}
+
+func runnerGrpcServerAddr(nodeNum int) string {
+	targetHost := "127.0.0.1"
+	if nodeNum <= 0 || nodeNum > 2 {
+		nodeNum = rand.Intn(2)
+	}
+	return fmt.Sprintf("%s:%d", targetHost, RunnerStartGRPCPort+nodeNum)
 }
