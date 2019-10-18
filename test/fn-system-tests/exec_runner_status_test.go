@@ -426,8 +426,8 @@ func TestStatus_verifyIO(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Connect to any node
-	r := runnerGrpcServerAddr(-1)
+	// Connect to the first node
+	r := runnerGrpcServerAddr(0)
 	conn, err := grpc.Dial(r, grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("Failed to dial into runner %s due to err=%+v", r, err)
