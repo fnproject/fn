@@ -27,18 +27,15 @@ var (
 	whodunitKey     = common.MakeKey("blame")
 	fnFdkVersionKey = common.MakeKey("fn_fdk_version")
 
-	apiRequestCountMeasure        = common.MakeMeasure("api/request_count", "Count of API requests started", stats.UnitDimensionless)
-	apiResponseCountMeasure       = common.MakeMeasure("api/response_count", "API response count", stats.UnitDimensionless)
-	apiLatencyMeasure             = common.MakeMeasure("api/latency", "Latency distribution of API requests", stats.UnitMilliseconds)
-	invokeApiResponseCountMeasure = common.MakeMeasure("api/invoke/response_count", "Invoke API response count", stats.UnitDimensionless)
-	invokeApiLatencyMeasure       = common.MakeMeasure("api/invoke/latency", "Latency distribution of Invoke API requests", stats.UnitMilliseconds)
+	apiRequestCountMeasure  = common.MakeMeasure("api/request_count", "Count of API requests started", stats.UnitDimensionless)
+	apiResponseCountMeasure = common.MakeMeasure("api/response_count", "API response count", stats.UnitDimensionless)
+	apiLatencyMeasure       = common.MakeMeasure("api/latency", "Latency distribution of API requests", stats.UnitMilliseconds)
 
 	APIViewsGetPath = DefaultAPIViewsGetPath
 )
 
 const (
 	fnFdkVersionHeader = "Fn-Fdk-Version"
-	invokeApiPath      = "/invoke/"
 )
 
 func optionalCorsWrap(r *gin.Engine) {
@@ -108,16 +105,12 @@ func RegisterAPIViews(tagKeys []string, dist []float64) {
 
 	// default tags for request and response
 	reqTags := []tag.Key{pathKey, methodKey}
-	respTags := []tag.Key{pathKey, methodKey, statusKey}
-	respInvokeTags := []tag.Key{pathKey, methodKey, statusKey, whodunitKey, fnFdkVersionKey}
+	respTags := []tag.Key{pathKey, methodKey, statusKey, whodunitKey, fnFdkVersionKey}
 
 	// add extra tags if not already in default tags for req/resp
 	for _, key := range tagKeys {
-		if key != pathKey.Name() && key != methodKey.Name() && key != statusKey.Name() {
-			respTags = append(respTags, common.MakeKey(key))
-		}
 		if key != pathKey.Name() && key != methodKey.Name() && key != statusKey.Name() && key != whodunitKey.Name() && key != fnFdkVersionKey.Name() {
-			respInvokeTags = append(respInvokeTags, common.MakeKey(key))
+			respTags = append(respTags, common.MakeKey(key))
 		}
 		if key != pathKey.Name() && key != methodKey.Name() {
 			reqTags = append(reqTags, common.MakeKey(key))
@@ -128,8 +121,6 @@ func RegisterAPIViews(tagKeys []string, dist []float64) {
 		common.CreateViewWithTags(apiRequestCountMeasure, view.Count(), reqTags),
 		common.CreateViewWithTags(apiResponseCountMeasure, view.Count(), respTags),
 		common.CreateViewWithTags(apiLatencyMeasure, view.Distribution(dist...), respTags),
-		common.CreateViewWithTags(invokeApiResponseCountMeasure, view.Count(), respInvokeTags),
-		common.CreateViewWithTags(invokeApiLatencyMeasure, view.Distribution(dist...), respInvokeTags),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
@@ -167,26 +158,13 @@ func apiMetricsWrap(s *Server) {
 			c.Next()
 
 			status := strconv.Itoa(c.Writer.Status())
-			path := APIViewsGetPath(routes, c)
-			if strings.Contains(path, invokeApiPath) {
-				ctx, err = tag.New(c.Request.Context(), // important, request context could be mutated by now
-					tag.Upsert(pathKey, APIViewsGetPath(routes, c)),
-					tag.Upsert(methodKey, c.Request.Method),
-					tag.Upsert(statusKey, status),
-					tag.Insert(whodunitKey, "service"), // only insert this if it doesn't exist
-					tag.Upsert(fnFdkVersionKey, c.Writer.Header().Get(fnFdkVersionHeader)),
-				)
-				if err != nil {
-					logrus.Fatal(err)
-				}
-				stats.Record(ctx, invokeApiResponseCountMeasure.M(0))
-				stats.Record(ctx, invokeApiLatencyMeasure.M(int64(time.Since(start)/time.Millisecond)))
 
-			}
 			ctx, err = tag.New(c.Request.Context(), // important, request context could be mutated by now
 				tag.Upsert(pathKey, APIViewsGetPath(routes, c)),
 				tag.Upsert(methodKey, c.Request.Method),
 				tag.Upsert(statusKey, status),
+				tag.Insert(whodunitKey, "service"), // only insert this if it doesn't exist
+				tag.Upsert(fnFdkVersionKey, c.Writer.Header().Get(fnFdkVersionHeader)),
 			)
 			if err != nil {
 				logrus.Fatal(err)
