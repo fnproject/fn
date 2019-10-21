@@ -79,6 +79,12 @@ Start Fn inside a Docker container:
 make docker-run
 ```
 
+Build the fn docker image, and then specify the version to the fn start cmd to start a local Fn server with the built image:
+```sh
+make docker-build
+fn start --version latest
+```
+
 ## Tests in Docker
 
 Run tests inside a Docker container:
