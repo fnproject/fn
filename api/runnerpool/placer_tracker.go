@@ -47,7 +47,7 @@ func (tr *placerTracker) HandleFindRunnersFailure(err error) {
 	if ok {
 		logger = logger.WithField("root_error", w.RootError())
 	}
-	logger.Error("Failed to find runners for call")
+	logger.Warn("Failed to find runners for call")
 	stats.Record(tr.requestCtx, errorPoolCountMeasure.M(0))
 }
 
