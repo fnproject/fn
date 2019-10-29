@@ -276,7 +276,6 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		details = mcall.ID
 		imagePullWaitDuration = ch.c.imagePullWaitTime
 		ctrCreateDuration = ch.c.ctrCreateTime
-		ctrCreateDuration = ch.c.ctrCreateTime
 		initStartTime = ch.c.initStartTime
 	}
 	log.Debugf("Sending Call Finish details=%v", details)
