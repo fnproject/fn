@@ -386,8 +386,8 @@ DataLoop:
 				span.Annotate([]trace.Attribute{trace.StringAttribute("status", infoMsg)}, "")
 				log.Debugf(infoMsg)
 				for _, header := range meta.Http.Headers {
-					clonedHeaders.Set(header.Key, header.Value)
-					w.Header().Set(header.Key, header.Value)
+					clonedHeaders.Add(header.Key, header.Value)
+					w.Header().Add(header.Key, header.Value)
 				}
 				if meta.Http.StatusCode > 0 {
 					statusCode = meta.Http.StatusCode
