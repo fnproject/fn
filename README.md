@@ -55,10 +55,13 @@ curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
 
 This will download a shell script and execute it. If the script asks for a password, that is because it invokes sudo.
 
+#### Option 3. Install the Windows CLI
+[Install and run the Fn Client for Windows](https://github.com/fnproject/docs/blob/master/fn/develop/running-fn-client-windows.md).
 
-#### Option 3. Download the bin - Linux, macOS and Windows
 
+#### Option 4. Download the bin - Linux, macOS and Windows
 Head over to our [releases](https://github.com/fnproject/cli/releases) and download it.
+
 
 ### Run Fn Server
 
