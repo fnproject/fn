@@ -2,7 +2,6 @@ package runnerpool
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	"github.com/fnproject/fn/api/models"
@@ -11,15 +10,13 @@ import (
 )
 
 type naivePlacer struct {
-	cfg     PlacerConfig
-	rrIndex uint64
+	cfg PlacerConfig
 }
 
 func NewNaivePlacer(cfg *PlacerConfig) Placer {
 	logrus.Infof("Creating new naive runnerpool placer with config=%+v", cfg)
 	return &naivePlacer{
-		cfg:     *cfg,
-		rrIndex: uint64(time.Now().Nanosecond()),
+		cfg: *cfg,
 	}
 }
 
@@ -36,10 +33,12 @@ func (sp *naivePlacer) PlaceCall(ctx context.Context, rp RunnerPool, call Runner
 		var runners []Runner
 		runners, runnerPoolErr = rp.Runners(ctx, call)
 
+		rrIndex := uint64(time.Now().Nanosecond())
+
 		for j := 0; j < len(runners) && !state.IsDone(); j++ {
 
-			i := atomic.AddUint64(&sp.rrIndex, uint64(1))
-			r := runners[int(i)%len(runners)]
+			rrIndex += 1
+			r := runners[rrIndex%uint64(len(runners))]
 
 			placed, err := state.TryRunner(r, call)
 			if placed {
