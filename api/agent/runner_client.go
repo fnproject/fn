@@ -475,18 +475,41 @@ DataLoop:
 }
 
 func logCallFinish(log logrus.FieldLogger, msg *pb.RunnerMsg_Finished, headers http.Header, httpStatus int32) {
-	errorCode := msg.Finished.GetErrorCode()
-	errorUser := msg.Finished.GetErrorUser()
-	runnerSuccess := msg.Finished.GetSuccess()
+
+	fin := msg.Finished
+
+	errorCode := fin.GetErrorCode()
+	errorUser := fin.GetErrorUser()
+	runnerSuccess := fin.GetSuccess()
+
+	// duration all in msecs units below
+
+	// call start/end latencies:
+	execDur := fin.GetExecutionDuration()  // fn exec elapsed time (exec-time under slot)
+	schedDur := fin.GetSchedulerDuration() // fn scheduler elapsed time (until slot acquisition)
+
+	// container (slot) latencies:
+	imgWaitDur := fin.GetImagePullWaitDuration() // fn waiting for image to be available
+	cntrCreatDur := fin.GetCtrCreateDuration()   // eg. container create/attach/start
+	cntrPrepDur := fin.GetCtrPrepDuration()      // eg. tmpfs setup
+	cntrInitDur := fin.GetInitStartTime()        // eg. fdk init, UDS wait, etc.
+
 	logger := log.WithFields(logrus.Fields{
-		"function_error":     msg.Finished.GetErrorStr(),
+		"function_error":     fin.GetErrorStr(),
 		"runner_success":     runnerSuccess,
 		"runner_error_code":  errorCode,
 		"runner_error_user":  errorUser,
 		"runner_http_status": httpStatus,
+		"function_exec_msec": execDur,
+		"runner_sched_msec":  schedDur,
+		"img_wait_msec":      imgWaitDur,
+		"cntr_create_msec":   cntrCreatDur,
+		"cntr_prep_msec":     cntrPrepDur,
+		"cntr_init_msec":     cntrInitDur,
 		"fn_http_status":     headers.Get("Fn-Http-Status"),
 		"fn_fdk_version":     headers.Get("Fn-Fdk-Version"),
 	})
+
 	if !runnerSuccess && !errorUser && errorCode != http.StatusServiceUnavailable {
 		logger.Warn("Call finished")
 	} else {
