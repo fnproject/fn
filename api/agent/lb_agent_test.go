@@ -200,43 +200,6 @@ func TestDetachedPlacerTimeout(t *testing.T) {
 
 }
 
-func TestRRRunner(t *testing.T) {
-	cfg := pool.NewPlacerConfig()
-	placer := pool.NewNaivePlacer(&cfg)
-	// TEST-NET-1 unreachable
-	rp := setupMockRunnerPool([]string{"192.0.2.0", "192.0.2.1"}, 10*time.Millisecond, 2)
-
-	parallelCalls := 2
-	var wg sync.WaitGroup
-	failures := make(chan error, parallelCalls)
-	for i := 0; i < parallelCalls; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Millisecond))
-			defer cancel()
-			modelCall := &models.Call{Type: models.TypeSync}
-			call := &mockRunnerCall{model: modelCall}
-
-			err := placer.PlaceCall(ctx, rp, call)
-			if err != nil {
-				failures <- fmt.Errorf("Timed out call %d", i)
-			}
-		}(i)
-	}
-
-	wg.Wait()
-	close(failures)
-
-	err := <-failures
-	if err != nil {
-		t.Fatalf("Expected no error %s", err.Error())
-	}
-	if rp.runners[1].(*mockRunner).procCalls != 1 && rp.runners[0].(*mockRunner).procCalls != 1 {
-		t.Fatal("Expected rr runner")
-	}
-}
-
 func TestEnforceLbTimeout(t *testing.T) {
 	cfg := pool.NewPlacerConfig()
 	placer := pool.NewNaivePlacer(&cfg)
