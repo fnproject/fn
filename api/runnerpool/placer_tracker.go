@@ -114,6 +114,12 @@ func (tr *placerTracker) HandleDone() {
 // RetryAllBackoff blocks until it is time to try the runner list again. Returns
 // false if the placer should stop trying.
 func (tr *placerTracker) RetryAllBackoff(numOfRunners int, err error) bool {
+	// This means Placer is operating on an empty list. No runners
+	// available. Record it. ALWAYS do this before failing fast.
+	if numOfRunners == 0 {
+		stats.Record(tr.requestCtx, emptyPoolCountMeasure.M(0))
+	}
+
 	// If there are no runners and last call to provision runners failed due
 	// to a user error (or misconfiguration) then fail fast.
 	if numOfRunners == 0 && err != nil {
@@ -128,12 +134,6 @@ func (tr *placerTracker) RetryAllBackoff(numOfRunners int, err error) bool {
 				}
 			}
 		}
-	}
-
-	// This means Placer is operating on an empty list. No runners
-	// available. Record it.
-	if numOfRunners == 0 {
-		stats.Record(tr.requestCtx, emptyPoolCountMeasure.M(0))
 	}
 
 	t := common.NewTimer(tr.cfg.RetryAllDelay)
