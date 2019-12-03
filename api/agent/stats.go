@@ -206,7 +206,7 @@ var (
 	containerEvictedMeasure        = common.MakeMeasure(containerEvictedMetricName, "containers evicted", "")
 	containerUDSInitLatencyMeasure = common.MakeMeasure(containerUDSInitLatencyMetricName, "container UDS Init-Wait Latency", "msecs")
 
-	// Reported By LB: How long does a runner scheduler wait for a committed call? eg. wait/launch/pull containers
+	// Reported By LB: How long does a runner scheduler wait for a committed call? eg. wait/launch containers excluding docker-pull and uds wait
 	runnerSchedLatencyMeasure = common.MakeMeasure(runnerSchedLatencyMetricName, "Runner Scheduler Latency Reported By LBAgent", "msecs")
 	// Reported By LB: Function execution time inside a container.
 	runnerExecLatencyMeasure = common.MakeMeasure(runnerExecLatencyMetricName, "Runner Container Execution Latency Reported By LBAgent", "msecs")

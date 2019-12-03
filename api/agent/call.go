@@ -415,6 +415,23 @@ func GetCallLatencies(c *call) (time.Duration, time.Duration) {
 				}
 			}
 		}
+
+		// latency out of our control: 1) docker pull wait
+		pullWait := time.Duration(c.imagePullWaitTime) * time.Millisecond
+		if pullWait < schedDuration {
+			schedDuration -= pullWait
+		} else {
+			schedDuration = time.Duration(0)
+		}
+
+		// latency out of our control: 2) UDS & container init wait
+		udsWait := time.Duration(c.initStartTime) * time.Millisecond
+		if udsWait < schedDuration {
+			schedDuration -= udsWait
+		} else {
+			schedDuration = time.Duration(0)
+		}
 	}
+
 	return schedDuration, execDuration
 }
