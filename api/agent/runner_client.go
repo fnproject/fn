@@ -35,7 +35,8 @@ var (
 
 const (
 	// max buffer size for grpc data messages, 10K
-	MaxDataChunk = 10 * 1024
+	MaxDataChunk          = 10 * 1024
+	DefaultConnectTimeout = 100 * time.Millisecond
 )
 
 type gRPCRunner struct {
@@ -52,7 +53,12 @@ func (r *gRPCRunner) Close(context.Context) error {
 }
 
 func NewgRPCRunner(addr string, tlsConf *tls.Config, dialOpts ...grpc.DialOption) (pool.Runner, error) {
-	conn, client, err := runnerConnection(addr, tlsConf, dialOpts...)
+	runner, err := NewgRPCRunnerWithTimeout(addr, tlsConf, DefaultConnectTimeout, dialOpts...)
+	return runner, err
+}
+
+func NewgRPCRunnerWithTimeout(addr string, tlsConf *tls.Config, timeout time.Duration, dialOpts ...grpc.DialOption) (pool.Runner, error) {
+	conn, client, err := runnerConnection(addr, tlsConf, timeout, dialOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +72,7 @@ func NewgRPCRunner(addr string, tlsConf *tls.Config, dialOpts ...grpc.DialOption
 
 }
 
-func runnerConnection(address string, tlsConf *tls.Config, dialOpts ...grpc.DialOption) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
+func runnerConnection(address string, tlsConf *tls.Config, timeout time.Duration, dialOpts ...grpc.DialOption) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
 
 	ctx := context.Background()
 	logger := common.Logger(ctx).WithField("runner_addr", address)
@@ -78,7 +84,7 @@ func runnerConnection(address string, tlsConf *tls.Config, dialOpts ...grpc.Dial
 	}
 
 	// we want to set a very short timeout to fail-fast if something goes wrong
-	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, 100*time.Millisecond, grpc.DefaultBackoffConfig, dialOpts...)
+	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, timeout, grpc.DefaultBackoffConfig, dialOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Unable to connect to runner node")
 	}
