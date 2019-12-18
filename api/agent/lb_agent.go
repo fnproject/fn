@@ -385,15 +385,12 @@ func recordCallLatency(ctx context.Context, call *call, status string) {
 	// We want to exclude time spent in user-code. Today, this is container
 	// request processing latency as observed by runner agent.
 	execLatency := call.GetUserExecutionTime()
-
-	// some sanity check before. If sanity checks flags something, then
-	// this is likely that runners are sending malicious/suspicious data.
 	if execLatency != nil {
 		if *execLatency >= callLatency {
-			common.Logger(ctx).Errorf("invalid latency callLatency=%v execLatency=%v", callLatency, execLatency)
-			return
+			callLatency = 0 // NTP may skew, even for CLOCK_MONOTONIC in time.Now()
+		} else {
+			callLatency -= *execLatency
 		}
-		callLatency -= *execLatency
 	}
 
 	statsCallLatency(ctx, callLatency, status)
