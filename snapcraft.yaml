@@ -1,0 +1,24 @@
+name: fn
+version: '1.0'
+summary: The container native, cloud agnostic serverless platform  
+description: |
+  The container native, cloud agnostic serverless platform.
+grade: stable
+confinement: strict
+base: core18
+parts:
+  fn:
+    plugin: go
+    source: https://github.com/fnproject/cli.git
+    go-importpath: github.com/fnproject/cli
+    build-packages:
+      - build-essential
+apps:
+  fn:
+    command: bin/cli
+    daemon: simple
+    restart-condition: on-abnormal
+    plugs:
+      - home
+      - network
+      - network-bind
