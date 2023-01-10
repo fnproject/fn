@@ -448,6 +448,11 @@ definitions:
         format: date-time
         description: "Most recent time that app was updated. Always in UTC."
         readOnly: true
+      architecture:
+        type: array
+        description: "Architecture type for the application"
+        items:
+          type: string
 
   AppList:
     type: object
@@ -462,6 +467,13 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/App'
+
+  ArchitectureType:
+    type: string
+    description: "Supported Architecture type enum"
+    enum:
+      - x86
+      - arm
 
   Fn:
     type: object
@@ -513,6 +525,11 @@ definitions:
         format: date-time
         description: "Most recent time that function was updated. Always in UTC RFC3339."
         readOnly: true
+      architecture:
+        type: array
+        description: "Architecture type for the application"
+        items:
+          type: string
 
   FnList:
     type: object
