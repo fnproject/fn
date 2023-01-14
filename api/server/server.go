@@ -850,7 +850,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
     /_/   /_/ /_/
 `)
 
-	logrus.WithFields(logrus.Fields{"type": s.nodeType, "version": version.Version}).Infof("Fn serving on `%v`", s.svcConfigs[WebServer].Addr)
+	logrus.WithFields(logrus.Fields{"type": s.nodeType, "version": version.Version}).Infof(">>>>Fn serving on `%v`", s.svcConfigs[WebServer].Addr)
 
 	installChildReaper()
 

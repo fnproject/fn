@@ -9,7 +9,6 @@ import (
 
 func (s *Server) handleAppCreate(c *gin.Context) {
 	ctx := c.Request.Context()
-
 	app := &models.App{}
 
 	err := c.BindJSON(app)

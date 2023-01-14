@@ -57,13 +57,15 @@ var (
 )
 
 type App struct {
-	ID          string          `json:"id" db:"id"`
-	Name        string          `json:"name" db:"name"`
-	Config      Config          `json:"config,omitempty" db:"config"`
-	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
-	SyslogURL   *string         `json:"syslog_url,omitempty" db:"syslog_url"`
-	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	ID           string          `json:"id" db:"id"`
+	Name         string          `json:"name" db:"name"`
+	Config       Config          `json:"config,omitempty" db:"config"`
+	Annotations  Annotations     `json:"annotations,omitempty" db:"annotations"`
+	SyslogURL    *string         `json:"syslog_url,omitempty" db:"syslog_url"`
+	CreatedAt    common.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt    common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	//Architecture []string 	 `json:"architecture" db:"architecture"`
+	Architecture Architecture    `json:"architecture" db:"architecture"`
 }
 
 func (a *App) Validate() error {
@@ -136,6 +138,7 @@ func (a1 *App) Equals(a2 *App) bool {
 	eq = eq && a1.Config.Equals(a2.Config)
 	eq = eq && a1.SyslogURL == a2.SyslogURL
 	eq = eq && a1.Annotations.Equals(a2.Annotations)
+	//eq = eq && reflect.DeepEqual(a1.Architecture, a2.Architecture)
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
 	// and these are not values the user may set so we kind of don't care.
 	//eq = eq && time.Time(a1.CreatedAt).Equal(time.Time(a2.CreatedAt))
@@ -189,6 +192,10 @@ func (a *App) Update(patch *App) {
 
 	if !a.Equals(original) {
 		a.UpdatedAt = common.DateTime(time.Now())
+	}
+
+	if patch.Architecture != nil && len(patch.Architecture) > len(a.Architecture) {
+		a.Architecture = patch.Architecture
 	}
 }
 
