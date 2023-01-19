@@ -21,7 +21,7 @@ func (s *Server) handleAppList(c *gin.Context) {
 	for _, item := range apps.Items {
 		fmt.Println("~~app get app : " + item.ID)
 		fmt.Println("~~app get app : " + item.Name)
-		fmt.Println(item.Architecture)
+		fmt.Println(item.Architectures)
 	}
 	if err != nil {
 		handleErrorResponse(c, err)

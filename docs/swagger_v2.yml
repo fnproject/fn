@@ -448,7 +448,7 @@ definitions:
         format: date-time
         description: "Most recent time that app was updated. Always in UTC."
         readOnly: true
-      architecture:
+      architectures:
         type: array
         description: "Architecture type for the application"
         items:

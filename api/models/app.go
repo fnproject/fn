@@ -57,15 +57,14 @@ var (
 )
 
 type App struct {
-	ID          string          `json:"id" db:"id"`
-	Name        string          `json:"name" db:"name"`
-	Config      Config          `json:"config,omitempty" db:"config"`
-	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
-	SyslogURL   *string         `json:"syslog_url,omitempty" db:"syslog_url"`
-	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
-	//Architecture []string 	 `json:"architecture" db:"architecture"`
-	Architecture Architecture `json:"architecture" db:"architecture"`
+	ID            string          `json:"id" db:"id"`
+	Name          string          `json:"name" db:"name"`
+	Config        Config          `json:"config,omitempty" db:"config"`
+	Annotations   Annotations     `json:"annotations,omitempty" db:"annotations"`
+	SyslogURL     *string         `json:"syslog_url,omitempty" db:"syslog_url"`
+	CreatedAt     common.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt     common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	Architectures Architectures   `json:"architectures" db:"architectures"`
 }
 
 func (a *App) Validate() error {
@@ -194,8 +193,8 @@ func (a *App) Update(patch *App) {
 		a.UpdatedAt = common.DateTime(time.Now())
 	}
 
-	if patch.Architecture != nil && len(patch.Architecture) > len(a.Architecture) {
-		a.Architecture = patch.Architecture
+	if patch.Architectures != nil && len(patch.Architectures) > len(a.Architectures) {
+		a.Architectures = patch.Architectures
 	}
 }
 

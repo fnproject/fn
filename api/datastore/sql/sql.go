@@ -33,7 +33,7 @@ import (
 // with migrations (sadly, need complex transaction)
 
 var tables = [...]string{
-	`CREATE TABLE IF NOT EXISTS apps ( 
+	`CREATE TABLE IF NOT EXISTS apps
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL UNIQUE,
 	config text NOT NULL,
@@ -41,7 +41,7 @@ var tables = [...]string{
 	syslog_url text,
 	created_at varchar(256),
 	updated_at varchar(256),
-	architecture text NOT NULL
+	architectures text NOT NULL
 );`,
 
 	`CREATE TABLE IF NOT EXISTS triggers (
@@ -74,7 +74,7 @@ var tables = [...]string{
 }
 
 const (
-	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at, architecture FROM apps WHERE id=?`
+	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at, architectures FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 
 	fnSelector   = `SELECT id,name,app_id,image,memory,timeout,idle_timeout,config,annotations,created_at,updated_at FROM fns`
@@ -315,8 +315,9 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		app.Config = map[string]string{}
 	}
 
-	if app.Architecture == nil {
-		app.Architecture = []string{"x86"}
+	// for empty architecture put default x86
+	if app.Architectures == nil {
+		app.Architectures = []string{"x86"}
 	}
 
 	query := ds.db.Rebind(`INSERT INTO apps (
@@ -327,7 +328,7 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		syslog_url,
 		created_at,
 		updated_at,
-        architecture
+        architectures
 	)
 	VALUES (
 		:id,
@@ -337,19 +338,8 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		:syslog_url,
 		:created_at,
 		:updated_at,
-        :architecture
+        :architectures
 	);`)
-
-	//type DBApp struct {
-	//	ID           string          `json:"id" db:"id"`
-	//	Name         string          `json:"name" db:"name"`
-	//	Config       Config          `json:"config,omitempty" db:"config"`
-	//	Annotations  Annotations     `json:"annotations,omitempty" db:"annotations"`
-	//	SyslogURL    *string         `json:"syslog_url,omitempty" db:"syslog_url"`
-	//	CreatedAt    common.DateTime `json:"created_at,omitempty" db:"created_at"`
-	//	UpdatedAt    common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
-	//	Architecture []string 		 `json:"architecture" db:"architecture"`
-	//}
 
 	_, err := ds.db.NamedExecContext(ctx, query, app)
 	if err != nil {
@@ -388,7 +378,7 @@ func (ds *SQLStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 		if err != nil {
 			return err
 		}
-		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, syslog_url=:syslog_url, updated_at=:updated_at, architecture=:architecture WHERE name=:name`)
+		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, syslog_url=:syslog_url, updated_at=:updated_at, architectures=:architectures WHERE name=:name`)
 
 		res, err := tx.NamedExecContext(ctx, query, app)
 		fmt.Printf("is err %v\n", err == nil)
@@ -465,7 +455,7 @@ func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) (*mod
 		return nil, err
 	}
 	/* #nosec */
-	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT id, name, config, annotations, syslog_url, created_at, updated_at, architecture FROM apps %s", query))
+	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT id, name, config, annotations, syslog_url, created_at, updated_at, architectures FROM apps %s", query))
 
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {

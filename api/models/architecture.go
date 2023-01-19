@@ -8,10 +8,10 @@ import (
 	"fmt"
 )
 
-type Architecture []string
+type Architectures []string
 
 // Equals is defined based on un-ordered k/v comparison at of the annotation keys and (compacted) values of Architecture, JSON object-value equality for values is property-order dependent
-func (m Architecture) Equals(other Architecture) bool {
+func (m Architectures) Equals(other Architectures) bool {
 	if len(m) != len(other) {
 		return false
 	}
@@ -35,21 +35,21 @@ func (m Architecture) Equals(other Architecture) bool {
 	return true
 }
 
-func EmptyArchitecture() Architecture {
+func EmptyArchitecture() Architectures {
 	return nil
 }
 
 // With Creates a new Architecture object containing the specified value - this does not perform size checks on the total number of keys
 // this validates the correctness of the key and value. this returns a new the Architecture object with the key set.
-func (m Architecture) With(value string) (Architecture, error) {
+func (m Architectures) With(value string) (Architectures, error) {
 
 	if value == "" {
 		return nil, errors.New("empty architecture value")
 	}
 
-	var newMd Architecture
+	var newMd Architectures
 	if m == nil {
-		newMd = make(Architecture, 1)
+		newMd = make(Architectures, 1)
 	} else {
 		newMd = m.clone()
 	}
@@ -59,18 +59,18 @@ func (m Architecture) With(value string) (Architecture, error) {
 
 // Validate validates a final Architecture object prior to store,
 // This will reject partial/patch changes with empty values (containing deletes)
-func (m Architecture) Validate() APIError {
+func (m Architectures) Validate() APIError {
 	return nil
 }
 
 // clone produces a key-wise copy of the underlying Architecture
 // publically MD can be copied by reference as it's (by contract) immutable
-func (m Architecture) clone() Architecture {
+func (m Architectures) clone() Architectures {
 
 	if m == nil {
 		return nil
 	}
-	newMd := make(Architecture, len(m))
+	newMd := make(Architectures, len(m))
 	for ok, ov := range m {
 		newMd[ok] = ov
 	}
@@ -78,7 +78,7 @@ func (m Architecture) clone() Architecture {
 }
 
 // Value implements sql.Valuer, returning a string
-func (m Architecture) Value() (driver.Value, error) {
+func (m Architectures) Value() (driver.Value, error) {
 	if len(m) < 1 {
 		return driver.Value(string("")), nil
 	}
@@ -88,7 +88,7 @@ func (m Architecture) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner
-func (m *Architecture) Scan(value interface{}) error {
+func (m *Architectures) Scan(value interface{}) error {
 	if value == nil || value == "" {
 		*m = nil
 		return nil
@@ -113,5 +113,5 @@ func (m *Architecture) Scan(value interface{}) error {
 	}
 
 	// otherwise, return an error
-	return fmt.Errorf("Architecture invalid db format: %T %T value, err: %v", value, bv, err)
+	return fmt.Errorf("Architectures invalid db format: %T %T value, err: %v", value, bv, err)
 }
