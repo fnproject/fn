@@ -33,7 +33,7 @@ import (
 // with migrations (sadly, need complex transaction)
 
 var tables = [...]string{
-	`CREATE TABLE IF NOT EXISTS apps
+	`CREATE TABLE IF NOT EXISTS apps (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL UNIQUE,
 	config text NOT NULL,
