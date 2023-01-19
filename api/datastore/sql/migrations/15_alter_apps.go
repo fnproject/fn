@@ -26,7 +26,7 @@ func up15(ctx context.Context, tx *sqlx.Tx) error {
 	if err != nil {
 		return err
 	}
-	insertQuery := `INSERT INTO apps(id,name,config,annotations,created_at,updated_at,syslog_url,architecture)
+	insertQuery := `INSERT INTO apps(id,name,config,annotations,created_at,updated_at,syslog_url,architectures)
 					SELECT  id,name,config,annotations,created_at,updated_at,syslog_url,architectures FROM old_apps;`
 
 	_, err = tx.ExecContext(ctx, insertQuery)
