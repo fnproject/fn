@@ -32,10 +32,6 @@ func annotationGenerator() gopter.Gen {
 	return gen.OneConstOf(annotation1, annotation2)
 }
 
-func architectureGeneraor() gopter.Gen {
-
-}
-
 func datetimeGenerator() gopter.Gen {
 	return gen.Time().Map(func(t time.Time) common.DateTime {
 		return common.DateTime(t)
