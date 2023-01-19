@@ -137,7 +137,7 @@ func (a1 *App) Equals(a2 *App) bool {
 	eq = eq && a1.Config.Equals(a2.Config)
 	eq = eq && a1.SyslogURL == a2.SyslogURL
 	eq = eq && a1.Annotations.Equals(a2.Annotations)
-	//eq = eq && reflect.DeepEqual(a1.Architecture, a2.Architecture)
+	eq = eq && a1.Architectures.Equals(a2.Architectures)
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
 	// and these are not values the user may set so we kind of don't care.
 	//eq = eq && time.Time(a1.CreatedAt).Equal(time.Time(a2.CreatedAt))
@@ -155,6 +155,7 @@ func (a1 *App) EqualsWithAnnotationSubset(a2 *App) bool {
 	eq = eq && a1.Config.Equals(a2.Config)
 	eq = eq && a1.SyslogURL == a2.SyslogURL
 	eq = eq && a1.Annotations.Subset(a2.Annotations)
+	eq = eq && a1.Architectures.Equals(a2.Architectures)
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
 	// and these are not values the user may set so we kind of don't care.
 	//eq = eq && time.Time(a1.CreatedAt).Equal(time.Time(a2.CreatedAt))
