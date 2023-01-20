@@ -290,7 +290,7 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("error when updating app: %v", err)
 			}
-			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1", "OTHER": "TEST"},Architectures: []string{"x86"}}
+			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}, Architectures: []string{"x86"}}
 			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
 			}
