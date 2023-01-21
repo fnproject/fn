@@ -66,7 +66,7 @@ test-basic: checkfmt pull-images fn-test-utils fn-status-checker fn-test-volume
 	./test.sh
 
 .PHONY: test
-test: test-system
+test: checkfmt pull-images test-basic test-middleware test-extensions test-system
 
 .PHONY: test-system
 test-system:
