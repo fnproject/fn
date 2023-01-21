@@ -12,8 +12,6 @@ export MYSQL_URL=$(spawn_mysql ${CONTEXT})
 export FN_DS_DB_PING_MAX_RETRIES=60
 
 go test $(go list ./... | \
-    grep -v vendor | \
-    grep -v examples | \
     grep -v test/fn-api-tests | \
     grep -v test/fn-system-tests | \
     grep -v images/fn-test-utils\
