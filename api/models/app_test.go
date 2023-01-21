@@ -44,8 +44,7 @@ func appFieldGenerators(t *testing.T) map[string]gopter.Gen {
 	fieldGens["Name"] = gen.AlphaString()
 	fieldGens["Config"] = configGenerator()
 	fieldGens["Annotations"] = annotationGenerator()
-	//fieldGens["Architectures"] = gen.SliceOfN(1, gen.OneConstOf("x86", "arm"))
-	fieldGens["Architectures"] = gen.SliceOfN(0, gen.OneConstOf(""))
+	fieldGens["Architectures"] = gen.SliceOfN(1, gen.OneConstOf("x86"))
 	fieldGens["SyslogURL"] = gen.AlphaString().Map(func(s string) *string {
 		return &s
 	})
