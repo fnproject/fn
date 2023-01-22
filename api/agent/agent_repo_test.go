@@ -96,11 +96,11 @@ func getFakeDocker(t *testing.T) (*httptest.Server, func()) {
 
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		if r.URL.String() == "" {
-			logStatus(r, 200)
-			w.WriteHeader(200)
-			return
-		}
+		//if r.URL.String() == "" {
+		//	logStatus(r, 200)
+		//	w.WriteHeader(200)
+		//	return
+		//}
 
 		if r.URL.String() == "/v2/" {
 			logStatus(r, 200)
@@ -115,7 +115,8 @@ func getFakeDocker(t *testing.T) (*httptest.Server, func()) {
 				return
 			}
 			w.Header().Set("Content-Type", `application/vnd.docker.distribution.manifest.list.v2+json`)
-			w.Header().Set("Docker-Content-Digest", `sha256:0553537fa07e2d97debdc40cdf6c6c9d0db7e57591bd86cd7c721f0161542a9e`)
+			w.Header().Set("Docker-Content-Digest",
+				`sha256:0553537fa07e2d97debdc40cdf6c6c9d0db7e57591bd86cd7c721f0161542a9e`)
 			w.Header().Set("Docker-Distribution-Api-Version", `registry/2.0`)
 			logStatus(r, 200)
 			w.WriteHeader(200)
@@ -130,7 +131,8 @@ func getFakeDocker(t *testing.T) (*httptest.Server, func()) {
 				return
 			}
 			w.Header().Set("Content-Type", `application/vnd.docker.distribution.manifest.v2+json`)
-			w.Header().Set("Docker-Content-Digest", `sha256:1c80d00e6877ff57b9b941ab2cbc5bc1058c28294d7068074ccaecb29a1680d3`)
+			w.Header().Set("Docker-Content-Digest",
+				`sha256:1c80d00e6877ff57b9b941ab2cbc5bc1058c28294d7068074ccaecb29a1680d3`)
 			w.Header().Set("Docker-Distribution-Api-Version", `registry/2.0`)
 			logStatus(r, 200)
 			w.WriteHeader(200)
@@ -163,7 +165,24 @@ func getFakeDocker(t *testing.T) (*httptest.Server, func()) {
 			return
 		}
 
-		t.Logf("~~~~error 500 : %s", r.URL.String())
+		// ~~~~ to fix error
+		if r.URL.String() == `/v2/foo/bar/manifests/sha256:0553537fa07e2d97debdc40cdf6c6c9d0db7e57591bd86cd7c721f0161542a9e` {
+			if !manifestDone {
+				manifestDone = true
+				spitError(r, w, 429)
+				return
+			}
+			w.Header().Set("Content-Type", `application/vnd.docker.distribution.manifest.v2+json`)
+			w.Header().Set("Docker-Content-Digest",
+				`sha256:1c80d00e6877ff57b9b941ab2cbc5bc1058c28294d7068074ccaecb29a1680d3`)
+			w.Header().Set("Docker-Distribution-Api-Version", `registry/2.0`)
+			logStatus(r, 200)
+			w.WriteHeader(200)
+			w.Write([]byte(manifest))
+			return
+		}
+
+		t.Logf("~~~~error 500 : %s %s", r.URL.String(), r.RequestURI)
 		logStatus(r, 500)
 		w.WriteHeader(500)
 		return
@@ -207,7 +226,7 @@ func TestDockerPullRetries(t *testing.T) {
 	fn := getFn(0)
 	fn.Timeout = 10
 	fn.Memory = 64
-	fn.Image = strings.TrimPrefix(dockerSrv.URL, "https://") + "/v2/foo/bar:latest"
+	fn.Image = strings.TrimPrefix(dockerSrv.URL, "https://") + "/foo/bar:latest"
 	fmt.Printf("~~docker server url %s\n", dockerSrv.URL)
 
 	err = execFn(`{"sleepTime": 0}`, fn, getApp(), a, 400000)
