@@ -10,7 +10,6 @@ import (
 
 type Architectures []string
 
-// Equals is defined based on un-ordered k/v comparison at of the annotation keys and (compacted) values of Architecture, JSON object-value equality for values is property-order dependent
 func (m Architectures) Equals(other Architectures) bool {
 	if len(m) != len(other) {
 		return false
@@ -39,8 +38,6 @@ func EmptyArchitecture() Architectures {
 	return nil
 }
 
-// With Creates a new Architecture object containing the specified value - this does not perform size checks on the total number of keys
-// this validates the correctness of the key and value. this returns a new the Architecture object with the key set.
 func (m Architectures) With(value string) (Architectures, error) {
 
 	if value == "" {
@@ -63,8 +60,6 @@ func (m Architectures) Validate() APIError {
 	return nil
 }
 
-// clone produces a key-wise copy of the underlying Architecture
-// publically MD can be copied by reference as it's (by contract) immutable
 func (m Architectures) clone() Architectures {
 
 	if m == nil {

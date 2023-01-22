@@ -2,7 +2,6 @@ package datastoreutil
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/fnproject/fn/api/models"
@@ -108,7 +107,6 @@ func (v *validator) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 		return nil, models.ErrFnsIDProvided
 	}
 	if fn.AppID == "" {
-		fmt.Printf("InsertFn error name: %s nil app id\n", fn.Name)
 		return nil, models.ErrFnsMissingAppID
 	}
 	if fn.Name == "" {
@@ -128,7 +126,6 @@ func (v *validator) GetFnByID(ctx context.Context, fnID string) (*models.Fn, err
 func (v *validator) GetFns(ctx context.Context, filter *models.FnFilter) (*models.FnList, error) {
 
 	if filter.AppID == "" {
-		fmt.Printf("GetFns error name: %s appId : %s \n", filter.Name, filter.AppID)
 		return nil, models.ErrFnsMissingAppID
 	}
 

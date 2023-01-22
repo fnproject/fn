@@ -95,12 +95,6 @@ func getFakeDocker(t *testing.T) (*httptest.Server, func()) {
 
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		//if r.URL.String() == "" {
-		//	logStatus(r, 200)
-		//	w.WriteHeader(200)
-		//	return
-		//}
-
 		if r.URL.String() == "/v2/" {
 			logStatus(r, 200)
 			w.WriteHeader(200)

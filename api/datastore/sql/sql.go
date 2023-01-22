@@ -327,8 +327,8 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		annotations,
 		syslog_url,
 		created_at,
-		updated_at,
-        architectures
+		updated_at, 
+		architectures
 	)
 	VALUES (
 		:id,
@@ -338,7 +338,7 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		:syslog_url,
 		:created_at,
 		:updated_at,
-        :architectures
+		:architectures
 	);`)
 
 	_, err := ds.db.NamedExecContext(ctx, query, app)
@@ -381,7 +381,6 @@ func (ds *SQLStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, syslog_url=:syslog_url, updated_at=:updated_at, architectures=:architectures WHERE name=:name`)
 
 		res, err := tx.NamedExecContext(ctx, query, app)
-		fmt.Printf("is err %v\n", err == nil)
 		if err != nil {
 			return err
 		}
@@ -595,7 +594,6 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 		filter = new(models.FnFilter)
 	}
 
-	fmt.Printf("GetFns filter appID %s\n", filter.AppID)
 	filterQuery, args, err := buildFilterFnQuery(filter)
 	if err != nil {
 		return res, err
@@ -628,7 +626,6 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 	}
 
 	if err := rows.Err(); err != nil {
-		fmt.Printf("Error in rows.Err() of getFn query : %v\n", err)
 		if err == sql.ErrNoRows {
 			return res, nil // no error for empty list
 		}

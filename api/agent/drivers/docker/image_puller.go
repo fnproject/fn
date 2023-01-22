@@ -131,6 +131,7 @@ func (i *imagePuller) pullWithRetry(trx *transfer) error {
 
 func (i *imagePuller) startTransfer(trx *transfer) {
 	var ferr error
+
 	err := i.pullWithRetry(trx)
 	if err != nil {
 		common.Logger(trx.ctx).WithError(err).Info("Failed to pull image")
