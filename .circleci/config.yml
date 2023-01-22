@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     machine:
-      image: ubuntu-2004:202101-01
+      image: circleci/golang:1.14
     working_directory: ~/go/src/github.com/fnproject/fn
     environment: # apparently expansion doesn't work here yet: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
       - GOPATH=/home/circleci/go
