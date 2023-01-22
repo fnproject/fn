@@ -101,7 +101,7 @@ func getFakeDocker(t *testing.T) (*httptest.Server, func()) {
 			w.WriteHeader(200)
 			return
 		}
-		
+
 		if r.URL.String() == "/v2/" {
 			logStatus(r, 200)
 			w.WriteHeader(200)
@@ -208,7 +208,7 @@ func TestDockerPullRetries(t *testing.T) {
 	fn.Timeout = 10
 	fn.Memory = 64
 	fn.Image = strings.TrimPrefix(dockerSrv.URL, "https://") + "/v2/foo/bar:latest"
-	fmt.Printf("~~docker server url %s\n" , dockerSrv.URL)
+	fmt.Printf("~~docker server url %s\n", dockerSrv.URL)
 
 	err = execFn(`{"sleepTime": 0}`, fn, getApp(), a, 400000)
 	if err == nil || strings.Index(err.Error(), "filesystem layer verification failed") == -1 {
