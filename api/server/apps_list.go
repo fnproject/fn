@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/fnproject/fn/api/models"
@@ -18,11 +17,6 @@ func (s *Server) handleAppList(c *gin.Context) {
 	filter.Name = c.Query("name")
 
 	apps, err := s.datastore.GetApps(ctx, filter)
-	for _, item := range apps.Items {
-		fmt.Println("~~app get app : " + item.ID)
-		fmt.Println("~~app get app : " + item.Name)
-		fmt.Println(item.Architectures)
-	}
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

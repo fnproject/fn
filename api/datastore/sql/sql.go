@@ -605,7 +605,6 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 	query := fmt.Sprintf("%s %s", fnSelector, filterQuery)
 	query = ds.db.Rebind(query)
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
-	fmt.Println("~~~~~$$$executed GetFns")
 	fmt.Printf("Error in execution of getFn query : %v\n", err)
 	if err != nil {
 		if err == sql.ErrNoRows {
