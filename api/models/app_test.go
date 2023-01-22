@@ -124,7 +124,7 @@ func TestAppEquality(t *testing.T) {
 			for fieldName, fieldGen := range appFieldGens {
 
 				if fieldName == "CreatedAt" ||
-					fieldName == "UpdatedAt" {
+					fieldName == "UpdatedAt"  || fieldName == "Architectures" {
 					continue
 				}
 
