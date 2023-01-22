@@ -33,7 +33,6 @@ jobs:
       # fixes git-diff warning: "warning: inexact rename detection was skipped due to too many files.""
       - run: git config diff.renamelimit 65535
       # NOTE: if GOFLAGS and GOMODULE are set, gosec will be noisy. unset them (run this before any 'make' command)
-
       #- run: |
       #    wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $GOPATH/bin 1.2.0
       #    $GOPATH/bin/gosec -quiet -severity medium ./...

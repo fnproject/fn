@@ -605,7 +605,6 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 	query := fmt.Sprintf("%s %s", fnSelector, filterQuery)
 	query = ds.db.Rebind(query)
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
-	fmt.Printf("Error in execution of getFn query : %v\n", err)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return res, nil // no error for empty list
@@ -617,7 +616,6 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) (*model
 	for rows.Next() {
 		var fn models.Fn
 		err := rows.StructScan(&fn)
-		fmt.Printf("Error in rows structScan of getFn query : %v\n", err)
 		if err != nil {
 			continue
 		}
