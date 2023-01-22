@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -113,6 +114,7 @@ func execFn(input string, fn *models.Fn, app *models.App, a Agent, tmsec int) er
 		return err
 	}
 
+	fmt.Println("~~before submit")
 	err = a.Submit(callI)
 	if ctx.Err() != nil {
 		return ctx.Err()

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -95,6 +96,12 @@ func getFakeDocker(t *testing.T) (*httptest.Server, func()) {
 
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		if r.URL.String() == "" {
+			logStatus(r, 200)
+			w.WriteHeader(200)
+			return
+		}
+		
 		if r.URL.String() == "/v2/" {
 			logStatus(r, 200)
 			w.WriteHeader(200)
@@ -156,6 +163,7 @@ func getFakeDocker(t *testing.T) (*httptest.Server, func()) {
 			return
 		}
 
+		t.Logf("~~~~error 500 : %s", r.URL.String())
 		logStatus(r, 500)
 		w.WriteHeader(500)
 		return
@@ -199,7 +207,8 @@ func TestDockerPullRetries(t *testing.T) {
 	fn := getFn(0)
 	fn.Timeout = 10
 	fn.Memory = 64
-	fn.Image = strings.TrimPrefix(dockerSrv.URL, "https://") + "/foo/bar:latest"
+	fn.Image = strings.TrimPrefix(dockerSrv.URL, "https://") + "/v2/foo/bar:latest"
+	fmt.Printf("~~docker server url %s\n" , dockerSrv.URL)
 
 	err = execFn(`{"sleepTime": 0}`, fn, getApp(), a, 400000)
 	if err == nil || strings.Index(err.Error(), "filesystem layer verification failed") == -1 {
