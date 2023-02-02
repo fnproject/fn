@@ -193,10 +193,6 @@ func (a *App) Update(patch *App) {
 	if !a.Equals(original) {
 		a.UpdatedAt = common.DateTime(time.Now())
 	}
-
-	if patch.Architectures != nil && len(patch.Architectures) > len(a.Architectures) {
-		a.Architectures = patch.Architectures
-	}
 }
 
 var _ APIError = ErrInvalidSyslog("")

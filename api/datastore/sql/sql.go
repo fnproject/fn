@@ -378,7 +378,7 @@ func (ds *SQLStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 		if err != nil {
 			return err
 		}
-		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, syslog_url=:syslog_url, updated_at=:updated_at, architectures=:architectures WHERE name=:name`)
+		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, syslog_url=:syslog_url, updated_at=:updated_at WHERE name=:name`)
 
 		res, err := tx.NamedExecContext(ctx, query, app)
 		if err != nil {
