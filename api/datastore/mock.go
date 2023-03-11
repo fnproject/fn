@@ -132,7 +132,7 @@ func (m *mock) InsertApp(ctx context.Context, newApp *models.App) (*models.App, 
 	app.CreatedAt = common.DateTime(time.Now())
 	app.UpdatedAt = app.CreatedAt
 	app.ID = id.New().String()
-	app.Architectures = []string{"x86"}
+	app.Shape = "GENERIC_X86"
 
 	m.Apps = append(m.Apps, app)
 	return app.Clone(), nil

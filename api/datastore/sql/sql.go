@@ -32,6 +32,7 @@ import (
 // we'll get better locality with varchar. it's not terribly easy to do this
 // with migrations (sadly, need complex transaction)
 
+//`DROP TABLE IF EXISTS apps;
 var tables = [...]string{
 	`CREATE TABLE IF NOT EXISTS apps (
 	id varchar(256) NOT NULL PRIMARY KEY,
@@ -41,7 +42,7 @@ var tables = [...]string{
 	syslog_url text,
 	created_at varchar(256),
 	updated_at varchar(256),
-	architectures text NOT NULL
+	shape text NOT NULL
 );`,
 
 	`CREATE TABLE IF NOT EXISTS triggers (
@@ -69,15 +70,16 @@ var tables = [...]string{
 	annotations text NOT NULL,
 	created_at varchar(256) NOT NULL,
 	updated_at varchar(256) NOT NULL,
+	shape text NOT NULL,
     CONSTRAINT name_app_id_unique UNIQUE (app_id, name)
 );`,
 }
 
 const (
-	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at, architectures FROM apps WHERE id=?`
+	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at, shape FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 
-	fnSelector   = `SELECT id,name,app_id,image,memory,timeout,idle_timeout,config,annotations,created_at,updated_at FROM fns`
+	fnSelector   = `SELECT id,name,app_id,image,memory,timeout,idle_timeout,config,annotations,created_at,updated_at,shape FROM fns`
 	fnIDSelector = fnSelector + ` WHERE id=?`
 
 	triggerSelector   = `SELECT id,name,app_id,fn_id,type,source,annotations,created_at,updated_at FROM triggers`
@@ -295,6 +297,7 @@ func (ds *SQLStore) GetAppID(ctx context.Context, appName string) (string, error
 
 	err := row.StructScan(&app)
 	if err == sql.ErrNoRows {
+		logrus.Infof("error while getting app id \n")
 		return "", models.ErrAppsNotFound
 	}
 	if err != nil {
@@ -315,9 +318,9 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		app.Config = map[string]string{}
 	}
 
-	// for empty architecture put default x86
-	if app.Architectures == nil {
-		app.Architectures = []string{"x86"}
+	// for empty shape put default x86
+	if app.Shape == "" {
+		app.Shape = models.AppShapeGenericX86
 	}
 
 	query := ds.db.Rebind(`INSERT INTO apps (
@@ -328,7 +331,7 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		syslog_url,
 		created_at,
 		updated_at, 
-		architectures
+		shape	
 	)
 	VALUES (
 		:id,
@@ -338,7 +341,7 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		:syslog_url,
 		:created_at,
 		:updated_at,
-		:architectures
+		:shape
 	);`)
 
 	_, err := ds.db.NamedExecContext(ctx, query, app)
@@ -454,7 +457,7 @@ func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) (*mod
 		return nil, err
 	}
 	/* #nosec */
-	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT id, name, config, annotations, syslog_url, created_at, updated_at, architectures FROM apps %s", query))
+	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT id, name, config, annotations, syslog_url, created_at, updated_at, shape FROM apps %s", query))
 
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
@@ -506,6 +509,19 @@ func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn,
 			}
 		}
 
+		var app models.App
+		query = tx.Rebind(appIDSelector)
+		row := tx.QueryRowxContext(ctx, query, fn.AppID)
+
+		if err := row.StructScan(&app); err != nil {
+			if err == sql.ErrNoRows {
+				return models.ErrAppsNotFound
+			}
+		}
+
+		//Setting the fn shape
+		fn.Shape = app.Shape
+
 		query = tx.Rebind(`INSERT INTO fns (
 				id,
 				name,
@@ -517,7 +533,8 @@ func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn,
 				config,
 				annotations,
 				created_at,
-				updated_at
+				updated_at,
+				shape
 			)
 			VALUES (
 				:id,
@@ -530,7 +547,8 @@ func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn,
 				:config,
 				:annotations,
 				:created_at,
-				:updated_at
+				:updated_at,
+				:shape
 			);`)
 
 		_, err = tx.NamedExecContext(ctx, query, fn)
@@ -576,6 +594,7 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 				config = :config,
 				annotations = :annotations,
 				updated_at = :updated_at
+				shape = :shape
 			    WHERE id=:id;`)
 
 		_, err = tx.NamedExecContext(ctx, query, fn)

@@ -98,6 +98,8 @@ type Fn struct {
 	Annotations Annotations `json:"annotations,omitempty" db:"annotations"`
 	// CreatedAt is the UTC timestamp when this function was created.
 	CreatedAt common.DateTime `json:"created_at,omitempty" db:"created_at"`
+	// Shape of the function image
+	Shape string `json:"shape" db:"shape"`
 	// UpdatedAt is the UTC timestamp of the last time this func was modified.
 	UpdatedAt common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
@@ -224,6 +226,7 @@ func (f1 *Fn) Equals(f2 *Fn) bool {
 	eq = eq && f1.IdleTimeout == f2.IdleTimeout
 	eq = eq && f1.Config.Equals(f2.Config)
 	eq = eq && f1.Annotations.Equals(f2.Annotations)
+	eq = eq && f1.Shape == f2.Shape
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
 	// and these are not values the user may set so we kind of don't care.
 	//eq = eq && time.Time(f1.CreatedAt).Equal(time.Time(f2.CreatedAt))
