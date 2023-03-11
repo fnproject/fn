@@ -45,7 +45,6 @@ func fnFieldGenerators(t *testing.T) map[string]gopter.Gen {
 	fieldGens["UpdatedAt"] = datetimeGenerator()
 	fieldGens["Shape"] = gen.OneConstOf("GENERIC_X86", "GENERIC_ARM", "GENERIC_X86_ARM")
 
-
 	fnFieldCount := fnReflectType().NumField()
 
 	if fnFieldCount != len(fieldGens) {

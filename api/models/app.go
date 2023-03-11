@@ -55,8 +55,8 @@ var (
 		error: errors.New("App not found"),
 	}
 
-	ErrAppsInvalidShape = err {
-		code: http.StatusBadRequest,
+	ErrAppsInvalidShape = err{
+		code:  http.StatusBadRequest,
 		error: errors.New("Invalid app shape"),
 	}
 )
@@ -68,14 +68,14 @@ const (
 )
 
 type App struct {
-	ID            string          `json:"id" db:"id"`
-	Name          string          `json:"name" db:"name"`
-	Config        Config          `json:"config,omitempty" db:"config"`
-	Annotations   Annotations     `json:"annotations,omitempty" db:"annotations"`
-	SyslogURL     *string         `json:"syslog_url,omitempty" db:"syslog_url"`
-	Shape         string          `json:"shape" db:"shape"`
-	CreatedAt     common.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt     common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	ID          string          `json:"id" db:"id"`
+	Name        string          `json:"name" db:"name"`
+	Config      Config          `json:"config,omitempty" db:"config"`
+	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
+	SyslogURL   *string         `json:"syslog_url,omitempty" db:"syslog_url"`
+	Shape       string          `json:"shape" db:"shape"`
+	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 func (a *App) Validate() error {
@@ -172,7 +172,7 @@ func (a1 *App) Equals(a2 *App) bool {
 	eq = eq && a1.Config.Equals(a2.Config)
 	eq = eq && a1.SyslogURL == a2.SyslogURL
 	eq = eq && a1.Annotations.Equals(a2.Annotations)
-	eq = eq && a1.Shape ==  a2.Shape
+	eq = eq && a1.Shape == a2.Shape
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
 	// and these are not values the user may set so we kind of don't care.
 	//eq = eq && time.Time(a1.CreatedAt).Equal(time.Time(a2.CreatedAt))
