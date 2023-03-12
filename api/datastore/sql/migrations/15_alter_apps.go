@@ -20,14 +20,14 @@ func up15(ctx context.Context, tx *sqlx.Tx) error {
 	created_at varchar(256),
 	updated_at varchar(256),
 	syslog_url text,
-	architectures text NOT NULL
+	shape text NOT NULL
 );`
 	_, err = tx.ExecContext(ctx, newTable)
 	if err != nil {
 		return err
 	}
-	insertQuery := `INSERT INTO apps(id,name,config,annotations,created_at,updated_at,syslog_url,architectures)
-					SELECT  id,name,config,annotations,created_at,updated_at,syslog_url,architectures FROM old_apps;`
+	insertQuery := `INSERT INTO apps(id,name,config,annotations,created_at,updated_at,syslog_url,shape)
+					SELECT  id,name,config,annotations,created_at,updated_at,syslog_url,shape FROM old_apps;`
 
 	_, err = tx.ExecContext(ctx, insertQuery)
 	if err != nil {
@@ -55,14 +55,14 @@ func down15(ctx context.Context, tx *sqlx.Tx) error {
 	created_at varchar(256),
 	updated_at varchar(256),
 	syslog_url text,
-  	architectures text NOT NULL
+  	shape text NOT NULL
 );`
 	_, err = tx.ExecContext(ctx, newTable)
 	if err != nil {
 		return err
 	}
-	insertQuery := `INSERT INTO apps(id,name,config,annotations,created_at,updated_at,syslog_url,architectures)
-					SELECT  id,name,config,annotations,created_at,updated_at,syslog_url,architectures FROM old_apps;`
+	insertQuery := `INSERT INTO apps(id,name,config,annotations,created_at,updated_at,syslog_url,shape)
+					SELECT  id,name,config,annotations,created_at,updated_at,syslog_url,shape FROM old_apps;`
 
 	_, err = tx.ExecContext(ctx, insertQuery)
 	if err != nil {
