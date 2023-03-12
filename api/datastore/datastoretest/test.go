@@ -101,6 +101,7 @@ func (brp *BasicResourceProvider) ValidFn(appId string) *models.Fn {
 			IdleTimeout: models.DefaultIdleTimeout,
 			Memory:      models.DefaultMemory,
 		},
+		Shape: "GENERIC_X86",
 	}
 }
 
