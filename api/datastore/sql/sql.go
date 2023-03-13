@@ -34,7 +34,8 @@ import (
 
 //`DROP TABLE IF EXISTS apps;
 var tables = [...]string{
-	`CREATE TABLE IF NOT EXISTS apps (
+	`DROP TABLE IF EXISTS apps;
+	CREATE TABLE IF NOT EXISTS apps (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL UNIQUE,
 	config text NOT NULL,
@@ -58,7 +59,8 @@ var tables = [...]string{
     CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id, name)
 );`,
 
-	`CREATE TABLE IF NOT EXISTS fns (
+	`DROP TABLE IF EXISTS fns;
+	CREATE TABLE IF NOT EXISTS fns (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL,
 	app_id varchar(256) NOT NULL,
