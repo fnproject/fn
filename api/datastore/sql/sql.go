@@ -593,7 +593,7 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 				idle_timeout = :idle_timeout,
 				config = :config,
 				annotations = :annotations,
-				updated_at = :updated_at
+				updated_at = :updated_at,
 				shape = :shape
 			    WHERE id=:id;`)
 
