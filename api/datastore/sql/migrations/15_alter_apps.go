@@ -54,15 +54,14 @@ func down15(ctx context.Context, tx *sqlx.Tx) error {
 	annotations text NOT NULL,
 	created_at varchar(256),
 	updated_at varchar(256),
-	syslog_url text,
-  	shape text NOT NULL
+	syslog_url text
 );`
 	_, err = tx.ExecContext(ctx, newTable)
 	if err != nil {
 		return err
 	}
 	insertQuery := `INSERT INTO apps(id,name,config,annotations,created_at,updated_at,syslog_url,shape)
-					SELECT  id,name,config,annotations,created_at,updated_at,syslog_url,shape FROM old_apps;`
+					SELECT  id,name,config,annotations,created_at,updated_at,syslog_url FROM old_apps;`
 
 	_, err = tx.ExecContext(ctx, insertQuery)
 	if err != nil {
