@@ -339,7 +339,7 @@ func ensureVersionTable(ctx context.Context, tx *sqlx.Tx) error {
 	// TODO sqlite3 uses uint64 type? ugha, test.
 	query := tx.Rebind(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %v (
 		version bigint NOT NULL PRIMARY KEY,
-		dirty boolean NOT NUL
+		dirty boolean NOT NULL
 	)`, MigrationsTable))
 	_, err := tx.ExecContext(ctx, query)
 	return err
