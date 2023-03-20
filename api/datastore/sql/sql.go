@@ -41,7 +41,7 @@ var tables = [...]string{
 	syslog_url text,
 	created_at varchar(256),
 	updated_at varchar(256),
-	shape text
+	shape text NOT NULL
 );`,
 
 	`CREATE TABLE IF NOT EXISTS triggers (
@@ -69,7 +69,7 @@ var tables = [...]string{
 	annotations text NOT NULL,
 	created_at varchar(256) NOT NULL,
 	updated_at varchar(256) NOT NULL,
-	shape text,
+	shape text NOT NULL,
     CONSTRAINT name_app_id_unique UNIQUE (app_id, name)
 );`,
 }
