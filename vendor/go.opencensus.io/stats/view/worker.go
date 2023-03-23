@@ -29,7 +29,7 @@ import (
 
 func init() {
 	defaultWorker = newWorker()
-	//go defaultWorker.start()
+	go defaultWorker.start()
 	internal.DefaultRecorder = record
 }
 
