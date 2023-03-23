@@ -101,7 +101,6 @@ func (brp *BasicResourceProvider) ValidFn(appId string) *models.Fn {
 			IdleTimeout: models.DefaultIdleTimeout,
 			Memory:      models.DefaultMemory,
 		},
-		Shape: "GENERIC_X86",
 	}
 }
 
@@ -546,6 +545,9 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testApp := h.GivenAppInDb(rp.ValidApp())
 
 			testFn := rp.ValidFn(testApp.ID)
+			if testFn != nil {
+				testFn.Shape = "GENERIC_X86"
+			}
 			testFn, err := ds.InsertFn(ctx, testFn)
 			if err != nil {
 				t.Fatalf("error when storing perfectly good fn: %s", err)
@@ -767,7 +769,6 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("failed to remove the func: %v", fn)
 			}
 		})
-
 	})
 }
 

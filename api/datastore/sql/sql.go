@@ -518,6 +518,21 @@ func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn,
 			}
 		}
 
+		/*
+			q := "SELECT * FROM fns"
+			res, err := tx.Query(q)
+			cols, err := res.Columns()
+			if err != nil {
+				fmt.Printf("error while fetchign columns: %v\n", err)
+				return err
+			}
+
+			fmt.Printf(">>res: %v\n", cols)
+			for _, col := range cols {
+				fmt.Printf("col: %v\n", col)
+			}
+		*/
+
 		//Setting the fn shape
 		fn.Shape = app.Shape
 

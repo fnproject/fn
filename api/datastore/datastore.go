@@ -46,6 +46,7 @@ var providers []Provider
 
 // Register globally registers a data store provider
 func Register(provider Provider) {
-	logrus.Infof("Registering data store provider '%s'", provider)
+	//logrus.Infof("Registering data store provider '%s'", provider)
+	fmt.Printf("Registering data store provider '%s'\n", provider)
 	providers = append(providers, provider)
 }

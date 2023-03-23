@@ -16,7 +16,7 @@ type Datastore interface {
 	GetAppID(ctx context.Context, appName string) (string, error)
 
 	// GetApps gets a slice of Apps, optionally filtered by name, and a cursor.
-	// Missing filter or empty name will match all Apps.
+	// Missin filter or empty name will match all Apps.
 	GetApps(ctx context.Context, filter *AppFilter) (*AppList, error)
 
 	// InsertApp inserts an App. Returns ErrDatastoreEmptyApp when app is nil, and

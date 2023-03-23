@@ -20,6 +20,8 @@ go test $(go list ./... | \
     grep -v images/fn-test-utils\
 )
 
+#go test github.com/fnproject/fn/api/datastore/sql github.com/fnproject/fn/api/datastore/sql/migratex github.com/fnproject/fn/api/datastore/sql/migrations github.com/fnproject/fn/api/datastore/sql/mysql github.com/fnproject/fn/api/datastore/sql/postgres github.com/fnproject/fn/api/datastore/sql/sqlite
+
 
 go vet $(go list ./... | grep -v vendor)
 
