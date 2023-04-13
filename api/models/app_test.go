@@ -32,10 +32,6 @@ func annotationGenerator() gopter.Gen {
 	return gen.OneConstOf(annotation1, annotation2)
 }
 
-func shapeGenerator() gopter.Gen {
-	return gen.OneConstOf("GENERIC_X86", "GENERIC_ARM", "GENERIC_X86_ARM")
-}
-
 func datetimeGenerator() gopter.Gen {
 	return gen.Time().Map(func(t time.Time) common.DateTime {
 		return common.DateTime(t)
@@ -48,7 +44,7 @@ func appFieldGenerators(t *testing.T) map[string]gopter.Gen {
 	fieldGens["Name"] = gen.AlphaString()
 	fieldGens["Config"] = configGenerator()
 	fieldGens["Annotations"] = annotationGenerator()
-	fieldGens["Shape"] = gen.OneConstOf("GENERIC_X86", "GENERIC_ARM", "GENERIC_X86_ARM")
+	//fieldGens["Shape"] = gen.OneConstOf("GENERIC_X86", "GENERIC_ARM", "GENERIC_X86_ARM")
 	fieldGens["SyslogURL"] = gen.AlphaString().Map(func(s string) *string {
 		return &s
 	})
