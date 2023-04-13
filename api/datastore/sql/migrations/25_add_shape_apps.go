@@ -56,7 +56,6 @@ func up25(ctx context.Context, tx *sqlx.Tx) error {
 	return nil
 }
 
-
 func down25(ctx context.Context, tx *sqlx.Tx) error {
 	_, err := tx.ExecContext(ctx, "ALTER TABLE apps DROP COLUMN shape;")
 	return err
