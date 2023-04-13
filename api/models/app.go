@@ -73,7 +73,7 @@ type App struct {
 	Config      Config          `json:"config,omitempty" db:"config"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
 	SyslogURL   *string         `json:"syslog_url,omitempty" db:"syslog_url"`
-	Shape       string          `json:"shape" db:"shape"`
+	Shape       string          `json:"shape,omitempty" db:"shape"`
 	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }

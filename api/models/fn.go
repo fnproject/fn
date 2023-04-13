@@ -99,7 +99,7 @@ type Fn struct {
 	// CreatedAt is the UTC timestamp when this function was created.
 	CreatedAt common.DateTime `json:"created_at,omitempty" db:"created_at"`
 	// Shape of the function image
-	Shape string `json:"shape" db:"shape"`
+	Shape string `json:"shape,omitempty" db:"shape"`
 	// UpdatedAt is the UTC timestamp of the last time this func was modified.
 	UpdatedAt common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }

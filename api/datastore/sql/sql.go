@@ -41,7 +41,7 @@ var tables = [...]string{
 	syslog_url text,
 	created_at varchar(256),
 	updated_at varchar(256),
-	shape text NOT NULL
+	shape text
 );`,
 
 	`CREATE TABLE IF NOT EXISTS triggers (
@@ -69,7 +69,7 @@ var tables = [...]string{
 	annotations text NOT NULL,
 	created_at varchar(256) NOT NULL,
 	updated_at varchar(256) NOT NULL,
-	shape text NOT NULL,
+	shape text,
     CONSTRAINT name_app_id_unique UNIQUE (app_id, name)
 );`,
 }
@@ -317,11 +317,6 @@ func (ds *SQLStore) InsertApp(ctx context.Context, newApp *models.App) (*models.
 		app.Config = map[string]string{}
 	}
 
-	// for empty shape put default x86
-	if app.Shape == "" {
-		app.Shape = models.AppShapeGenericX86
-	}
-
 	query := ds.db.Rebind(`INSERT INTO apps (
 		id,
 		name,
@@ -518,22 +513,7 @@ func (ds *SQLStore) InsertFn(ctx context.Context, newFn *models.Fn) (*models.Fn,
 			}
 		}
 
-		/*
-			q := "SELECT * FROM fns"
-			res, err := tx.Query(q)
-			cols, err := res.Columns()
-			if err != nil {
-				fmt.Printf("error while fetchign columns: %v\n", err)
-				return err
-			}
-
-			fmt.Printf(">>res: %v\n", cols)
-			for _, col := range cols {
-				fmt.Printf("col: %v\n", col)
-			}
-		*/
-
-		//Setting the fn shape
+		//Setting the fn shape same as the application shape
 		fn.Shape = app.Shape
 
 		query = tx.Rebind(`INSERT INTO fns (
