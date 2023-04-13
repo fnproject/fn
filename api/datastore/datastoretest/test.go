@@ -549,10 +549,10 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			testFn := rp.ValidFn(testApp.ID)
 			/*
-			if testFn != nil {
-				testFn.Shape = "GENERIC_X86"
-			}
-			 */
+				if testFn != nil {
+					testFn.Shape = "GENERIC_X86"
+				}
+			*/
 			testFn, err := ds.InsertFn(ctx, testFn)
 			if err != nil {
 				t.Fatalf("error when storing perfectly good fn: %s", err)
