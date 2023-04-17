@@ -31,7 +31,6 @@ import (
 // fields not contiguous with other fields and this field is a fixed size,
 // we'll get better locality with varchar. it's not terribly easy to do this
 // with migrations (sadly, need complex transaction)
-//`DROP TABLE IF EXISTS apps;
 var tables = [...]string{
 	`CREATE TABLE IF NOT EXISTS apps (
 	id varchar(256) NOT NULL PRIMARY KEY,
@@ -296,7 +295,6 @@ func (ds *SQLStore) GetAppID(ctx context.Context, appName string) (string, error
 
 	err := row.StructScan(&app)
 	if err == sql.ErrNoRows {
-		logrus.Infof("error while getting app id \n")
 		return "", models.ErrAppsNotFound
 	}
 	if err != nil {

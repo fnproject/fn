@@ -267,7 +267,6 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("error when updating app: %v", err)
 			}
-			//expected := &models.App{ID: testApp.ID, Name: testApp.Name, Config: map[string]string{"TEST": "1"}, Shape: "GENERIC_X86"}
 			expected := &models.App{ID: testApp.ID, Name: testApp.Name, Config: map[string]string{"TEST": "1"}}
 			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
@@ -291,7 +290,6 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("error when updating app: %v", err)
 			}
-			//expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}, Shape: "GENERIC_X86"}
 			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}}
 			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated `%v` but got `%v`", expected, updated)
@@ -340,7 +338,6 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("error when updating app: %v", err)
 			}
-			//expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"OTHER": "TEST"}, Shape: "GENERIC_X86"}
 			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"OTHER": "TEST"}}
 			if !expected.EqualsWithAnnotationSubset(updated) {
 				t.Fatalf("expected updated `%#v` but got `%#v`", expected, updated)
@@ -548,11 +545,6 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testApp := h.GivenAppInDb(rp.ValidApp())
 
 			testFn := rp.ValidFn(testApp.ID)
-			/*
-				if testFn != nil {
-					testFn.Shape = "GENERIC_X86"
-				}
-			*/
 			testFn, err := ds.InsertFn(ctx, testFn)
 			if err != nil {
 				t.Fatalf("error when storing perfectly good fn: %s", err)
@@ -774,6 +766,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("failed to remove the func: %v", fn)
 			}
 		})
+		
 	})
 }
 
@@ -1240,4 +1233,5 @@ func RunAllTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	RunFnsTest(t, dsf, rp)
 	RunTriggersTest(t, dsf, rp)
 	RunTriggerBySourceTests(t, dsf, rp)
+
 }
