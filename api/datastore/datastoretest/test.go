@@ -766,7 +766,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("failed to remove the func: %v", fn)
 			}
 		})
-		
+
 	})
 }
 
