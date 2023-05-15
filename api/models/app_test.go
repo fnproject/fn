@@ -44,6 +44,7 @@ func appFieldGenerators(t *testing.T) map[string]gopter.Gen {
 	fieldGens["Name"] = gen.AlphaString()
 	fieldGens["Config"] = configGenerator()
 	fieldGens["Annotations"] = annotationGenerator()
+	fieldGens["Shape"] = gen.Const("")
 	fieldGens["SyslogURL"] = gen.AlphaString().Map(func(s string) *string {
 		return &s
 	})
@@ -123,7 +124,7 @@ func TestAppEquality(t *testing.T) {
 			for fieldName, fieldGen := range appFieldGens {
 
 				if fieldName == "CreatedAt" ||
-					fieldName == "UpdatedAt" {
+					fieldName == "UpdatedAt" || fieldName == "Shape" {
 					continue
 				}
 
