@@ -13,9 +13,6 @@ jobs:
       - ARCH=amd64
       - FN_LOG_LEVEL=debug
     steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "bf:be:83:f9:e5:a4:05:2a:cb:81:7d:87:5d:f9:6f:dc"
       - checkout
       # install Go
 
