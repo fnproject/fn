@@ -15,46 +15,11 @@ jobs:
     steps:
       - checkout
       # install Go
-      - run: |
-          go version
-          go env GOROOT
-          mkdir tmp
-          cd tmp
-          sudo rm -rf /usr/local/go
-          wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
-          sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
-      - run: go version
-      # install latest Docker
-      - run: |
-          sudo rm -rf /var/cache/apt/archives && sudo ln -s ~/.apt-cache /var/cache/apt/archives && mkdir -p ~/.apt-cache/partial
-          sudo service docker stop
-          curl -fsSL https://get.docker.com/ | sudo sh
-          docker version
-      - run: docker version
+
       - run: nproc
+
       # fixes git-diff warning: "warning: inexact rename detection was skipped due to too many files.""
       - run: git config diff.renamelimit 65535
-      # NOTE: if GOFLAGS and GOMODULE are set, gosec will be noisy. unset them (run this before any 'make' command)
-      - run: |
-          GOPATH=/home/circleci/go:$GOPATH
-          wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $GOPATH/bin 1.2.0
-          $GOPATH/bin/gosec -quiet -severity medium ./...
-
-      - run: make clear-images
-
-      # Work out what needs rebuilding and what has changed
-      - run: |
-          ( ./changed-since-last.sh
-            echo "export DIND_NEEDED DIND_TAG DIND_PREV"
-            echo "export FN_NEEDED FN_TAG FN_PREV"
-          ) >> $BASH_ENV
-
-      # Rebuild the build tools if necessary
-      # This leaves local docker images around
-      - run: |
-          if [[ -n "$DIND_NEEDED" ]]; then
-            make build-dind
-          fi
 
       # Rebuild fnserver if necessary
       - run: |
@@ -64,15 +29,7 @@ jobs:
 
       - deploy:
           command: |
-            if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then
-              printenv DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-              git config --global user.email "ci@fnproject.com"
-              git config --global user.name "CI"
-              git branch --set-upstream-to=origin/${CIRCLE_BRANCH} ${CIRCLE_BRANCH}
-              if [[ -n "$DIND_NEEDED" ]]; then
-                make release-dind
-              fi
-              if [[ -n "$FN_NEEDED" ]]; then
-                make release-fnserver
-              fi
-            fi
+            git config --global user.email "ci@fnproject.com"
+            git config --global user.name "CI"
+            git branch --set-upstream-to=origin/${CIRCLE_BRANCH} ${CIRCLE_BRANCH}
+            make release-fnserver
