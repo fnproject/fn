@@ -14,9 +14,9 @@
 package prometheus
 
 import (
-	"fmt"
 	"runtime"
 	"runtime/debug"
+	"sync"
 	"time"
 )
 
@@ -26,16 +26,20 @@ type goCollector struct {
 	gcDesc         *Desc
 	goInfoDesc     *Desc
 
-	// metrics to describe and collect
-	metrics memStatsMetrics
+	// ms... are memstats related.
+	msLast          *runtime.MemStats // Previously collected memstats.
+	msLastTimestamp time.Time
+	msMtx           sync.Mutex // Protects msLast and msLastTimestamp.
+	msMetrics       memStatsMetrics
+	msRead          func(*runtime.MemStats) // For mocking in tests.
+	msMaxWait       time.Duration           // Wait time for fresh memstats.
+	msMaxAge        time.Duration           // Maximum allowed age of old memstats.
 }
 
-// NewGoCollector returns a collector which exports metrics about the current Go
-// process. This includes memory stats. To collect those, runtime.ReadMemStats
-// is called. This causes a stop-the-world, which is very short with Go1.9+
-// (~25µs). However, with older Go versions, the stop-the-world duration depends
-// on the heap size and can be quite significant (~1.7 ms/GiB as per
-// https://go-review.googlesource.com/c/go/+/34937).
+// NewGoCollector is the obsolete version of collectors.NewGoCollector.
+// See there for documentation.
+//
+// Deprecated: Use collectors.NewGoCollector instead.
 func NewGoCollector() Collector {
 	return &goCollector{
 		goroutinesDesc: NewDesc(
@@ -48,13 +52,17 @@ func NewGoCollector() Collector {
 			nil, nil),
 		gcDesc: NewDesc(
 			"go_gc_duration_seconds",
-			"A summary of the GC invocation durations.",
+			"A summary of the pause duration of garbage collection cycles.",
 			nil, nil),
 		goInfoDesc: NewDesc(
 			"go_info",
 			"Information about the Go environment.",
 			nil, Labels{"version": runtime.Version()}),
-		metrics: memStatsMetrics{
+		msLast:    &runtime.MemStats{},
+		msRead:    runtime.ReadMemStats,
+		msMaxWait: time.Second,
+		msMaxAge:  5 * time.Minute,
+		msMetrics: memStatsMetrics{
 			{
 				desc: NewDesc(
 					memstatNamespace("alloc_bytes"),
@@ -253,7 +261,7 @@ func NewGoCollector() Collector {
 }
 
 func memstatNamespace(s string) string {
-	return fmt.Sprintf("go_memstats_%s", s)
+	return "go_memstats_" + s
 }
 
 // Describe returns all descriptions of the collector.
@@ -262,13 +270,27 @@ func (c *goCollector) Describe(ch chan<- *Desc) {
 	ch <- c.threadsDesc
 	ch <- c.gcDesc
 	ch <- c.goInfoDesc
-	for _, i := range c.metrics {
+	for _, i := range c.msMetrics {
 		ch <- i.desc
 	}
 }
 
 // Collect returns the current state of all metrics of the collector.
 func (c *goCollector) Collect(ch chan<- Metric) {
+	var (
+		ms   = &runtime.MemStats{}
+		done = make(chan struct{})
+	)
+	// Start reading memstats first as it might take a while.
+	go func() {
+		c.msRead(ms)
+		c.msMtx.Lock()
+		c.msLast = ms
+		c.msLastTimestamp = time.Now()
+		c.msMtx.Unlock()
+		close(done)
+	}()
+
 	ch <- MustNewConstMetric(c.goroutinesDesc, GaugeValue, float64(runtime.NumGoroutine()))
 	n, _ := runtime.ThreadCreateProfile(nil)
 	ch <- MustNewConstMetric(c.threadsDesc, GaugeValue, float64(n))
@@ -286,9 +308,31 @@ func (c *goCollector) Collect(ch chan<- Metric) {
 
 	ch <- MustNewConstMetric(c.goInfoDesc, GaugeValue, 1)
 
-	ms := &runtime.MemStats{}
-	runtime.ReadMemStats(ms)
-	for _, i := range c.metrics {
+	timer := time.NewTimer(c.msMaxWait)
+	select {
+	case <-done: // Our own ReadMemStats succeeded in time. Use it.
+		timer.Stop() // Important for high collection frequencies to not pile up timers.
+		c.msCollect(ch, ms)
+		return
+	case <-timer.C: // Time out, use last memstats if possible. Continue below.
+	}
+	c.msMtx.Lock()
+	if time.Since(c.msLastTimestamp) < c.msMaxAge {
+		// Last memstats are recent enough. Collect from them under the lock.
+		c.msCollect(ch, c.msLast)
+		c.msMtx.Unlock()
+		return
+	}
+	// If we are here, the last memstats are too old or don't exist. We have
+	// to wait until our own ReadMemStats finally completes. For that to
+	// happen, we have to release the lock.
+	c.msMtx.Unlock()
+	<-done
+	c.msCollect(ch, ms)
+}
+
+func (c *goCollector) msCollect(ch chan<- Metric, ms *runtime.MemStats) {
+	for _, i := range c.msMetrics {
 		ch <- MustNewConstMetric(i.desc, i.valType, i.eval(ms))
 	}
 }
@@ -298,4 +342,26 @@ type memStatsMetrics []struct {
 	desc    *Desc
 	eval    func(*runtime.MemStats) float64
 	valType ValueType
+}
+
+// NewBuildInfoCollector is the obsolete version of collectors.NewBuildInfoCollector.
+// See there for documentation.
+//
+// Deprecated: Use collectors.NewBuildInfoCollector instead.
+func NewBuildInfoCollector() Collector {
+	path, version, sum := "unknown", "unknown", "unknown"
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		path = bi.Main.Path
+		version = bi.Main.Version
+		sum = bi.Main.Sum
+	}
+	c := &selfCollector{MustNewConstMetric(
+		NewDesc(
+			"go_build_info",
+			"Build information about the main Go module.",
+			nil, Labels{"path": path, "version": version, "checksum": sum},
+		),
+		GaugeValue, 1)}
+	c.init(c.self)
+	return c
 }
