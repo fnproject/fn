@@ -96,7 +96,7 @@ fn create app myapp
 Deploy your function: 
 
 ```sh
-fn deploy --app myapp --local
+fn deploy --app myapp --create-app --local
 ```
 
 Note: `--local` flag will skip the push to remote container registry making local development faster
