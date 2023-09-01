@@ -308,7 +308,7 @@ func TestLoggerTooBig(t *testing.T) {
 	var call models.Call
 	logger := setupLogger(context.Background(), 10, true, &call)
 
-	str := fmt.Sprintf("0 line\n1 l\n-----max log size 10 bytes exceeded, truncating log-----\n")
+	str := "0 line\n1 l\n-----max log size 10 bytes exceeded, truncating log-----\n"
 
 	n, err := logger.Write([]byte(str))
 	if err != nil {
