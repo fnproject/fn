@@ -1,8 +1,10 @@
 package docker
 
 import (
+	"fmt"
 	"net/url"
 	"os"
+	"os/user"
 	"strings"
 
 	"github.com/fsouza/go-dockerclient"
@@ -19,15 +21,36 @@ func registryFromEnv() (map[string]driverAuthConfig, error) {
 	if reg := os.Getenv("FN_DOCKER_AUTH"); reg != "" {
 		auths, err = docker.NewAuthConfigurations(strings.NewReader(reg))
 	} else {
-		auths, err = docker.NewAuthConfigurationsFromDockerCfg()
+		auths, err = newAuthConfigurationsFromPodmanCfg()
+		if err != nil {
+			auths, err = docker.NewAuthConfigurationsFromDockerCfg()
+		}
 	}
 
 	if err != nil {
-		logrus.WithError(err).Info("no docker auths from config files found (this is fine)")
+		logrus.WithError(err).Info("no docker or podman auths from config files found (this is fine)")
 		return map[string]driverAuthConfig{}, nil
 	}
 
 	return preprocessAuths(auths)
+}
+
+func newAuthConfigurationsFromPodmanCfg() (*docker.AuthConfigurations, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+
+	authJson := fmt.Sprintf("/run/user/%s/containers/auth.json", currentUser)
+	_, err = os.Stat(authJson)
+	if err != nil && os.IsNotExist(err) {
+		return nil, err
+	}
+	auths, err := docker.NewAuthConfigurations(strings.NewReader(authJson))
+	if err != nil {
+		logrus.WithError(err).Infof("Failed to parse %s podman config. Fall back to docker config.", authJson)
+	}
+	return auths, err
 }
 
 func preprocessAuths(auths *docker.AuthConfigurations) (map[string]driverAuthConfig, error) {
