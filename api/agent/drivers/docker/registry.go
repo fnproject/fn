@@ -23,6 +23,7 @@ func registryFromEnv() (map[string]driverAuthConfig, error) {
 	} else {
 		auths, err = newAuthConfigurationsFromPodmanCfg()
 		if err != nil {
+			logrus.WithError(err).Info("Failed to parse podman config. Fall back to docker config.")
 			auths, err = docker.NewAuthConfigurationsFromDockerCfg()
 		}
 	}
@@ -47,9 +48,6 @@ func newAuthConfigurationsFromPodmanCfg() (*docker.AuthConfigurations, error) {
 		return nil, err
 	}
 	auths, err := docker.NewAuthConfigurations(strings.NewReader(authJson))
-	if err != nil {
-		logrus.WithError(err).Infof("Failed to parse %s podman config. Fall back to docker config.", authJson)
-	}
 	return auths, err
 }
 
