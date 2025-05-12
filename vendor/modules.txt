@@ -1,29 +1,41 @@
 # contrib.go.opencensus.io/exporter/jaeger v0.1.0
+## explicit
 contrib.go.opencensus.io/exporter/jaeger
 contrib.go.opencensus.io/exporter/jaeger/internal/gen-go/jaeger
 # contrib.go.opencensus.io/exporter/prometheus v0.1.0
+## explicit
 contrib.go.opencensus.io/exporter/prometheus
 # contrib.go.opencensus.io/exporter/zipkin v0.1.1
+## explicit
 contrib.go.opencensus.io/exporter/zipkin
 # github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
+## explicit
 github.com/Azure/go-ansiterm
 github.com/Azure/go-ansiterm/winterm
 # github.com/Microsoft/go-winio v0.4.14
+## explicit; go 1.12
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
 # github.com/apache/thrift v0.12.0
+## explicit
 github.com/apache/thrift/lib/go/thrift
 # github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
+## explicit
 github.com/beorn7/perks/quantile
 # github.com/containerd/continuity v0.0.0-20181203112020-004b46473808
+## explicit
 github.com/containerd/continuity/pathdriver
 # github.com/coreos/go-semver v0.2.1-0.20180108230905-e214231b295a
+## explicit
 github.com/coreos/go-semver/semver
 # github.com/davecgh/go-spew v1.1.1
+## explicit
 github.com/davecgh/go-spew/spew
 # github.com/dchest/siphash v1.2.0
+## explicit
 github.com/dchest/siphash
 # github.com/docker/docker v0.7.3-0.20190309235953-33c3200e0d16
+## explicit
 github.com/docker/docker/api/types/blkiodev
 github.com/docker/docker/api/types/container
 github.com/docker/docker/api/types/filters
@@ -45,34 +57,46 @@ github.com/docker/docker/pkg/pools
 github.com/docker/docker/pkg/stdcopy
 github.com/docker/docker/pkg/system
 # github.com/docker/go-connections v0.4.0
+## explicit
 github.com/docker/go-connections/nat
 # github.com/docker/go-units v0.3.3
+## explicit
 github.com/docker/go-units
 # github.com/fnproject/fdk-go v0.0.0-20181025170718-26ed643bea68
+## explicit
 github.com/fnproject/fdk-go
 # github.com/fsnotify/fsnotify v1.4.7
+## explicit
 github.com/fsnotify/fsnotify
 # github.com/fsouza/go-dockerclient v1.4.0
+## explicit
 github.com/fsouza/go-dockerclient
 github.com/fsouza/go-dockerclient/internal/archive
 github.com/fsouza/go-dockerclient/internal/jsonmessage
 github.com/fsouza/go-dockerclient/internal/term
 # github.com/gin-contrib/cors v0.0.0-20170318125340-cf4846e6a636
+## explicit
 github.com/gin-contrib/cors
 # github.com/gin-contrib/sse v0.0.0-20170109093832-22d885f9ecc7
+## explicit
 github.com/gin-contrib/sse
 # github.com/gin-gonic/gin v1.3.0
+## explicit
 github.com/gin-gonic/gin
 github.com/gin-gonic/gin/binding
 github.com/gin-gonic/gin/json
 github.com/gin-gonic/gin/render
 # github.com/go-sql-driver/mysql v1.4.0
+## explicit
 github.com/go-sql-driver/mysql
 # github.com/gogo/protobuf v1.2.1
+## explicit
 github.com/gogo/protobuf/proto
 # github.com/golang/groupcache v0.0.0-20180924190550-6f2cf27854a4
+## explicit
 github.com/golang/groupcache/singleflight
 # github.com/golang/protobuf v1.3.1
+## explicit
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
@@ -82,78 +106,107 @@ github.com/golang/protobuf/ptypes/empty
 github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
+## explicit
 github.com/grpc-ecosystem/go-grpc-middleware
 # github.com/hashicorp/golang-lru v0.5.1
+## explicit
 github.com/hashicorp/golang-lru/simplelru
 # github.com/ijc/Gotty v0.0.0-20170406111628-a8b993ba6abd
+## explicit
 github.com/ijc/Gotty
 # github.com/jmoiron/sqlx v1.2.0
+## explicit
 github.com/jmoiron/sqlx
 github.com/jmoiron/sqlx/reflectx
 # github.com/json-iterator/go v1.1.5
+## explicit
 github.com/json-iterator/go
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
+## explicit
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/leanovate/gopter v0.2.2
+## explicit
 github.com/leanovate/gopter
 github.com/leanovate/gopter/gen
 github.com/leanovate/gopter/prop
 # github.com/lib/pq v1.0.0
+## explicit
 github.com/lib/pq
 github.com/lib/pq/oid
 # github.com/mattn/go-isatty v0.0.4
+## explicit
 github.com/mattn/go-isatty
 # github.com/mattn/go-sqlite3 v1.9.0
+## explicit
 github.com/mattn/go-sqlite3
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
+## explicit
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+## explicit
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
+## explicit
 github.com/modern-go/reflect2
 # github.com/opencontainers/go-digest v1.0.0-rc1
+## explicit
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.1
+## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
 # github.com/opencontainers/runc v0.1.1
+## explicit
 github.com/opencontainers/runc/libcontainer/user
 # github.com/openzipkin/zipkin-go v0.1.6
+## explicit
 github.com/openzipkin/zipkin-go/model
 github.com/openzipkin/zipkin-go/reporter
 github.com/openzipkin/zipkin-go/reporter/http
 # github.com/patrickmn/go-cache v2.1.0+incompatible
+## explicit
 github.com/patrickmn/go-cache
 # github.com/pkg/errors v0.8.1
+## explicit
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
+## explicit
 github.com/pmezard/go-difflib/difflib
 # github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
+## explicit
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.0.0-20190115171406-56726106282f
+## explicit
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.2.0
+## explicit
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.0.0-20190117184657-bf6a532e95b1
+## explicit
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/util
 github.com/prometheus/procfs/nfs
 github.com/prometheus/procfs/xfs
 # github.com/sirupsen/logrus v1.4.1
+## explicit
 github.com/sirupsen/logrus
 github.com/sirupsen/logrus/hooks/syslog
 # github.com/stretchr/objx v0.1.1
+## explicit
 github.com/stretchr/objx
 # github.com/stretchr/testify v1.3.0
+## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
 # github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f
+## explicit
 github.com/ugorji/go/codec
 # go.opencensus.io v0.22.1-0.20190619184131-df42942ad08f
+## explicit
 go.opencensus.io
 go.opencensus.io/internal
 go.opencensus.io/internal/tagencoding
@@ -173,6 +226,7 @@ go.opencensus.io/trace/internal
 go.opencensus.io/trace/propagation
 go.opencensus.io/trace/tracestate
 # golang.org/x/net v0.0.0-20190501004415-9ce7a6920f09
+## explicit
 golang.org/x/net/context
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
@@ -181,24 +235,32 @@ golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
 # golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
+## explicit
 golang.org/x/sync/semaphore
 # golang.org/x/sys v0.0.0-20190507160741-ecd444e8653b
+## explicit; go 1.12
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.2
+## explicit
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 # golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
+## explicit
 golang.org/x/time/rate
 # google.golang.org/api v0.3.2
+## explicit
 google.golang.org/api/support/bundler
 # google.golang.org/appengine v1.4.0
+## explicit
 google.golang.org/appengine/cloudsql
 # google.golang.org/genproto v0.0.0-20190425155659-357c62f0e4bb
+## explicit
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.20.1
+## explicit
 google.golang.org/grpc
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/base
@@ -231,7 +293,12 @@ google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
+# gopkg.in/go-playground/assert.v1 v1.2.1
+## explicit
 # gopkg.in/go-playground/validator.v8 v8.18.2
+## explicit
 gopkg.in/go-playground/validator.v8
 # gopkg.in/yaml.v2 v2.2.2
+## explicit
 gopkg.in/yaml.v2
+# cloud.google.com/go => github.com/google/go-cloud v0.4.1-0.20181025204856-f29236cc19de
