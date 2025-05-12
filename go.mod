@@ -20,7 +20,7 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/leanovate/gopter v0.2.2
 	github.com/lib/pq v1.0.0
-	github.com/mattn/go-sqlite3 v1.9.0
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/openzipkin/zipkin-go v0.1.6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.8.1
