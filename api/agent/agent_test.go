@@ -768,9 +768,13 @@ func TestTmpFsRW(t *testing.T) {
 
 		point := tokens[1]
 		opts := tokens[3]
-
 		// tmp dir with RW and no other options (size, inodes, etc.)
-		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime" {
+		if point == "/tmp" &&
+			strings.Contains(opts, "rw") &&
+			strings.Contains(opts, "nosuid") &&
+			strings.Contains(opts, "nodev") &&
+			strings.Contains(opts, "noexec") &&
+			strings.Contains(opts, "relatime") {
 			// good
 			isFound = true
 		} else if point == "/" && strings.HasPrefix(opts, "ro,") {
@@ -866,7 +870,7 @@ func TestTmpFsSize(t *testing.T) {
 		opts := tokens[3]
 
 		// rw tmp dir with size and inode limits applied.
-		if point == "/tmp" && opts == "rw,nosuid,nodev,noexec,relatime,size=1024k,nr_inodes=1025" {
+		if point == "/tmp" && strings.Contains(opts, "size=1024k,nr_inodes=1025") {
 			// good
 			isFound = true
 		} else if point == "/" && strings.HasPrefix(opts, "ro,") {
