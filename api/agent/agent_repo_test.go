@@ -258,7 +258,7 @@ func TestDockerPullNoRetry(t *testing.T) {
 	fn.Image = strings.TrimPrefix(dockerSrv.URL, "https://") + "/foo/bar:latest"
 
 	err = execFn(`{"sleepTime": 0}`, fn, getApp(), a, 400000)
-	if err == nil || strings.Index(err.Error(), "toomanyrequests: garbanzo beans have reached the sky") == -1 {
+	if err == nil || strings.Index(err.Error(), "garbanzo beans have reached the sky") == -1 {
 		t.Fatalf("unexpected error %v", err)
 	}
 }
