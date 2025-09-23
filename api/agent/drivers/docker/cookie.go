@@ -110,6 +110,7 @@ func (c *cookie) configureMem(log logrus.FieldLogger) {
 	c.opts.Config.KernelMemory = mem
 	c.opts.HostConfig.MemorySwap = mem
 	c.opts.HostConfig.KernelMemory = mem
+	c.opts.HostConfig.Memory = mem
 	var zero int64
 	c.opts.HostConfig.MemorySwappiness = &zero // disables host swap
 }
