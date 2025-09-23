@@ -505,7 +505,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 // when not able to connect to syslog
 func isSyslogError(err error) bool {
 	derr, ok := err.(*docker.Error)
-	return ok && strings.HasPrefix(derr.Message, "failed to initialize logging driver")
+	return ok && strings.Contains(derr.Message, "failed to initialize logging driver")
 }
 
 // waitResult implements drivers.WaitResult
