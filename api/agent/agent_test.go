@@ -565,7 +565,7 @@ func TestDockerPullUnAuthorizedRepo(t *testing.T) {
 	if err == nil {
 		t.Fatal("submit should error!")
 	}
-	if models.GetAPIErrorCode(err) != http.StatusBadGateway {
+	if models.GetAPIErrorCode(err) != http.StatusUnauthorized {
 		t.Fatalf("unexpected error %v", err)
 	}
 }
