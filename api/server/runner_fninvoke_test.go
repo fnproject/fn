@@ -35,7 +35,7 @@ func TestBadRequests(t *testing.T) {
 		{"/invoke/notfn", "", "", http.StatusNotFound, models.ErrFnsNotFound},
 	} {
 		request := createRequest(t, http.MethodPost, test.path, strings.NewReader(test.body))
-		request.Header = map[string][]string{"Content-Type": []string{test.contentType}}
+		request.Header = map[string][]string{"Content-Type": {test.contentType}}
 		_, rec := routerRequest2(t, srv.Router, request)
 
 		if rec.Code != test.expectedCode {

@@ -57,17 +57,17 @@ func (t *Trigger) EqualsWithAnnotationSubset(t2 *Trigger) bool {
 	return eq
 }
 
-//TriggerTypeHTTP represents an HTTP trigger
+// TriggerTypeHTTP represents an HTTP trigger
 const TriggerTypeHTTP = "http"
 
 var triggerTypes = []string{TriggerTypeHTTP}
 
-//ValidTriggerTypes lists the supported trigger types in this service
+// ValidTriggerTypes lists the supported trigger types in this service
 func ValidTriggerTypes() []string {
 	return triggerTypes
 }
 
-//ValidTriggerType checks that a given trigger type is valid on this service
+// ValidTriggerType checks that a given trigger type is valid on this service
 func ValidTriggerType(a string) bool {
 	for _, b := range triggerTypes {
 		if b == a {
@@ -138,7 +138,7 @@ var (
 		error: errors.New("Trigger with the same type and source exists on this app")}
 )
 
-//Validate checks that trigger has valid data for inserting into a store
+// Validate checks that trigger has valid data for inserting into a store
 func (t *Trigger) Validate() error {
 	if t.AppID == "" {
 		return ErrTriggerMissingAppID
@@ -225,7 +225,7 @@ func (t *Trigger) Update(patch *Trigger) {
 	}
 }
 
-//TriggerFilter is a search criteria on triggers
+// TriggerFilter is a search criteria on triggers
 type TriggerFilter struct {
 	//AppID searches for triggers in APP - mandatory
 	AppID string // this is exact match mandatory
@@ -238,7 +238,7 @@ type TriggerFilter struct {
 	PerPage int
 }
 
-//TriggerList is a container of triggers returned by search, optionally indicating the next page cursor
+// TriggerList is a container of triggers returned by search, optionally indicating the next page cursor
 type TriggerList struct {
 	NextCursor string     `json:"next_cursor,omitempty"`
 	Items      []*Trigger `json:"items"`

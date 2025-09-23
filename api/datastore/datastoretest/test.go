@@ -29,7 +29,7 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
-//ResourceProvider provides an abstraction for supplying data store tests with
+// ResourceProvider provides an abstraction for supplying data store tests with
 // appropriate initial testing objects for running tests
 // Use the resource calls to supply objects with (e.g.) middleware enforced annotations set on them
 // Use DefaultCtx to override custom middleware-supplied context variables
@@ -54,7 +54,7 @@ type BasicResourceProvider struct {
 // DataStoreFunc provides an instance of a data store
 type DataStoreFunc func(*testing.T) models.Datastore
 
-//NewBasicResourceProvider creates a dumb resource provider that generates resources that have valid, random names (and other unique attributes)
+// NewBasicResourceProvider creates a dumb resource provider that generates resources that have valid, random names (and other unique attributes)
 func NewBasicResourceProvider() ResourceProvider {
 	return &BasicResourceProvider{
 		rand: rand.New(rand.NewSource(time.Now().UnixNano())),

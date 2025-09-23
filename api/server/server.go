@@ -471,7 +471,7 @@ func WithExtraCtx(extraCtx context.Context) Option {
 	}
 }
 
-//WithTriggerAnnotator adds a trigggerEndpoint provider to the server
+// WithTriggerAnnotator adds a trigggerEndpoint provider to the server
 func WithTriggerAnnotator(provider TriggerAnnotator) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.triggerAnnotator = provider
@@ -479,7 +479,7 @@ func WithTriggerAnnotator(provider TriggerAnnotator) Option {
 	}
 }
 
-//WithFnAnnotator adds a fnEndpoint provider to the server
+// WithFnAnnotator adds a fnEndpoint provider to the server
 func WithFnAnnotator(provider FnAnnotator) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.fnAnnotator = provider
@@ -516,15 +516,15 @@ func New(ctx context.Context, opts ...Option) *Server {
 		Router:      engine,
 		AdminRouter: engine,
 		svcConfigs: map[string]*http.Server{
-			WebServer: &http.Server{
+			WebServer: {
 				MaxHeaderBytes:    getEnvInt(EnvMaxHeaderSize, http.DefaultMaxHeaderBytes),
 				ReadHeaderTimeout: getEnvDuration(EnvReadHeaderTimeout, 0),
 				ReadTimeout:       getEnvDuration(EnvReadTimeout, 0),
 				WriteTimeout:      getEnvDuration(EnvWriteTimeout, 0),
 				IdleTimeout:       getEnvDuration(EnvHTTPIdleTimeout, 0),
 			},
-			AdminServer: &http.Server{},
-			GRPCServer:  &http.Server{},
+			AdminServer: {},
+			GRPCServer:  {},
 		},
 		// MUST initialize these before opts
 		appListeners:     new(appListeners),

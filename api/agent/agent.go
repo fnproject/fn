@@ -39,10 +39,10 @@ const (
 // Agent exposes an api to create calls from various parameters and then submit
 // those calls, it also exposes a 'safe' shutdown mechanism via its Close method.
 // Agent has a few roles:
-//	* manage the memory pool for a given server
-//	* manage the container lifecycle for calls
-//	* execute calls against containers
-//	* invoke Start and End for each call appropriately
+//   - manage the memory pool for a given server
+//   - manage the container lifecycle for calls
+//   - execute calls against containers
+//   - invoke Start and End for each call appropriately
 //
 // Overview:
 // Upon submission of a call, Agent will start the call's timeout timer
@@ -970,7 +970,7 @@ func (a *agent) runHot(ctx context.Context, caller slotCaller, call *call, tok R
 	}
 }
 
-//checkSocketDestination verifies that the socket file created by the FDK is valid and permitted - notably verifying that any symlinks are relative to the socket dir
+// checkSocketDestination verifies that the socket file created by the FDK is valid and permitted - notably verifying that any symlinks are relative to the socket dir
 func checkSocketDestination(filename string) error {
 	finfo, err := os.Lstat(filename)
 	if err != nil {

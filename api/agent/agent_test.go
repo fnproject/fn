@@ -698,9 +698,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	}
 }
 
-//
 // Tmp directory should be RW by default.
-//
 func TestTmpFsRW(t *testing.T) {
 
 	app := &models.App{ID: "app_id"}
@@ -908,8 +906,8 @@ func testCall() *models.Call {
 	}
 	headers := map[string][]string{
 		// FromRequest would insert these from original HTTP request
-		"Content-Type":   []string{contentType},
-		"Content-Length": []string{contentLength},
+		"Content-Type":   {contentType},
+		"Content-Length": {contentLength},
 	}
 
 	return &models.Call{

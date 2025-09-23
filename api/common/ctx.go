@@ -12,7 +12,7 @@ type contextKey string
 // RequestIDContextKey is the name of the key used to store the request ID into the context
 const RequestIDContextKey = "fn_request_id"
 
-//WithRequestID stores a request ID into the context
+// WithRequestID stores a request ID into the context
 func WithRequestID(ctx context.Context, rid string) context.Context {
 	return context.WithValue(ctx, contextKey(RequestIDContextKey), rid)
 }

@@ -3,11 +3,11 @@
 // runtimes (e.g. Docker, Rkt, etc.) and provides utlities and data types that
 // are common across all runtimes.
 //
-// Docker Driver
+// # Docker Driver
 //
 // The docker driver runs functions as Docker containers.
 //
-// Mock Driver
+// # Mock Driver
 //
 // The mock driver pretends to run functions but doesn't actually run them. This
 // is for testing only.

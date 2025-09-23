@@ -178,7 +178,7 @@ func killLeakedContainers(ctx context.Context, driver *DockerDriver) {
 		containers, err = driver.docker.ListContainers(docker.ListContainersOptions{
 			All: true, // let's include containers that are not running, but not destroyed
 			Filters: map[string][]string{
-				"label": []string{filter},
+				"label": {filter},
 			},
 			Context: ctx,
 		})
