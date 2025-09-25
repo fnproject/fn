@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
-	"net/url"
 )
 
 var sqlHelpers []Helper
@@ -21,7 +20,7 @@ type Helper interface {
 	// Supports indicates if this helper supports this driver name
 	Supports(driverName string) bool
 	// PreConnect calculates the connect URL for the db from a canonical URL used in Fn config
-	PreConnect(url *url.URL) (string, error)
+	PreConnect(url string) (string, error)
 	// PostCreate  Apply any configuration to the DB prior to use
 	PostCreate(db *sqlx.DB) (*sqlx.DB, error)
 	// CheckTableExists checks if a table exists in the DB

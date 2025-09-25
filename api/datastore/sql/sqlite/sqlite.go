@@ -1,14 +1,13 @@
 package sqlite
 
 import (
+	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
+	"github.com/jmoiron/sqlx"
+	"github.com/mattn/go-sqlite3"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
-	"github.com/jmoiron/sqlx"
-	"github.com/mattn/go-sqlite3"
 )
 
 type sqliteHelper int
@@ -21,15 +20,19 @@ func (sqliteHelper) Supports(scheme string) bool {
 	return false
 }
 
-func (sqliteHelper) PreConnect(url *url.URL) (string, error) {
+func (sqliteHelper) PreConnect(u string) (string, error) {
 	// make all the dirs so we can make the file..
-	dir := filepath.Dir(url.Path)
-	err := os.MkdirAll(dir, 0750)
+	sqliteUrl, err := url.Parse(u)
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Dir(sqliteUrl.Path)
+	err = os.MkdirAll(dir, 0750)
 	if err != nil {
 		return "", err
 	}
 
-	return strings.TrimPrefix(url.String(), url.Scheme+"://"), nil
+	return strings.TrimPrefix(u, "sqlite3://"), nil
 }
 
 func (sqliteHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {

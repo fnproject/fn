@@ -2,8 +2,6 @@ package datastore
 
 import (
 	"context"
-	"net/url"
-
 	"fmt"
 
 	"github.com/fnproject/fn/api/common"
@@ -15,18 +13,14 @@ import (
 // New creates a DataStore from the specified URL
 func New(ctx context.Context, dbURL string) (models.Datastore, error) {
 	log := common.Logger(ctx)
-	u, err := url.Parse(dbURL)
-	if err != nil {
-		log.WithError(err).WithFields(logrus.Fields{"url": dbURL}).Fatal("bad DB URL")
-	}
-	log.WithFields(logrus.Fields{"db": u.Scheme}).Debug("creating new datastore")
+	log.WithFields(logrus.Fields{"db": dbURL}).Debug("creating new datastore")
 
 	for _, provider := range providers {
-		if provider.Supports(u) {
-			return provider.New(ctx, u)
+		if provider.Supports(dbURL) {
+			return provider.New(ctx, dbURL)
 		}
 	}
-	return nil, fmt.Errorf("no data store provider found for storage url %s", u)
+	return nil, fmt.Errorf("no data store provider found for storage url %s", dbURL)
 }
 
 func Wrap(ds models.Datastore) models.Datastore {
@@ -37,9 +31,9 @@ func Wrap(ds models.Datastore) models.Datastore {
 type Provider interface {
 	fmt.Stringer
 	// Supports indicates if this provider can handle a given data store.
-	Supports(url *url.URL) bool
+	Supports(url string) bool
 	// New creates a new data store from the specified URL
-	New(ctx context.Context, url *url.URL) (models.Datastore, error)
+	New(ctx context.Context, url string) (models.Datastore, error)
 }
 
 var providers []Provider
