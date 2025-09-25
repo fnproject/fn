@@ -5,7 +5,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"net/url"
 )
 
 type postgresHelper int
@@ -18,8 +17,8 @@ func (postgresHelper) Supports(scheme string) bool {
 	return false
 }
 
-func (postgresHelper) PreConnect(url *url.URL) (string, error) {
-	return url.String(), nil
+func (postgresHelper) PreConnect(url string) (string, error) {
+	return url, nil
 }
 
 func (postgresHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {

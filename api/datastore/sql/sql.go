@@ -6,9 +6,9 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
-	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fnproject/fn/api/common"
@@ -102,16 +102,17 @@ type sqlDsProvider int
 
 // New will open the db specified by url, create any tables necessary
 // and return a models.Datastore safe for concurrent usage.
-func New(ctx context.Context, u *url.URL) (*SQLStore, error) {
+func New(ctx context.Context, u string) (*SQLStore, error) {
 	return newDS(ctx, u)
 }
 
-func (sqlDsProvider) Supports(u *url.URL) bool {
-	_, ok := dbhelper.GetHelper(u.Scheme)
+func (sqlDsProvider) Supports(u string) bool {
+	driver := strings.SplitN(u, ":", 2)[0]
+	_, ok := dbhelper.GetHelper(driver)
 	return ok
 }
 
-func (sqlDsProvider) New(ctx context.Context, u *url.URL) (models.Datastore, error) {
+func (sqlDsProvider) New(ctx context.Context, u string) (models.Datastore, error) {
 	return newDS(ctx, u)
 }
 
@@ -120,8 +121,8 @@ func (sqlDsProvider) String() string {
 }
 
 // for test methods, return concrete type, but don't expose
-func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
-	driver := url.Scheme
+func newDS(ctx context.Context, url string) (*SQLStore, error) {
+	driver := strings.SplitN(url, ":", 2)[0]
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"url": common.MaskPassword(url)})
 	helper, ok := dbhelper.GetHelper(driver)

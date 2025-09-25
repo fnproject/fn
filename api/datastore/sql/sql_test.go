@@ -2,8 +2,8 @@ package sql
 
 import (
 	"context"
-	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/fnproject/fn/api/datastore/datastoretest"
@@ -22,7 +22,7 @@ import (
 // * run all down migrations
 // * run all up migrations
 // [ then run tests against that db ]
-func newWithMigrations(ctx context.Context, url *url.URL) (*SQLStore, error) {
+func newWithMigrations(ctx context.Context, url string) (*SQLStore, error) {
 	ds, err := newDS(ctx, url)
 	if err != nil {
 		return nil, err
@@ -47,10 +47,7 @@ func newWithMigrations(ctx context.Context, url *url.URL) (*SQLStore, error) {
 func TestDatastore(t *testing.T) {
 	ctx := context.Background()
 	defer os.RemoveAll("sqlite_test_dir")
-	u, err := url.Parse("sqlite3://sqlite_test_dir")
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := "sqlite3://sqlite_test_dir"
 	f := func(t *testing.T) *SQLStore {
 		os.RemoveAll("sqlite_test_dir")
 		ds, err := newDS(ctx, u)
@@ -64,7 +61,7 @@ func TestDatastore(t *testing.T) {
 		ds := f(t)
 		return datastoreutil.NewValidator(ds)
 	}
-	t.Run(u.Scheme, func(t *testing.T) {
+	t.Run("sqlite", func(t *testing.T) {
 		datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider())
 	})
 
@@ -76,7 +73,8 @@ func TestDatastore(t *testing.T) {
 	// to run tests against them too. this runs with a fresh db first run, then
 	// will down migrate all migrations, up migrate, and run tests again.
 
-	both := func(u *url.URL) {
+	both := func(u string) {
+		scheme := strings.SplitN(u, ":", 2)[0]
 		f := func(t *testing.T) *SQLStore {
 			ds, err := newDS(ctx, u)
 			if err != nil {
@@ -94,7 +92,7 @@ func TestDatastore(t *testing.T) {
 		}
 
 		// test fresh w/o migrations
-		t.Run(u.Scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
+		t.Run(scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
 
 		f = func(t *testing.T) *SQLStore {
 			t.Log("with migrations now!")
@@ -114,25 +112,19 @@ func TestDatastore(t *testing.T) {
 		}
 
 		// test that migrations work & things work with them
-		t.Run(u.Scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
+		t.Run(scheme, func(t *testing.T) { datastoretest.RunAllTests(t, f2, datastoretest.NewBasicResourceProvider()) })
 	}
 
 	if pg := os.Getenv("POSTGRES_URL"); pg != "" {
-		u, err := url.Parse(pg)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		both(u)
+		both(pg)
+	} else {
+		t.Fatal("empty postgres URL")
 	}
 
 	if mysql := os.Getenv("MYSQL_URL"); mysql != "" {
-		u, err := url.Parse(mysql)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		both(u)
+		both(mysql)
+	} else {
+		t.Fatal("empty mysql URL")
 	}
 
 }
@@ -140,10 +132,7 @@ func TestDatastore(t *testing.T) {
 func TestClose(t *testing.T) {
 	ctx := context.Background()
 	defer os.RemoveAll("sqlite_test_dir")
-	u, err := url.Parse("sqlite3://sqlite_test_dir")
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := "sqlite3://sqlite_test_dir"
 	os.RemoveAll("sqlite_test_dir")
 	ds, err := newDS(ctx, u)
 	if err != nil {

@@ -3,12 +3,14 @@ package common
 import (
 	"net/url"
 	"os"
-	"strings"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
+
+var dbPasswordRegexp = regexp.MustCompile(`(://\w+:)(\w+)(@)`)
 
 func SetLogFormat(format string) {
 	if format != "text" && format != "json" {
@@ -95,12 +97,6 @@ func SetLogDest(to, prefix string) {
 }
 
 // MaskPassword returns a stringified URL without its password visible
-func MaskPassword(u *url.URL) string {
-	if u.User != nil {
-		p, set := u.User.Password()
-		if set {
-			return strings.Replace(u.String(), p+"@", "***@", 1)
-		}
-	}
-	return u.String()
+func MaskPassword(u string) string {
+	return dbPasswordRegexp.ReplaceAllString(u, `${1}***${3}`)
 }

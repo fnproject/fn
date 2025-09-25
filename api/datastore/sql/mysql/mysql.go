@@ -1,7 +1,6 @@
 package mysql
 
 import (
-	"net/url"
 	"strings"
 
 	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
@@ -16,8 +15,8 @@ func (mysqlHelper) Supports(scheme string) bool {
 	return scheme == "mysql"
 }
 
-func (mysqlHelper) PreConnect(url *url.URL) (string, error) {
-	return strings.TrimPrefix(url.String(), url.Scheme+"://"), nil
+func (mysqlHelper) PreConnect(url string) (string, error) {
+	return strings.TrimPrefix(url, "mysql://"), nil
 }
 
 func (mysqlHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {
