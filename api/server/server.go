@@ -250,7 +250,8 @@ func NewFromEnv(ctx context.Context, opts ...Option) *Server {
 	opts = append(opts, WithGRPCPort(getEnvInt(EnvGRPCPort, DefaultGRPCPort)))
 	opts = append(opts, WithZipkin(getEnv(EnvZipkinURL, "")))
 	opts = append(opts, WithJaeger(getEnv(EnvJaegerURL, "")))
-	opts = append(opts, WithPrometheus()) // TODO option to turn this off?
+	opts = append(opts, WithPrometheus())    // TODO option to turn this off?
+	opts = append(opts, WithSpanConverter()) // TODO option to turn this off?
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithType(nodeType))
 
@@ -638,6 +639,14 @@ func WithPrometheus() Option {
 
 		return nil
 	}
+}
+
+func WithSpanConverter() Option {
+	converter, _ := NewSpanConverter(Options{Namespace: "fn"})
+	trace.RegisterExporter(converter)
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
+	return nil
 }
 
 // WithoutHTTPTriggerEndpoints optionally disables the trigger and route endpoints from a LB -supporting server, allowing extensions to replace them with their own versions
