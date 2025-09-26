@@ -44,4 +44,4 @@ require (
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
 
-go 1.15
+go 1.16
