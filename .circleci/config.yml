@@ -8,7 +8,7 @@ jobs:
       - GO111MODULE=on
       - GOPATH=/home/circleci/go
       - GOFLAGS=-mod=vendor
-      - GOVERSION=1.13.15
+      - GOVERSION=1.15.15
       - OS=linux
       - ARCH=amd64
       - FN_LOG_LEVEL=debug
