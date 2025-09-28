@@ -48,26 +48,24 @@ func TestImagePullConcurrent1(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(20)
 
+	var err error
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer wg.Done()
-			err := <-puller.PullImage(ctx, &cfg, img, repo, tag1)
-			if err != nil {
-				t.Fatalf("err received %v", err)
-			}
+			err = <-puller.PullImage(ctx, &cfg, img, repo, tag1)
 		}()
 	}
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer wg.Done()
-			err := <-puller.PullImage(ctx, &cfg, img, repo, tag2)
-			if err != nil {
-				t.Fatalf("err received %v", err)
-			}
+			err = <-puller.PullImage(ctx, &cfg, img, repo, tag2)
 		}()
 	}
 
 	wg.Wait()
+	if err != nil {
+		t.Fatalf("err received %v", err)
+	}
 
 	// Should be two docker-pulls
 	if mock.numCalls != 2 || ctx.Err() != nil {
@@ -94,17 +92,21 @@ func TestImagePullConcurrent2(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(10)
 
+	var err error
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer wg.Done()
-			err := <-puller.PullImage(ctx, &cfg, img, repo, tag)
-			if err == nil || strings.Index(err.Error(), "yogurt") == -1 {
-				t.Fatalf("Unknown err received %v", err)
+			thisErr := <-puller.PullImage(ctx, &cfg, img, repo, tag)
+			if thisErr != nil && strings.Index(thisErr.Error(), "yogurt") == -1 {
+				err = thisErr
 			}
 		}()
 	}
 
 	wg.Wait()
+	if err != nil {
+		t.Fatalf("Unknown err received %v", err)
+	}
 
 	// Should be one docker-pull
 	if mock.numCalls != 1 || ctx.Err() != nil {
@@ -149,14 +151,14 @@ func TestImagePullConcurrent3(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer wg.Done()
-			err := <-puller.PullImage(ctx, &cfg, img, repo, tag)
-			if err == nil {
-				t.Fatalf("no err received")
-			}
+			err = <-puller.PullImage(ctx, &cfg, img, repo, tag)
 		}()
 	}
 
 	wg.Wait()
+	if err == nil {
+		t.Fatalf("no err received")
+	}
 
 	// Should be more than two docker-pulls with retries but less than 10
 	if mock.numCalls <= 1 || mock.numCalls >= 10 || ctx.Err() != nil {
