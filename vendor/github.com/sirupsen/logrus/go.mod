@@ -2,9 +2,8 @@ module github.com/sirupsen/logrus
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.1
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/stretchr/objx v0.1.1 // indirect
-	github.com/stretchr/testify v1.2.2
-	golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33
+	github.com/stretchr/testify v1.7.0
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 )
+
+go 1.13
