@@ -13,7 +13,6 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers/stats"
 	docker "github.com/fsouza/go-dockerclient"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -102,11 +101,6 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		network:    NewDockerNetworks(conf),
 		instanceId: instanceId,
 		imgCache:   createImageCache(conf),
-	}
-
-	err = checkDockerVersion(ctx, driver)
-	if err != nil {
-		logrus.WithError(err).Fatal("docker version error")
 	}
 
 	// start the cleanup jobs as early as possible
@@ -310,33 +304,6 @@ func runImageCleaner(ctx context.Context, driver *DockerDriver) {
 			}
 		}
 	}
-}
-
-func checkDockerVersion(ctx context.Context, driver *DockerDriver) error {
-	if driver.conf.ServerVersion == "" {
-		return nil
-	}
-
-	info, err := driver.docker.Info(ctx)
-	if err != nil {
-		return err
-	}
-
-	actual, err := semver.NewVersion(info.ServerVersion)
-	if err != nil {
-		return err
-	}
-
-	wanted, err := semver.NewVersion(driver.conf.ServerVersion)
-	if err != nil {
-		return err
-	}
-
-	if actual.Compare(*wanted) < 0 {
-		return fmt.Errorf("docker version is too old. Required: %s Found: %s", driver.conf.ServerVersion, info.ServerVersion)
-	}
-
-	return nil
 }
 
 func loadDockerImages(ctx context.Context, driver *DockerDriver) error {

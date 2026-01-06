@@ -224,29 +224,6 @@ func TestRunnerDockerNetworks(t *testing.T) {
 	}
 }
 
-func TestRunnerDockerVersion(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(6)*time.Second)
-	defer cancel()
-
-	dkr := NewDocker(drivers.Config{})
-	if dkr == nil {
-		t.Fatal("should not be nil")
-	}
-	defer dkr.Close()
-
-	dkr.conf.ServerVersion = "1.0.0"
-	err := checkDockerVersion(ctx, dkr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	dkr.conf.ServerVersion = "9999.0.0"
-	err = checkDockerVersion(ctx, dkr)
-	if err == nil {
-		t.Fatal("should have failed")
-	}
-}
-
 func TestRunnerDockerStdout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
 	defer cancel()

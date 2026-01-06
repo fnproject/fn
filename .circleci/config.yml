@@ -21,7 +21,7 @@ jobs:
           mkdir tmp
           cd tmp
           sudo rm -rf /usr/local/go
-          wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
+          wget https://go.dev/dl/go$GOVERSION.$OS-$ARCH.tar.gz
           sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
       - run: go version
       # install latest Docker

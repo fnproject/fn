@@ -3,12 +3,11 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/fnproject/fn/api/common"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	"github.com/fnproject/fn/api/common"
 )
 
 type iofs interface {
@@ -63,8 +62,26 @@ func newDirectoryIOFS(ctx context.Context, cfg *Config) (*directoryIOFS, error) 
 		}
 	}
 
+	iofsAgentPath := ""
+	if len(cfg.IOFSAgentPath) > 0 {
+		iofsAgentPath = cfg.IOFSAgentPath
+	} else {
+		// iofsPath: /<host tmp dir>/iofs
+		//   Our system integration test runs Fn Server as plain process (instead of as a docker container)
+		//   and not specify cfg.IOFSAgentPath.
+		//   When Fn Server spawns a Fn container, the iofsPath will be mapped to /tmp/iofs in Fn container
+		//   for Fn container to access the socket
+		iofsPath := filepath.Join(os.TempDir(), "iofs")
+
+		err := os.Mkdir(iofsPath, 0755) // #nosec G301
+		if err != nil && !os.IsExist(err) {
+			return nil, fmt.Errorf("cannot create iofs directory under TempDir: %v", err)
+		}
+		iofsAgentPath = iofsPath
+	}
+
 	// create a tmpdir
-	iofsAgentDir, err := ioutil.TempDir(cfg.IOFSAgentPath, "iofs")
+	iofsAgentDir, err := ioutil.TempDir(iofsAgentPath, "iofs")
 	if err != nil {
 		handleErr(iofsAgentDir)
 		return nil, fmt.Errorf("cannot create tmpdir for iofs: %v", err)
@@ -78,15 +95,13 @@ func newDirectoryIOFS(ctx context.Context, cfg *Config) (*directoryIOFS, error) 
 		}
 	}
 
-	ret := &directoryIOFS{iofsAgentDir, iofsAgentDir}
+	ret := &directoryIOFS{iofsAgentDir, iofsAgentPath}
 
 	if cfg.IOFSMountRoot != "" {
-		iofsRelPath, err := filepath.Rel(cfg.IOFSAgentPath, iofsAgentDir)
-		if err != nil {
-			handleErr(iofsAgentDir)
-			return nil, fmt.Errorf("cannot relativise iofs path: %v", err)
-		}
-		ret.dockerPath = filepath.Join(cfg.IOFSMountRoot, iofsRelPath)
+		// cfg.IOFSMountRoot is the source path on host vm hosting the unix socket file required for FDK/Fn Server
+		// if the value is specified, it will map to /tmp/iofs in the Fn container. It allows user to override with
+		// podman/rancher volume instead of using their $HOME directory
+		ret.dockerPath = cfg.IOFSMountRoot
 	}
 
 	return ret, nil
