@@ -27,7 +27,7 @@ The fastest way to experience Fn is to follow the quickstart below, or you can j
 
 ### Pre-requisites
 
-* Docker 17.10.0-ce or later installed and running
+* Docker 17.10.0-ce or later, Podman 5.7.0 or later installed and running
 * [Docker Hub](https://hub.docker.com/) account (or other Docker-compliant registry) (Not required for local development)
 * Logged into Registry: ie `docker login` (Not required for local development)
 
@@ -62,19 +62,39 @@ This will download a shell script and execute it. If the script asks for a passw
 #### Option 4. Download the bin - Linux, macOS and Windows
 Head over to our [releases](https://github.com/fnproject/cli/releases) and download it.
 
+### Before you start
+
+If you are using Podman or Rancher desktop, it is recommended use a volume. The volume will be used by FnServer
+to create unix socket file to communicate to other Fn containers.
+
+The volume will be created automatically when you use "--iofs-dir" option in "fn start" and specify the volume name (e.g. fniofsvol).
+
+If you want to create volume manually, you could do:
+`docker volume create --opt device=tmpfs --opt type=tmpfs --opt o=size=2M,dev,noexec <volume name>`
+
+The docker command is provided by podman or rancher desktop in this case.
 
 ### Run Fn Server
 
-First, start up an Fn server locally:
+First, start up a Fn server locally:
 
 ```sh
 fn start
 ```
+or if you are on podman/rancher which you need to use a volume
+```sh
+fn start --iofs-dir <volume name, or it could be a directory in the host VM for Docker Desktop>
+```
+
+iofs-dir allows you to specify a volume (which is required for Podman or Rancher case), or any directory in the
+host-vm (for Docker Desktop) if you want to use a specific directory to host the unix socket file. It is usually
+not a concern for Docker users.
 
 This will start Fn in single server mode, using an embedded database and message queue. You can find all the
 configuration options [here](https://github.com/fnproject/docs/blob/master/fn/operate/options.md). If you are on Windows, check [here](https://github.com/fnproject/docs/blob/master/fn/operate/windows.md).
-If you are on a Linux system where the SELinux security policy is set to "Enforcing", such as Oracle Linux 7, check
-[here](https://github.com/fnproject/docs/blob/master/fn/operate/selinux.md).
+
+### SELinux
+Most Linux systems have SELinux enabled and FnServer supports running on SELinux.
 
 ### Your First Function
 

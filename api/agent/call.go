@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -251,7 +250,6 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	if c.Call.Config == nil {
 		c.Call.Config = make(models.Config)
 	}
-	c.Call.Config["FN_LISTENER"] = "unix:" + filepath.Join(iofsDockerMountDest, udsFilename)
 	c.Call.Config["FN_FORMAT"] = "http-stream" // TODO: remove this after fdk's forget what it means
 	// TODO we could set type here too, for now, or anything else not based in fn/app/trigger config
 

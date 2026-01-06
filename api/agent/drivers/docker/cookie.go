@@ -111,8 +111,6 @@ func (c *cookie) configureMem(log logrus.FieldLogger) {
 	c.opts.HostConfig.MemorySwap = mem
 	c.opts.HostConfig.KernelMemory = mem
 	c.opts.HostConfig.Memory = mem
-	var zero int64
-	c.opts.HostConfig.MemorySwappiness = &zero // disables host swap
 }
 
 func (c *cookie) configureFsSize(log logrus.FieldLogger) {
@@ -190,13 +188,29 @@ func (c *cookie) configureTmpFs(log logrus.FieldLogger) {
 }
 
 func (c *cookie) configureIOFS(log logrus.FieldLogger) {
-	path := c.task.UDSDockerPath()
-	if path == "" {
+	// Configure the bind mount from host to Fn container to put the unix socket file that used for
+	//   communication between Fn Server to Fn container
+	// User could use either host machine path or container engine named volume for the source part of the bind mount
+	// For host machine path, user could set "FN_IOFS_DOCKER_PATH" to a path (e.g. \mycustomeriofspath). The mapping will be:
+	//   - \mycustomeriofspath:\tmp\iofs
+	//   If host machine path is used, "Z" option need to be set for host machine which has SELinux enabled. (See below)
+	// For container engine named volume, user could set "FN_IOFS_DOCKER_PATH" to a named volume (e.g. mynamedvolume).
+	// The mapping will be:
+	//   - mynamedvolume:\tmp\iofs
+	// In both case, FN_LISTENER will be set to "\tmp\iofs\<temp directory created by fn server>"
+
+	// The reason of allowing user to use named volume since for Rancher/Podman, they do not allow using HOME directory
+	//  to host socket file as the volume mapping from host to host vm is created with "nodev" options.
+	//  See issue: https://github.com/fnproject/fn/issues/1577#issuecomment-1297736260
+	udsDockerPath := c.task.UDSDockerPath()
+	if udsDockerPath == "" {
 		// TODO this should be required soon-ish
 		return
 	}
 
-	bind := fmt.Sprintf("%s:%s", path, c.task.UDSDockerDest())
+	// Z - private unshared SELinux option which is required for host VM that running on SELinux. No effect
+	//     on Linux with SELinux disabled, or docker/podman named volume.
+	bind := fmt.Sprintf("%s:%s:Z", udsDockerPath, c.task.UDSDockerDest())
 	c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, bind)
 	log.WithFields(logrus.Fields{"bind": bind, "call_id": c.task.Id()}).Debug("setting bind")
 }

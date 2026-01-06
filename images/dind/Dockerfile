@@ -1,9 +1,6 @@
-FROM docker:17.12-dind
+FROM docker:24.0.9-dind
 
 RUN apk add --no-cache ca-certificates
-
-# cleanup warning: https://github.com/docker-library/docker/issues/55
-RUN addgroup -g 2999 docker
 
 COPY preentry.sh /usr/local/bin/
 

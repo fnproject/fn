@@ -11,7 +11,6 @@ import (
 
 // Config specifies various settings for an agent
 type Config struct {
-	MinDockerVersion              string        `json:"min_docker_version"`
 	ContainerLabelTag             string        `json:"container_label_tag"`
 	DockerNetworks                string        `json:"docker_networks"`
 	DockerLoadFile                string        `json:"docker_load_file"`
@@ -155,10 +154,9 @@ const (
 // NewConfig returns a config set from env vars, plus defaults
 func NewConfig() (*Config, error) {
 	cfg := &Config{
-		MinDockerVersion: "17.10.0-ce",
-		MaxLogSize:       1 * 1024 * 1024,
-		PreForkImage:     "busybox",
-		PreForkCmd:       "tail -f /dev/null",
+		MaxLogSize:   1 * 1024 * 1024,
+		PreForkImage: "busybox",
+		PreForkCmd:   "tail -f /dev/null",
 	}
 
 	defaultMaxPIDs := uint64(50)
