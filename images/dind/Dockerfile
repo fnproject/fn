@@ -1,4 +1,6 @@
-FROM docker:24.0.9-dind
+ARG DIND_VERSION
+ARG base_image=docker:${DIND_VERSION}
+FROM ${base_image}
 
 RUN apk add --no-cache ca-certificates
 

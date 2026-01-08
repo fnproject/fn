@@ -1,6 +1,6 @@
 # build stage
 FROM golang:1.10-alpine AS build-env
-RUN apk --no-cache add git
+RUN apk --no-cache add build-base git bzr mercurial gcc
 ENV D=/go/src/github.com/fnproject/fn/images/fn-status-checker
 RUN go get -u github.com/golang/dep/cmd/dep
 ADD Gopkg.* $D/

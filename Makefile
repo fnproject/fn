@@ -111,6 +111,12 @@ run: build
 docker-build:
 	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/fnserver:latest .
 
+.PHONY: docker-buildx-build
+docker-buildx-build:
+	docker buildx create --name fnmultiarchbuilder --use
+	docker buildx build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY --build-arg DIND_VERSION=${DIND_VERSION} --platform ${BUILDX_PLATFORMS} \
+	--push -t fnproject/fnserver:ignoremelatest -t fnproject/fnserver:ignoreme${VERSION} .
+
 .PHONY: docker-run
 docker-run: docker-build
 	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e FN_LOG_LEVEL=debug -e "FN_DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 fnproject/fnserver

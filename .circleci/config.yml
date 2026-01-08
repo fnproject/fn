@@ -9,9 +9,12 @@ jobs:
       - GOPATH=/home/circleci/go
       - GOFLAGS=-mod=vendor
       - GOVERSION=1.13.15
+      - # OS/ARCH are for the go tooling that running on circle CI server. Not for building Fn Server
       - OS=linux
       - ARCH=amd64
       - FN_LOG_LEVEL=debug
+      - BUILDX_PLATFORMS: linux/amd64,linux/arm64
+      - DIND_VERSION=24.0.9-dind
     steps:
       - checkout
       # install Go
@@ -50,28 +53,43 @@ jobs:
           ) >> $BASH_ENV
 
       # Rebuild the build tools if necessary
-      # This leaves local docker images around
-      - run: |
-          if [[ -n "$DIND_NEEDED" ]]; then
-            make build-dind
-          fi
 
-      # Rebuild fnserver if necessary
+      # Install buildx for multi arch build in Circle CI
+      - run:
+          name: Install buildx
+          command: |
+            BUILDX_BINARY_URL="https://github.com/docker/buildx/releases/download/v0.30.1/buildx-v0.30.1.linux-amd64"
+
+            curl --output docker-buildx \
+              --silent --show-error --location --fail --retry 3 \
+              "$BUILDX_BINARY_URL"
+
+            mkdir -p ~/.docker/cli-plugins
+
+            mv docker-buildx ~/.docker/cli-plugins/
+            chmod a+x ~/.docker/cli-plugins/docker-buildx
+
+            docker buildx install
+            # Run binfmt
+            docker run --rm --privileged tonistiigi/binfmt:latest --install "$BUILDX_PLATFORMS"
+
+      # Rebuild system test image if necessary
+      # Single arch image build is enough for running system test
       - run: |
           if [[ -n "$FN_NEEDED" ]]; then
+            export DOCKER_BUILDKIT=0
             make test -j $(nproc)
           fi
 
       - deploy:
           command: |
-            if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then
+            # TODO: rollback test change here
+            if [[ "${CIRCLE_BRANCH}" == "marleung/multi-arch-build" && -z "${CIRCLE_PR_REPONAME}" ]]; then
               printenv DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
               git config --global user.email "ci@fnproject.com"
               git config --global user.name "CI"
               git branch --set-upstream-to=origin/${CIRCLE_BRANCH} ${CIRCLE_BRANCH}
-              if [[ -n "$DIND_NEEDED" ]]; then
-                make release-dind
-              fi
+
               if [[ -n "$FN_NEEDED" ]]; then
                 make release-fnserver
               fi

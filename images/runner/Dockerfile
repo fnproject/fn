@@ -5,10 +5,13 @@ ENV D=/go/src/github.com/fnproject/fn
 ADD . $D
 RUN cd $D/cmd/fnserver && go build -o fn-alpine && cp fn-alpine /tmp/
 
-# final stage: the local fnproject/dind:latest will be either built afresh or
-# whatever is the latest from master, depending on whether we're releasing
-# a newer cut.
-FROM fnproject/dind:latest
+# final stage: using docker:dind as base image
+ARG DIND_VERSION
+ARG base_image=docker:${DIND_VERSION}
+FROM ${base_image}
+
+RUN apk add --no-cache ca-certificates
+
 WORKDIR /app
 COPY --from=build-env /tmp/fn-alpine /app/fnserver
 ENV FN_NODE_TYPE=pure-runner
