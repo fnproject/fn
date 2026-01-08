@@ -1,2 +1,2 @@
 set -e
-docker push fnproject/fn-test-utils:latest
+DOCKER_BUILDKIT=1 docker buildx build --platform ${BUILDX_PLATFORMS} --push -t fnproject/fn-test-utils:$1 .

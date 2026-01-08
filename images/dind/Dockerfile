@@ -1,4 +1,6 @@
-FROM docker:24.0.9-dind
+# This dockerfile is used for local development. Our pipeline does not build multi-arch version of this image
+ARG DIND_VERSION=24.0.9-dind
+FROM docker:${DIND_VERSION}
 
 RUN apk add --no-cache ca-certificates
 

@@ -37,10 +37,6 @@ release-fnserver:
 build-dind:
 	(cd images/dind && ./build.sh)
 
-.PHONY: release-dind
-release-dind:
-	(cd images/dind && ./release.sh)
-
 .PHONY: fn-status-checker
 fn-status-checker: checkfmt
 	cd images/fn-status-checker && ./build.sh
