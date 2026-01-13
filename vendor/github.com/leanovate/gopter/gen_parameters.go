@@ -66,3 +66,16 @@ func DefaultGenParameters() *GenParameters {
 		Rng:            rand.New(NewLockedSource(seed)),
 	}
 }
+
+// MinGenParameters creates minimal GenParameters.
+// Note: Most likely you do not want to use these for actual testing
+func MinGenParameters() *GenParameters {
+	seed := time.Now().UnixNano()
+
+	return &GenParameters{
+		MinSize:        0,
+		MaxSize:        0,
+		MaxShrinkCount: 0,
+		Rng:            rand.New(NewLockedSource(seed)),
+	}
+}

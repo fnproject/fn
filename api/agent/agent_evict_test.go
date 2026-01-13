@@ -197,7 +197,7 @@ func TestPlainNoEvict(t *testing.T) {
 		defer wg.Done()
 		err := execFn(`{"sleepTime": 8000}`, getFn(0), getApp(), a, 20000)
 		if err != nil {
-			t.Fatalf("submit should not error! %v", err)
+			t.Errorf("submit should not error! %v", err)
 		}
 	}()
 
@@ -206,7 +206,7 @@ func TestPlainNoEvict(t *testing.T) {
 		time.Sleep(3000 * time.Millisecond)
 		err := execFn(`{"sleepTime": 0}`, getFn(0), getApp(), a, 20000)
 		if err != models.ErrCallTimeoutServerBusy {
-			t.Fatalf("unexpected error %v", err)
+			t.Errorf("unexpected error %v", err)
 		}
 	}()
 
@@ -228,7 +228,7 @@ func TestPlainDoEvict(t *testing.T) {
 		defer wg.Done()
 		err := execFn(`{"sleepTime": 0}`, getFn(0), getApp(), a, 20000)
 		if err != nil {
-			t.Fatalf("submit should not error! %v", err)
+			t.Errorf("submit should not error! %v", err)
 		}
 	}()
 
@@ -237,7 +237,7 @@ func TestPlainDoEvict(t *testing.T) {
 		time.Sleep(3000 * time.Millisecond)
 		err := execFn(`{"sleepTime": 0}`, getFn(0), getApp(), a, 20000)
 		if err != nil {
-			t.Fatalf("submit should not error! %v", err)
+			t.Errorf("submit should not error! %v", err)
 		}
 	}()
 
@@ -258,7 +258,7 @@ func TestHungFDKNoEvict(t *testing.T) {
 		defer wg.Done()
 		err := execFn(`{"sleepTime": 0}`, getFn(11000), getApp(), a, 20000)
 		if err != models.ErrContainerInitTimeout {
-			t.Fatalf("submit unexpected error! %v", err)
+			t.Errorf("submit unexpected error! %v", err)
 		}
 	}()
 
@@ -267,7 +267,7 @@ func TestHungFDKNoEvict(t *testing.T) {
 		time.Sleep(3000 * time.Millisecond)
 		err := execFn(`{"sleepTime": 0}`, getFn(0), getApp(), a, 20000)
 		if err != models.ErrCallTimeoutServerBusy {
-			t.Fatalf("unexpected error %v", err)
+			t.Errorf("unexpected error %v", err)
 		}
 	}()
 
@@ -295,7 +295,7 @@ func TestDockerPullHungNoEvict(t *testing.T) {
 
 		err := execFn(`{"sleepTime": 0}`, fn, getApp(), a, 20000)
 		if err != models.ErrDockerPullTimeout {
-			t.Fatalf("unexpected error %v", err)
+			t.Errorf("unexpected error %v", err)
 		}
 	}()
 
@@ -304,7 +304,7 @@ func TestDockerPullHungNoEvict(t *testing.T) {
 		time.Sleep(3000 * time.Millisecond)
 		err := execFn(`{"sleepTime": 0}`, getFn(0), getApp(), a, 20000)
 		if err != models.ErrCallTimeoutServerBusy {
-			t.Fatalf("unexpected error %v", err)
+			t.Errorf("unexpected error %v", err)
 		}
 	}()
 

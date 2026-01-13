@@ -55,7 +55,11 @@ func (r *FormatedReporter) reportResult(result *TestResult) string {
 	case TestExhausted:
 		status = fmt.Sprintf("Gave up after only %d passed tests. %d tests were discarded.", result.Succeeded, result.Discarded)
 	case TestError:
-		status = fmt.Sprintf("Error on property evaluation after %d passed tests: %s\n%s", result.Succeeded, result.Error.Error(), r.reportPropArgs(result.Args))
+		if r.verbose {
+			status = fmt.Sprintf("Error on property evaluation after %d passed tests: %s\n%s\n%s", result.Succeeded, result.Error.Error(), result.ErrorStack, r.reportPropArgs(result.Args))
+		} else {
+			status = fmt.Sprintf("Error on property evaluation after %d passed tests: %s\n%s", result.Succeeded, result.Error.Error(), r.reportPropArgs(result.Args))
+		}
 	}
 
 	if r.verbose {
@@ -87,9 +91,9 @@ func (r *FormatedReporter) reportPropArg(idx int, propArg *PropArg) string {
 	if label == "" {
 		label = fmt.Sprintf("ARG_%d", idx)
 	}
-	result := fmt.Sprintf("%s: %v", label, propArg.Arg)
+	result := fmt.Sprintf("%s: %s", label, propArg.ArgFormatted)
 	if propArg.Shrinks > 0 {
-		result += fmt.Sprintf("\n%s_ORIGINAL (%d shrinks): %v", label, propArg.Shrinks, propArg.OrigArg)
+		result += fmt.Sprintf("\n%s_ORIGINAL (%d shrinks): %s", label, propArg.Shrinks, propArg.OrigArgFormatted)
 	}
 
 	return result

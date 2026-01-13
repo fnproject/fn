@@ -8,7 +8,7 @@ jobs:
       - GO111MODULE=on
       - GOPATH=/home/circleci/go
       - GOFLAGS=-mod=vendor
-      - GOVERSION=1.13.15
+      - GOVERSION=1.24.11
       - # OS/ARCH are for the go tooling that running on circle CI server. Not for building Fn Server
       - OS=linux
       - ARCH=amd64

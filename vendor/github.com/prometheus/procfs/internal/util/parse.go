@@ -1,4 +1,4 @@
-// Copyright 2018 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,7 +14,8 @@
 package util
 
 import (
-	"io/ioutil"
+	"errors"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -49,11 +50,77 @@ func ParseUint64s(ss []string) ([]uint64, error) {
 	return us, nil
 }
 
+// ParsePInt64s parses a slice of strings into a slice of int64 pointers.
+func ParsePInt64s(ss []string) ([]*int64, error) {
+	us := make([]*int64, 0, len(ss))
+	for _, s := range ss {
+		u, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		us = append(us, &u)
+	}
+
+	return us, nil
+}
+
+// Parses a uint64 from given hex in string.
+func ParseHexUint64s(ss []string) ([]*uint64, error) {
+	us := make([]*uint64, 0, len(ss))
+	for _, s := range ss {
+		u, err := strconv.ParseUint(s, 16, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		us = append(us, &u)
+	}
+
+	return us, nil
+}
+
 // ReadUintFromFile reads a file and attempts to parse a uint64 from it.
 func ReadUintFromFile(path string) (uint64, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return 0, err
 	}
 	return strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+}
+
+// ReadIntFromFile reads a file and attempts to parse a int64 from it.
+func ReadIntFromFile(path string) (int64, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
+}
+
+// ParseBool parses a string into a boolean pointer.
+func ParseBool(b string) *bool {
+	var truth bool
+	switch b {
+	case "enabled":
+		truth = true
+	case "disabled":
+		truth = false
+	default:
+		return nil
+	}
+	return &truth
+}
+
+// ReadHexFromFile reads a file and attempts to parse a uint64 from a hexadecimal format 0xXX.
+func ReadHexFromFile(path string) (uint64, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	hexString := strings.TrimSpace(string(data))
+	if !strings.HasPrefix(hexString, "0x") {
+		return 0, errors.New("invalid format: hex string does not start with '0x'")
+	}
+	return strconv.ParseUint(hexString[2:], 16, 64)
 }

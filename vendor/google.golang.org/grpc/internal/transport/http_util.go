@@ -20,37 +20,30 @@ package transport
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"math"
-	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/hpack"
-	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/mem"
 )
 
 const (
 	// http2MaxFrameLen specifies the max length of a HTTP2 frame.
 	http2MaxFrameLen = 16384 // 16KB frame
-	// http://http2.github.io/http2-spec/#SettingValues
+	// https://httpwg.org/specs/rfc7540.html#SettingValues
 	http2InitHeaderTableSize = 4096
-	// baseContentType is the base content-type for gRPC.  This is a valid
-	// content-type on it's own, but can also include a content-subtype such as
-	// "proto" as a suffix after "+" or ";".  See
-	// https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests
-	// for more details.
-	baseContentType = "application/grpc"
 )
 
 var (
@@ -70,13 +63,6 @@ var (
 		http2.ErrCodeEnhanceYourCalm:    codes.ResourceExhausted,
 		http2.ErrCodeInadequateSecurity: codes.PermissionDenied,
 		http2.ErrCodeHTTP11Required:     codes.Internal,
-	}
-	statusCodeConvTab = map[codes.Code]http2.ErrCode{
-		codes.Internal:          http2.ErrCodeInternal,
-		codes.Canceled:          http2.ErrCodeCancel,
-		codes.Unavailable:       http2.ErrCodeRefusedStream,
-		codes.ResourceExhausted: http2.ErrCodeEnhanceYourCalm,
-		codes.PermissionDenied:  http2.ErrCodeInadequateSecurity,
 	}
 	// HTTPStatusConvTab is the HTTP status code to gRPC error code conversion table.
 	HTTPStatusConvTab = map[int]codes.Code{
@@ -99,51 +85,7 @@ var (
 	}
 )
 
-type parsedHeaderData struct {
-	encoding string
-	// statusGen caches the stream status received from the trailer the server
-	// sent.  Client side only.  Do not access directly.  After all trailers are
-	// parsed, use the status method to retrieve the status.
-	statusGen *status.Status
-	// rawStatusCode and rawStatusMsg are set from the raw trailer fields and are not
-	// intended for direct access outside of parsing.
-	rawStatusCode *int
-	rawStatusMsg  string
-	httpStatus    *int
-	// Server side only fields.
-	timeoutSet bool
-	timeout    time.Duration
-	method     string
-	// key-value metadata map from the peer.
-	mdata          map[string][]string
-	statsTags      []byte
-	statsTrace     []byte
-	contentSubtype string
-
-	// isGRPC field indicates whether the peer is speaking gRPC (otherwise HTTP).
-	//
-	// We are in gRPC mode (peer speaking gRPC) if:
-	// 	* We are client side and have already received a HEADER frame that indicates gRPC peer.
-	//  * The header contains valid  a content-type, i.e. a string starts with "application/grpc"
-	// And we should handle error specific to gRPC.
-	//
-	// Otherwise (i.e. a content-type string starts without "application/grpc", or does not exist), we
-	// are in HTTP fallback mode, and should handle error specific to HTTP.
-	isGRPC         bool
-	grpcErr        error
-	httpErr        error
-	contentTypeErr string
-}
-
-// decodeState configures decoding criteria and records the decoded data.
-type decodeState struct {
-	// whether decoding on server side or not
-	serverSide bool
-
-	// Records the states during HPACK decoding. It will be filled with info parsed from HTTP HEADERS
-	// frame once decodeHeader function has been invoked and returned.
-	data parsedHeaderData
-}
+var grpcStatusDetailsBinHeader = "grpc-status-details-bin"
 
 // isReservedHeader checks whether hdr belongs to HTTP2 headers
 // reserved by gRPC protocol. Any other headers are classified as the
@@ -160,7 +102,6 @@ func isReservedHeader(hdr string) bool {
 		"grpc-message",
 		"grpc-status",
 		"grpc-timeout",
-		"grpc-status-details-bin",
 		// Intentionally exclude grpc-previous-rpc-attempts and
 		// grpc-retry-pushback-ms, which are "reserved", but their API
 		// intentionally works via metadata.
@@ -180,54 +121,6 @@ func isWhitelistedHeader(hdr string) bool {
 	default:
 		return false
 	}
-}
-
-// contentSubtype returns the content-subtype for the given content-type.  The
-// given content-type must be a valid content-type that starts with
-// "application/grpc". A content-subtype will follow "application/grpc" after a
-// "+" or ";". See
-// https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests for
-// more details.
-//
-// If contentType is not a valid content-type for gRPC, the boolean
-// will be false, otherwise true. If content-type == "application/grpc",
-// "application/grpc+", or "application/grpc;", the boolean will be true,
-// but no content-subtype will be returned.
-//
-// contentType is assumed to be lowercase already.
-func contentSubtype(contentType string) (string, bool) {
-	if contentType == baseContentType {
-		return "", true
-	}
-	if !strings.HasPrefix(contentType, baseContentType) {
-		return "", false
-	}
-	// guaranteed since != baseContentType and has baseContentType prefix
-	switch contentType[len(baseContentType)] {
-	case '+', ';':
-		// this will return true for "application/grpc+" or "application/grpc;"
-		// which the previous validContentType function tested to be valid, so we
-		// just say that no content-subtype is specified in this case
-		return contentType[len(baseContentType)+1:], true
-	default:
-		return "", false
-	}
-}
-
-// contentSubtype is assumed to be lowercase
-func contentType(contentSubtype string) string {
-	if contentSubtype == "" {
-		return baseContentType
-	}
-	return baseContentType + "+" + contentSubtype
-}
-
-func (d *decodeState) status() *status.Status {
-	if d.data.statusGen == nil {
-		// No status-details were provided; generate status using code/msg.
-		d.data.statusGen = status.New(codes.Code(int32(*(d.data.rawStatusCode))), d.data.rawStatusMsg)
-	}
-	return d.data.statusGen
 }
 
 const binHdrSuffix = "-bin"
@@ -257,166 +150,6 @@ func decodeMetadataHeader(k, v string) (string, error) {
 		return string(b), err
 	}
 	return v, nil
-}
-
-func (d *decodeState) decodeHeader(frame *http2.MetaHeadersFrame) error {
-	// frame.Truncated is set to true when framer detects that the current header
-	// list size hits MaxHeaderListSize limit.
-	if frame.Truncated {
-		return status.Error(codes.Internal, "peer header list size exceeded limit")
-	}
-
-	for _, hf := range frame.Fields {
-		d.processHeaderField(hf)
-	}
-
-	if d.data.isGRPC {
-		if d.data.grpcErr != nil {
-			return d.data.grpcErr
-		}
-		if d.serverSide {
-			return nil
-		}
-		if d.data.rawStatusCode == nil && d.data.statusGen == nil {
-			// gRPC status doesn't exist.
-			// Set rawStatusCode to be unknown and return nil error.
-			// So that, if the stream has ended this Unknown status
-			// will be propagated to the user.
-			// Otherwise, it will be ignored. In which case, status from
-			// a later trailer, that has StreamEnded flag set, is propagated.
-			code := int(codes.Unknown)
-			d.data.rawStatusCode = &code
-		}
-		return nil
-	}
-
-	// HTTP fallback mode
-	if d.data.httpErr != nil {
-		return d.data.httpErr
-	}
-
-	var (
-		code = codes.Internal // when header does not include HTTP status, return INTERNAL
-		ok   bool
-	)
-
-	if d.data.httpStatus != nil {
-		code, ok = HTTPStatusConvTab[*(d.data.httpStatus)]
-		if !ok {
-			code = codes.Unknown
-		}
-	}
-
-	return status.Error(code, d.constructHTTPErrMsg())
-}
-
-// constructErrMsg constructs error message to be returned in HTTP fallback mode.
-// Format: HTTP status code and its corresponding message + content-type error message.
-func (d *decodeState) constructHTTPErrMsg() string {
-	var errMsgs []string
-
-	if d.data.httpStatus == nil {
-		errMsgs = append(errMsgs, "malformed header: missing HTTP status")
-	} else {
-		errMsgs = append(errMsgs, fmt.Sprintf("%s: HTTP status code %d", http.StatusText(*(d.data.httpStatus)), *d.data.httpStatus))
-	}
-
-	if d.data.contentTypeErr == "" {
-		errMsgs = append(errMsgs, "transport: missing content-type field")
-	} else {
-		errMsgs = append(errMsgs, d.data.contentTypeErr)
-	}
-
-	return strings.Join(errMsgs, "; ")
-}
-
-func (d *decodeState) addMetadata(k, v string) {
-	if d.data.mdata == nil {
-		d.data.mdata = make(map[string][]string)
-	}
-	d.data.mdata[k] = append(d.data.mdata[k], v)
-}
-
-func (d *decodeState) processHeaderField(f hpack.HeaderField) {
-	switch f.Name {
-	case "content-type":
-		contentSubtype, validContentType := contentSubtype(f.Value)
-		if !validContentType {
-			d.data.contentTypeErr = fmt.Sprintf("transport: received the unexpected content-type %q", f.Value)
-			return
-		}
-		d.data.contentSubtype = contentSubtype
-		// TODO: do we want to propagate the whole content-type in the metadata,
-		// or come up with a way to just propagate the content-subtype if it was set?
-		// ie {"content-type": "application/grpc+proto"} or {"content-subtype": "proto"}
-		// in the metadata?
-		d.addMetadata(f.Name, f.Value)
-		d.data.isGRPC = true
-	case "grpc-encoding":
-		d.data.encoding = f.Value
-	case "grpc-status":
-		code, err := strconv.Atoi(f.Value)
-		if err != nil {
-			d.data.grpcErr = status.Errorf(codes.Internal, "transport: malformed grpc-status: %v", err)
-			return
-		}
-		d.data.rawStatusCode = &code
-	case "grpc-message":
-		d.data.rawStatusMsg = decodeGrpcMessage(f.Value)
-	case "grpc-status-details-bin":
-		v, err := decodeBinHeader(f.Value)
-		if err != nil {
-			d.data.grpcErr = status.Errorf(codes.Internal, "transport: malformed grpc-status-details-bin: %v", err)
-			return
-		}
-		s := &spb.Status{}
-		if err := proto.Unmarshal(v, s); err != nil {
-			d.data.grpcErr = status.Errorf(codes.Internal, "transport: malformed grpc-status-details-bin: %v", err)
-			return
-		}
-		d.data.statusGen = status.FromProto(s)
-	case "grpc-timeout":
-		d.data.timeoutSet = true
-		var err error
-		if d.data.timeout, err = decodeTimeout(f.Value); err != nil {
-			d.data.grpcErr = status.Errorf(codes.Internal, "transport: malformed time-out: %v", err)
-		}
-	case ":path":
-		d.data.method = f.Value
-	case ":status":
-		code, err := strconv.Atoi(f.Value)
-		if err != nil {
-			d.data.httpErr = status.Errorf(codes.Internal, "transport: malformed http-status: %v", err)
-			return
-		}
-		d.data.httpStatus = &code
-	case "grpc-tags-bin":
-		v, err := decodeBinHeader(f.Value)
-		if err != nil {
-			d.data.grpcErr = status.Errorf(codes.Internal, "transport: malformed grpc-tags-bin: %v", err)
-			return
-		}
-		d.data.statsTags = v
-		d.addMetadata(f.Name, string(v))
-	case "grpc-trace-bin":
-		v, err := decodeBinHeader(f.Value)
-		if err != nil {
-			d.data.grpcErr = status.Errorf(codes.Internal, "transport: malformed grpc-trace-bin: %v", err)
-			return
-		}
-		d.data.statsTrace = v
-		d.addMetadata(f.Name, string(v))
-	default:
-		if isReservedHeader(f.Name) && !isWhitelistedHeader(f.Name) {
-			break
-		}
-		v, err := decodeMetadataHeader(f.Name, f.Value)
-		if err != nil {
-			errorf("Failed to decode metadata header (%q, %q): %v", f.Name, f.Value, err)
-			return
-		}
-		d.addMetadata(f.Name, v)
-	}
 }
 
 type timeoutUnit uint8
@@ -449,41 +182,6 @@ func timeoutUnitToDuration(u timeoutUnit) (d time.Duration, ok bool) {
 	return
 }
 
-const maxTimeoutValue int64 = 100000000 - 1
-
-// div does integer division and round-up the result. Note that this is
-// equivalent to (d+r-1)/r but has less chance to overflow.
-func div(d, r time.Duration) int64 {
-	if m := d % r; m > 0 {
-		return int64(d/r + 1)
-	}
-	return int64(d / r)
-}
-
-// TODO(zhaoq): It is the simplistic and not bandwidth efficient. Improve it.
-func encodeTimeout(t time.Duration) string {
-	if t <= 0 {
-		return "0n"
-	}
-	if d := div(t, time.Nanosecond); d <= maxTimeoutValue {
-		return strconv.FormatInt(d, 10) + "n"
-	}
-	if d := div(t, time.Microsecond); d <= maxTimeoutValue {
-		return strconv.FormatInt(d, 10) + "u"
-	}
-	if d := div(t, time.Millisecond); d <= maxTimeoutValue {
-		return strconv.FormatInt(d, 10) + "m"
-	}
-	if d := div(t, time.Second); d <= maxTimeoutValue {
-		return strconv.FormatInt(d, 10) + "S"
-	}
-	if d := div(t, time.Minute); d <= maxTimeoutValue {
-		return strconv.FormatInt(d, 10) + "M"
-	}
-	// Note that maxTimeoutValue * time.Hour > MaxInt64.
-	return strconv.FormatInt(div(t, time.Hour), 10) + "H"
-}
-
 func decodeTimeout(s string) (time.Duration, error) {
 	size := len(s)
 	if size < 2 {
@@ -498,11 +196,11 @@ func decodeTimeout(s string) (time.Duration, error) {
 	if !ok {
 		return 0, fmt.Errorf("transport: timeout unit is not recognized: %q", s)
 	}
-	t, err := strconv.ParseInt(s[:size-1], 10, 64)
+	t, err := strconv.ParseUint(s[:size-1], 10, 64)
 	if err != nil {
 		return 0, err
 	}
-	const maxHours = math.MaxInt64 / int64(time.Hour)
+	const maxHours = math.MaxInt64 / uint64(time.Hour)
 	if d == time.Hour && t > maxHours {
 		// This timeout would overflow math.MaxInt64; clamp it.
 		return time.Duration(math.MaxInt64), nil
@@ -538,13 +236,13 @@ func encodeGrpcMessage(msg string) string {
 }
 
 func encodeGrpcMessageUnchecked(msg string) string {
-	var buf bytes.Buffer
+	var sb strings.Builder
 	for len(msg) > 0 {
 		r, size := utf8.DecodeRuneInString(msg)
 		for _, b := range []byte(string(r)) {
 			if size > 1 {
 				// If size > 1, r is not ascii. Always do percent encoding.
-				buf.WriteString(fmt.Sprintf("%%%02X", b))
+				fmt.Fprintf(&sb, "%%%02X", b)
 				continue
 			}
 
@@ -553,14 +251,14 @@ func encodeGrpcMessageUnchecked(msg string) string {
 			//
 			// fmt.Sprintf("%%%02X", utf8.RuneError) gives "%FFFD".
 			if b >= spaceByte && b <= tildeByte && b != percentByte {
-				buf.WriteByte(b)
+				sb.WriteByte(b)
 			} else {
-				buf.WriteString(fmt.Sprintf("%%%02X", b))
+				fmt.Fprintf(&sb, "%%%02X", b)
 			}
 		}
 		msg = msg[size:]
 	}
-	return buf.String()
+	return sb.String()
 }
 
 // decodeGrpcMessage decodes the msg encoded by encodeGrpcMessage.
@@ -578,83 +276,141 @@ func decodeGrpcMessage(msg string) string {
 }
 
 func decodeGrpcMessageUnchecked(msg string) string {
-	var buf bytes.Buffer
+	var sb strings.Builder
 	lenMsg := len(msg)
 	for i := 0; i < lenMsg; i++ {
 		c := msg[i]
 		if c == percentByte && i+2 < lenMsg {
 			parsed, err := strconv.ParseUint(msg[i+1:i+3], 16, 8)
 			if err != nil {
-				buf.WriteByte(c)
+				sb.WriteByte(c)
 			} else {
-				buf.WriteByte(byte(parsed))
+				sb.WriteByte(byte(parsed))
 				i += 2
 			}
 		} else {
-			buf.WriteByte(c)
+			sb.WriteByte(c)
 		}
 	}
-	return buf.String()
+	return sb.String()
 }
 
 type bufWriter struct {
+	pool      *sync.Pool
 	buf       []byte
 	offset    int
 	batchSize int
-	conn      net.Conn
+	conn      io.Writer
 	err       error
-
-	onFlush func()
 }
 
-func newBufWriter(conn net.Conn, batchSize int) *bufWriter {
-	return &bufWriter{
-		buf:       make([]byte, batchSize*2),
+func newBufWriter(conn io.Writer, batchSize int, pool *sync.Pool) *bufWriter {
+	w := &bufWriter{
 		batchSize: batchSize,
 		conn:      conn,
+		pool:      pool,
 	}
+	// this indicates that we should use non shared buf
+	if pool == nil {
+		w.buf = make([]byte, batchSize)
+	}
+	return w
 }
 
-func (w *bufWriter) Write(b []byte) (n int, err error) {
+func (w *bufWriter) Write(b []byte) (int, error) {
 	if w.err != nil {
 		return 0, w.err
 	}
 	if w.batchSize == 0 { // Buffer has been disabled.
-		return w.conn.Write(b)
+		n, err := w.conn.Write(b)
+		return n, toIOError(err)
 	}
+	if w.buf == nil {
+		b := w.pool.Get().(*[]byte)
+		w.buf = *b
+	}
+	written := 0
 	for len(b) > 0 {
-		nn := copy(w.buf[w.offset:], b)
-		b = b[nn:]
-		w.offset += nn
-		n += nn
-		if w.offset >= w.batchSize {
-			err = w.Flush()
+		copied := copy(w.buf[w.offset:], b)
+		b = b[copied:]
+		written += copied
+		w.offset += copied
+		if w.offset < w.batchSize {
+			continue
+		}
+		if err := w.flushKeepBuffer(); err != nil {
+			return written, err
 		}
 	}
-	return n, err
+	return written, nil
 }
 
 func (w *bufWriter) Flush() error {
+	err := w.flushKeepBuffer()
+	// Only release the buffer if we are in a "shared" mode
+	if w.buf != nil && w.pool != nil {
+		b := w.buf
+		w.pool.Put(&b)
+		w.buf = nil
+	}
+	return err
+}
+
+func (w *bufWriter) flushKeepBuffer() error {
 	if w.err != nil {
 		return w.err
 	}
 	if w.offset == 0 {
 		return nil
 	}
-	if w.onFlush != nil {
-		w.onFlush()
-	}
 	_, w.err = w.conn.Write(w.buf[:w.offset])
+	w.err = toIOError(w.err)
 	w.offset = 0
 	return w.err
 }
 
-type framer struct {
-	writer *bufWriter
-	fr     *http2.Framer
+type ioError struct {
+	error
 }
 
-func newFramer(conn net.Conn, writeBufferSize, readBufferSize int, maxHeaderListSize uint32) *framer {
+func (i ioError) Unwrap() error {
+	return i.error
+}
+
+func isIOError(err error) bool {
+	return errors.As(err, &ioError{})
+}
+
+func toIOError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return ioError{error: err}
+}
+
+type parsedDataFrame struct {
+	http2.FrameHeader
+	data mem.Buffer
+}
+
+func (df *parsedDataFrame) StreamEnded() bool {
+	return df.FrameHeader.Flags.Has(http2.FlagDataEndStream)
+}
+
+type framer struct {
+	writer    *bufWriter
+	fr        *http2.Framer
+	headerBuf []byte // cached slice for framer headers to reduce heap allocs.
+	reader    io.Reader
+	dataFrame parsedDataFrame // Cached data frame to avoid heap allocations.
+	pool      mem.BufferPool
+	errDetail error
+}
+
+var writeBufferPoolMap = make(map[int]*sync.Pool)
+var writeBufferMutex sync.Mutex
+
+func newFramer(conn io.ReadWriter, writeBufferSize, readBufferSize int, sharedWriteBuffer bool, maxHeaderListSize uint32, memPool mem.BufferPool) *framer {
 	if writeBufferSize < 0 {
 		writeBufferSize = 0
 	}
@@ -662,15 +418,207 @@ func newFramer(conn net.Conn, writeBufferSize, readBufferSize int, maxHeaderList
 	if readBufferSize > 0 {
 		r = bufio.NewReaderSize(r, readBufferSize)
 	}
-	w := newBufWriter(conn, writeBufferSize)
+	var pool *sync.Pool
+	if sharedWriteBuffer {
+		pool = getWriteBufferPool(writeBufferSize)
+	}
+	w := newBufWriter(conn, writeBufferSize, pool)
 	f := &framer{
 		writer: w,
 		fr:     http2.NewFramer(w, r),
+		reader: r,
+		pool:   memPool,
 	}
+	f.fr.SetMaxReadFrameSize(http2MaxFrameLen)
 	// Opt-in to Frame reuse API on framer to reduce garbage.
 	// Frames aren't safe to read from after a subsequent call to ReadFrame.
 	f.fr.SetReuseFrames()
 	f.fr.MaxHeaderListSize = maxHeaderListSize
 	f.fr.ReadMetaHeaders = hpack.NewDecoder(http2InitHeaderTableSize, nil)
 	return f
+}
+
+// writeData writes a DATA frame.
+//
+// It is the caller's responsibility not to violate the maximum frame size.
+func (f *framer) writeData(streamID uint32, endStream bool, data [][]byte) error {
+	var flags http2.Flags
+	if endStream {
+		flags = http2.FlagDataEndStream
+	}
+	length := uint32(0)
+	for _, d := range data {
+		length += uint32(len(d))
+	}
+	// TODO: Replace the header write with the framer API being added in
+	// https://github.com/golang/go/issues/66655.
+	f.headerBuf = append(f.headerBuf[:0],
+		byte(length>>16),
+		byte(length>>8),
+		byte(length),
+		byte(http2.FrameData),
+		byte(flags),
+		byte(streamID>>24),
+		byte(streamID>>16),
+		byte(streamID>>8),
+		byte(streamID))
+	if _, err := f.writer.Write(f.headerBuf); err != nil {
+		return err
+	}
+	for _, d := range data {
+		if _, err := f.writer.Write(d); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// readFrame reads a single frame. The returned Frame is only valid
+// until the next call to readFrame.
+func (f *framer) readFrame() (any, error) {
+	f.errDetail = nil
+	fh, err := f.fr.ReadFrameHeader()
+	if err != nil {
+		f.errDetail = f.fr.ErrorDetail()
+		return nil, err
+	}
+	// Read the data frame directly from the underlying io.Reader to avoid
+	// copies.
+	if fh.Type == http2.FrameData {
+		err = f.readDataFrame(fh)
+		return &f.dataFrame, err
+	}
+	fr, err := f.fr.ReadFrameForHeader(fh)
+	if err != nil {
+		f.errDetail = f.fr.ErrorDetail()
+		return nil, err
+	}
+	return fr, err
+}
+
+// errorDetail returns a more detailed error of the last error
+// returned by framer.readFrame. For instance, if readFrame
+// returns a StreamError with code PROTOCOL_ERROR, errorDetail
+// will say exactly what was invalid. errorDetail is not guaranteed
+// to return a non-nil value.
+// errorDetail is reset after the next call to readFrame.
+func (f *framer) errorDetail() error {
+	return f.errDetail
+}
+
+func (f *framer) readDataFrame(fh http2.FrameHeader) (err error) {
+	if fh.StreamID == 0 {
+		// DATA frames MUST be associated with a stream. If a
+		// DATA frame is received whose stream identifier
+		// field is 0x0, the recipient MUST respond with a
+		// connection error (Section 5.4.1) of type
+		// PROTOCOL_ERROR.
+		f.errDetail = errors.New("DATA frame with stream ID 0")
+		return http2.ConnectionError(http2.ErrCodeProtocol)
+	}
+	// Converting a *[]byte to a mem.SliceBuffer incurs a heap allocation. This
+	// conversion is performed by mem.NewBuffer. To avoid the extra allocation
+	// a []byte is allocated directly if required and cast to a mem.SliceBuffer.
+	var buf []byte
+	// poolHandle is the pointer returned by the buffer pool (if it's used.).
+	var poolHandle *[]byte
+	useBufferPool := !mem.IsBelowBufferPoolingThreshold(int(fh.Length))
+	if useBufferPool {
+		poolHandle = f.pool.Get(int(fh.Length))
+		buf = *poolHandle
+		defer func() {
+			if err != nil {
+				f.pool.Put(poolHandle)
+			}
+		}()
+	} else {
+		buf = make([]byte, int(fh.Length))
+	}
+	if fh.Flags.Has(http2.FlagDataPadded) {
+		if fh.Length == 0 {
+			return io.ErrUnexpectedEOF
+		}
+		// This initial 1-byte read can be inefficient for unbuffered readers,
+		// but it allows the rest of the payload to be read directly to the
+		// start of the destination slice. This makes it easy to return the
+		// original slice back to the buffer pool.
+		if _, err := io.ReadFull(f.reader, buf[:1]); err != nil {
+			return err
+		}
+		padSize := buf[0]
+		buf = buf[:len(buf)-1]
+		if int(padSize) > len(buf) {
+			// If the length of the padding is greater than the
+			// length of the frame payload, the recipient MUST
+			// treat this as a connection error.
+			// Filed: https://github.com/http2/http2-spec/issues/610
+			f.errDetail = errors.New("pad size larger than data payload")
+			return http2.ConnectionError(http2.ErrCodeProtocol)
+		}
+		if _, err := io.ReadFull(f.reader, buf); err != nil {
+			return err
+		}
+		buf = buf[:len(buf)-int(padSize)]
+	} else if _, err := io.ReadFull(f.reader, buf); err != nil {
+		return err
+	}
+
+	f.dataFrame.FrameHeader = fh
+	if useBufferPool {
+		// Update the handle to point to the (potentially re-sliced) buf.
+		*poolHandle = buf
+		f.dataFrame.data = mem.NewBuffer(poolHandle, f.pool)
+	} else {
+		f.dataFrame.data = mem.SliceBuffer(buf)
+	}
+	return nil
+}
+
+func (df *parsedDataFrame) Header() http2.FrameHeader {
+	return df.FrameHeader
+}
+
+func getWriteBufferPool(size int) *sync.Pool {
+	writeBufferMutex.Lock()
+	defer writeBufferMutex.Unlock()
+	pool, ok := writeBufferPoolMap[size]
+	if ok {
+		return pool
+	}
+	pool = &sync.Pool{
+		New: func() any {
+			b := make([]byte, size)
+			return &b
+		},
+	}
+	writeBufferPoolMap[size] = pool
+	return pool
+}
+
+// ParseDialTarget returns the network and address to pass to dialer.
+func ParseDialTarget(target string) (string, string) {
+	net := "tcp"
+	m1 := strings.Index(target, ":")
+	m2 := strings.Index(target, ":/")
+	// handle unix:addr which will fail with url.Parse
+	if m1 >= 0 && m2 < 0 {
+		if n := target[0:m1]; n == "unix" {
+			return n, target[m1+1:]
+		}
+	}
+	if m2 >= 0 {
+		t, err := url.Parse(target)
+		if err != nil {
+			return net, target
+		}
+		scheme := t.Scheme
+		addr := t.Path
+		if scheme == "unix" {
+			if addr == "" {
+				addr = t.Host
+			}
+			return scheme, addr
+		}
+	}
+	return net, target
 }

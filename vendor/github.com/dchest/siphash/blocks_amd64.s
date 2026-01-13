@@ -1,3 +1,4 @@
+//go:build amd64 && !appengine && !gccgo
 // +build amd64,!appengine,!gccgo
 
 #define ROUND(v0, v1, v2, v3) \

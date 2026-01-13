@@ -32,7 +32,8 @@ type WriteScheduler interface {
 
 	// Pop dequeues the next frame to write. Returns false if no frames can
 	// be written. Frames with a given wr.StreamID() are Pop'd in the same
-	// order they are Push'd.
+	// order they are Push'd, except RST_STREAM frames. No frames should be
+	// discarded except by CloseStream.
 	Pop() (wr FrameWriteRequest, ok bool)
 }
 
@@ -41,6 +42,8 @@ type OpenStreamOptions struct {
 	// PusherID is zero if the stream was initiated by the client. Otherwise,
 	// PusherID names the stream that pushed the newly opened stream.
 	PusherID uint32
+	// priority is used to set the priority of the newly opened stream.
+	priority PriorityParam
 }
 
 // FrameWriteRequest is a request to write a frame.
@@ -52,6 +55,7 @@ type FrameWriteRequest struct {
 
 	// stream is the stream on which this frame will be written.
 	// nil for non-stream frames like PING and SETTINGS.
+	// nil for RST_STREAM streams, which use the StreamError.StreamID field instead.
 	stream *stream
 
 	// done, if non-nil, must be a buffered channel with space for
@@ -74,6 +78,12 @@ func (wr FrameWriteRequest) StreamID() uint32 {
 		return 0
 	}
 	return wr.stream.id
+}
+
+// isControl reports whether wr is a control frame for MaxQueuedControlFrames
+// purposes. That includes non-stream frames and RST_STREAM frames.
+func (wr FrameWriteRequest) isControl() bool {
+	return wr.stream == nil
 }
 
 // DataSize returns the number of flow control bytes that must be consumed
@@ -175,26 +185,57 @@ func (wr *FrameWriteRequest) replyToWriter(err error) {
 }
 
 // writeQueue is used by implementations of WriteScheduler.
+//
+// Each writeQueue contains a queue of FrameWriteRequests, meant to store all
+// FrameWriteRequests associated with a given stream. This is implemented as a
+// two-stage queue: currQueue[currPos:] and nextQueue. Removing an item is done
+// by incrementing currPos of currQueue. Adding an item is done by appending it
+// to the nextQueue. If currQueue is empty when trying to remove an item, we
+// can swap currQueue and nextQueue to remedy the situation.
+// This two-stage queue is analogous to the use of two lists in Okasaki's
+// purely functional queue but without the overhead of reversing the list when
+// swapping stages.
+//
+// writeQueue also contains prev and next, this can be used by implementations
+// of WriteScheduler to construct data structures that represent the order of
+// writing between different streams (e.g. circular linked list).
 type writeQueue struct {
-	s []FrameWriteRequest
+	currQueue []FrameWriteRequest
+	nextQueue []FrameWriteRequest
+	currPos   int
+
+	prev, next *writeQueue
 }
 
-func (q *writeQueue) empty() bool { return len(q.s) == 0 }
+func (q *writeQueue) empty() bool {
+	return (len(q.currQueue) - q.currPos + len(q.nextQueue)) == 0
+}
 
 func (q *writeQueue) push(wr FrameWriteRequest) {
-	q.s = append(q.s, wr)
+	q.nextQueue = append(q.nextQueue, wr)
 }
 
 func (q *writeQueue) shift() FrameWriteRequest {
-	if len(q.s) == 0 {
+	if q.empty() {
 		panic("invalid use of queue")
 	}
-	wr := q.s[0]
-	// TODO: less copy-happy queue.
-	copy(q.s, q.s[1:])
-	q.s[len(q.s)-1] = FrameWriteRequest{}
-	q.s = q.s[:len(q.s)-1]
+	if q.currPos >= len(q.currQueue) {
+		q.currQueue, q.currPos, q.nextQueue = q.nextQueue, 0, q.currQueue[:0]
+	}
+	wr := q.currQueue[q.currPos]
+	q.currQueue[q.currPos] = FrameWriteRequest{}
+	q.currPos++
 	return wr
+}
+
+func (q *writeQueue) peek() *FrameWriteRequest {
+	if q.currPos < len(q.currQueue) {
+		return &q.currQueue[q.currPos]
+	}
+	if len(q.nextQueue) > 0 {
+		return &q.nextQueue[0]
+	}
+	return nil
 }
 
 // consume consumes up to n bytes from q.s[0]. If the frame is
@@ -202,17 +243,17 @@ func (q *writeQueue) shift() FrameWriteRequest {
 // is partially consumed, the frame is kept with the consumed
 // bytes removed. Returns true iff any bytes were consumed.
 func (q *writeQueue) consume(n int32) (FrameWriteRequest, bool) {
-	if len(q.s) == 0 {
+	if q.empty() {
 		return FrameWriteRequest{}, false
 	}
-	consumed, rest, numresult := q.s[0].Consume(n)
+	consumed, rest, numresult := q.peek().Consume(n)
 	switch numresult {
 	case 0:
 		return FrameWriteRequest{}, false
 	case 1:
 		q.shift()
 	case 2:
-		q.s[0] = rest
+		*q.peek() = rest
 	}
 	return consumed, true
 }
@@ -221,10 +262,15 @@ type writeQueuePool []*writeQueue
 
 // put inserts an unused writeQueue into the pool.
 func (p *writeQueuePool) put(q *writeQueue) {
-	for i := range q.s {
-		q.s[i] = FrameWriteRequest{}
+	for i := range q.currQueue {
+		q.currQueue[i] = FrameWriteRequest{}
 	}
-	q.s = q.s[:0]
+	for i := range q.nextQueue {
+		q.nextQueue[i] = FrameWriteRequest{}
+	}
+	q.currQueue = q.currQueue[:0]
+	q.nextQueue = q.nextQueue[:0]
+	q.currPos = 0
 	*p = append(*p, q)
 }
 

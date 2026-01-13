@@ -60,7 +60,7 @@ func TestWaitGroupBlast(t *testing.T) {
 			}
 
 			if isClosed(wg.Closer()) {
-				t.Fatalf("Should not be closing state")
+				t.Errorf("Should not be closing state")
 			}
 
 			wg.DoneSession()

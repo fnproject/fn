@@ -1,220 +1,219 @@
 #!/bin/bash
 
-# Run all the different permutations of all the tests and other things
-# This helps ensure that nothing gets broken.
+# Build and Run the different test permutations.
+# This helps validate that nothing gets broken.
 
-_tests() {
-    local gover=$( go version | cut -f 3 -d ' ' )
-    # note that codecgen requires fastpath, so you cannot do "codecgen notfastpath"
-    local a=( "" "safe"  "notfastpath" "notfastpath safe" "codecgen" "codecgen safe" )
-    for i in "${a[@]}"
-    do
-        echo ">>>> TAGS: $i"
-        local i2=${i:-default}
-        case $gover in
-            go1.[0-6]*) go vet -printfuncs "errorf" "$@" &&
-                              go test ${zargs[*]} -vet off -tags "$i" "$@" ;;
-            *) go vet -printfuncs "errorf" "$@" &&
-                     go test ${zargs[*]} -vet off -tags "alltests $i" -run "Suite" -coverprofile "${i2// /-}.cov.out" "$@" ;;
-        esac
-        if [[ "$?" != 0 ]]; then return 1; fi 
+_build_proceed() {
+    # return success (0) if we should, and 1 (fail) if not
+    if [[ "${zforce}" ]]; then return 0; fi
+    for a in "fastpath.generated.go" "json.mono.generated.go"; do
+        if [[ ! -e "$a" ]]; then return 0; fi
+        for b in `ls -1 *.go.tmpl gen.go gen_mono.go values_test.go`; do
+            if [[ "$a" -ot "$b" ]]; then return 0; fi
+        done
     done
-    echo "++++++++ TEST SUITES ALL PASSED ++++++++"
+    return 1
 }
 
-
-# is a generation needed?
-_ng() {
-    local a="$1"
-    if [[ ! -e "$a" ]]; then echo 1; return; fi 
-    for i in `ls -1 *.go.tmpl gen.go values_test.go`
-    do
-        if [[ "$a" -ot "$i" ]]; then echo 1; return; fi 
-    done
-}
-
-_prependbt() {
-    cat > ${2} <<EOF
-// +build generated
-
-EOF
-    cat ${1} >> ${2}
-    rm -f ${1}
-}
-
-# _build generates fast-path.go and gen-helper.go.
+# _build generates fastpath.go
 _build() {
-    if ! [[ "${zforce}" || $(_ng "fast-path.generated.go") || $(_ng "gen-helper.generated.go") || $(_ng "gen.generated.go") ]]; then return 0; fi 
-    
+    # if ! [[ "${zforce}" || $(_ng "fastpath.generated.go") || $(_ng "json.mono.generated.go") ]]; then return 0; fi
+    _build_proceed
+    if [ $? -eq 1 ]; then return 0; fi
     if [ "${zbak}" ]; then
         _zts=`date '+%m%d%Y_%H%M%S'`
         _gg=".generated.go"
-        [ -e "gen-helper${_gg}" ] && mv gen-helper${_gg} gen-helper${_gg}__${_zts}.bak
-        [ -e "fast-path${_gg}" ] && mv fast-path${_gg} fast-path${_gg}__${_zts}.bak
+        [ -e "fastpath${_gg}" ] && mv fastpath${_gg} fastpath${_gg}__${_zts}.bak
         [ -e "gen${_gg}" ] && mv gen${_gg} gen${_gg}__${_zts}.bak
-    fi 
-    rm -f gen-helper.generated.go fast-path.generated.go gen.generated.go \
-       *safe.generated.go *_generated_test.go *.generated_ffjson_expose.go 
+    fi
+    
+    rm -f fast*path.generated.go *mono*generated.go *_generated_test.go gen-from-tmpl*.generated.go
 
-    cat > gen.generated.go <<EOF
-// +build codecgen.exec
+    local btags="codec.build codec.notmono codec.safe codec.notfastpath"
 
-// Copyright (c) 2012-2015 Ugorji Nwoke. All rights reserved.
-// Use of this source code is governed by a MIT license found in the LICENSE file.
-
-package codec
-
-// DO NOT EDIT. THIS FILE IS AUTO-GENERATED FROM gen-dec-(map|array).go.tmpl
-
-const genDecMapTmpl = \`
-EOF
-    cat >> gen.generated.go < gen-dec-map.go.tmpl
-    cat >> gen.generated.go <<EOF
-\`
-
-const genDecListTmpl = \`
-EOF
-    cat >> gen.generated.go < gen-dec-array.go.tmpl
-    cat >> gen.generated.go <<EOF
-\`
-
-const genEncChanTmpl = \`
-EOF
-    cat >> gen.generated.go < gen-enc-chan.go.tmpl
-    cat >> gen.generated.go <<EOF
-\`
-EOF
     cat > gen-from-tmpl.codec.generated.go <<EOF
-package codec 
-import "io"
-func GenInternalGoFile(r io.Reader, w io.Writer) error {
-return genInternalGoFile(r, w)
-}
+package codec
+func GenTmplRun2Go(in, out string) { genTmplRun2Go(in, out) }
+func GenMonoAll() { genMonoAll() }
 EOF
+
     cat > gen-from-tmpl.generated.go <<EOF
-//+build ignore
-
+//go:build ignore
 package main
-
 import "${zpkg}"
-import "os"
-
-func run(fnameIn, fnameOut string) {
-println("____ " + fnameIn + " --> " + fnameOut + " ______")
-fin, err := os.Open(fnameIn)
-if err != nil { panic(err) }
-defer fin.Close()
-fout, err := os.Create(fnameOut)
-if err != nil { panic(err) }
-defer fout.Close()
-err = codec.GenInternalGoFile(fin, fout)
-if err != nil { panic(err) }
-}
-
 func main() {
-run("fast-path.go.tmpl", "fast-path.generated.go")
-run("gen-helper.go.tmpl", "gen-helper.generated.go")
-run("mammoth-test.go.tmpl", "mammoth_generated_test.go")
-run("mammoth2-test.go.tmpl", "mammoth2_generated_test.go")
+codec.GenTmplRun2Go("fastpath.go.tmpl", "base.fastpath.generated.go")
+codec.GenTmplRun2Go("fastpath.notmono.go.tmpl", "base.fastpath.notmono.generated.go")
+codec.GenTmplRun2Go("mammoth_test.go.tmpl", "mammoth_generated_test.go")
+codec.GenMonoAll()
 }
 EOF
 
     # explicitly return 0 if this passes, else return 1
-    go run -tags "notfastpath safe codecgen.exec" gen-from-tmpl.generated.go &&
-        rm -f gen-from-tmpl.*generated.go &&
-        return 0
-    return 1
-}
-
-_codegenerators() {
-    if ! [[ $zforce ||
-                $(_ng "values_codecgen${zsfx}") ]]; then return 0; fi
-
-    # Note: ensure you run the codecgen for this codebase  (using $zgobase/bin/codecgen)
-    local c9="codecgen-scratch.go"
-    true &&
-        echo "codecgen ... " &&
-        $zgobase/bin/codecgen -rt codecgen -t 'codecgen generated' -o values_codecgen${zsfx} -d 19780 $zfin $zfin2 &&
-        cp mammoth2_generated_test.go $c9 &&
-        $zgobase/bin/codecgen -t '!notfastpath' -o mammoth2_codecgen${zsfx} -d 19781 mammoth2_generated_test.go &&
-        rm -f $c9 &&
-        echo "generators done!" 
+    ${gocmd} run -tags "$btags" gen-from-tmpl.generated.go || return 1
+    rm -f gen-from-tmpl*.generated.go
+    return 0
 }
 
 _prebuild() {
-    echo "prebuild: zforce: $zforce , zexternal: $zexternal"
-    zmydir=`pwd`
-    zfin="test_values.generated.go"
-    zfin2="test_values_flex.generated.go"
-    zsfx="_generated_test.go"
-    # zpkg="ugorji.net/codec"
-    zpkg=${zmydir##*/src/}
-    zgobase=${zmydir%%/src/*}
+    local d="$PWD"
+    local zfin="test_values.generated.go"
+    local zfin2="test_values_flex.generated.go"
+    local zpkg="github.com/ugorji/go/codec"
+    local returncode=1
+
+    # zpkg=${d##*/src/}
+    # zgobase=${d%%/src/*}
     # rm -f *_generated_test.go 
-    rm -f codecgen-*.go &&
+    # if [[ $zforce ]]; then ${gocmd} install ${zargs[*]} .; fi &&
+    true &&
         _build &&
-        cp $zmydir/values_test.go $zmydir/$zfin &&
-        cp $zmydir/values_flex_test.go $zmydir/$zfin2 &&
-        _codegenerators &&
+        cp $d/values_test.go $d/$zfin &&
+        cp $d/values_flex_test.go $d/$zfin2 &&
         if [[ "$(type -t _codegenerators_external )" = "function" ]]; then _codegenerators_external ; fi &&
-        if [[ $zforce ]]; then go install ${zargs[*]} .; fi &&
+        returncode=0 &&
         echo "prebuild done successfully"
-    rm -f $zmydir/$zfin $zmydir/$zfin2 
+    rm -f $d/$zfin $d/$zfin2
+    return $returncode
+    # unset zfin zfin2 zpkg
 }
 
 _make() {
-    zforce=1
-    zexternal=1
-    ( cd codecgen && go install ${zargs[*]} . ) && _prebuild && go install ${zargs[*]} .
-    unset zforce zexternal
+    _prebuild && ${gocmd} install ${zargs[*]} .
 }
 
 _clean() {
-    rm -f gen-from-tmpl.*generated.go \
-       codecgen-*.go \
+    rm -f \
+       gen-from-tmpl.*generated.go \
        test_values.generated.go test_values_flex.generated.go
 }
 
+_tests_run_one() {
+    local tt="alltests $i"
+    local rr="TestCodecSuite"
+    if [[ "x$i" == "xx" ]]; then tt="codec.notmono codec.notfastpath x"; rr='Test.*X$'; fi
+    local g=( ${zargs[*]} ${ztestargs[*]} -count $nc -cpu $cpus -vet "$vet" -tags "$tt" -run "$rr" )
+    [[ "$zcover" == "1" ]] && g+=( -cover )
+    # g+=( -ti "$k" )
+    g+=( -tdiff )
+    [[ "$zcover" == "1" ]] && g+=( -test.gocoverdir $covdir )
+    local -
+    set -x
+    ${gocmd} test "${g[@]}" &
+}
+
+_tests() {
+    local vet="" # TODO: make it off
+    local gover=$( ${gocmd} version | cut -f 3 -d ' ' )
+    # go tool cover is not supported for gccgo, gollvm, other non-standard go compilers
+    [[ $( ${gocmd} version ) == *"gccgo"* ]] && zcover=0
+    [[ $( ${gocmd} version ) == *"gollvm"* ]] && zcover=0
+    case $gover in
+        go1.2[0-9]*|go2.*|devel*) true ;;
+        *) return 1
+    esac
+    # we test the following permutations wnich all execute different code paths as below.
+    echo "TestCodecSuite: (fastpath/unsafe), (!fastpath/unsafe), (fastpath/!unsafe), (!fastpath/!unsafe)"
+    local nc=2 # count
+    local cpus="1,$(nproc)"
+    # if using the race detector, then set nc to
+    if [[ " ${zargs[@]} " =~ "-race" ]]; then
+        cpus="$(nproc)"
+    fi
+    local covdir=""
+    local a=( "" "codec.safe" "codec.notfastpath" "codec.safe codec.notfastpath"
+              "codec.notmono" "codec.notmono codec.safe"
+              "codec.notmono codec.notfastpath" "codec.notmono codec.safe codec.notfastpath" )
+    [[ "$zextra" == "1" ]] && a+=( "x" )
+    [[ "$zcover" == "1" ]] && covdir=`mktemp -d`
+    ${gocmd} vet -printfuncs "errorf" "$@" || return 1
+    for i in "${a[@]}"; do
+        local j=${i:-default}; j="${j// /-}"; j="${j//codec./}"
+        [[ "$zwait" == "1" ]] && echo ">>>> TAGS: 'alltests $i'; RUN: 'TestCodecSuite'"
+        _tests_run_one
+        [[ "$zwait" == "1" ]] && wait
+        # if [[ "$?" != 0 ]]; then return 1; fi
+    done
+    wait
+    [[ "$zcover" == "1" ]] &&
+        echo "go tool covdata output" &&
+        ${gocmd} tool covdata percent -i $covdir &&
+        ${gocmd} tool covdata textfmt -i $covdir -o __cov.out &&
+        ${gocmd} tool cover -html=__cov.out
+}
+
 _usage() {
+    # hidden args:
+    # -pf [p=prebuild (f=force)]
+    
     cat <<EOF
-primary usage: $0 
-    -[tmpfxnld] for [tests, make, prebuild (force) (external), inlining diagnostics, mid-stack inlining, race detector]
+primary usage: $0
+    -t[esow]   -> t=tests [e=extra, s=short, o=cover, w=wait]
+    -[md]      -> [m=make, d=race detector]
+    -v         -> v=verbose (more v's to increase verbose level)
 EOF
     if [[ "$(type -t _usage_run)" = "function" ]]; then _usage_run ; fi
 }
 
 _main() {
     if [[ -z "$1" ]]; then _usage; return 1; fi
-    local x
-    unset zforce zexternal
-    zargs=()
-    while getopts ":ctbqmnrgupfxlzd" flag
+    local x # determines the main action to run in this build
+    local zforce # force
+    local zcover # generate cover profile and show in browser when done
+    local zwait # run tests in sequence, not parallel ie wait for one to finish before starting another
+    local zextra # means run extra (python based tests, etc) during testing
+    
+    local ztestargs=()
+    local zargs=()
+    local zverbose=()
+    local zbenchflags=""
+
+    local gocmd=${MYGOCMD:-go}
+    
+    OPTIND=1
+    while getopts ":cetmnrgpfvldsowikxyz" flag
     do
         case "x$flag" in
+            'xw') zwait=1 ;;
+            'xv') zverbose+=(1) ;;
+            'xo') zcover=1 ;;
+            'xe') zextra=1 ;;
             'xf') zforce=1 ;;
-            'xx') zexternal=1 ;;
+            'xs') ztestargs+=("-short") ;;
             'xl') zargs+=("-gcflags"); zargs+=("-l=4") ;;
-            'xn') zargs+=("-gcflags"); zargs+=("-m") ;;
+            'xn') zargs+=("-gcflags"); zargs+=("-m=2") ;;
             'xd') zargs+=("-race") ;;
+            # 'xi') x='i'; zbenchflags=${OPTARG} ;;
             x\?) _usage; return 1 ;;
             *) x=$flag ;;
         esac
     done
     shift $((OPTIND-1))
+    # echo ">>>> _main: extra args: $@"
     case "x$x" in
         'xt') _tests "$@" ;;
-        'xq') _benchquick "$@" ;;
-        'xb') _bench "$@" ;;
         'xm') _make "$@" ;;
         'xr') _release "$@" ;;
         'xg') _go ;;
-        'xu') _githubupdate ;;
         'xp') _prebuild "$@" ;;
         'xc') _clean "$@" ;;
-        'xz') _analyze "$@" ;;
     esac
-    unset zforce zexternal 
+
+    # handle from local run.sh
+    case "x$x" in
+        'xi') _check_inlining_one "$@" ;;
+        'xk') _go_compiler_validation_suite ;;
+        'xx') _analyze_checks "$@" ;;
+        'xy') _analyze_debug_types "$@" ;;
+        'xz') _analyze_do_inlining_and_more "$@" ;;
+    esac
+    # unset zforce zargs zbenchflags
 }
 
 [ "." = `dirname $0` ] && _main "$@"
 
+# _xtrace() {
+#     local -
+#     set -x
+#     "${@}"
+# }

@@ -17,9 +17,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/prometheus/client_golang/prometheus/internal"
 
 	dto "github.com/prometheus/client_model/go"
+	"google.golang.org/protobuf/proto"
 )
 
 // WrapRegistererWith returns a Registerer wrapping the provided
@@ -27,10 +28,19 @@ import (
 // registered with the wrapped Registerer in a modified way. The modified
 // Collector adds the provided Labels to all Metrics it collects (as
 // ConstLabels). The Metrics collected by the unmodified Collector must not
-// duplicate any of those labels.
+// duplicate any of those labels. Wrapping a nil value is valid, resulting
+// in a no-op Registerer.
 //
 // WrapRegistererWith provides a way to add fixed labels to a subset of
-// Collectors. It should not be used to add fixed labels to all metrics exposed.
+// Collectors. It should not be used to add fixed labels to all metrics
+// exposed. See also
+// https://prometheus.io/docs/instrumenting/writing_exporters/#target-labels-not-static-scraped-labels
+//
+// Conflicts between Collectors registered through the original Registerer with
+// Collectors registered through the wrapping Registerer will still be
+// detected. Any AlreadyRegisteredError returned by the Register method of
+// either Registerer will contain the ExistingCollector in the form it was
+// provided to the respective registry.
 //
 // The Collector example demonstrates a use of WrapRegistererWith.
 func WrapRegistererWith(labels Labels, reg Registerer) Registerer {
@@ -44,6 +54,7 @@ func WrapRegistererWith(labels Labels, reg Registerer) Registerer {
 // Registerer. Collectors registered with the returned Registerer will be
 // registered with the wrapped Registerer in a modified way. The modified
 // Collector adds the provided prefix to the name of all Metrics it collects.
+// Wrapping a nil value is valid, resulting in a no-op Registerer.
 //
 // WrapRegistererWithPrefix is useful to have one place to prefix all metrics of
 // a sub-system. To make this work, register metrics of the sub-system with the
@@ -52,12 +63,52 @@ func WrapRegistererWith(labels Labels, reg Registerer) Registerer {
 // metric names that are standardized across applications, as that would break
 // horizontal monitoring, for example the metrics provided by the Go collector
 // (see NewGoCollector) and the process collector (see NewProcessCollector). (In
-// fact, those metrics are already prefixed with “go_” or “process_”,
+// fact, those metrics are already prefixed with "go_" or "process_",
 // respectively.)
+//
+// Conflicts between Collectors registered through the original Registerer with
+// Collectors registered through the wrapping Registerer will still be
+// detected. Any AlreadyRegisteredError returned by the Register method of
+// either Registerer will contain the ExistingCollector in the form it was
+// provided to the respective registry.
 func WrapRegistererWithPrefix(prefix string, reg Registerer) Registerer {
 	return &wrappingRegisterer{
 		wrappedRegisterer: reg,
 		prefix:            prefix,
+	}
+}
+
+// WrapCollectorWith returns a Collector wrapping the provided Collector. The
+// wrapped Collector will add the provided Labels to all Metrics it collects (as
+// ConstLabels). The Metrics collected by the unmodified Collector must not
+// duplicate any of those labels.
+//
+// WrapCollectorWith can be useful to work with multiple instances of a third
+// party library that does not expose enough flexibility on the lifecycle of its
+// registered metrics.
+// For example, let's say you have a foo.New(reg Registerer) constructor that
+// registers metrics but never unregisters them, and you want to create multiple
+// instances of foo.Foo with different labels.
+// The way to achieve that, is to create a new Registry, pass it to foo.New,
+// then use WrapCollectorWith to wrap that Registry with the desired labels and
+// register that as a collector in your main Registry.
+// Then you can un-register the wrapped collector effectively un-registering the
+// metrics registered by foo.New.
+func WrapCollectorWith(labels Labels, c Collector) Collector {
+	return &wrappingCollector{
+		wrappedCollector: c,
+		labels:           labels,
+	}
+}
+
+// WrapCollectorWithPrefix returns a Collector wrapping the provided Collector. The
+// wrapped Collector will add the provided prefix to the name of all Metrics it collects.
+//
+// See the documentation of WrapCollectorWith for more details on the use case.
+func WrapCollectorWithPrefix(prefix string, c Collector) Collector {
+	return &wrappingCollector{
+		wrappedCollector: c,
+		prefix:           prefix,
 	}
 }
 
@@ -68,6 +119,9 @@ type wrappingRegisterer struct {
 }
 
 func (r *wrappingRegisterer) Register(c Collector) error {
+	if r.wrappedRegisterer == nil {
+		return nil
+	}
 	return r.wrappedRegisterer.Register(&wrappingCollector{
 		wrappedCollector: c,
 		prefix:           r.prefix,
@@ -76,6 +130,9 @@ func (r *wrappingRegisterer) Register(c Collector) error {
 }
 
 func (r *wrappingRegisterer) MustRegister(cs ...Collector) {
+	if r.wrappedRegisterer == nil {
+		return
+	}
 	for _, c := range cs {
 		if err := r.Register(c); err != nil {
 			panic(err)
@@ -84,6 +141,9 @@ func (r *wrappingRegisterer) MustRegister(cs ...Collector) {
 }
 
 func (r *wrappingRegisterer) Unregister(c Collector) bool {
+	if r.wrappedRegisterer == nil {
+		return false
+	}
 	return r.wrappedRegisterer.Unregister(&wrappingCollector{
 		wrappedCollector: c,
 		prefix:           r.prefix,
@@ -123,6 +183,15 @@ func (c *wrappingCollector) Describe(ch chan<- *Desc) {
 	}
 }
 
+func (c *wrappingCollector) unwrapRecursively() Collector {
+	switch wc := c.wrappedCollector.(type) {
+	case *wrappingCollector:
+		return wc.unwrapRecursively()
+	default:
+		return wc
+	}
+}
+
 type wrappingMetric struct {
 	wrappedMetric Metric
 	prefix        string
@@ -147,7 +216,7 @@ func (m *wrappingMetric) Write(out *dto.Metric) error {
 			Value: proto.String(lv),
 		})
 	}
-	sort.Sort(labelPairSorter(out.Label))
+	sort.Sort(internal.LabelPairSorter(out.Label))
 	return nil
 }
 
@@ -169,7 +238,7 @@ func wrapDesc(desc *Desc, prefix string, labels Labels) *Desc {
 		constLabels[ln] = lv
 	}
 	// NewDesc will do remaining validations.
-	newDesc := NewDesc(prefix+desc.fqName, desc.help, desc.variableLabels, constLabels)
+	newDesc := V2.NewDesc(prefix+desc.fqName, desc.help, desc.variableLabels, constLabels)
 	// Propagate errors if there was any. This will override any errer
 	// created by NewDesc above, i.e. earlier errors get precedence.
 	if desc.err != nil {

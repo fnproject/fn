@@ -698,9 +698,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	}
 }
 
-//
 // Tmp directory should be RW by default.
-//
 func TestTmpFsRW(t *testing.T) {
 
 	app := &models.App{ID: "app_id"}
@@ -1222,13 +1220,13 @@ func TestNBIOResourceTracker(t *testing.T) {
 			body := `{sleepTime": 10000, "isDebug": true}`
 			req, err := http.NewRequest("GET", call.URL, strings.NewReader(body))
 			if err != nil {
-				t.Fatal("unexpected error building request", err)
+				t.Errorf("unexpected error building request %v", err)
 			}
 
 			var outOne bytes.Buffer
 			callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&outOne))
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			err = a.Submit(callI)
@@ -1539,14 +1537,14 @@ func TestSlotErrorRetention(t *testing.T) {
 				body := fmt.Sprintf(`{"sleepTime": 5, "echoContent":"%s"}`, echoContent)
 				req, err := http.NewRequest("GET", url, strings.NewReader(body))
 				if err != nil {
-					t.Fatalf("unexpected error building request %v", err)
+					t.Errorf("unexpected error building request %v", err)
 				}
 				req = req.WithContext(ctx)
 
 				var out bytes.Buffer
 				callI, err := a.GetCall(FromHTTPFnRequest(app, fn, req), WithWriter(&out))
 				if err != nil {
-					t.Fatalf("unexpected error building call %v", err)
+					t.Errorf("unexpected error building call %v", err)
 				}
 
 				callI.Model().Config["ENABLE_FAIL_IF_FN_SPAWN_CALL_ID_NONMATCH"] = uniqId
@@ -1554,12 +1552,12 @@ func TestSlotErrorRetention(t *testing.T) {
 
 				err = a.Submit(callI)
 				if err != nil {
-					t.Fatalf("submit should not error %v", err)
+					t.Errorf("submit should not error %v", err)
 				}
 
 				res, err := http.ReadResponse(bufio.NewReader(&out), nil)
 				if err != nil {
-					t.Fatalf("read resp should not error %v", err)
+					t.Errorf("read resp should not error %v", err)
 				}
 
 				checkBody(res)

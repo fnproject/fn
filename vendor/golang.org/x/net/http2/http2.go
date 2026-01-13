@@ -11,9 +11,6 @@
 // requires Go 1.6 or later)
 //
 // See https://http2.github.io/ for more information on HTTP/2.
-//
-// See https://http2.golang.org/ for a test server running this code.
-//
 package http2 // import "golang.org/x/net/http2"
 
 import (
@@ -21,13 +18,14 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io"
+	"net"
 	"net/http"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/net/http/httpguts"
 )
@@ -36,7 +34,15 @@ var (
 	VerboseLogs    bool
 	logFrameWrites bool
 	logFrameReads  bool
-	inTests        bool
+
+	// Enabling extended CONNECT by causes browsers to attempt to use
+	// WebSockets-over-HTTP/2. This results in problems when the server's websocket
+	// package doesn't support extended CONNECT.
+	//
+	// Disable extended CONNECT by default for now.
+	//
+	// Issue #71128.
+	disableExtendedConnectProtocol = true
 )
 
 func init() {
@@ -49,6 +55,9 @@ func init() {
 		logFrameWrites = true
 		logFrameReads = true
 	}
+	if strings.Contains(e, "http2xconnect=1") {
+		disableExtendedConnectProtocol = false
+	}
 }
 
 const (
@@ -57,14 +66,14 @@ const (
 	ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 
 	// SETTINGS_MAX_FRAME_SIZE default
-	// http://http2.github.io/http2-spec/#rfc.section.6.5.2
+	// https://httpwg.org/specs/rfc7540.html#rfc.section.6.5.2
 	initialMaxFrameSize = 16384
 
 	// NextProtoTLS is the NPN/ALPN protocol negotiated during
 	// HTTP/2's TLS setup.
 	NextProtoTLS = "h2"
 
-	// http://http2.github.io/http2-spec/#SettingValues
+	// https://httpwg.org/specs/rfc7540.html#SettingValues
 	initialHeaderTableSize = 4096
 
 	initialWindowSize = 65535 // 6.9.2 Initial Flow Control Window Size
@@ -113,7 +122,7 @@ func (st streamState) String() string {
 // Setting is a setting parameter: which setting it is, and its value.
 type Setting struct {
 	// ID is which setting is being set.
-	// See http://http2.github.io/http2-spec/#SettingValues
+	// See https://httpwg.org/specs/rfc7540.html#SettingFormat
 	ID SettingID
 
 	// Val is the value.
@@ -140,30 +149,36 @@ func (s Setting) Valid() error {
 		if s.Val < 16384 || s.Val > 1<<24-1 {
 			return ConnectionError(ErrCodeProtocol)
 		}
+	case SettingEnableConnectProtocol:
+		if s.Val != 1 && s.Val != 0 {
+			return ConnectionError(ErrCodeProtocol)
+		}
 	}
 	return nil
 }
 
 // A SettingID is an HTTP/2 setting as defined in
-// http://http2.github.io/http2-spec/#iana-settings
+// https://httpwg.org/specs/rfc7540.html#iana-settings
 type SettingID uint16
 
 const (
-	SettingHeaderTableSize      SettingID = 0x1
-	SettingEnablePush           SettingID = 0x2
-	SettingMaxConcurrentStreams SettingID = 0x3
-	SettingInitialWindowSize    SettingID = 0x4
-	SettingMaxFrameSize         SettingID = 0x5
-	SettingMaxHeaderListSize    SettingID = 0x6
+	SettingHeaderTableSize       SettingID = 0x1
+	SettingEnablePush            SettingID = 0x2
+	SettingMaxConcurrentStreams  SettingID = 0x3
+	SettingInitialWindowSize     SettingID = 0x4
+	SettingMaxFrameSize          SettingID = 0x5
+	SettingMaxHeaderListSize     SettingID = 0x6
+	SettingEnableConnectProtocol SettingID = 0x8
 )
 
 var settingName = map[SettingID]string{
-	SettingHeaderTableSize:      "HEADER_TABLE_SIZE",
-	SettingEnablePush:           "ENABLE_PUSH",
-	SettingMaxConcurrentStreams: "MAX_CONCURRENT_STREAMS",
-	SettingInitialWindowSize:    "INITIAL_WINDOW_SIZE",
-	SettingMaxFrameSize:         "MAX_FRAME_SIZE",
-	SettingMaxHeaderListSize:    "MAX_HEADER_LIST_SIZE",
+	SettingHeaderTableSize:       "HEADER_TABLE_SIZE",
+	SettingEnablePush:            "ENABLE_PUSH",
+	SettingMaxConcurrentStreams:  "MAX_CONCURRENT_STREAMS",
+	SettingInitialWindowSize:     "INITIAL_WINDOW_SIZE",
+	SettingMaxFrameSize:          "MAX_FRAME_SIZE",
+	SettingMaxHeaderListSize:     "MAX_HEADER_LIST_SIZE",
+	SettingEnableConnectProtocol: "ENABLE_CONNECT_PROTOCOL",
 }
 
 func (s SettingID) String() string {
@@ -173,19 +188,15 @@ func (s SettingID) String() string {
 	return fmt.Sprintf("UNKNOWN_SETTING_%d", uint16(s))
 }
 
-var (
-	errInvalidHeaderFieldName  = errors.New("http2: invalid header field name")
-	errInvalidHeaderFieldValue = errors.New("http2: invalid header field value")
-)
-
 // validWireHeaderFieldName reports whether v is a valid header field
 // name (key). See httpguts.ValidHeaderName for the base rules.
 //
 // Further, http2 says:
-//   "Just as in HTTP/1.x, header field names are strings of ASCII
-//   characters that are compared in a case-insensitive
-//   fashion. However, header field names MUST be converted to
-//   lowercase prior to their encoding in HTTP/2. "
+//
+//	"Just as in HTTP/1.x, header field names are strings of ASCII
+//	characters that are compared in a case-insensitive
+//	fashion. However, header field names MUST be converted to
+//	lowercase prior to their encoding in HTTP/2. "
 func validWireHeaderFieldName(v string) bool {
 	if len(v) == 0 {
 		return false
@@ -216,12 +227,6 @@ type stringWriter interface {
 	WriteString(s string) (n int, err error)
 }
 
-// A gate lets two goroutines coordinate their activities.
-type gate chan struct{}
-
-func (g gate) Done() { g <- struct{}{} }
-func (g gate) Wait() { <-g }
-
 // A closeWaiter is like a sync.WaitGroup but only goes 1 to 0 (open to closed).
 type closeWaiter chan struct{}
 
@@ -247,12 +252,17 @@ func (cw closeWaiter) Wait() {
 // Its buffered writer is lazily allocated as needed, to minimize
 // idle memory usage with many connections.
 type bufferedWriter struct {
-	w  io.Writer     // immutable
-	bw *bufio.Writer // non-nil when data is buffered
+	_           incomparable
+	conn        net.Conn      // immutable
+	bw          *bufio.Writer // non-nil when data is buffered
+	byteTimeout time.Duration // immutable, WriteByteTimeout
 }
 
-func newBufferedWriter(w io.Writer) *bufferedWriter {
-	return &bufferedWriter{w: w}
+func newBufferedWriter(conn net.Conn, timeout time.Duration) *bufferedWriter {
+	return &bufferedWriter{
+		conn:        conn,
+		byteTimeout: timeout,
+	}
 }
 
 // bufWriterPoolBufferSize is the size of bufio.Writer's
@@ -279,7 +289,7 @@ func (w *bufferedWriter) Available() int {
 func (w *bufferedWriter) Write(p []byte) (n int, err error) {
 	if w.bw == nil {
 		bw := bufWriterPool.Get().(*bufio.Writer)
-		bw.Reset(w.w)
+		bw.Reset((*bufferedWriterTimeoutWriter)(w))
 		w.bw = bw
 	}
 	return w.bw.Write(p)
@@ -295,6 +305,32 @@ func (w *bufferedWriter) Flush() error {
 	bufWriterPool.Put(bw)
 	w.bw = nil
 	return err
+}
+
+type bufferedWriterTimeoutWriter bufferedWriter
+
+func (w *bufferedWriterTimeoutWriter) Write(p []byte) (n int, err error) {
+	return writeWithByteTimeout(w.conn, w.byteTimeout, p)
+}
+
+// writeWithByteTimeout writes to conn.
+// If more than timeout passes without any bytes being written to the connection,
+// the write fails.
+func writeWithByteTimeout(conn net.Conn, timeout time.Duration, p []byte) (n int, err error) {
+	if timeout <= 0 {
+		return conn.Write(p)
+	}
+	for {
+		conn.SetWriteDeadline(time.Now().Add(timeout))
+		nn, err := conn.Write(p[n:])
+		n += nn
+		if n == len(p) || nn == 0 || !errors.Is(err, os.ErrDeadlineExceeded) {
+			// Either we finished the write, made no progress, or hit the deadline.
+			// Whichever it is, we're done now.
+			conn.SetWriteDeadline(time.Time{})
+			return n, err
+		}
+	}
 }
 
 func mustUint31(v int32) uint32 {
@@ -319,6 +355,7 @@ func bodyAllowedForStatus(status int) bool {
 }
 
 type httpError struct {
+	_       incomparable
 	msg     string
 	timeout bool
 }
@@ -366,19 +403,7 @@ func (s *sorter) SortStrings(ss []string) {
 	s.v = save
 }
 
-// validPseudoPath reports whether v is a valid :path pseudo-header
-// value. It must be either:
-//
-//     *) a non-empty string starting with '/'
-//     *) the string '*', for OPTIONS requests.
-//
-// For now this is only used a quick check for deciding when to clean
-// up Opaque URLs before sending requests from the Transport.
-// See golang.org/issue/16847
-//
-// We used to enforce that the path also didn't start with "//", but
-// Google's GFE accepts such paths and Chrome sends them, so ignore
-// that part of the spec. See golang.org/issue/19103.
-func validPseudoPath(v string) bool {
-	return (len(v) > 0 && v[0] == '/') || v == "*"
-}
+// incomparable is a zero-width, non-comparable type. Adding it to a struct
+// makes that struct also non-comparable, and generally doesn't add
+// any size (as long as it's first).
+type incomparable [0]func()

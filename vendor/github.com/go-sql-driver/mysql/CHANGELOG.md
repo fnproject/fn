@@ -1,3 +1,196 @@
+# Changelog
+
+## v1.9.3 (2025-06-13)
+
+* `tx.Commit()` and `tx.Rollback()` returned `ErrInvalidConn` always.
+  Now they return cached real error if present. (#1690)
+
+* Optimize reading small resultsets to fix performance regression
+  introduced by compression protocol support. (#1707)
+
+* Fix `db.Ping()` on compressed connection. (#1723)
+
+
+## v1.9.2 (2025-04-07)
+
+v1.9.2 is a re-release of v1.9.1 due to a release process issue; no changes were made to the content.
+
+
+## v1.9.1 (2025-03-21)
+
+### Major Changes
+
+* Add Charset() option. (#1679)
+
+### Bugfixes
+
+* go.mod: fix go version format (#1682)
+* Fix FormatDSN missing ConnectionAttributes (#1619)
+
+## v1.9.0 (2025-02-18)
+
+### Major Changes
+
+- Implement zlib compression. (#1487)
+- Supported Go version is updated to Go 1.21+. (#1639)
+- Add support for VECTOR type introduced in MySQL 9.0. (#1609)
+- Config object can have custom dial function. (#1527)
+
+### Bugfixes
+
+- Fix auth errors when username/password are too long. (#1625)
+- Check if MySQL supports CLIENT_CONNECT_ATTRS before sending client attributes. (#1640)
+- Fix auth switch request handling. (#1666)
+
+### Other changes
+
+- Add "filename:line" prefix to log in go-mysql. Custom loggers now show it. (#1589)
+- Improve error handling. It reduces the "busy buffer" errors. (#1595, #1601, #1641)
+- Use `strconv.Atoi` to parse max_allowed_packet. (#1661)
+- `rejectReadOnly` option now handles ER_READ_ONLY_MODE (1290) error too. (#1660)
+
+
+## Version 1.8.1 (2024-03-26)
+
+Bugfixes:
+
+- fix race condition when context is canceled in [#1562](https://github.com/go-sql-driver/mysql/pull/1562) and [#1570](https://github.com/go-sql-driver/mysql/pull/1570)
+
+## Version 1.8.0 (2024-03-09)
+
+Major Changes:
+
+- Use `SET NAMES charset COLLATE collation`. by @methane in [#1437](https://github.com/go-sql-driver/mysql/pull/1437)
+  - Older go-mysql-driver used `collation_id` in the handshake packet. But it caused collation mismatch in some situation.
+  - If you don't specify charset nor collation, go-mysql-driver sends `SET NAMES utf8mb4` for new connection. This uses server's default collation for utf8mb4.
+  - If you specify charset, go-mysql-driver sends `SET NAMES <charset>`. This uses the server's default collation for `<charset>`.
+  - If you specify collation and/or charset, go-mysql-driver sends `SET NAMES charset COLLATE collation`.
+- PathEscape dbname in DSN. by @methane in [#1432](https://github.com/go-sql-driver/mysql/pull/1432)
+  - This is backward incompatible in rare case. Check your DSN.
+- Drop Go 1.13-17 support by @methane in [#1420](https://github.com/go-sql-driver/mysql/pull/1420)
+  - Use Go 1.18+
+- Parse numbers on text protocol too by @methane in [#1452](https://github.com/go-sql-driver/mysql/pull/1452)
+  - When text protocol is used, go-mysql-driver passed bare `[]byte` to database/sql for avoid unnecessary allocation and conversion.
+  - If user specified `*any` to `Scan()`, database/sql passed the `[]byte` into the target variable.
+  - This confused users because most user doesn't know when text/binary protocol used.
+  - go-mysql-driver 1.8 converts integer/float values into int64/double even in text protocol. This doesn't increase allocation compared to `[]byte` and conversion cost is negatable.
+- New options start using the Functional Option Pattern to avoid increasing technical debt in the Config object. Future version may introduce Functional Option for existing options, but not for now.
+  - Make TimeTruncate functional option by @methane in [1552](https://github.com/go-sql-driver/mysql/pull/1552)
+  - Add BeforeConnect callback to configuration object by @ItalyPaleAle in [#1469](https://github.com/go-sql-driver/mysql/pull/1469)
+
+
+Other changes:
+
+- Adding DeregisterDialContext to prevent memory leaks with dialers we don't need anymore by @jypelle in https://github.com/go-sql-driver/mysql/pull/1422
+- Make logger configurable per connection by @frozenbonito in https://github.com/go-sql-driver/mysql/pull/1408
+- Fix ColumnType.DatabaseTypeName for mediumint unsigned by @evanelias in https://github.com/go-sql-driver/mysql/pull/1428
+- Add connection attributes by @Daemonxiao in https://github.com/go-sql-driver/mysql/pull/1389
+- Stop `ColumnTypeScanType()` from returning `sql.RawBytes` by @methane in https://github.com/go-sql-driver/mysql/pull/1424
+- Exec() now provides access to status of multiple statements. by @mherr-google in https://github.com/go-sql-driver/mysql/pull/1309
+- Allow to change (or disable) the default driver name for registration by @dolmen in https://github.com/go-sql-driver/mysql/pull/1499
+- Add default connection attribute '_server_host' by @oblitorum in https://github.com/go-sql-driver/mysql/pull/1506
+- QueryUnescape DSN ConnectionAttribute value by @zhangyangyu in https://github.com/go-sql-driver/mysql/pull/1470
+- Add client_ed25519 authentication by @Gusted in https://github.com/go-sql-driver/mysql/pull/1518
+
+## Version 1.7.1 (2023-04-25)
+
+Changes:
+
+  - bump actions/checkout@v3 and actions/setup-go@v3 (#1375)
+  - Add go1.20 and mariadb10.11 to the testing matrix (#1403)
+  - Increase default maxAllowedPacket size. (#1411)
+
+Bugfixes:
+
+  - Use SET syntax as specified in the MySQL documentation (#1402)
+
+
+## Version 1.7 (2022-11-29)
+
+Changes:
+
+  - Drop support of Go 1.12 (#1211)
+  - Refactoring `(*textRows).readRow` in a more clear way (#1230)
+  - util: Reduce boundary check in escape functions. (#1316)
+  - enhancement for mysqlConn handleAuthResult (#1250)
+
+New Features:
+
+  - support Is comparison on MySQLError (#1210)
+  - return unsigned in database type name when necessary (#1238)
+  - Add API to express like a --ssl-mode=PREFERRED MySQL client (#1370)
+  - Add SQLState to MySQLError (#1321)
+
+Bugfixes:
+
+  -  Fix parsing 0 year. (#1257)
+
+
+## Version 1.6 (2021-04-01)
+
+Changes:
+
+  - Migrate the CI service from travis-ci to GitHub Actions (#1176, #1183, #1190)
+  - `NullTime` is deprecated (#960, #1144)
+  - Reduce allocations when building SET command (#1111)
+  - Performance improvement for time formatting (#1118)
+  - Performance improvement for time parsing (#1098, #1113)
+
+New Features:
+
+  - Implement `driver.Validator` interface (#1106, #1174)
+  - Support returning `uint64` from `Valuer` in `ConvertValue` (#1143)
+  - Add `json.RawMessage` for converter and prepared statement (#1059)
+  - Interpolate `json.RawMessage` as `string` (#1058)
+  - Implements `CheckNamedValue` (#1090)
+
+Bugfixes:
+
+  - Stop rounding times (#1121, #1172)
+  - Put zero filler into the SSL handshake packet (#1066)
+  - Fix checking cancelled connections back into the connection pool (#1095)
+  - Fix remove last 0 byte for mysql_old_password when password is empty (#1133)
+
+
+## Version 1.5 (2020-01-07)
+
+Changes:
+
+  - Dropped support Go 1.9 and lower (#823, #829, #886, #1016, #1017)
+  - Improve buffer handling (#890)
+  - Document potentially insecure TLS configs (#901)
+  - Use a double-buffering scheme to prevent data races (#943)
+  - Pass uint64 values without converting them to string (#838, #955)
+  - Update collations and make utf8mb4 default (#877, #1054)
+  - Make NullTime compatible with sql.NullTime in Go 1.13+ (#995)
+  - Removed CloudSQL support (#993, #1007)
+  - Add Go Module support (#1003)
+
+New Features:
+
+  - Implement support of optional TLS (#900)
+  - Check connection liveness (#934, #964, #997, #1048, #1051, #1052)
+  - Implement Connector Interface (#941, #958, #1020, #1035)
+
+Bugfixes:
+
+  - Mark connections as bad on error during ping (#875)
+  - Mark connections as bad on error during dial (#867)
+  - Fix connection leak caused by rapid context cancellation (#1024)
+  - Mark connections as bad on error during Conn.Prepare (#1030)
+
+
+## Version 1.4.1 (2018-11-14)
+
+Bugfixes:
+
+ - Fix TIME format for binary columns (#818)
+ - Fix handling of empty auth plugin names (#835)
+ - Fix caching_sha2_password with empty password (#826)
+ - Fix canceled context broke mysqlConn (#862)
+ - Fix OldAuthSwitchRequest support (#870)
+ - Fix Auth Response packet for cleartext password (#887)
+
 ## Version 1.4 (2018-06-03)
 
 Changes:
@@ -63,7 +256,7 @@ New Features:
 
  - Enable microsecond resolution on TIME, DATETIME and TIMESTAMP (#249)
  - Support for returning table alias on Columns() (#289, #359, #382)
- - Placeholder interpolation, can be actived with the DSN parameter `interpolateParams=true` (#309, #318, #490)
+ - Placeholder interpolation, can be activated with the DSN parameter `interpolateParams=true` (#309, #318, #490)
  - Support for uint64 parameters with high bit set (#332, #345)
  - Cleartext authentication plugin support (#327)
  - Exported ParseDSN function and the Config struct (#403, #419, #429)
@@ -107,7 +300,7 @@ Changes:
  - Also exported the MySQLWarning type
  - mysqlConn.Close returns the first error encountered instead of ignoring all errors
  - writePacket() automatically writes the packet size to the header
- - readPacket() uses an iterative approach instead of the recursive approach to merge splitted packets
+ - readPacket() uses an iterative approach instead of the recursive approach to merge split packets
 
 New Features:
 
@@ -155,7 +348,7 @@ Bugfixes:
 
   - Fixed MySQL 4.1 support: MySQL 4.1 sends packets with lengths which differ from the specification
   - Convert to DB timezone when inserting `time.Time`
-  - Splitted packets (more than 16MB) are now merged correctly
+  - Split packets (more than 16MB) are now merged correctly
   - Fixed false positive `io.EOF` errors when the data was fully read
   - Avoid panics on reuse of closed connections
   - Fixed empty string producing false nil values

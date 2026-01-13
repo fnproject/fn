@@ -13,10 +13,19 @@ type TestParameters struct {
 	// MaxSize is an (exclusive) upper limit on the size of the parameters
 	MaxSize         int
 	MaxShrinkCount  int
-	Seed            int64
+	seed            int64
 	Rng             *rand.Rand
 	Workers         int
 	MaxDiscardRatio float64
+}
+
+func (t *TestParameters) Seed() int64 {
+	return t.seed
+}
+
+func (t *TestParameters) SetSeed(seed int64) {
+	t.seed = seed
+	t.Rng.Seed(seed)
 }
 
 // DefaultTestParameterWithSeeds creates reasonable default Parameters for most cases based on a fixed RNG-seed
@@ -26,7 +35,7 @@ func DefaultTestParametersWithSeed(seed int64) *TestParameters {
 		MinSize:            0,
 		MaxSize:            100,
 		MaxShrinkCount:     1000,
-		Seed:               seed,
+		seed:               seed,
 		Rng:                rand.New(NewLockedSource(seed)),
 		Workers:            1,
 		MaxDiscardRatio:    5,

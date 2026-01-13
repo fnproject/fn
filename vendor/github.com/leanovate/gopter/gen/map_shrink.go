@@ -59,7 +59,7 @@ func (s *mapShrinkOne) Next() (interface{}, bool) {
 
 // MapShrinkerOne creates a map shrinker from a shrinker for the key values of a map.
 // The length of the map will remain (mostly) unchanged, instead each key value pair is
-// shrinked after the other.
+// shrunk after the other.
 func MapShrinkerOne(keyShrinker, elementShrinker gopter.Shrinker) gopter.Shrinker {
 	return func(v interface{}) gopter.Shrink {
 		rv := reflect.ValueOf(v)
@@ -115,7 +115,7 @@ func (s *mapShrink) Next() (interface{}, bool) {
 }
 
 // MapShrinker creates a map shrinker from shrinker for the key values.
-// The length of the map will be shrinked as well
+// The length of the map will be shrunk as well
 func MapShrinker(keyShrinker, elementShrinker gopter.Shrinker) gopter.Shrinker {
 	return func(v interface{}) gopter.Shrink {
 		rv := reflect.ValueOf(v)
