@@ -1,6 +1,7 @@
 package prop
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/leanovate/gopter"
@@ -10,7 +11,7 @@ var typeOfError = reflect.TypeOf((*error)(nil)).Elem()
 
 /*
 ForAll creates a property that requires the check condition to be true for all values, if the
-condition falsiies the generated values will be shrinked.
+condition falsiies the generated values will be shrunk.
 
 "condition" has to be a function with the same number of parameters as the provided
 generators "gens". The function may return a simple bool (true means that the
@@ -26,6 +27,7 @@ func ForAll(condition interface{}, gens ...gopter.Gen) gopter.Prop {
 	return gopter.SaveProp(func(genParams *gopter.GenParameters) *gopter.PropResult {
 		genResults := make([]*gopter.GenResult, len(gens))
 		values := make([]reflect.Value, len(gens))
+		valuesFormated := make([]string, len(gens))
 		var ok bool
 		for i, gen := range gens {
 			result := gen(genParams)
@@ -36,24 +38,25 @@ func ForAll(condition interface{}, gens ...gopter.Gen) gopter.Prop {
 					Status: gopter.PropUndecided,
 				}
 			}
+			valuesFormated[i] = fmt.Sprintf("%+v", values[i].Interface())
 		}
 		result := callCheck(values)
 		if result.Success() {
 			for i, genResult := range genResults {
-				result = result.AddArgs(gopter.NewPropArg(genResult, 0, values[i].Interface(), values[i].Interface()))
+				result = result.AddArgs(gopter.NewPropArg(genResult, 0, values[i].Interface(), valuesFormated[i], values[i].Interface(), valuesFormated[i]))
 			}
 		} else {
 			for i, genResult := range genResults {
-				nextResult, nextValue := shrinkValue(genParams.MaxShrinkCount, genResult, values[i].Interface(), result,
+				nextResult, nextValue := shrinkValue(genParams.MaxShrinkCount, genResult, values[i].Interface(), valuesFormated[i], result,
 					func(v interface{}) *gopter.PropResult {
-						shrinkedOne := make([]reflect.Value, len(values))
-						copy(shrinkedOne, values)
+						shrunkOne := make([]reflect.Value, len(values))
+						copy(shrunkOne, values)
 						if v == nil {
-							shrinkedOne[i] = reflect.Zero(values[i].Type())
+							shrunkOne[i] = reflect.Zero(values[i].Type())
 						} else {
-							shrinkedOne[i] = reflect.ValueOf(v)
+							shrunkOne[i] = reflect.ValueOf(v)
 						}
-						return callCheck(shrinkedOne)
+						return callCheck(shrunkOne)
 					})
 				result = nextResult
 				if nextValue == nil {
@@ -80,44 +83,48 @@ func ForAll1(gen gopter.Gen, check func(v interface{}) (interface{}, error)) gop
 				Status: gopter.PropUndecided,
 			}
 		}
+		valueFormated := fmt.Sprintf("%+v", value)
 		result := checkFunc(value)
 		if result.Success() {
-			return result.AddArgs(gopter.NewPropArg(genResult, 0, value, value))
+			return result.AddArgs(gopter.NewPropArg(genResult, 0, value, valueFormated, value, valueFormated))
 		}
 
-		result, _ = shrinkValue(genParams.MaxShrinkCount, genResult, value, result, checkFunc)
+		result, _ = shrinkValue(genParams.MaxShrinkCount, genResult, value, valueFormated, result, checkFunc)
 		return result
 	})
 }
 
-func shrinkValue(maxShrinkCount int, genResult *gopter.GenResult, origValue interface{},
+func shrinkValue(maxShrinkCount int, genResult *gopter.GenResult, origValue interface{}, orgiValueFormated string,
 	firstFail *gopter.PropResult, check func(interface{}) *gopter.PropResult) (*gopter.PropResult, interface{}) {
 	lastFail := firstFail
 	lastValue := origValue
+	lastValueFormated := orgiValueFormated
 
 	shrinks := 0
 	shrink := genResult.Shrinker(lastValue).Filter(genResult.Sieve)
-	nextResult, nextValue := firstFailure(shrink, check)
+	nextResult, nextValue, nextValueFormated := firstFailure(shrink, check)
 	for nextResult != nil && shrinks < maxShrinkCount {
 		shrinks++
 		lastValue = nextValue
+		lastValueFormated = nextValueFormated
 		lastFail = nextResult
 
 		shrink = genResult.Shrinker(lastValue).Filter(genResult.Sieve)
-		nextResult, nextValue = firstFailure(shrink, check)
+		nextResult, nextValue, nextValueFormated = firstFailure(shrink, check)
 	}
 
-	return lastFail.WithArgs(firstFail.Args).AddArgs(gopter.NewPropArg(genResult, shrinks, lastValue, origValue)), lastValue
+	return lastFail.WithArgs(firstFail.Args).AddArgs(gopter.NewPropArg(genResult, shrinks, lastValue, lastValueFormated, origValue, orgiValueFormated)), lastValue
 }
 
-func firstFailure(shrink gopter.Shrink, check func(interface{}) *gopter.PropResult) (*gopter.PropResult, interface{}) {
+func firstFailure(shrink gopter.Shrink, check func(interface{}) *gopter.PropResult) (*gopter.PropResult, interface{}, string) {
 	value, ok := shrink()
 	for ok {
+		valueFormated := fmt.Sprintf("%+v", value)
 		result := check(value)
 		if !result.Success() {
-			return result, value
+			return result, value, valueFormated
 		}
 		value, ok = shrink()
 	}
-	return nil, nil
+	return nil, nil, ""
 }

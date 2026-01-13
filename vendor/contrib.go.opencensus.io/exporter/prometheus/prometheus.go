@@ -17,12 +17,12 @@
 package prometheus // import "contrib.go.opencensus.io/exporter/prometheus"
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"sync"
 
-	"context"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opencensus.io/metric/metricdata"
@@ -44,6 +44,8 @@ type Exporter struct {
 type Options struct {
 	Namespace   string
 	Registry    *prometheus.Registry
+	Registerer  prometheus.Registerer
+	Gatherer    prometheus.Gatherer
 	OnError     func(err error)
 	ConstLabels prometheus.Labels // ConstLabels will be set as labels on all views.
 }
@@ -53,12 +55,19 @@ func NewExporter(o Options) (*Exporter, error) {
 	if o.Registry == nil {
 		o.Registry = prometheus.NewRegistry()
 	}
-	collector := newCollector(o, o.Registry)
+	if o.Registerer == nil {
+		o.Registerer = o.Registry
+	}
+	if o.Gatherer == nil {
+		o.Gatherer = o.Registry
+	}
+
+	collector := newCollector(o, o.Registerer)
 	e := &Exporter{
 		opts:    o,
-		g:       o.Registry,
+		g:       o.Gatherer,
 		c:       collector,
-		handler: promhttp.HandlerFor(o.Registry, promhttp.HandlerOpts{}),
+		handler: promhttp.HandlerFor(o.Gatherer, promhttp.HandlerOpts{}),
 	}
 	collector.ensureRegisteredOnce()
 
@@ -95,7 +104,8 @@ func (o *Options) onError(err error) {
 // corresponding Prometheus Metric: SumData will be converted
 // to Untyped Metric, CountData will be a Counter Metric,
 // DistributionData will be a Histogram Metric.
-// Deprecated in lieu of metricexport.Reader interface.
+//
+// Deprecated: in lieu of metricexport.Reader interface.
 func (e *Exporter) ExportView(vd *view.Data) {
 }
 
@@ -107,12 +117,11 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // collector implements prometheus.Collector
 type collector struct {
 	opts Options
-	mu   sync.Mutex // mu guards all the fields.
 
 	registerOnce sync.Once
 
 	// reg helps collector register views dynamically.
-	reg *prometheus.Registry
+	reg prometheus.Registerer
 
 	// reader reads metrics from all registered producers.
 	reader *metricexport.Reader
@@ -132,7 +141,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	c.reader.ReadAndExport(me)
 }
 
-func newCollector(opts Options, registrar *prometheus.Registry) *collector {
+func newCollector(opts Options, registrar prometheus.Registerer) *collector {
 	return &collector{
 		reg:    registrar,
 		opts:   opts,
@@ -140,11 +149,28 @@ func newCollector(opts Options, registrar *prometheus.Registry) *collector {
 }
 
 func (c *collector) toDesc(metric *metricdata.Metric) *prometheus.Desc {
+	var labels prometheus.Labels
+	switch {
+	case metric.Resource == nil:
+		labels = c.opts.ConstLabels
+	case c.opts.ConstLabels == nil:
+		labels = metric.Resource.Labels
+	default:
+		labels = prometheus.Labels{}
+		for k, v := range c.opts.ConstLabels {
+			labels[k] = v
+		}
+		// Resource labels overwrite const labels.
+		for k, v := range metric.Resource.Labels {
+			labels[k] = v
+		}
+	}
+
 	return prometheus.NewDesc(
 		metricName(c.opts.Namespace, metric),
 		metric.Descriptor.Description,
 		toPromLabels(metric.Descriptor.LabelKeys),
-		c.opts.ConstLabels)
+		labels)
 }
 
 type metricExporter struct {

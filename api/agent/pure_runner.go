@@ -561,7 +561,7 @@ func (ch *callHandle) getTryMsg() *runner.TryCall {
 	case <-ch.doneQueue:
 	case <-ch.ctx.Done():
 		// if ctx timed out while waiting, then this is a 503 (retriable)
-		err := status.Errorf(codes.Code(models.ErrCallTimeoutServerBusy.Code()), models.ErrCallTimeoutServerBusy.Error())
+		err := status.Error(codes.Code(models.ErrCallTimeoutServerBusy.Code()), models.ErrCallTimeoutServerBusy.Error())
 		ch.shutdown(err)
 		return nil
 	case item := <-ch.inQueue:

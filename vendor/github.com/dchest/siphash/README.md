@@ -1,8 +1,6 @@
 SipHash (Go)
 ============
 
-[![Build Status](https://travis-ci.org/dchest/siphash.svg)](https://travis-ci.org/dchest/siphash)
-
 Go implementation of SipHash-2-4, a fast short-input PRF created by
 Jean-Philippe Aumasson and Daniel J. Bernstein (http://131002.net/siphash/).
 

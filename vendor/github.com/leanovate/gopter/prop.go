@@ -15,8 +15,9 @@ func SaveProp(prop Prop) Prop {
 		defer func() {
 			if r := recover(); r != nil {
 				result = &PropResult{
-					Status: PropError,
-					Error:  fmt.Errorf("Check paniced: %v %s", r, debug.Stack()),
+					Status:     PropError,
+					Error:      fmt.Errorf("Check paniced: %v", r),
+					ErrorStack: debug.Stack(),
 				}
 			}
 		}()
@@ -82,12 +83,13 @@ func (prop Prop) Check(parameters *TestParameters) *TestResult {
 					}
 				case PropError:
 					return &TestResult{
-						Status:    TestError,
-						Succeeded: n,
-						Discarded: d,
-						Labels:    propResult.Labels,
-						Error:     propResult.Error,
-						Args:      propResult.Args,
+						Status:     TestError,
+						Succeeded:  n,
+						Discarded:  d,
+						Labels:     propResult.Labels,
+						Error:      propResult.Error,
+						ErrorStack: propResult.ErrorStack,
+						Args:       propResult.Args,
 					}
 				}
 			}

@@ -17,35 +17,34 @@ import (
 )
 
 var (
-	fileRegister       map[string]bool
+	fileRegister       map[string]struct{}
 	fileRegisterLock   sync.RWMutex
 	readerRegister     map[string]func() io.Reader
 	readerRegisterLock sync.RWMutex
 )
 
-// RegisterLocalFile adds the given file to the file whitelist,
+// RegisterLocalFile adds the given file to the file allowlist,
 // so that it can be used by "LOAD DATA LOCAL INFILE <filepath>".
 // Alternatively you can allow the use of all local files with
 // the DSN parameter 'allowAllFiles=true'
 //
-//  filePath := "/home/gopher/data.csv"
-//  mysql.RegisterLocalFile(filePath)
-//  err := db.Exec("LOAD DATA LOCAL INFILE '" + filePath + "' INTO TABLE foo")
-//  if err != nil {
-//  ...
-//
+//	filePath := "/home/gopher/data.csv"
+//	mysql.RegisterLocalFile(filePath)
+//	err := db.Exec("LOAD DATA LOCAL INFILE '" + filePath + "' INTO TABLE foo")
+//	if err != nil {
+//	...
 func RegisterLocalFile(filePath string) {
 	fileRegisterLock.Lock()
 	// lazy map init
 	if fileRegister == nil {
-		fileRegister = make(map[string]bool)
+		fileRegister = make(map[string]struct{})
 	}
 
-	fileRegister[strings.Trim(filePath, `"`)] = true
+	fileRegister[strings.Trim(filePath, `"`)] = struct{}{}
 	fileRegisterLock.Unlock()
 }
 
-// DeregisterLocalFile removes the given filepath from the whitelist.
+// DeregisterLocalFile removes the given filepath from the allowlist.
 func DeregisterLocalFile(filePath string) {
 	fileRegisterLock.Lock()
 	delete(fileRegister, strings.Trim(filePath, `"`))
@@ -58,15 +57,14 @@ func DeregisterLocalFile(filePath string) {
 // If the handler returns a io.ReadCloser Close() is called when the
 // request is finished.
 //
-//  mysql.RegisterReaderHandler("data", func() io.Reader {
-//  	var csvReader io.Reader // Some Reader that returns CSV data
-//  	... // Open Reader here
-//  	return csvReader
-//  })
-//  err := db.Exec("LOAD DATA LOCAL INFILE 'Reader::data' INTO TABLE foo")
-//  if err != nil {
-//  ...
-//
+//	mysql.RegisterReaderHandler("data", func() io.Reader {
+//		var csvReader io.Reader // Some Reader that returns CSV data
+//		... // Open Reader here
+//		return csvReader
+//	})
+//	err := db.Exec("LOAD DATA LOCAL INFILE 'Reader::data' INTO TABLE foo")
+//	if err != nil {
+//	...
 func RegisterReaderHandler(name string, handler func() io.Reader) {
 	readerRegisterLock.Lock()
 	// lazy map init
@@ -93,10 +91,11 @@ func deferredClose(err *error, closer io.Closer) {
 	}
 }
 
-func (mc *mysqlConn) handleInFileRequest(name string) (err error) {
+const defaultPacketSize = 16 * 1024 // 16KB is small enough for disk readahead and large enough for TCP
+
+func (mc *okHandler) handleInFileRequest(name string) (err error) {
 	var rdr io.Reader
-	var data []byte
-	packetSize := 16 * 1024 // 16KB is small enough for disk readahead and large enough for TCP
+	packetSize := defaultPacketSize
 	if mc.maxWriteSize < packetSize {
 		packetSize = mc.maxWriteSize
 	}
@@ -116,17 +115,17 @@ func (mc *mysqlConn) handleInFileRequest(name string) (err error) {
 					defer deferredClose(&err, cl)
 				}
 			} else {
-				err = fmt.Errorf("Reader '%s' is <nil>", name)
+				err = fmt.Errorf("reader '%s' is <nil>", name)
 			}
 		} else {
-			err = fmt.Errorf("Reader '%s' is not registered", name)
+			err = fmt.Errorf("reader '%s' is not registered", name)
 		}
 	} else { // File
 		name = strings.Trim(name, `"`)
 		fileRegisterLock.RLock()
-		fr := fileRegister[name]
+		_, exists := fileRegister[name]
 		fileRegisterLock.RUnlock()
-		if mc.cfg.AllowAllFiles || fr {
+		if mc.cfg.AllowAllFiles || exists {
 			var file *os.File
 			var fi os.FileInfo
 
@@ -147,14 +146,16 @@ func (mc *mysqlConn) handleInFileRequest(name string) (err error) {
 	}
 
 	// send content packets
+	var data []byte
+
 	// if packetSize == 0, the Reader contains no data
 	if err == nil && packetSize > 0 {
-		data := make([]byte, 4+packetSize)
+		data = make([]byte, 4+packetSize)
 		var n int
 		for err == nil {
 			n, err = rdr.Read(data[4:])
 			if n > 0 {
-				if ioErr := mc.writePacket(data[:4+n]); ioErr != nil {
+				if ioErr := mc.conn().writePacket(data[:4+n]); ioErr != nil {
 					return ioErr
 				}
 			}
@@ -168,15 +169,16 @@ func (mc *mysqlConn) handleInFileRequest(name string) (err error) {
 	if data == nil {
 		data = make([]byte, 4)
 	}
-	if ioErr := mc.writePacket(data[:4]); ioErr != nil {
+	if ioErr := mc.conn().writePacket(data[:4]); ioErr != nil {
 		return ioErr
 	}
+	mc.conn().syncSequence()
 
 	// read OK packet
 	if err == nil {
 		return mc.readResultOK()
 	}
 
-	mc.readPacket()
+	mc.conn().readPacket()
 	return err
 }

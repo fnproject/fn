@@ -61,7 +61,7 @@ function spawn_mysql {
         -p ${PORT}:3306 \
         -e MYSQL_DATABASE=funcs \
         -e MYSQL_ROOT_PASSWORD=root \
-        -d mysql:5.7.22)
+        -d mysql:9.5.0-oraclelinux9)
 
     echo "mysql://root:root@tcp(${HOST}:${PORT})/funcs"
 }
@@ -74,17 +74,17 @@ function spawn_postgres {
         -e "POSTGRES_DB=funcs" \
         -e "POSTGRES_PASSWORD=root" \
         -p ${PORT}:5432 \
-        -d postgres:9.3-alpine)
+        -d postgres:16.2)
 
     echo "postgres://postgres:root@${HOST}:${PORT}/funcs?sslmode=disable"
 }
 
 function docker_pull_postgres {
-	docker pull postgres:9.3-alpine
+	docker pull postgres:16.2
 }
 
 function docker_pull_mysql {
-	docker pull mysql:5.7.22
+	docker pull mysql:9.5.0-oraclelinux9
 }
 
 function remove_containers {

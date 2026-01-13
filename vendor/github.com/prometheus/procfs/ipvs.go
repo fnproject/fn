@@ -1,4 +1,4 @@
-// Copyright 2018 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,15 +15,17 @@ package procfs
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/prometheus/procfs/internal/util"
 )
 
 // IPVSStats holds IPVS statistics, as exposed by the kernel in `/proc/net/ip_vs_stats`.
@@ -62,29 +64,18 @@ type IPVSBackendStatus struct {
 	Weight uint64
 }
 
-// NewIPVSStats reads the IPVS statistics.
-func NewIPVSStats() (IPVSStats, error) {
-	fs, err := NewFS(DefaultMountPoint)
+// IPVSStats reads the IPVS statistics from the specified `proc` filesystem.
+func (fs FS) IPVSStats() (IPVSStats, error) {
+	data, err := util.ReadFileNoStat(fs.proc.Path("net/ip_vs_stats"))
 	if err != nil {
 		return IPVSStats{}, err
 	}
 
-	return fs.NewIPVSStats()
-}
-
-// NewIPVSStats reads the IPVS statistics from the specified `proc` filesystem.
-func (fs FS) NewIPVSStats() (IPVSStats, error) {
-	file, err := os.Open(fs.Path("net/ip_vs_stats"))
-	if err != nil {
-		return IPVSStats{}, err
-	}
-	defer file.Close()
-
-	return parseIPVSStats(file)
+	return parseIPVSStats(bytes.NewReader(data))
 }
 
 // parseIPVSStats performs the actual parsing of `ip_vs_stats`.
-func parseIPVSStats(file io.Reader) (IPVSStats, error) {
+func parseIPVSStats(r io.Reader) (IPVSStats, error) {
 	var (
 		statContent []byte
 		statLines   []string
@@ -92,7 +83,7 @@ func parseIPVSStats(file io.Reader) (IPVSStats, error) {
 		stats       IPVSStats
 	)
 
-	statContent, err := ioutil.ReadAll(file)
+	statContent, err := io.ReadAll(r)
 	if err != nil {
 		return IPVSStats{}, err
 	}
@@ -131,19 +122,9 @@ func parseIPVSStats(file io.Reader) (IPVSStats, error) {
 	return stats, nil
 }
 
-// NewIPVSBackendStatus reads and returns the status of all (virtual,real) server pairs.
-func NewIPVSBackendStatus() ([]IPVSBackendStatus, error) {
-	fs, err := NewFS(DefaultMountPoint)
-	if err != nil {
-		return []IPVSBackendStatus{}, err
-	}
-
-	return fs.NewIPVSBackendStatus()
-}
-
-// NewIPVSBackendStatus reads and returns the status of all (virtual,real) server pairs from the specified `proc` filesystem.
-func (fs FS) NewIPVSBackendStatus() ([]IPVSBackendStatus, error) {
-	file, err := os.Open(fs.Path("net/ip_vs"))
+// IPVSBackendStatus reads and returns the status of all (virtual,real) server pairs from the specified `proc` filesystem.
+func (fs FS) IPVSBackendStatus() ([]IPVSBackendStatus, error) {
+	file, err := os.Open(fs.proc.Path("net/ip_vs"))
 	if err != nil {
 		return nil, err
 	}
@@ -240,15 +221,16 @@ func parseIPPort(s string) (net.IP, uint16, error) {
 	case 46:
 		ip = net.ParseIP(s[1:40])
 		if ip == nil {
-			return nil, 0, fmt.Errorf("invalid IPv6 address: %s", s[1:40])
+			return nil, 0, fmt.Errorf("%w: Invalid IPv6 addr %s: %w", ErrFileParse, s[1:40], err)
 		}
 	default:
-		return nil, 0, fmt.Errorf("unexpected IP:Port: %s", s)
+		return nil, 0, fmt.Errorf("%w: Unexpected IP:Port %s: %w", ErrFileParse, s, err)
 	}
 
 	portString := s[len(s)-4:]
 	if len(portString) != 4 {
-		return nil, 0, fmt.Errorf("unexpected port string format: %s", portString)
+		return nil, 0,
+			fmt.Errorf("%w: Unexpected port string format %s: %w", ErrFileParse, portString, err)
 	}
 	port, err := strconv.ParseUint(portString, 16, 16)
 	if err != nil {

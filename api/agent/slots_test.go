@@ -85,7 +85,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 		t.Fatalf("Should not get anything from queue")
 	}
 	if err != context.DeadlineExceeded {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	// create slots
@@ -127,7 +127,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 
 	err = checkGetTokenId(t, obj, timeout, 8)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	// acquire 7 before we can consume
@@ -137,7 +137,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 
 	err = checkGetTokenId(t, obj, timeout, 6)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 }
 
@@ -155,7 +155,7 @@ func TestSlotQueueBasic2(t *testing.T) {
 		t.Fatalf("Should not get anything from queue")
 	}
 	if err != context.DeadlineExceeded {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 }
 
@@ -221,7 +221,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 	timeout := time.Duration(500) * time.Millisecond
 	err := checkGetTokenId(t, obj, timeout, 1)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	// let's acquire 1
@@ -262,7 +262,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 
 	err = checkGetTokenId(t, obj, timeout, 2)
 	if err != context.DeadlineExceeded {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 }
 

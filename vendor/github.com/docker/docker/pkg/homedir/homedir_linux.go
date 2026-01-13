@@ -1,27 +1,11 @@
-package homedir // import "github.com/docker/docker/pkg/homedir"
+package homedir
 
 import (
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/docker/docker/pkg/idtools"
 )
-
-// GetStatic returns the home directory for the current user without calling
-// os/user.Current(). This is useful for static-linked binary on glibc-based
-// system, because a call to os/user.Current() in a static binary leads to
-// segfault due to a glibc issue that won't be fixed in a short term.
-// (#29344, golang/go#13470, https://sourceware.org/bugzilla/show_bug.cgi?id=19341)
-func GetStatic() (string, error) {
-	uid := os.Getuid()
-	usr, err := idtools.LookupUID(uid)
-	if err != nil {
-		return "", err
-	}
-	return usr.Home, nil
-}
 
 // GetRuntimeDir returns XDG_RUNTIME_DIR.
 // XDG_RUNTIME_DIR is typically configured via pam_systemd.
@@ -80,13 +64,14 @@ func stick(f string) error {
 
 // GetDataHome returns XDG_DATA_HOME.
 // GetDataHome returns $HOME/.local/share and nil error if XDG_DATA_HOME is not set.
+// If HOME and XDG_DATA_HOME are not set, getpwent(3) is consulted to determine the users home directory.
 //
 // See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
 func GetDataHome() (string, error) {
 	if xdgDataHome := os.Getenv("XDG_DATA_HOME"); xdgDataHome != "" {
 		return xdgDataHome, nil
 	}
-	home := os.Getenv("HOME")
+	home := Get()
 	if home == "" {
 		return "", errors.New("could not get either XDG_DATA_HOME or HOME")
 	}
@@ -95,15 +80,26 @@ func GetDataHome() (string, error) {
 
 // GetConfigHome returns XDG_CONFIG_HOME.
 // GetConfigHome returns $HOME/.config and nil error if XDG_CONFIG_HOME is not set.
+// If HOME and XDG_CONFIG_HOME are not set, getpwent(3) is consulted to determine the users home directory.
 //
 // See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
 func GetConfigHome() (string, error) {
 	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
 		return xdgConfigHome, nil
 	}
-	home := os.Getenv("HOME")
+	home := Get()
 	if home == "" {
 		return "", errors.New("could not get either XDG_CONFIG_HOME or HOME")
 	}
 	return filepath.Join(home, ".config"), nil
+}
+
+// GetLibHome returns $HOME/.local/lib
+// If HOME is not set, getpwent(3) is consulted to determine the users home directory.
+func GetLibHome() (string, error) {
+	home := Get()
+	if home == "" {
+		return "", errors.New("could not get HOME")
+	}
+	return filepath.Join(home, ".local/lib"), nil
 }

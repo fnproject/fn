@@ -1,4 +1,4 @@
-// Copyright 2014 Manu Martinez-Almeida.  All rights reserved.
+// Copyright 2014 Manu Martinez-Almeida. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file.
 
@@ -7,38 +7,51 @@ package render
 import (
 	"html/template"
 	"net/http"
+
+	"github.com/gin-gonic/gin/internal/fs"
 )
 
+// Delims represents a set of Left and Right delimiters for HTML template rendering.
 type Delims struct {
-	Left  string
+	// Left delimiter, defaults to {{.
+	Left string
+	// Right delimiter, defaults to }}.
 	Right string
 }
 
+// HTMLRender interface is to be implemented by HTMLProduction and HTMLDebug.
 type HTMLRender interface {
-	Instance(string, interface{}) Render
+	// Instance returns an HTML instance.
+	Instance(string, any) Render
 }
 
+// HTMLProduction contains template reference and its delims.
 type HTMLProduction struct {
 	Template *template.Template
 	Delims   Delims
 }
 
+// HTMLDebug contains template delims and pattern and function with file list.
 type HTMLDebug struct {
-	Files   []string
-	Glob    string
-	Delims  Delims
-	FuncMap template.FuncMap
+	Files      []string
+	Glob       string
+	FileSystem http.FileSystem
+	Patterns   []string
+	Delims     Delims
+	FuncMap    template.FuncMap
 }
 
+// HTML contains template reference and its name with given interface object.
 type HTML struct {
 	Template *template.Template
 	Name     string
-	Data     interface{}
+	Data     any
 }
 
 var htmlContentType = []string{"text/html; charset=utf-8"}
 
-func (r HTMLProduction) Instance(name string, data interface{}) Render {
+// Instance (HTMLProduction) returns an HTML instance which it realizes Render interface.
+func (r HTMLProduction) Instance(name string, data any) Render {
 	return HTML{
 		Template: r.Template,
 		Name:     name,
@@ -46,13 +59,15 @@ func (r HTMLProduction) Instance(name string, data interface{}) Render {
 	}
 }
 
-func (r HTMLDebug) Instance(name string, data interface{}) Render {
+// Instance (HTMLDebug) returns an HTML instance which it realizes Render interface.
+func (r HTMLDebug) Instance(name string, data any) Render {
 	return HTML{
 		Template: r.loadTemplate(),
 		Name:     name,
 		Data:     data,
 	}
 }
+
 func (r HTMLDebug) loadTemplate() *template.Template {
 	if r.FuncMap == nil {
 		r.FuncMap = template.FuncMap{}
@@ -63,9 +78,14 @@ func (r HTMLDebug) loadTemplate() *template.Template {
 	if r.Glob != "" {
 		return template.Must(template.New("").Delims(r.Delims.Left, r.Delims.Right).Funcs(r.FuncMap).ParseGlob(r.Glob))
 	}
-	panic("the HTML debug render was created without files or glob pattern")
+	if r.FileSystem != nil && len(r.Patterns) > 0 {
+		return template.Must(template.New("").Delims(r.Delims.Left, r.Delims.Right).Funcs(r.FuncMap).ParseFS(
+			fs.FileSystem{FileSystem: r.FileSystem}, r.Patterns...))
+	}
+	panic("the HTML debug render was created without files or glob pattern or file system with patterns")
 }
 
+// Render (HTML) executes template and writes its result with custom ContentType for response.
 func (r HTML) Render(w http.ResponseWriter) error {
 	r.WriteContentType(w)
 
@@ -75,6 +95,7 @@ func (r HTML) Render(w http.ResponseWriter) error {
 	return r.Template.ExecuteTemplate(w, r.Name, r.Data)
 }
 
+// WriteContentType (HTML) writes HTML ContentType.
 func (r HTML) WriteContentType(w http.ResponseWriter) {
 	writeContentType(w, htmlContentType)
 }

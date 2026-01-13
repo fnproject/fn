@@ -1,4 +1,4 @@
-// Copyright 2018 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,11 +15,15 @@ package procfs
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
+
+	"github.com/prometheus/procfs/internal/fs"
+	"github.com/prometheus/procfs/internal/util"
 )
 
 // CPUStat shows how much time the cpu spend in various stages.
@@ -38,7 +42,7 @@ type CPUStat struct {
 
 // SoftIRQStat represent the softirq statistics as exported in the procfs stat file.
 // A nice introduction can be found at https://0xax.gitbooks.io/linux-insides/content/interrupts/interrupts-9.html
-// It is possible to get per-cpu stats by reading /proc/softirqs
+// It is possible to get per-cpu stats by reading `/proc/softirqs`.
 type SoftIRQStat struct {
 	Hi          uint64
 	Timer       uint64
@@ -59,7 +63,7 @@ type Stat struct {
 	// Summed up cpu statistics.
 	CPUTotal CPUStat
 	// Per-CPU statistics.
-	CPU []CPUStat
+	CPU map[int64]CPUStat
 	// Number of times interrupts were handled, which contains numbered and unnumbered IRQs.
 	IRQTotal uint64
 	// Number of times a numbered IRQ was triggered.
@@ -78,16 +82,6 @@ type Stat struct {
 	SoftIRQ SoftIRQStat
 }
 
-// NewStat returns kernel/system statistics read from /proc/stat.
-func NewStat() (Stat, error) {
-	fs, err := NewFS(DefaultMountPoint)
-	if err != nil {
-		return Stat{}, err
-	}
-
-	return fs.NewStat()
-}
-
 // Parse a cpu statistics line and returns the CPUStat struct plus the cpu id (or -1 for the overall sum).
 func parseCPUStat(line string) (CPUStat, int64, error) {
 	cpuStat := CPUStat{}
@@ -99,11 +93,11 @@ func parseCPUStat(line string) (CPUStat, int64, error) {
 		&cpuStat.Iowait, &cpuStat.IRQ, &cpuStat.SoftIRQ, &cpuStat.Steal,
 		&cpuStat.Guest, &cpuStat.GuestNice)
 
-	if err != nil && err != io.EOF {
-		return CPUStat{}, -1, fmt.Errorf("couldn't parse %s (cpu): %s", line, err)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return CPUStat{}, -1, fmt.Errorf("%w: couldn't parse %q (cpu): %w", ErrFileParse, line, err)
 	}
 	if count == 0 {
-		return CPUStat{}, -1, fmt.Errorf("couldn't parse %s (cpu): 0 elements parsed", line)
+		return CPUStat{}, -1, fmt.Errorf("%w: couldn't parse %q (cpu): 0 elements parsed", ErrFileParse, line)
 	}
 
 	cpuStat.User /= userHZ
@@ -123,7 +117,7 @@ func parseCPUStat(line string) (CPUStat, int64, error) {
 
 	cpuID, err := strconv.ParseInt(cpu[3:], 10, 64)
 	if err != nil {
-		return CPUStat{}, -1, fmt.Errorf("couldn't parse %s (cpu/cpuid): %s", line, err)
+		return CPUStat{}, -1, fmt.Errorf("%w: couldn't parse %q (cpu/cpuid): %w", ErrFileParse, line, err)
 	}
 
 	return cpuStat, cpuID, nil
@@ -143,25 +137,61 @@ func parseSoftIRQStat(line string) (SoftIRQStat, uint64, error) {
 		&softIRQStat.Hrtimer, &softIRQStat.Rcu)
 
 	if err != nil {
-		return SoftIRQStat{}, 0, fmt.Errorf("couldn't parse %s (softirq): %s", line, err)
+		return SoftIRQStat{}, 0, fmt.Errorf("%w: couldn't parse %q (softirq): %w", ErrFileParse, line, err)
 	}
 
 	return softIRQStat, total, nil
 }
 
-// NewStat returns an information about current kernel/system statistics.
-func (fs FS) NewStat() (Stat, error) {
-	// See https://www.kernel.org/doc/Documentation/filesystems/proc.txt
-
-	f, err := os.Open(fs.Path("stat"))
+// NewStat returns information about current cpu/process statistics.
+// See https://www.kernel.org/doc/Documentation/filesystems/proc.txt
+//
+// Deprecated: Use fs.Stat() instead.
+func NewStat() (Stat, error) {
+	fs, err := NewFS(fs.DefaultProcMountPoint)
 	if err != nil {
 		return Stat{}, err
 	}
-	defer f.Close()
+	return fs.Stat()
+}
 
-	stat := Stat{}
+// NewStat returns information about current cpu/process statistics.
+// See: https://www.kernel.org/doc/Documentation/filesystems/proc.txt
+//
+// Deprecated: Use fs.Stat() instead.
+func (fs FS) NewStat() (Stat, error) {
+	return fs.Stat()
+}
 
-	scanner := bufio.NewScanner(f)
+// Stat returns information about current cpu/process statistics.
+// See: https://www.kernel.org/doc/Documentation/filesystems/proc.txt
+func (fs FS) Stat() (Stat, error) {
+	fileName := fs.proc.Path("stat")
+	data, err := util.ReadFileNoStat(fileName)
+	if err != nil {
+		return Stat{}, err
+	}
+	procStat, err := parseStat(bytes.NewReader(data), fileName)
+	if err != nil {
+		return Stat{}, err
+	}
+	return procStat, nil
+}
+
+// parseStat parses the metrics from /proc/[pid]/stat.
+func parseStat(r io.Reader, fileName string) (Stat, error) {
+	var (
+		scanner = bufio.NewScanner(r)
+		stat    = Stat{
+			CPU: make(map[int64]CPUStat),
+		}
+		err error
+	)
+
+	// Increase default scanner buffer to handle very long `intr` lines.
+	buf := make([]byte, 0, 8*1024)
+	scanner.Buffer(buf, 1024*1024)
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Fields(scanner.Text())
@@ -172,34 +202,34 @@ func (fs FS) NewStat() (Stat, error) {
 		switch {
 		case parts[0] == "btime":
 			if stat.BootTime, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
-				return Stat{}, fmt.Errorf("couldn't parse %s (btime): %s", parts[1], err)
+				return Stat{}, fmt.Errorf("%w: couldn't parse %q (btime): %w", ErrFileParse, parts[1], err)
 			}
 		case parts[0] == "intr":
 			if stat.IRQTotal, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
-				return Stat{}, fmt.Errorf("couldn't parse %s (intr): %s", parts[1], err)
+				return Stat{}, fmt.Errorf("%w: couldn't parse %q (intr): %w", ErrFileParse, parts[1], err)
 			}
 			numberedIRQs := parts[2:]
 			stat.IRQ = make([]uint64, len(numberedIRQs))
 			for i, count := range numberedIRQs {
 				if stat.IRQ[i], err = strconv.ParseUint(count, 10, 64); err != nil {
-					return Stat{}, fmt.Errorf("couldn't parse %s (intr%d): %s", count, i, err)
+					return Stat{}, fmt.Errorf("%w: couldn't parse %q (intr%d): %w", ErrFileParse, count, i, err)
 				}
 			}
 		case parts[0] == "ctxt":
 			if stat.ContextSwitches, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
-				return Stat{}, fmt.Errorf("couldn't parse %s (ctxt): %s", parts[1], err)
+				return Stat{}, fmt.Errorf("%w: couldn't parse %q (ctxt): %w", ErrFileParse, parts[1], err)
 			}
 		case parts[0] == "processes":
 			if stat.ProcessCreated, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
-				return Stat{}, fmt.Errorf("couldn't parse %s (processes): %s", parts[1], err)
+				return Stat{}, fmt.Errorf("%w: couldn't parse %q (processes): %w", ErrFileParse, parts[1], err)
 			}
 		case parts[0] == "procs_running":
 			if stat.ProcessesRunning, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
-				return Stat{}, fmt.Errorf("couldn't parse %s (procs_running): %s", parts[1], err)
+				return Stat{}, fmt.Errorf("%w: couldn't parse %q (procs_running): %w", ErrFileParse, parts[1], err)
 			}
 		case parts[0] == "procs_blocked":
 			if stat.ProcessesBlocked, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
-				return Stat{}, fmt.Errorf("couldn't parse %s (procs_blocked): %s", parts[1], err)
+				return Stat{}, fmt.Errorf("%w: couldn't parse %q (procs_blocked): %w", ErrFileParse, parts[1], err)
 			}
 		case parts[0] == "softirq":
 			softIRQStats, total, err := parseSoftIRQStat(line)
@@ -216,16 +246,13 @@ func (fs FS) NewStat() (Stat, error) {
 			if cpuID == -1 {
 				stat.CPUTotal = cpuStat
 			} else {
-				for int64(len(stat.CPU)) <= cpuID {
-					stat.CPU = append(stat.CPU, CPUStat{})
-				}
 				stat.CPU[cpuID] = cpuStat
 			}
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return Stat{}, fmt.Errorf("couldn't parse %s: %s", f.Name(), err)
+		return Stat{}, fmt.Errorf("%w: couldn't parse %q: %w", ErrFileParse, fileName, err)
 	}
 
 	return stat, nil

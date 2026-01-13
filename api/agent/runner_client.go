@@ -276,7 +276,7 @@ func sendToRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageCl
 		data := writeBuffer[:n]
 		infoMsg = fmt.Sprintf("Sending %d bytes of data isEOF=%v to runner", n, isEOF)
 		span.Annotate([]trace.Attribute{trace.StringAttribute("status", infoMsg)}, "")
-		log.Debugf(infoMsg)
+		log.Debug(infoMsg)
 		sendErr := protocolClient.Send(&pb.ClientMsg{
 			Body: &pb.ClientMsg_Data{
 				Data: &pb.DataFrame{
@@ -291,7 +291,7 @@ func sendToRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageCl
 			if sendErr != io.EOF {
 				errorMsg = fmt.Sprintf("Failed to send data frame size=%d isEOF=%v", n, isEOF)
 				span.SetStatus(trace.Status{Code: int32(trace.StatusCodeDataLoss), Message: errorMsg})
-				log.WithError(sendErr).Errorf(errorMsg)
+				log.WithError(sendErr).Error(errorMsg)
 			}
 			return
 		}
@@ -390,7 +390,7 @@ DataLoop:
 			case *pb.CallResultStart_Http:
 				infoMsg = fmt.Sprintf("Received meta http result from runner Status=%v", meta.Http.StatusCode)
 				span.Annotate([]trace.Attribute{trace.StringAttribute("status", infoMsg)}, "")
-				log.Debugf(infoMsg)
+				log.Debug(infoMsg)
 				for _, header := range meta.Http.Headers {
 					clonedHeaders.Add(header.Key, header.Value)
 					w.Header().Add(header.Key, header.Value)
@@ -402,14 +402,14 @@ DataLoop:
 			default:
 				errorMsg = fmt.Sprintf("Unhandled meta type in start message: %v", meta)
 				span.SetStatus(trace.Status{Code: trace.StatusCodeDataLoss, Message: errorMsg})
-				log.Errorf(errorMsg)
+				log.Error(errorMsg)
 			}
 
 		// May arrive if function has output. We ignore EOF.
 		case *pb.RunnerMsg_Data:
 			infoMsg = fmt.Sprintf("Received data from runner len=%d isEOF=%v", len(body.Data.Data), body.Data.Eof)
 			span.Annotate([]trace.Attribute{trace.StringAttribute("status", infoMsg)}, "")
-			log.Debugf(infoMsg)
+			log.Debug(infoMsg)
 			if !isPartialWrite {
 				// WARNING: blocking write
 				n, err := w.Write(body.Data.Data)
@@ -417,7 +417,7 @@ DataLoop:
 					isPartialWrite = true
 					errorMsg = fmt.Sprintf("Failed to write full response (%d of %d) to client", n, len(body.Data.Data))
 					span.SetStatus(trace.Status{Code: int32(trace.StatusCodeDataLoss), Message: errorMsg})
-					log.WithError(err).Infof(errorMsg)
+					log.WithError(err).Info(errorMsg)
 					if err == nil {
 						err = io.ErrShortWrite
 					}
@@ -456,7 +456,7 @@ DataLoop:
 		default:
 			errorMsg = fmt.Sprintf("Ignoring unknown message type %T from runner, possible client/server mismatch", body)
 			span.SetStatus(trace.Status{Code: trace.StatusCodeUnauthenticated, Message: errorMsg})
-			log.Errorf(errorMsg)
+			log.Error(errorMsg)
 		}
 	}
 

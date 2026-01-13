@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 
 	"github.com/leanovate/gopter"
 )
@@ -33,7 +34,16 @@ func checkConditionFunc(check interface{}, numArgs int) (func([]reflect.Value) *
 			return convertResult(results[0].Interface(), results[1].Interface().(error))
 		}, nil
 	}
-	return func(values []reflect.Value) *gopter.PropResult {
+	return func(values []reflect.Value) (result *gopter.PropResult) {
+		defer func() {
+			if r := recover(); r != nil {
+				result = &gopter.PropResult{
+					Status:     gopter.PropError,
+					Error:      fmt.Errorf("Check paniced: %v", r),
+					ErrorStack: debug.Stack(),
+				}
+			}
+		}()
 		results := checkVal.Call(values)
 		return convertResult(results[0].Interface(), nil)
 	}, nil

@@ -24,6 +24,10 @@ func PtrShrinker(elementShrinker gopter.Shrinker) gopter.Shrinker {
 		if v == nil {
 			return gopter.NoShrink
 		}
+		elem := reflect.ValueOf(v).Elem()
+		if !elem.IsValid() || !elem.CanInterface() {
+			return gopter.NoShrink
+		}
 		rt := reflect.TypeOf(v)
 		elementShink := elementShrinker(reflect.ValueOf(v).Elem().Interface())
 

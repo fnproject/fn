@@ -14,15 +14,18 @@
 package prometheus
 
 import (
+	"errors"
+	"math"
+	"sort"
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/model"
+	"google.golang.org/protobuf/proto"
 )
 
-const separatorByte byte = 255
+var separatorByteSlice = []byte{model.SeparatorByte} // For convenient use with xxhash.
 
 // A Metric models a single sample value with its meta data being exported to
 // Prometheus. Implementations of Metric in this package are Gauge, Counter,
@@ -56,7 +59,7 @@ type Metric interface {
 }
 
 // Opts bundles the options for creating most Metric types. Each metric
-// implementation XXX has its own XXXOpts type, but in most cases, it is just be
+// implementation XXX has its own XXXOpts type, but in most cases, it is just
 // an alias of this type (which might change when the requirement arises.)
 //
 // It is mandatory to set Name to a non-empty string. All other fields are
@@ -87,8 +90,11 @@ type Opts struct {
 	// better covered by target labels set by the scraping Prometheus
 	// server, or by one specific metric (e.g. a build_info or a
 	// machine_role metric). See also
-	// https://prometheus.io/docs/instrumenting/writing_exporters/#target-labels,-not-static-scraped-labels
+	// https://prometheus.io/docs/instrumenting/writing_exporters/#target-labels-not-static-scraped-labels
 	ConstLabels Labels
+
+	// now is for testing purposes, by default it's time.Now.
+	now func() time.Time
 }
 
 // BuildFQName joins the given three name components by "_". Empty name
@@ -102,31 +108,23 @@ func BuildFQName(namespace, subsystem, name string) string {
 	if name == "" {
 		return ""
 	}
-	switch {
-	case namespace != "" && subsystem != "":
-		return strings.Join([]string{namespace, subsystem, name}, "_")
-	case namespace != "":
-		return strings.Join([]string{namespace, name}, "_")
-	case subsystem != "":
-		return strings.Join([]string{subsystem, name}, "_")
+
+	sb := strings.Builder{}
+	sb.Grow(len(namespace) + len(subsystem) + len(name) + 2)
+
+	if namespace != "" {
+		sb.WriteString(namespace)
+		sb.WriteString("_")
 	}
-	return name
-}
 
-// labelPairSorter implements sort.Interface. It is used to sort a slice of
-// dto.LabelPair pointers.
-type labelPairSorter []*dto.LabelPair
+	if subsystem != "" {
+		sb.WriteString(subsystem)
+		sb.WriteString("_")
+	}
 
-func (s labelPairSorter) Len() int {
-	return len(s)
-}
+	sb.WriteString(name)
 
-func (s labelPairSorter) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func (s labelPairSorter) Less(i, j int) bool {
-	return s[i].GetName() < s[j].GetName()
+	return sb.String()
 }
 
 type invalidMetric struct {
@@ -171,4 +169,108 @@ func (m timestampedMetric) Write(pb *dto.Metric) error {
 // next full millisecond value.
 func NewMetricWithTimestamp(t time.Time, m Metric) Metric {
 	return timestampedMetric{Metric: m, t: t}
+}
+
+type withExemplarsMetric struct {
+	Metric
+
+	exemplars []*dto.Exemplar
+}
+
+func (m *withExemplarsMetric) Write(pb *dto.Metric) error {
+	if err := m.Metric.Write(pb); err != nil {
+		return err
+	}
+
+	switch {
+	case pb.Counter != nil:
+		pb.Counter.Exemplar = m.exemplars[len(m.exemplars)-1]
+	case pb.Histogram != nil:
+		h := pb.Histogram
+		for _, e := range m.exemplars {
+			if (h.GetZeroThreshold() != 0 || h.GetZeroCount() != 0 ||
+				len(h.PositiveSpan) != 0 || len(h.NegativeSpan) != 0) &&
+				e.GetTimestamp() != nil {
+				h.Exemplars = append(h.Exemplars, e)
+				if len(h.Bucket) == 0 {
+					// Don't proceed to classic buckets if there are none.
+					continue
+				}
+			}
+			// h.Bucket are sorted by UpperBound.
+			i := sort.Search(len(h.Bucket), func(i int) bool {
+				return h.Bucket[i].GetUpperBound() >= e.GetValue()
+			})
+			if i < len(h.Bucket) {
+				h.Bucket[i].Exemplar = e
+			} else {
+				// The +Inf bucket should be explicitly added if there is an exemplar for it, similar to non-const histogram logic in https://github.com/prometheus/client_golang/blob/main/prometheus/histogram.go#L357-L365.
+				b := &dto.Bucket{
+					CumulativeCount: proto.Uint64(h.GetSampleCount()),
+					UpperBound:      proto.Float64(math.Inf(1)),
+					Exemplar:        e,
+				}
+				h.Bucket = append(h.Bucket, b)
+			}
+		}
+	default:
+		// TODO(bwplotka): Implement Gauge?
+		return errors.New("cannot inject exemplar into Gauge, Summary or Untyped")
+	}
+
+	return nil
+}
+
+// Exemplar is easier to use, user-facing representation of *dto.Exemplar.
+type Exemplar struct {
+	Value  float64
+	Labels Labels
+	// Optional.
+	// Default value (time.Time{}) indicates its empty, which should be
+	// understood as time.Now() time at the moment of creation of metric.
+	Timestamp time.Time
+}
+
+// NewMetricWithExemplars returns a new Metric wrapping the provided Metric with given
+// exemplars. Exemplars are validated.
+//
+// Only last applicable exemplar is injected from the list.
+// For example for Counter it means last exemplar is injected.
+// For Histogram, it means last applicable exemplar for each bucket is injected.
+// For a Native Histogram, all valid exemplars are injected.
+//
+// NewMetricWithExemplars works best with MustNewConstMetric and
+// MustNewConstHistogram, see example.
+func NewMetricWithExemplars(m Metric, exemplars ...Exemplar) (Metric, error) {
+	if len(exemplars) == 0 {
+		return nil, errors.New("no exemplar was passed for NewMetricWithExemplars")
+	}
+
+	var (
+		now = time.Now()
+		exs = make([]*dto.Exemplar, len(exemplars))
+		err error
+	)
+	for i, e := range exemplars {
+		ts := e.Timestamp
+		if ts.IsZero() {
+			ts = now
+		}
+		exs[i], err = newExemplar(e.Value, ts, e.Labels)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &withExemplarsMetric{Metric: m, exemplars: exs}, nil
+}
+
+// MustNewMetricWithExemplars is a version of NewMetricWithExemplars that panics where
+// NewMetricWithExemplars would have returned an error.
+func MustNewMetricWithExemplars(m Metric, exemplars ...Exemplar) Metric {
+	ret, err := NewMetricWithExemplars(m, exemplars...)
+	if err != nil {
+		panic(err)
+	}
+	return ret
 }

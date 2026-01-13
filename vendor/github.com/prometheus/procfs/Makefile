@@ -1,4 +1,4 @@
-# Copyright 2018 The Prometheus Authors
+# Copyright The Prometheus Authors
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,17 +14,18 @@
 include Makefile.common
 
 %/.unpacked: %.ttar
+	@echo ">> extracting fixtures $*"
 	./ttar -C $(dir $*) -x -f $*.ttar
 	touch $@
 
-update_fixtures: fixtures.ttar sysfs/fixtures.ttar
+fixtures: testdata/fixtures/.unpacked
 
-%fixtures.ttar: %/fixtures
-	rm -v $(dir $*)fixtures/.unpacked
-	./ttar -C $(dir $*) -c -f $*fixtures.ttar fixtures/
+update_fixtures:
+	rm -vf testdata/fixtures/.unpacked
+	./ttar -c -f testdata/fixtures.ttar -C testdata/ fixtures/
 
 .PHONY: build
 build:
 
 .PHONY: test
-test: fixtures/.unpacked sysfs/fixtures/.unpacked common-test
+test: testdata/fixtures/.unpacked common-test
