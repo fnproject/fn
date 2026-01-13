@@ -1,3 +1,4 @@
+//go:build go1.8
 // +build go1.8
 
 package sqlx
@@ -122,7 +123,7 @@ func NamedQueryContext(ctx context.Context, e ExtContext, query string, arg inte
 
 // NamedExecContext uses BindStruct to get a query executable by the driver and
 // then runs Exec on the result.  Returns an error from the binding
-// or the query excution itself.
+// or the query execution itself.
 func NamedExecContext(ctx context.Context, e ExtContext, query string, arg interface{}) (sql.Result, error) {
 	q, args, err := bindNamedMapper(BindType(e.DriverName()), query, arg, mapperFor(e))
 	if err != nil {

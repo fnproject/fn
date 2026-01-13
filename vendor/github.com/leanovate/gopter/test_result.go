@@ -36,13 +36,14 @@ func (s testStatus) String() string {
 
 // TestResult contains the result of a property property check.
 type TestResult struct {
-	Status    testStatus
-	Succeeded int
-	Discarded int
-	Labels    []string
-	Error     error
-	Args      PropArgs
-	Time      time.Duration
+	Status     testStatus
+	Succeeded  int
+	Discarded  int
+	Labels     []string
+	Error      error
+	ErrorStack []byte
+	Args       PropArgs
+	Time       time.Duration
 }
 
 // Passed checks if the check has passed

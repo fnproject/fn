@@ -73,7 +73,7 @@ const (
 	EnvHotPoll = "FN_HOT_POLL_MSECS"
 	// EnvHotLauncherTimeout is the timeout for a hot container queue to persist if idle
 	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
-	// EnvHotStartTimeout is the timeout for a hot container to be created including docker-pull
+	// EnvHotPullTimeout is the timeout for a hot container to be created including docker-pull
 	EnvHotPullTimeout = "FN_HOT_PULL_TIMEOUT_MSECS"
 	// EnvHotStartTimeout is the timeout for a hot container to become available for use for requests after EnvHotStartTimeout
 	EnvHotStartTimeout = "FN_HOT_START_TIMEOUT_MSECS"

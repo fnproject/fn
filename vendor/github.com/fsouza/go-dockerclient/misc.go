@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"net/http"
 	"strings"
 
 	"github.com/docker/docker/api/types/swarm"
@@ -22,7 +23,7 @@ func (c *Client) Version() (*Env, error) {
 
 // VersionWithContext returns version information about the docker server.
 func (c *Client) VersionWithContext(ctx context.Context) (*Env, error) {
-	resp, err := c.do("GET", "/version", doOptions{context: ctx})
+	resp, err := c.do(http.MethodGet, "/version", doOptions{context: ctx})
 	if err != nil {
 		return nil, err
 	}
@@ -130,13 +131,11 @@ type ServiceConfig struct {
 type NetIPNet net.IPNet
 
 // MarshalJSON returns the JSON representation of the IPNet.
-//
 func (ipnet *NetIPNet) MarshalJSON() ([]byte, error) {
 	return json.Marshal((*net.IPNet)(ipnet).String())
 }
 
 // UnmarshalJSON sets the IPNet from a byte array of JSON.
-//
 func (ipnet *NetIPNet) UnmarshalJSON(b []byte) (err error) {
 	var ipnetStr string
 	if err = json.Unmarshal(b, &ipnetStr); err == nil {
@@ -145,7 +144,7 @@ func (ipnet *NetIPNet) UnmarshalJSON(b []byte) (err error) {
 			*ipnet = NetIPNet(*cidr)
 		}
 	}
-	return
+	return err
 }
 
 // IndexInfo contains information about a registry.
@@ -162,7 +161,7 @@ type IndexInfo struct {
 //
 // See https://goo.gl/ElTHi2 for more details.
 func (c *Client) Info() (*DockerInfo, error) {
-	resp, err := c.do("GET", "/info", doOptions{})
+	resp, err := c.do(http.MethodGet, "/info", doOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -180,9 +179,9 @@ func (c *Client) Info() (*DockerInfo, error) {
 //
 // Some examples:
 //
-//     localhost.localdomain:5000/samalba/hipache:latest -> localhost.localdomain:5000/samalba/hipache, latest
-//     localhost.localdomain:5000/samalba/hipache -> localhost.localdomain:5000/samalba/hipache, ""
-//     busybox:latest@sha256:4a731fb46adc5cefe3ae374a8b6020fc1b6ad667a279647766e9a3cd89f6fa92 -> busybox, latest
+//	localhost.localdomain:5000/samalba/hipache:latest -> localhost.localdomain:5000/samalba/hipache, latest
+//	localhost.localdomain:5000/samalba/hipache -> localhost.localdomain:5000/samalba/hipache, ""
+//	busybox:latest@sha256:4a731fb46adc5cefe3ae374a8b6020fc1b6ad667a279647766e9a3cd89f6fa92 -> busybox, latest
 func ParseRepositoryTag(repoTag string) (repository string, tag string) {
 	parts := strings.SplitN(repoTag, "@", 2)
 	repoTag = parts[0]

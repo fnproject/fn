@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//FnAnnotator Is used to inject trigger context (such as request URLs) into outbound trigger resources
+// FnAnnotator Is used to inject trigger context (such as request URLs) into outbound trigger resources
 type FnAnnotator interface {
 	// Annotates a trigger on read
 	AnnotateFn(ctx *gin.Context, a *models.App, fn *models.Fn) (*models.Fn, error)
@@ -42,7 +42,7 @@ func (tp *requestBasedFnAnnotator) AnnotateFn(ctx *gin.Context, app *models.App,
 	return annotateFnWithBaseURL(fmt.Sprintf("%s://%s", scheme, ctx.Request.Host), app, t)
 }
 
-//NewRequestBasedFnAnnotator creates a FnAnnotator that inspects the incoming request host and port, and uses this to generate fn invoke endpoint URLs based on those
+// NewRequestBasedFnAnnotator creates a FnAnnotator that inspects the incoming request host and port, and uses this to generate fn invoke endpoint URLs based on those
 func NewRequestBasedFnAnnotator() FnAnnotator {
 	return &requestBasedFnAnnotator{}
 }
@@ -51,7 +51,7 @@ type staticURLFnAnnotator struct {
 	baseURL string
 }
 
-//NewStaticURLFnAnnotator annotates triggers bases on a given, specified URL base - e.g. "https://my.domain" --->  "https://my.domain/t/app/source"
+// NewStaticURLFnAnnotator annotates triggers bases on a given, specified URL base - e.g. "https://my.domain" --->  "https://my.domain/t/app/source"
 func NewStaticURLFnAnnotator(baseURL string) FnAnnotator {
 
 	return &staticURLFnAnnotator{baseURL: baseURL}

@@ -33,10 +33,11 @@ func (s propStatus) String() string {
 
 // PropResult contains the result of a property
 type PropResult struct {
-	Status propStatus
-	Error  error
-	Args   []*PropArg
-	Labels []string
+	Status     propStatus
+	Error      error
+	ErrorStack []byte
+	Args       []*PropArg
+	Labels     []string
 }
 
 // NewPropResult create a PropResult with label

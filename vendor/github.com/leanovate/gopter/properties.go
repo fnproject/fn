@@ -54,6 +54,6 @@ func (p *Properties) TestingRun(t *testing.T, opts ...interface{}) {
 		}
 	}
 	if !p.Run(reporter) {
-		t.Errorf("failed with initial seed: %d", p.parameters.Seed)
+		t.Errorf("failed with initial seed: %d", p.parameters.Seed())
 	}
 }

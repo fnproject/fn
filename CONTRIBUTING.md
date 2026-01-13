@@ -33,7 +33,6 @@ Graduation: Some extensions can graduate into core if they become commonplace in
 
 ### Build Dependencies ###
 - [Go](https://golang.org/doc/install)
-- [Dep](https://github.com/golang/dep)
 
 ### Getting the Repository ###
 

@@ -1,16 +1,10 @@
-// +build !linux
+//go:build !linux
 
-package homedir // import "github.com/docker/docker/pkg/homedir"
+package homedir
 
 import (
 	"errors"
 )
-
-// GetStatic is not needed for non-linux systems.
-// (Precisely, it is needed only for glibc-based linux systems.)
-func GetStatic() (string, error) {
-	return "", errors.New("homedir.GetStatic() is not supported on this system")
-}
 
 // GetRuntimeDir is unsupported on non-linux system.
 func GetRuntimeDir() (string, error) {
@@ -30,4 +24,9 @@ func GetDataHome() (string, error) {
 // GetConfigHome is unsupported on non-linux system.
 func GetConfigHome() (string, error) {
 	return "", errors.New("homedir.GetConfigHome() is not supported on this system")
+}
+
+// GetLibHome is unsupported on non-linux system.
+func GetLibHome() (string, error) {
+	return "", errors.New("homedir.GetLibHome() is not supported on this system")
 }

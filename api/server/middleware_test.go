@@ -3,14 +3,13 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
-
-	"fmt"
 
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/models"
@@ -73,14 +72,18 @@ func TestRootMiddleware(t *testing.T) {
 		}
 	}()
 
+	fn_resource_config := models.ResourceConfig{Timeout: 5,
+		IdleTimeout: 10,
+		Memory:      128,
+	}
 	app1 := &models.App{ID: "app_id_1", Name: "myapp", Config: models.Config{}}
 	app2 := &models.App{ID: "app_id_2", Name: "myapp2", Config: models.Config{}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app1, app2},
 		[]*models.Fn{
-			{ID: "fn_id1", AppID: app1.ID, Image: "fnproject/fn-test-utils"},
-			{ID: "fn_id2", AppID: app1.ID, Image: "fnproject/fn-test-utils"},
-			{ID: "fn_id3", AppID: app2.ID, Image: "fnproject/fn-test-utils"},
+			{ID: "fn_id1", AppID: app1.ID, Image: "fnproject/fn-test-utils", ResourceConfig: fn_resource_config},
+			{ID: "fn_id2", AppID: app1.ID, Image: "fnproject/fn-test-utils", ResourceConfig: fn_resource_config},
+			{ID: "fn_id3", AppID: app2.ID, Image: "fnproject/fn-test-utils", ResourceConfig: fn_resource_config},
 		},
 	)
 
@@ -137,9 +140,9 @@ func TestRootMiddleware(t *testing.T) {
 			for k, v := range test.headers {
 				req.Header.Add(k, v[0])
 			}
-			t.Log("TESTING:", req.URL.String())
+			t.Logf("TESTING: %s", req.URL.String())
 			_, rec := routerRequest2(t, srv.Router, req)
-			// t.Log("REC: %+v\n", rec)
+			//t.Logf("REC: %+v\n", rec)
 
 			result, err := ioutil.ReadAll(rec.Result().Body)
 			if err != nil {

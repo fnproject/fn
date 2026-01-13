@@ -70,7 +70,7 @@ type clampWriter struct {
 // NewClamWriter creates a clamp writer that will limit the number of bytes written to to an underlying stream
 // This allows up to max bytes to be written to the underlying stream , writes that exceed this will return overflowErr
 //
-// Setting a  max of 0 sets no limit
+// # Setting a  max of 0 sets no limit
 //
 // If a write spans the last remaining bytes available the number of bytes up-to the limit will be written and the
 // overflow error will be returned

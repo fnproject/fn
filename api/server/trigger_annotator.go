@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-//TriggerAnnotator Is used to inject trigger context (such as request URLs) into outbound trigger resources
+// TriggerAnnotator Is used to inject trigger context (such as request URLs) into outbound trigger resources
 type TriggerAnnotator interface {
 	// Annotates a trigger on read
 	AnnotateTrigger(ctx *gin.Context, a *models.App, t *models.Trigger) (*models.Trigger, error)
@@ -44,7 +44,7 @@ func (tp *requestBasedTriggerAnnotator) AnnotateTrigger(ctx *gin.Context, app *m
 	return annotateTriggerWithBaseURL(fmt.Sprintf("%s://%s", scheme, ctx.Request.Host), app, t)
 }
 
-//NewRequestBasedTriggerAnnotator creates a TriggerAnnotator that inspects the incoming request host and port, and uses this to generate http trigger endpoint URLs based on those
+// NewRequestBasedTriggerAnnotator creates a TriggerAnnotator that inspects the incoming request host and port, and uses this to generate http trigger endpoint URLs based on those
 func NewRequestBasedTriggerAnnotator() TriggerAnnotator {
 	return &requestBasedTriggerAnnotator{}
 }
@@ -53,7 +53,7 @@ type staticURLTriggerAnnotator struct {
 	baseURL string
 }
 
-//NewStaticURLTriggerAnnotator annotates triggers bases on a given, specified URL base - e.g. "https://my.domain" --->  "https://my.domain/t/app/source"
+// NewStaticURLTriggerAnnotator annotates triggers bases on a given, specified URL base - e.g. "https://my.domain" --->  "https://my.domain/t/app/source"
 func NewStaticURLTriggerAnnotator(baseURL string) TriggerAnnotator {
 
 	return &staticURLTriggerAnnotator{baseURL: baseURL}

@@ -5,7 +5,6 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -51,9 +50,9 @@ func mapper() *reflectx.Mapper {
 
 // isScannable takes the reflect.Type and the actual dest value and returns
 // whether or not it's Scannable.  Something is scannable if:
-//   * it is not a struct
-//   * it implements sql.Scanner
-//   * it has no exported fields
+//   - it is not a struct
+//   - it implements sql.Scanner
+//   - it has no exported fields
 func isScannable(t reflect.Type) bool {
 	if reflect.PtrTo(t).Implements(_scannerInterface) {
 		return true
@@ -64,11 +63,7 @@ func isScannable(t reflect.Type) bool {
 
 	// it's not important that we use the right mapper for this particular object,
 	// we're only concerned on how many exported fields this struct has
-	m := mapper()
-	if len(m.TypeMap(t).Index) == 0 {
-		return true
-	}
-	return false
+	return len(mapper().TypeMap(t).Index) == 0
 }
 
 // ColScanner is an interface used by MapScan and SliceScan
@@ -149,21 +144,23 @@ func isUnsafe(i interface{}) bool {
 }
 
 func mapperFor(i interface{}) *reflectx.Mapper {
-	switch i.(type) {
+	switch i := i.(type) {
 	case DB:
-		return i.(DB).Mapper
+		return i.Mapper
 	case *DB:
-		return i.(*DB).Mapper
+		return i.Mapper
 	case Tx:
-		return i.(Tx).Mapper
+		return i.Mapper
 	case *Tx:
-		return i.(*Tx).Mapper
+		return i.Mapper
 	default:
 		return mapper()
 	}
 }
 
 var _scannerInterface = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
+
+//lint:ignore U1000 ignoring this for now
 var _valuerInterface = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
 
 // Row is a reimplementation of sql.Row in order to gain access to the underlying
@@ -252,6 +249,8 @@ type DB struct {
 
 // NewDb returns a new sqlx DB wrapper for a pre-existing *sql.DB.  The
 // driverName of the original database is required for named query support.
+//
+//lint:ignore ST1003 changing this would break the package interface.
 func NewDb(db *sql.DB, driverName string) *DB {
 	return &DB{DB: db, driverName: driverName, Mapper: mapper()}
 }
@@ -378,6 +377,14 @@ func (db *DB) Preparex(query string) (*Stmt, error) {
 // PrepareNamed returns an sqlx.NamedStmt
 func (db *DB) PrepareNamed(query string) (*NamedStmt, error) {
 	return prepareNamed(db, query)
+}
+
+// Conn is a wrapper around sql.Conn with extra functionality
+type Conn struct {
+	*sql.Conn
+	driverName string
+	unsafe     bool
+	Mapper     *reflectx.Mapper
 }
 
 // Tx is an sqlx wrapper around sql.Tx with extra functionality
@@ -874,14 +881,15 @@ func structOnlyError(t reflect.Type) error {
 }
 
 // scanAll scans all rows into a destination, which must be a slice of any
-// type.  If the destination slice type is a Struct, then StructScan will be
-// used on each row.  If the destination is some other kind of base type, then
-// each row must only have one column which can scan into that type.  This
+// type.  It resets the slice length to zero before appending each element to
+// the slice.  If the destination slice type is a Struct, then StructScan will
+// be used on each row.  If the destination is some other kind of base type,
+// then each row must only have one column which can scan into that type.  This
 // allows you to do something like:
 //
-//    rows, _ := db.Query("select id from people;")
-//    var ids []int
-//    scanAll(rows, &ids, false)
+//	rows, _ := db.Query("select id from people;")
+//	var ids []int
+//	scanAll(rows, &ids, false)
 //
 // and ids will be a list of the id results.  I realize that this is a desirable
 // interface to expose to users, but for now it will only be exposed via changes
@@ -906,6 +914,7 @@ func scanAll(rows rowsi, dest interface{}, structOnly bool) error {
 	if err != nil {
 		return err
 	}
+	direct.SetLen(0)
 
 	isPtr := slice.Elem().Kind() == reflect.Ptr
 	base := reflectx.Deref(slice.Elem())
@@ -929,9 +938,9 @@ func scanAll(rows rowsi, dest interface{}, structOnly bool) error {
 		var values []interface{}
 		var m *reflectx.Mapper
 
-		switch rows.(type) {
+		switch rows := rows.(type) {
 		case *Rows:
-			m = rows.(*Rows).Mapper
+			m = rows.Mapper
 		default:
 			m = mapper()
 		}

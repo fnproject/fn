@@ -1,3 +1,4 @@
+//go:build amd64 && !appengine && !gccgo
 // +build amd64,!appengine,!gccgo
 
 // This is a translation of the gcc output of FloodyBerry's pure-C public
@@ -59,10 +60,8 @@ loopBody:
 	CMPQ	R10,DI
 	JA	loopBody
 afterLoop:
-	SUBQ	R10,DX
-
-	CMPQ	DX,$0x7
-	JA	afterSwitch
+	ANDL	$7, DX
+	JZ	afterSwitch
 
 	// no support for jump tables
 
@@ -84,10 +83,7 @@ afterLoop:
 	CMPQ	DX,$0x2
 	JE	sw2
 
-	CMPQ	DX,$0x1
-	JE	sw1
-
-	JMP	afterSwitch
+	JMP	sw1
 
 sw7:	MOVBQZX	6(SI)(DI*1),DX
 	SHLQ	$0x30,DX

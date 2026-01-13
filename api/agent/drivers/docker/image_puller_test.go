@@ -53,7 +53,7 @@ func TestImagePullConcurrent1(t *testing.T) {
 			defer wg.Done()
 			err := <-puller.PullImage(ctx, &cfg, img, repo, tag1)
 			if err != nil {
-				t.Fatalf("err received %v", err)
+				t.Errorf("err received %v", err)
 			}
 		}()
 	}
@@ -62,7 +62,7 @@ func TestImagePullConcurrent1(t *testing.T) {
 			defer wg.Done()
 			err := <-puller.PullImage(ctx, &cfg, img, repo, tag2)
 			if err != nil {
-				t.Fatalf("err received %v", err)
+				t.Errorf("err received %v", err)
 			}
 		}()
 	}
@@ -99,7 +99,7 @@ func TestImagePullConcurrent2(t *testing.T) {
 			defer wg.Done()
 			err := <-puller.PullImage(ctx, &cfg, img, repo, tag)
 			if err == nil || strings.Index(err.Error(), "yogurt") == -1 {
-				t.Fatalf("Unknown err received %v", err)
+				t.Errorf("Unknown err received %v", err)
 			}
 		}()
 	}
@@ -151,7 +151,7 @@ func TestImagePullConcurrent3(t *testing.T) {
 			defer wg.Done()
 			err := <-puller.PullImage(ctx, &cfg, img, repo, tag)
 			if err == nil {
-				t.Fatalf("no err received")
+				t.Errorf("no err received")
 			}
 		}()
 	}

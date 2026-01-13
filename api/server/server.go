@@ -471,7 +471,7 @@ func WithExtraCtx(extraCtx context.Context) Option {
 	}
 }
 
-//WithTriggerAnnotator adds a trigggerEndpoint provider to the server
+// WithTriggerAnnotator adds a trigggerEndpoint provider to the server
 func WithTriggerAnnotator(provider TriggerAnnotator) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.triggerAnnotator = provider
@@ -479,7 +479,7 @@ func WithTriggerAnnotator(provider TriggerAnnotator) Option {
 	}
 }
 
-//WithFnAnnotator adds a fnEndpoint provider to the server
+// WithFnAnnotator adds a fnEndpoint provider to the server
 func WithFnAnnotator(provider FnAnnotator) Option {
 	return func(ctx context.Context, s *Server) error {
 		s.fnAnnotator = provider

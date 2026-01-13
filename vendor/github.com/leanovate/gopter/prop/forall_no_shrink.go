@@ -1,6 +1,7 @@
 package prop
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/leanovate/gopter"
@@ -8,7 +9,7 @@ import (
 
 /*
 ForAllNoShrink creates a property that requires the check condition to be true for all values.
-As the name suggests the generated values will not be shrinked if the condition falsiies.
+As the name suggests the generated values will not be shrunk if the condition falsiies.
 
 "condition" has to be a function with the same number of parameters as the provided
 generators "gens". The function may return a simple bool (true means that the
@@ -24,6 +25,7 @@ func ForAllNoShrink(condition interface{}, gens ...gopter.Gen) gopter.Prop {
 	return gopter.SaveProp(func(genParams *gopter.GenParameters) *gopter.PropResult {
 		genResults := make([]*gopter.GenResult, len(gens))
 		values := make([]reflect.Value, len(gens))
+		valuesFormated := make([]string, len(gens))
 		var ok bool
 		for i, gen := range gens {
 			result := gen(genParams)
@@ -34,17 +36,18 @@ func ForAllNoShrink(condition interface{}, gens ...gopter.Gen) gopter.Prop {
 					Status: gopter.PropUndecided,
 				}
 			}
+			valuesFormated[i] = fmt.Sprintf("%+v", values[i].Interface())
 		}
 		result := callCheck(values)
 		for i, genResult := range genResults {
-			result = result.AddArgs(gopter.NewPropArg(genResult, 0, values[i].Interface(), values[i].Interface()))
+			result = result.AddArgs(gopter.NewPropArg(genResult, 0, values[i].Interface(), valuesFormated[i], values[i].Interface(), valuesFormated[i]))
 		}
 		return result
 	})
 }
 
 // ForAllNoShrink1 creates a property that requires the check condition to be true for all values
-// As the name suggests the generated values will not be shrinked if the condition falsiies
+// As the name suggests the generated values will not be shrunk if the condition falsiies
 func ForAllNoShrink1(gen gopter.Gen, check func(interface{}) (interface{}, error)) gopter.Prop {
 	return gopter.SaveProp(func(genParams *gopter.GenParameters) *gopter.PropResult {
 		genResult := gen(genParams)
@@ -54,6 +57,7 @@ func ForAllNoShrink1(gen gopter.Gen, check func(interface{}) (interface{}, error
 				Status: gopter.PropUndecided,
 			}
 		}
-		return convertResult(check(value)).AddArgs(gopter.NewPropArg(genResult, 0, value, value))
+		valueFormated := fmt.Sprintf("%+v", value)
+		return convertResult(check(value)).AddArgs(gopter.NewPropArg(genResult, 0, value, valueFormated, value, valueFormated))
 	})
 }

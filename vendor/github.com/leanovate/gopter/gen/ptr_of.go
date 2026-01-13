@@ -6,7 +6,7 @@ import (
 	"github.com/leanovate/gopter"
 )
 
-// PtrOf generates a pointer to a generated element
+// PtrOf generates either a pointer to a generated element or a nil pointer
 func PtrOf(elementGen gopter.Gen) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		element := elementGen(genParams)

@@ -14,7 +14,7 @@ export FN_DS_DB_PING_MAX_RETRIES=60
 if [[ $# -gt 0 ]]; then
         go test "$@"
 else
-    go test $(go list ./... | \
+    go test -v -timeout 120s $(go list ./... | \
                   grep -v vendor | \
                   grep -v examples | \
                   grep -v test/fn-api-tests | \
