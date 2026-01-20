@@ -59,7 +59,7 @@ jobs:
           fi
       - when:
           condition:
-            equal: ["master", << pipeline.git.branch >> ]
+            equal: ["marleung/publish-latest", << pipeline.git.branch >> ]
           steps:
             # Once the test pass and if it is a master branch, do a multi-arch build and push
             - run:

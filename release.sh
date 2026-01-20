@@ -24,11 +24,11 @@ version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
 echo "Version: $version"
 
 RELEASE_TAG="latest"
-if [ "$CIRCLE_BRANCH" != "master" ]; then
-  # for branch that want to test the docker build/push step
-  RELEASE_TAG="${CIRCLE_BRANCH/\//_}"
-  version=$RELEASE_TAG-$version
-fi
+#if [ "$CIRCLE_BRANCH" != "master" ]; then
+#  # for branch that want to test the docker build/push step
+#  RELEASE_TAG="${CIRCLE_BRANCH/\//_}"
+#  version=$RELEASE_TAG-$version
+#fi
 
 # Build and push multi arch image
 DOCKER_BUILDKIT=1
