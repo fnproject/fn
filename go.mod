@@ -35,8 +35,8 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f // indirect
 	go.opencensus.io v0.22.1-0.20190619184131-df42942ad08f
-	golang.org/x/net v0.0.0-20190501004415-9ce7a6920f09
-	golang.org/x/sys v0.0.0-20190507160741-ecd444e8653b
+	golang.org/x/net v0.7.0
+	golang.org/x/sys v0.5.0
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
 	google.golang.org/grpc v1.20.1
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
