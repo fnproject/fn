@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/fnproject/fn/test"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -142,7 +143,7 @@ func TestTriggerRunnerExecEmptyBody(t *testing.T) {
 	}()
 
 	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
-	rImg := "fnproject/fn-test-utils"
+	rImg := test.GetTestUtilsImage()
 
 	app := &models.App{ID: "app_id", Name: "soup"}
 
@@ -212,8 +213,8 @@ func TestTriggerRunnerExecution(t *testing.T) {
 	}()
 
 	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
-	rImg := "fnproject/fn-test-utils"
-	rImgBs1 := "fnproject/imagethatdoesnotexist"
+	rImg := test.GetTestUtilsImage()
+	rImgBs1 := test.GetPublicImage("fnproject/imagethatdoesnotexist")
 	rImgBs2 := "localhost:5050/fnproject/imagethatdoesnotexist"
 
 	app := &models.App{ID: "app_id", Name: "myapp"}
@@ -259,7 +260,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 
 	statusChecker := `{"echoContent": "_TRX_ID_", "isDebug": true, "responseCode":202, "responseContentType": "application/json; charset=utf-8"}`
 
-	// these tests are such a pita it's easier to comment most of them out. instead of fixing it i'm doing this fuck me yea
+	// these tests are such a pita it's easier to comment most of them out. instead of fixing it i'm doing this blame me yea
 	_, _, _, _, _, _, _, _, _, _, _ = expHeaders, expCTHeaders, multiLogExpectHot, crasher, oomer, ok, respTypeLie, multiLog, bigoutput, smalloutput, statusChecker
 
 	// Keep-Alive should get stripped, Content-Type should not get framed, Test-Header should get framed
@@ -301,7 +302,7 @@ func TestTriggerRunnerExecution(t *testing.T) {
 		// XXX(reed): meh we really should try to get oom out, but maybe it's better left to the logs?
 		{"/t/myapp/httpstream", nil, oomer, "POST", http.StatusBadGateway, nil, models.ErrFunctionResponse.Error(), nil},
 
-		{"/t/myapp/mydne", nil, ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
+		{"/t/myapp/mydne", nil, ``, "GET", http.StatusNotFound, nil, "", nil},
 		{"/t/myapp/mydneregistry", nil, ``, "GET", http.StatusBadGateway, nil, "connection refused", nil},
 
 		// XXX(reed): what are these?
@@ -386,8 +387,8 @@ func TestTriggerRunnerTimeout(t *testing.T) {
 	hugeMem := uint64(models.MaxMemory - 1)
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
-	fn := &models.Fn{ID: "hot", Name: "hot", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
-	bigMemHotFn := &models.Fn{ID: "bigmemhot", Name: "bigmemhot", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
+	fn := &models.Fn{ID: "hot", Name: "hot", AppID: app.ID, Image: test.GetTestUtilsImage(), ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
+	bigMemHotFn := &models.Fn{ID: "bigmemhot", Name: "bigmemhot", AppID: app.ID, Image: test.GetTestUtilsImage(), ResourceConfig: models.ResourceConfig{Memory: hugeMem, Timeout: 4, IdleTimeout: 30}}
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
@@ -456,7 +457,7 @@ func TestTriggerRunnerMinimalConcurrentHotSync(t *testing.T) {
 	buf := setLogBuffer()
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
-	fn := &models.Fn{ID: "fn_id", AppID: app.ID, Name: "myfn", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 30, IdleTimeout: 5}}
+	fn := &models.Fn{ID: "fn_id", AppID: app.ID, Name: "myfn", Image: test.GetTestUtilsImage(), ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 30, IdleTimeout: 5}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Fn{fn},

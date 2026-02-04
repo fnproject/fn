@@ -1,6 +1,8 @@
 #!/bin/bash
 set -exo pipefail
 
+REMOTE_DOCKER_REPO=${REMOTE_DOCKER_REPO:-docker.io}
+
 function get_host {
     case ${DOCKER_LOCATION:-localhost} in
     localhost)
@@ -61,7 +63,7 @@ function spawn_mysql {
         -p ${PORT}:3306 \
         -e MYSQL_DATABASE=funcs \
         -e MYSQL_ROOT_PASSWORD=root \
-        -d mysql:9.5.0-oraclelinux9)
+        -d ${REMOTE_DOCKER_REPO}/mysql:9.5.0-oraclelinux9)
 
     echo "mysql://root:root@tcp(${HOST}:${PORT})/funcs"
 }
@@ -74,17 +76,17 @@ function spawn_postgres {
         -e "POSTGRES_DB=funcs" \
         -e "POSTGRES_PASSWORD=root" \
         -p ${PORT}:5432 \
-        -d postgres:16.2)
+        -d ${REMOTE_DOCKER_REPO}/postgres:16.2)
 
     echo "postgres://postgres:root@${HOST}:${PORT}/funcs?sslmode=disable"
 }
 
 function docker_pull_postgres {
-	docker pull postgres:16.2
+	docker pull ${REMOTE_DOCKER_REPO}/postgres:16.2
 }
 
 function docker_pull_mysql {
-	docker pull mysql:9.5.0-oraclelinux9
+	docker pull ${REMOTE_DOCKER_REPO}/mysql:9.5.0-oraclelinux9
 }
 
 function remove_containers {

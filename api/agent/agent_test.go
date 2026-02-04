@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/fnproject/fn/test"
 	"io"
 	"io/ioutil"
 	"math"
@@ -76,7 +77,7 @@ func checkClose(t *testing.T, a Agent) {
 }
 
 func TestCallConfigurationRequest(t *testing.T) {
-	image := "fnproject/fn-test-utils"
+	image := test.GetTestUtilsImage()
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
@@ -190,7 +191,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 func TestCallConfigurationModel(t *testing.T) {
 	fn := &models.Fn{ID: "fn_id"}
 
-	image := "fnproject/fn-test-utils"
+	image := test.GetTestUtilsImage()
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
@@ -352,7 +353,7 @@ func TestSubmitError(t *testing.T) {
 	app := &models.App{ID: "app_id", Name: "myapp"}
 	fn := &models.Fn{ID: "fn_id", AppID: app.ID}
 
-	image := "fnproject/fn-test-utils"
+	image := test.GetTestUtilsImage()
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
@@ -429,7 +430,7 @@ func TestHungFDK(t *testing.T) {
 	app := &models.App{ID: "app_id"}
 	fn := &models.Fn{
 		ID:     "fn_id",
-		Image:  "fnproject/fn-test-utils",
+		Image:  test.GetTestUtilsImage(),
 		Config: models.Config{"ENABLE_INIT_DELAY_MSEC": "5000"},
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     5,
@@ -565,7 +566,13 @@ func TestDockerPullUnAuthorizedRepo(t *testing.T) {
 	if err == nil {
 		t.Fatal("submit should error!")
 	}
-	if models.GetAPIErrorCode(err) != http.StatusUnauthorized {
+	// Failed to pull image should result in 502
+	if models.GetAPIErrorCode(err) != http.StatusBadGateway {
+		if apiError, ok := err.(models.APIError); ok {
+			t.Errorf("Expect error code %d but got %d", http.StatusBadGateway, apiError.Code())
+		} else {
+			t.Errorf("Error is not an api error")
+		}
 		t.Fatalf("unexpected error %v", err)
 	}
 }
@@ -620,7 +627,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 	app := &models.App{ID: "app_id"}
 	fn := &models.Fn{
 		ID:    "fn_id",
-		Image: "fnproject/fn-test-utils",
+		Image: test.GetTestUtilsImage(),
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     5,
 			IdleTimeout: 10,
@@ -682,7 +689,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	call := &models.Call{
 		AppID:       id.New().String(),
 		FnID:        id.New().String(),
-		Image:       "fnproject/fn-test-utils",
+		Image:       test.GetTestUtilsImage(),
 		Type:        "sync",
 		Timeout:     1,
 		IdleTimeout: 2,
@@ -706,7 +713,7 @@ func TestTmpFsRW(t *testing.T) {
 	fn := &models.Fn{
 		ID:    "fn_id",
 		AppID: app.ID,
-		Image: "fnproject/fn-test-utils",
+		Image: test.GetTestUtilsImage(),
 		ResourceConfig: models.ResourceConfig{Timeout: 5,
 			IdleTimeout: 10,
 			Memory:      128,
@@ -798,7 +805,7 @@ func TestTmpFsSize(t *testing.T) {
 	fn := &models.Fn{
 		ID:    "fn_id",
 		AppID: app.ID,
-		Image: "fnproject/fn-test-utils",
+		Image: test.GetTestUtilsImage(),
 		ResourceConfig: models.ResourceConfig{Timeout: 5,
 			IdleTimeout: 10,
 			Memory:      64,
@@ -889,7 +896,7 @@ func TestTmpFsSize(t *testing.T) {
 
 // return a model with all fields filled in with fnproject/fn-test-utils:latest image, change as needed
 func testCall() *models.Call {
-	image := "fnproject/fn-test-utils:latest"
+	image := test.GetTestUtilsImage()
 	fn := &models.Fn{ID: "fn_id"}
 
 	const timeout = 10
@@ -1266,7 +1273,7 @@ func TestDockerAuthExtn(t *testing.T) {
 	modelCall := &models.Call{
 		AppID:       id.New().String(),
 		FnID:        id.New().String(),
-		Image:       "fnproject/fn-test-utils",
+		Image:       test.GetTestUtilsImage(),
 		Type:        "sync",
 		Timeout:     1,
 		IdleTimeout: 2,
@@ -1381,7 +1388,7 @@ func TestContainerDisableIO(t *testing.T) {
 	modelCall := &models.Call{
 		AppID:       id.New().String(),
 		FnID:        id.New().String(),
-		Image:       "fnproject/fn-test-utils",
+		Image:       test.GetTestUtilsImage(),
 		Type:        "sync",
 		Timeout:     1,
 		IdleTimeout: 2,
@@ -1447,7 +1454,7 @@ func TestSlotErrorRetention(t *testing.T) {
 	app := &models.App{ID: "app_id"}
 	fn := &models.Fn{
 		ID:     "fn_id",
-		Image:  "fnproject/fn-test-utils",
+		Image:  test.GetTestUtilsImage(),
 		Config: models.Config{"ENABLE_INIT_DELAY_MSEC": "100"},
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     5,
@@ -1652,7 +1659,7 @@ func createModelCall(appId string) *models.Call {
 	app := &models.App{ID: appId, Name: "myapp"}
 	fn := &models.Fn{ID: "fn_id", AppID: app.ID}
 
-	image := "fnproject/fn-test-utils"
+	image := test.GetTestUtilsImage()
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256

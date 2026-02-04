@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/fnproject/fn/test"
 	"io"
 	"log"
 	"net/http"
@@ -370,10 +371,11 @@ func host() string {
 const (
 	appName   = "systemtestapp"
 	routeName = "/systemtestroute"
-	image     = "fnproject/fn-test-utils"
 	memory    = 128
 	typ       = "sync"
 )
+
+var image = test.GetTestUtilsImage()
 
 func ensureApp(t *testing.T, app *models.App) *models.App {
 	var buf bytes.Buffer

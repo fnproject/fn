@@ -93,7 +93,6 @@ type agent struct {
 	shutWg   *common.WaitGroup
 	shutonce sync.Once
 
-	// TODO(reed): shoot this fucking thing
 	callOverrider CallOverrider
 
 	// additional options to configure each call

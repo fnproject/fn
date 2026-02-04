@@ -3,6 +3,7 @@ package docker
 import (
 	"bytes"
 	"context"
+	"github.com/fnproject/fn/test"
 	"io"
 	"strings"
 	"testing"
@@ -31,7 +32,7 @@ func (f *taskDockerTest) Command() string                                       
 func (f *taskDockerTest) EnvVars() map[string]string                                 { return map[string]string{} }
 func (f *taskDockerTest) Id() string                                                 { return f.id }
 func (f *taskDockerTest) Group() string                                              { return "" }
-func (f *taskDockerTest) Image() string                                              { return "busybox" }
+func (f *taskDockerTest) Image() string                                              { return test.GetBusyBoxImage() }
 func (f *taskDockerTest) Logger() (stdout, stderr io.Writer)                         { return f.output, f.errors }
 func (f *taskDockerTest) WriteStat(context.Context, stats.Stat)                      { /* TODO */ }
 func (f *taskDockerTest) Volumes() [][2]string                                       { return [][2]string{} }
@@ -271,7 +272,7 @@ func TestRunnerDockerStdout(t *testing.T) {
 
 //
 //func TestRegistry(t *testing.T) {
-//	image := "fnproject/fn-test-utils"
+//	image := test.GetTestUtilsImage()
 //
 //	sizer, err := CheckRegistry(context.Background(), image, docker.AuthConfiguration{})
 //	if err != nil {
@@ -307,7 +308,7 @@ func createContainer(ctx context.Context, client *docker.Client, id, labelTag, l
 		Config: &docker.Config{
 			Cmd:          strings.Fields("tail -f /dev/null"),
 			Hostname:     id,
-			Image:        "busybox",
+			Image:        test.GetBusyBoxImage(),
 			Volumes:      map[string]struct{}{},
 			OpenStdin:    false,
 			AttachStdout: false,

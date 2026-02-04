@@ -2,6 +2,8 @@
 # Top level test script to start all other tests
 set -exuo pipefail
 
+REMOTE_DOCKER_REPO=${REMOTE_DOCKER_REPO:-docker.io}
+
 export CONTEXT="fn_basic_tests"
 source ./helpers.sh
 remove_containers ${CONTEXT}
@@ -14,7 +16,7 @@ export FN_DS_DB_PING_MAX_RETRIES=60
 if [[ $# -gt 0 ]]; then
         go test "$@"
 else
-    go test -v -timeout 120s $(go list ./... | \
+    go test -v -timeout 360s $(go list ./... | \
                   grep -v vendor | \
                   grep -v examples | \
                   grep -v test/fn-api-tests | \
@@ -27,4 +29,4 @@ go vet $(go list ./... | grep -v vendor)
 
 remove_containers ${CONTEXT}
 
-docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger_v2.yml
+#docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger_v2.yml

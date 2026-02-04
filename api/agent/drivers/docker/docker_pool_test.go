@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"github.com/fnproject/fn/test"
 	"runtime"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 func getDefaultCfg() *drivers.Config {
 	cfg := &drivers.Config{
-		PreForkImage: "busybox",
+		PreForkImage: test.GetBusyBoxImage(),
 		PreForkCmd:   "tail -f /dev/null",
 	}
 	return cfg

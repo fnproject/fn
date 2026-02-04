@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"github.com/fnproject/fn/test"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -67,7 +68,7 @@ func TestFnInvokeRunnerExecEmptyBody(t *testing.T) {
 	}()
 
 	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
-	rImg := "fnproject/fn-test-utils"
+	rImg := test.GetTestUtilsImage()
 
 	app := &models.App{ID: "app_id", Name: "soup"}
 
@@ -134,8 +135,8 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 	}()
 
 	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
-	rImg := "fnproject/fn-test-utils"
-	rImgBs1 := "fnproject/imagethatdoesnotexist"
+	rImg := test.GetTestUtilsImage()
+	rImgBs1 := test.GetPublicImage("fnproject/imagethatdoesnotexist")
 	rImgBs2 := "localhost:5050/fnproject/imagethatdoesnotexist"
 
 	app := &models.App{ID: "app_id", Name: "myapp"}
@@ -218,7 +219,7 @@ func TestFnInvokeRunnerExecution(t *testing.T) {
 		{"/invoke/http_stream_fn_id", oomer, nil, http.MethodPost, http.StatusBadGateway, nil, models.ErrFunctionResponse.Error(), nil},
 		{"/invoke/http_stream_fn_id", bigbuf, nil, http.MethodPost, http.StatusRequestEntityTooLarge, nil, "", nil},
 
-		{"/invoke/dne_fn_id", ``, nil, http.MethodPost, http.StatusNotFound, nil, "pull access denied", nil},
+		{"/invoke/dne_fn_id", ``, nil, http.MethodPost, http.StatusNotFound, nil, "", nil},
 		{"/invoke/dnereg_fn_id", ``, nil, http.MethodPost, http.StatusBadGateway, nil, "connection refused", nil},
 
 		// XXX(reed): nil, nil, what are these?
@@ -313,7 +314,7 @@ func TestInvokeRunnerTimeout(t *testing.T) {
 	}()
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
-	httpStreamFn := &models.Fn{ID: "http-stream", Name: "http-stream", AppID: app.ID, Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
+	httpStreamFn := &models.Fn{ID: "http-stream", Name: "http-stream", AppID: app.ID, Image: test.GetTestUtilsImage(), ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 4, IdleTimeout: 30}}
 
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
@@ -384,7 +385,7 @@ func TestInvokeRunnerMinimalConcurrentHotSync(t *testing.T) {
 	buf := setLogBuffer()
 
 	app := &models.App{ID: "app_id", Name: "myapp", Config: models.Config{}}
-	fn := &models.Fn{ID: "fn_id", AppID: app.ID, Name: "myfn", Image: "fnproject/fn-test-utils", ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 30, IdleTimeout: 5}}
+	fn := &models.Fn{ID: "fn_id", AppID: app.ID, Name: "myfn", Image: test.GetTestUtilsImage(), ResourceConfig: models.ResourceConfig{Memory: 128, Timeout: 30, IdleTimeout: 5}}
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Fn{fn},

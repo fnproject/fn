@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/fnproject/fn/test"
 	"io"
 	"log"
 	"math/rand"
@@ -47,13 +48,13 @@ const (
 	RunnerStartPort     = 8083
 	RunnerStartGRPCPort = 9190
 
-	StatusImage       = "fnproject/fn-status-checker:latest"
 	StatusBarrierFile = "./barrier_file.txt"
 )
 
 var (
-	viewKeys = []string{}
-	viewDist = []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+	viewKeys    = []string{}
+	viewDist    = []float64{1, 10, 50, 100, 250, 500, 1000, 10000, 60000, 120000}
+	StatusImage = test.GetStatusCheckerImage()
 )
 
 func LB() (string, error) {

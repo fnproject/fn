@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/fnproject/fn/test"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -81,9 +82,9 @@ func TestRootMiddleware(t *testing.T) {
 	ds := datastore.NewMockInit(
 		[]*models.App{app1, app2},
 		[]*models.Fn{
-			{ID: "fn_id1", AppID: app1.ID, Image: "fnproject/fn-test-utils", ResourceConfig: fn_resource_config},
-			{ID: "fn_id2", AppID: app1.ID, Image: "fnproject/fn-test-utils", ResourceConfig: fn_resource_config},
-			{ID: "fn_id3", AppID: app2.ID, Image: "fnproject/fn-test-utils", ResourceConfig: fn_resource_config},
+			{ID: "fn_id1", AppID: app1.ID, Image: test.GetTestUtilsImage(), ResourceConfig: fn_resource_config},
+			{ID: "fn_id2", AppID: app1.ID, Image: test.GetTestUtilsImage(), ResourceConfig: fn_resource_config},
+			{ID: "fn_id3", AppID: app2.ID, Image: test.GetTestUtilsImage(), ResourceConfig: fn_resource_config},
 		},
 	)
 

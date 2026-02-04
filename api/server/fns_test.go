@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	testutils "github.com/fnproject/fn/test"
 	"net/http"
 	"strings"
 	"testing"
@@ -96,15 +97,15 @@ func TestFnCreate(t *testing.T) {
 		{ds, http.MethodPost, "/v2/fns", `{ }`, http.StatusBadRequest, models.ErrFnsMissingAppID},
 		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingName},
 		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a" }`, a.ID), http.StatusBadRequest, models.ErrFnsMissingImage},
-		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": " ", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidName},
-		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "%s", "image": "fnproject/fn-test-utils" }`, a.ID, tooLongName), http.StatusBadRequest, models.ErrFnsTooLongName},
-		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
-		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "idle_timeout": 3601 }`, a.ID), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
-		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "fnproject/fn-test-utils", "memory": 100000000000000 }`, a.ID), http.StatusBadRequest, models.ErrInvalidMemory},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": " ", "image": "%s" }`, a.ID, testutils.GetTestUtilsImage()), http.StatusBadRequest, models.ErrFnsInvalidName},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "%s", "image": "%s" }`, a.ID, tooLongName, testutils.GetTestUtilsImage()), http.StatusBadRequest, models.ErrFnsTooLongName},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "%s", "timeout": 3601 }`, a.ID, testutils.GetTestUtilsImage()), http.StatusBadRequest, models.ErrFnsInvalidTimeout},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "%s", "idle_timeout": 3601 }`, a.ID, testutils.GetTestUtilsImage()), http.StatusBadRequest, models.ErrFnsInvalidIdleTimeout},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "a", "image": "%s", "memory": 100000000000000 }`, a.ID, testutils.GetTestUtilsImage()), http.StatusBadRequest, models.ErrInvalidMemory},
 
 		// success create & update
-		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusOK, nil},
-		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "fnproject/fn-test-utils" }`, a.ID), http.StatusConflict, models.ErrFnsExists},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "%s" }`, a.ID, testutils.GetTestUtilsImage()), http.StatusOK, nil},
+		{ds, http.MethodPost, "/v2/fns", fmt.Sprintf(`{ "app_id": "%s", "name": "myfunc", "image": "%s" }`, a.ID, testutils.GetTestUtilsImage()), http.StatusConflict, models.ErrFnsExists},
 	} {
 		test.run(t, i, buf)
 	}
@@ -205,13 +206,13 @@ func TestFnList(t *testing.T) {
 				ID:    r1b,
 				Name:  fn1,
 				AppID: app1.ID,
-				Image: "fnproject/fn-test-utils",
+				Image: testutils.GetTestUtilsImage(),
 			},
 			{
 				ID:    r2b,
 				Name:  fn2,
 				AppID: app1.ID,
-				Image: "fnproject/fn-test-utils",
+				Image: testutils.GetTestUtilsImage(),
 			},
 			{
 				ID:    r3b,
@@ -299,7 +300,7 @@ func TestFnGet(t *testing.T) {
 				ID:    "myfnId",
 				Name:  "myfunc",
 				AppID: "appid",
-				Image: "fnproject/fn-test-utils",
+				Image: testutils.GetTestUtilsImage(),
 			},
 		})
 	nilFn := new(models.Fn)
@@ -307,7 +308,7 @@ func TestFnGet(t *testing.T) {
 	expectedFn := &models.Fn{
 		ID:    "myfnId",
 		Name:  "myfunc",
-		Image: "fnproject/fn-test-utils"}
+		Image: testutils.GetTestUtilsImage()}
 
 	srv := testServer(ds, rnr, ServerTypeFull)
 

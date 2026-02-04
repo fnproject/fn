@@ -1,4 +1,6 @@
 # Just builds
+REMOTE_DOCKER_REPO ?= docker.io
+
 .PHONY: mod
 mod:
 	GO111MODULE=on GOFLAGS=-mod=vendor go mod vendor -v
@@ -72,7 +74,7 @@ test-system:
 
 .PHONY: img-busybox
 img-busybox:
-	docker pull busybox
+	docker pull $(REMOTE_DOCKER_REPO)/busybox
 
 .PHONY: img-mysql
 img-mysql:

@@ -208,9 +208,10 @@ func (c *cookie) configureIOFS(log logrus.FieldLogger) {
 		return
 	}
 
-	// Z - private unshared SELinux option which is required for host VM that running on SELinux. No effect
-	//     on Linux with SELinux disabled, or docker/podman named volume.
-	bind := fmt.Sprintf("%s:%s:Z", udsDockerPath, c.task.UDSDockerDest())
+	// z - Shared label - SELinux option which is required for host VM that running on SELinux. No effect
+	//     on Linux with SELinux disabled, or docker/podman named volume. It is a shared label since multiple
+	//     Fn Containers could spawn concurrently so the root iofs path has to be shared.
+	bind := fmt.Sprintf("%s:%s:z", udsDockerPath, c.task.UDSDockerDest())
 	c.opts.HostConfig.Binds = append(c.opts.HostConfig.Binds, bind)
 	log.WithFields(logrus.Fields{"bind": bind, "call_id": c.task.Id()}).Debug("setting bind")
 }

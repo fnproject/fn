@@ -1,11 +1,4 @@
-# build stage
-FROM golang:1.24-alpine AS build-env
-ENV D=/go/src/github.com/fnproject/fn/images/fn-status-checker
-ADD . $D
-RUN cd $D && go build -ldflags="-s -w" -o fn-status-checker && cp fn-status-checker /tmp/
-
-# final stage
-FROM alpine
+FROM ocr-docker-remote.artifactory.oci.oraclecorp.com/os/oraclelinux:8-slim
 WORKDIR /function
-COPY --from=build-env /tmp/fn-status-checker /function
+COPY fn-status-checker /function
 ENTRYPOINT ["./fn-status-checker"]

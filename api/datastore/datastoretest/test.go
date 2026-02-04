@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/fnproject/fn/test"
 	"log"
 	"math/rand"
 	"sort"
@@ -95,7 +96,7 @@ func (brp *BasicResourceProvider) ValidFn(appId string) *models.Fn {
 	return &models.Fn{
 		AppID: appId,
 		Name:  fmt.Sprintf("test_%09d", brp.NextID()),
-		Image: "fnproject/fn-test-utils",
+		Image: test.GetTestUtilsImage(),
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     models.DefaultTimeout,
 			IdleTimeout: models.DefaultIdleTimeout,
@@ -599,7 +600,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				ID:    testFn.ID,
 				Name:  testFn.Name,
 				AppID: testApp.ID,
-				Image: "fnproject/fn-test-utils",
+				Image: test.GetTestUtilsImage(),
 				ResourceConfig: models.ResourceConfig{
 					Timeout:     testFn.Timeout,
 					IdleTimeout: testFn.IdleTimeout,
@@ -651,7 +652,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				ID:    testFn.ID,
 				Name:  testFn.Name,
 				AppID: testApp.ID,
-				Image: "fnproject/fn-test-utils",
+				Image: test.GetTestUtilsImage(),
 				ResourceConfig: models.ResourceConfig{
 					Timeout:     testFn.Timeout,
 					IdleTimeout: testFn.IdleTimeout,

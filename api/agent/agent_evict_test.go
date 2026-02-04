@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"github.com/fnproject/fn/test"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -76,7 +77,7 @@ func getApp() *models.App {
 func getFn(initDelayMsecs int) *models.Fn {
 	fn := &models.Fn{
 		ID:    id.New().String(),
-		Image: "fnproject/fn-test-utils",
+		Image: test.GetTestUtilsImage(),
 		ResourceConfig: models.ResourceConfig{
 			Timeout:     10,
 			IdleTimeout: 60,
