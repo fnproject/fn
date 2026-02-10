@@ -8,11 +8,7 @@ ENTRYPOINT ["preentry.sh"]
 
 WORKDIR /app
 
-# Copy from previous build stage in Build Service
 COPY fnserver .
-
-# UID/GID of odosvc user/group
-USER 12:20
 
 CMD ["./fnserver"]
 EXPOSE 8080

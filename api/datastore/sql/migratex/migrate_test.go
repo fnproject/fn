@@ -8,6 +8,8 @@ import (
 
 	_ "github.com/fnproject/fn/api/datastore/sql/sqlite"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 const testsqlite3 = "file::memory:?mode=memory&cache=shared"

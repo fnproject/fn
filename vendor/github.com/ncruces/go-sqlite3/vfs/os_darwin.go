@@ -1,0 +1,121 @@
+//go:build !sqlite3_flock
+
+package vfs
+
+import (
+	"io"
+	"os"
+	"runtime"
+	"time"
+
+	"golang.org/x/sys/unix"
+)
+
+const (
+	// https://github.com/apple/darwin-xnu/blob/main/bsd/sys/fcntl.h
+	_F_OFD_SETLK         = 90
+	_F_OFD_SETLKW        = 91
+	_F_OFD_SETLKWTIMEOUT = 93
+)
+
+type flocktimeout_t struct {
+	fl      unix.Flock_t
+	timeout unix.Timespec
+}
+
+func osSync(file *os.File, open OpenFlag, sync SyncFlag) error {
+	var cmd int
+	if sync&SYNC_FULL == SYNC_FULL {
+		// For rollback journals all we really need is a barrier.
+		if open&OPEN_MAIN_JOURNAL != 0 {
+			cmd = unix.F_BARRIERFSYNC
+		} else {
+			cmd = unix.F_FULLFSYNC
+		}
+	}
+
+	fd := file.Fd()
+	for {
+		err := error(unix.ENOTSUP)
+		if cmd != 0 {
+			_, err = unix.FcntlInt(fd, cmd, 0)
+		}
+		if err == unix.ENOTSUP {
+			err = unix.Fsync(int(fd))
+		}
+		if err != unix.EINTR {
+			return err
+		}
+	}
+}
+
+func osAllocate(file *os.File, size int64) error {
+	off, err := file.Seek(0, io.SeekEnd)
+	if err != nil {
+		return err
+	}
+	if size <= off {
+		return nil
+	}
+
+	store := unix.Fstore_t{
+		Flags:   unix.F_ALLOCATEALL | unix.F_ALLOCATECONTIG,
+		Posmode: unix.F_PEOFPOSMODE,
+		Offset:  0,
+		Length:  size - off,
+	}
+
+	// Try to get a continuous chunk of disk space.
+	err = unix.FcntlFstore(file.Fd(), unix.F_PREALLOCATE, &store)
+	if err != nil {
+		// OK, perhaps we are too fragmented, allocate non-continuous.
+		store.Flags = unix.F_ALLOCATEALL
+		unix.FcntlFstore(file.Fd(), unix.F_PREALLOCATE, &store)
+	}
+	return file.Truncate(size)
+}
+
+func osReadLock(file *os.File, start, len int64, timeout time.Duration) error {
+	return osLock(file, unix.F_RDLCK, start, len, timeout, _IOERR_RDLOCK)
+}
+
+func osWriteLock(file *os.File, start, len int64, timeout time.Duration) error {
+	return osLock(file, unix.F_WRLCK, start, len, timeout, _IOERR_LOCK)
+}
+
+func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, def _ErrorCode) error {
+	lock := &flocktimeout_t{fl: unix.Flock_t{
+		Type:  typ,
+		Start: start,
+		Len:   len,
+	}}
+	var err error
+	switch {
+	case timeout == 0:
+		err = unix.FcntlFlock(file.Fd(), _F_OFD_SETLK, &lock.fl)
+	case timeout < 0:
+		err = unix.FcntlFlock(file.Fd(), _F_OFD_SETLKW, &lock.fl)
+	default:
+		lock.timeout = unix.NsecToTimespec(int64(timeout / time.Nanosecond))
+		err = unix.FcntlFlock(file.Fd(), _F_OFD_SETLKWTIMEOUT, &lock.fl)
+		runtime.KeepAlive(lock)
+	}
+	return osLockErrorCode(err, def)
+}
+
+func osUnlock(file *os.File, start, len int64) error {
+	lock := unix.Flock_t{
+		Type:  unix.F_UNLCK,
+		Start: start,
+		Len:   len,
+	}
+	for {
+		err := unix.FcntlFlock(file.Fd(), _F_OFD_SETLK, &lock)
+		if err == nil {
+			return nil
+		}
+		if err != unix.EINTR {
+			return sysError{err, _IOERR_UNLOCK}
+		}
+	}
+}
