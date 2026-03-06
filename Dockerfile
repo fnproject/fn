@@ -1,4 +1,4 @@
-FROM docker-remote.artifactory.oci.oraclecorp.com/docker:27.3.1-dind
+FROM docker-remote.artifactory.oci.oraclecorp.com/docker:28-dind
 
 RUN apk add --no-cache ca-certificates
 
