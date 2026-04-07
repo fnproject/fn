@@ -262,6 +262,23 @@ func (c *cookie) configureWorkDir(log logrus.FieldLogger) {
 	c.opts.Config.WorkingDir = wd
 }
 
+func (c *cookie) configureLocalDebugPortMapping(log logrus.FieldLogger) {
+	if c.task.ExposedPort() != nil {
+		log.WithFields(logrus.Fields{"call_id": c.task.Id()}).Debug("configure local debug port mapping")
+		var port = fmt.Sprintf("%d/tcp", *c.task.ExposedPort())
+		c.opts.Config.ExposedPorts = map[docker.Port]struct{}{
+			docker.Port(port): {},
+		}
+		c.opts.HostConfig.PortBindings = map[docker.Port][]docker.PortBinding{
+			docker.Port(port): {{
+				HostIP:   "0.0.0.0",
+				HostPort: fmt.Sprintf("%d", *c.task.ExposedPort()),
+			}},
+		}
+	}
+
+}
+
 func (c *cookie) configureNetwork(log logrus.FieldLogger) {
 	if c.opts.HostConfig.NetworkMode != "" {
 		return

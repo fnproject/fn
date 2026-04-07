@@ -32,3 +32,5 @@ fnlb/fnlb
 /fnserver
 *iml
 target/
+clients/.bundle
+clients/vendor

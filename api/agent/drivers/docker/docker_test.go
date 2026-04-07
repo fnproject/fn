@@ -19,13 +19,14 @@ import (
 )
 
 type taskDockerTest struct {
-	id         string
-	cmd        string
-	disableNet bool
-	input      io.Reader
-	output     io.Writer
-	errors     io.Writer
-	logURL     string
+	id          string
+	cmd         string
+	disableNet  bool
+	input       io.Reader
+	output      io.Writer
+	errors      io.Writer
+	logURL      string
+	exposedPort *uint64
 }
 
 func (f *taskDockerTest) Command() string                                            { return f.cmd }
@@ -67,6 +68,7 @@ func (f *taskDockerTest) BeforeCall(context.Context, *models.Call, drivers.CallE
 func (f *taskDockerTest) AfterCall(context.Context, *models.Call, drivers.CallExtensions) error {
 	return nil
 }
+func (f *taskDockerTest) ExposedPort() *uint64 { return f.exposedPort }
 
 func createTask(id string) *taskDockerTest {
 	return &taskDockerTest{
@@ -556,4 +558,60 @@ func TestRunnerDockerInvalidSyslog(t *testing.T) {
 		t.Fatalf("Error message expected: `Syslog Unavailable`, got `%s`", err)
 	}
 
+}
+
+func TestRunnerDockerLocalDebug(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30)*time.Second)
+	defer cancel()
+
+	dkr := NewDocker(drivers.Config{})
+	defer dkr.Close()
+
+	var output bytes.Buffer
+	var errors bytes.Buffer
+	var exposedPort uint64 = 5678
+
+	task := createTask("test-docker-local-debug")
+	task.output = &output
+	task.errors = &errors
+	task.exposedPort = &exposedPort
+
+	cookie, err := dkr.CreateCookie(ctx, task)
+	if err != nil {
+		t.Fatal("Couldn't create task cookie")
+	}
+
+	defer cookie.Close(ctx)
+
+	err = commonCookiePull(ctx, cookie)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err, result := commonCookieRun(ctx, cookie)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Error() != nil {
+		t.Fatal(result.Error())
+	}
+
+	if result.Status() != "success" {
+		t.Fatalf("Test should successfully run the image: %s output: %s errors: %s",
+			result.Error(), output.String(), errors.String())
+	}
+
+	port := docker.Port("5678/tcp")
+	var containerOptions docker.CreateContainerOptions
+	containerOptions = cookie.ContainerOptions().(docker.CreateContainerOptions)
+	if _, ok := containerOptions.Config.ExposedPorts[port]; !ok {
+		t.Errorf("Expected ExposedPorts to contain 5678/tcp, got: %+v", containerOptions.Config.ExposedPorts)
+	}
+	bindings, ok := containerOptions.HostConfig.PortBindings[port]
+	if !ok || len(bindings) != 1 {
+		t.Fatalf("Expected PortBindings for '5678/tcp', got: %+v", containerOptions.HostConfig.PortBindings)
+	}
+	binding := bindings[0]
+	if binding.HostIP != "0.0.0.0" || binding.HostPort != "5678" {
+		t.Errorf("Expected HostIP '0.0.0.0' and HostPort '5678', got HostIP '%s', HostPort '%s'", binding.HostIP, binding.HostPort)
+	}
 }

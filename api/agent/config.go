@@ -49,6 +49,8 @@ type Config struct {
 	ImageCleanMaxSize             uint64        `json:"image_clean_max_size"`
 	ImageCleanExemptTags          string        `json:"image_clean_exempt_tags"`
 	ImageEnableVolume             bool          `json:"image_enable_volume"`
+	LocalDebug                    bool          `json:"local_debug"`
+	LocalDebugPort                uint64        `json:"local_debug_port"`
 }
 
 const (
@@ -134,6 +136,11 @@ const (
 	// EnvDetachedHeadroom is the extra room we want to give to a detached function to run.
 	EnvDetachedHeadroom = "FN_EXECUTION_HEADROOM"
 
+	// EnvLocalDebug is the flag to control if Fn Container will be started with FN_LOCAL_DEBUG_PORT exposed
+	//   for debugger attachment
+	EnvLocalDebug     = "FN_LOCAL_DEBUG"
+	EnvLocalDebugPort = "FN_LOCAL_DEBUG_PORT"
+
 	// MaxMsDisabled is used to determine whether mr freeze is lying in wait. TODO remove this manuever
 	MaxMsDisabled = time.Duration(math.MaxInt64)
 
@@ -164,6 +171,7 @@ func NewConfig() (*Config, error) {
 	defaultMaxLockedMemory := uint64(64 * 1024)
 	defaultMaxPendingSignals := uint64(5000)
 	defaultMaxMessageQueue := uint64(819200)
+	defaultLocalDebugPort := uint64(5678)
 
 	var err error
 	err = setEnvMsecs(err, EnvFreezeIdle, &cfg.FreezeIdle, 50*time.Millisecond)
@@ -203,6 +211,8 @@ func NewConfig() (*Config, error) {
 	err = setEnvUint(err, EnvImageCleanMaxSize, &cfg.ImageCleanMaxSize, nil)
 	err = setEnvStr(err, EnvImageCleanExemptTags, &cfg.ImageCleanExemptTags)
 	err = setEnvBool(err, EnvImageEnableVolume, &cfg.ImageEnableVolume)
+	err = setEnvBool(err, EnvLocalDebug, &cfg.LocalDebug)
+	err = setEnvUint(err, EnvLocalDebugPort, &cfg.LocalDebugPort, &defaultLocalDebugPort)
 
 	if err != nil {
 		return cfg, err

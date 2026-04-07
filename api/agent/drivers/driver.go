@@ -209,6 +209,9 @@ type ContainerTask interface {
 	// Returns true if network is disabled.
 	DisableNet() bool
 
+	// Port exposed in Fn Container for local debugger to attach to
+	ExposedPort() *uint64
+
 	// BeforeCall is invoked just prior to running an invocation.
 	// The Task is definitely going to be used for this invocation.
 	// Invocation extensions are passed to the Before and After calls

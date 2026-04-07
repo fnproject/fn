@@ -33,7 +33,9 @@ import (
 )
 
 const (
-	pauseTimeout = 5 * time.Second // docker pause/unpause
+	pauseTimeout        = 5 * time.Second // docker pause/unpause
+	defaultDebugTimeout = 300             // minimum 5 mins timeout if debug mode is on.
+	// user could override it in func.yaml if they want larger value.
 )
 
 // Agent exposes an api to create calls from various parameters and then submit
@@ -144,6 +146,13 @@ func New(options ...Option) Agent {
 	}
 
 	a.resources = NewResourceTracker(&a.cfg)
+
+	if a.cfg.LocalDebug {
+		WithCallOptions(func(c *call) error {
+			c.Timeout = max(defaultDebugTimeout, c.Timeout)
+			return nil
+		})
+	}
 
 	for _, sup := range a.onStartup {
 		sup()
@@ -1170,6 +1179,7 @@ type container struct {
 	afterCall      drivers.AfterCall
 	dockerAuth     dockerdriver.Auther
 	authToken      string
+	exposedPort    *uint64
 
 	stderr io.Writer
 
@@ -1258,6 +1268,11 @@ func newHotContainer(ctx context.Context, evictor Evictor, caller *slotCaller, c
 	logger.WithField("FN_LISTENER", env["FN_LISTENER"]).
 		Debug("Setting FN_LISTENER in container")
 
+	var localDebugPort *uint64 = nil
+	if cfg.LocalDebug {
+		localDebugPort = &cfg.LocalDebugPort
+	}
+
 	return &container{
 		id:             id, // XXX we could just let docker generate ids...
 		image:          call.Image,
@@ -1273,6 +1288,7 @@ func newHotContainer(ctx context.Context, evictor Evictor, caller *slotCaller, c
 		messageQueue:   cfg.MaxMessageQueue,
 		tmpFsSize:      uint64(call.TmpFsSize),
 		disableNet:     call.disableNet,
+		exposedPort:    localDebugPort,
 		iofs:           iofs,
 		dockerAuth:     call.dockerAuth,
 		authToken:      authToken,
@@ -1366,6 +1382,7 @@ func (c *container) UDSAgentPath() string               { return c.iofs.AgentPat
 func (c *container) UDSDockerPath() string              { return c.iofs.DockerPath() }
 func (c *container) UDSDockerDest() string              { return iofsDockerMountDest }
 func (c *container) DisableNet() bool                   { return c.disableNet }
+func (c *container) ExposedPort() *uint64               { return c.exposedPort }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat driver_stats.Stat) {

@@ -103,15 +103,21 @@ test-build-arm:
 
 .PHONY: run
 run: build
-	GIN_MODE=debug ./fnserver
+	FN_HOT_START_TIMEOUT_MSECS=300000 FN_LOG_LEVEL=debug GIN_MODE=debug ./fnserver
 
 .PHONY: docker-build
 docker-build:
-	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/fnserver:latest .
+	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY --build-arg BUILDER=builder-local -t fnproject/fnserver:latest .
 
 .PHONY: docker-run
 docker-run: docker-build
-	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e FN_LOG_LEVEL=debug -e "FN_DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 fnproject/fnserver
+	docker run --rm --privileged -i --name fnserver -e FN_LOG_LEVEL=debug \
+    -v ${CURDIR}/data:/app/data -p 8080:8080 \
+    -v fniofsvol:/iofs:z -e FN_IOFS_DOCKER_PATH=fniofsvol -e FN_IOFS_PATH=/iofs \
+    -v /var/run/docker.sock:/var/run/docker.sock -e FN_HOT_START_TIMEOUT_MSECS=300000 \
+    -e FN_LOCAL_DEBUG=true -e FN_LOCAL_DEBUG_PORT=5678 \
+    --entrypoint ./fnserver \
+    fnproject/fnserver:latest
 
 .PHONY: docker-test
 docker-test:

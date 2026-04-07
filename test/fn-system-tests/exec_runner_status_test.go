@@ -117,7 +117,7 @@ func TestExecuteRunnerStatusConcurrent(t *testing.T) {
 			t.Log(buf.String())
 		}
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	var zoo myCall
@@ -179,8 +179,8 @@ func TestExecuteRunnerStatusConcurrent(t *testing.T) {
 		}
 	}
 
-	// delay
-	time.Sleep(time.Duration(2 * time.Second))
+	// delay. Give more time for runner to pull image in test pipeline
+	time.Sleep(time.Duration(20 * time.Second))
 
 	// now we should get fresh data
 	for _, dest := range runners {
