@@ -15,10 +15,11 @@ jobs:
 #      - FN_LOG_LEVEL=debug
 #      - BUILDX_PLATFORMS: linux/amd64,linux/arm64
     steps:
-      - skip ci for external PR
-        - run: |
-          echo "Skip CI for now for external PR. CI has been moved to oracle internal pipeline."
-          echo "Please leave comment in the repo if you want to request to resurrect the Circle CI pipeline."
+      - run:
+          name: Skip legacy external CI
+          command: |
+            echo "Skip CI for now for external PR. CI has been moved to oracle internal pipeline."
+            echo "Please leave comment in the repo if you want to request to resurrect the Circle CI pipeline."
 #      - checkout
 #        # install Go
 #      - run: |

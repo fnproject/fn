@@ -491,6 +491,43 @@ definitions:
       image:
         type: string
         description: "Full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
+      code_only:
+        type: boolean
+        description: "Whether the function uses a managed runtime and archive source instead of a container image."
+      runtime_config_type:
+        type: string
+        description: "Managed runtime configuration type. Supported values are FUNCTION_UPDATE and MANUAL."
+      runtime_name:
+        type: string
+        description: "Managed runtime name."
+      runtime_version_id:
+        type: string
+        description: "Managed runtime version OCID when runtime_config_type is MANUAL."
+      handler:
+        type: string
+        description: "Entrypoint handler for a managed-runtime function."
+      source_type:
+        type: string
+        description: "Archive source type. Supported values are direct and object-storage."
+      source_file:
+        type: string
+        description: "Local archive file path for a direct archive source."
+      source_bucket_name:
+        type: string
+        description: "Object Storage bucket containing the archive source."
+      source_namespace:
+        type: string
+        description: "Object Storage namespace containing the archive source."
+      source_object_name:
+        type: string
+        description: "Object Storage object name for the archive source."
+      source_object_version_id:
+        type: string
+        description: "Optional Object Storage object version ID for the archive source."
+      source_archive:
+        type: string
+        format: byte
+        description: "Base64-encoded archive bytes for a direct archive source."
       memory:
         type: integer
         format: uint64
